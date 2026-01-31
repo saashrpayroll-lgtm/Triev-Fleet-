@@ -317,7 +317,7 @@ export const AIService = {
     },
 
     // --- Chat ---
-    chatWithBot: async (message: string, history: any[], context: any): Promise<string> => {
+    chatWithBot: async (message: string, history: any[], context: any, _attachmentData?: any): Promise<string> => {
         const system = `You are 'Triev AI', assisting ${context.userName} (${context.role}). Context: ${JSON.stringify(context)}.`;
         // Build conversation string for simplicity in REST usage
         const conversation = history.map((h: any) => `${h.role === 'user' ? 'User' : 'AI'}: ${h.parts[0].text}`).join('\n');
