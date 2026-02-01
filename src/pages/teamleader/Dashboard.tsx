@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
@@ -191,41 +191,41 @@ const Dashboard: React.FC = () => {
     const canViewDashboard = userData?.permissions?.dashboard?.view ?? true;
     if (!canViewDashboard) return <div className="p-10 text-center text-red-500 font-bold">Access Restricted</div>;
 
-    const chartData = useMemo(() => {
-        try {
-            // FORCE all values to be numbers to prevent React Error #310
-            // This ensures potential objects/nulls are converted to 0 or primitives
-            const s = {
-                activeRiders: Number(stats?.activeRiders || 0),
-                inactiveRiders: Number(stats?.inactiveRiders || 0),
-                deletedRiders: Number(stats?.deletedRiders || 0),
-                totalPositiveAmount: Number(stats?.totalPositiveAmount || 0),
-                totalNegativeAmount: Number(stats?.totalNegativeAmount || 0),
-                convertedLeads: Number(stats?.convertedLeads || 0),
-                totalLeads: Number(stats?.totalLeads || 0)
-            };
+    // TEMPORARY: Removed useMemo to test if the hook is causing the error
+    let chartData;
+    try {
+        // FORCE all values to be numbers to prevent React Error #310
+        // This ensures potential objects/nulls are converted to 0 or primitives
+        const s = {
+            activeRiders: Number(stats?.activeRiders || 0),
+            inactiveRiders: Number(stats?.inactiveRiders || 0),
+            deletedRiders: Number(stats?.deletedRiders || 0),
+            totalPositiveAmount: Number(stats?.totalPositiveAmount || 0),
+            totalNegativeAmount: Number(stats?.totalNegativeAmount || 0),
+            convertedLeads: Number(stats?.convertedLeads || 0),
+            totalLeads: Number(stats?.totalLeads || 0)
+        };
 
-            return {
-                riders: [
-                    { name: 'Active', value: s.activeRiders, color: '#10b981' },
-                    { name: 'Inactive', value: s.inactiveRiders, color: '#f59e0b' },
-                    { name: 'Deleted', value: s.deletedRiders, color: '#f43f5e' }
-                ],
-                wallet: [
-                    { name: 'Collections', value: s.totalPositiveAmount },
-                    { name: 'Risk / Dues', value: s.totalNegativeAmount }
-                ],
-                leads: [
-                    { name: 'Converted', value: s.convertedLeads, color: '#84cc16' },
-                    { name: 'Pipeline', value: Math.max(0, s.totalLeads - s.convertedLeads), color: '#94a3b8' }
-                ]
-            };
-        } catch (error) {
-            console.error('Error generating chart data:', error);
-            // safe fallback
-            return { riders: [], wallet: [], leads: [] };
-        }
-    }, [stats]);
+        chartData = {
+            riders: [
+                { name: 'Active', value: s.activeRiders, color: '#10b981' },
+                { name: 'Inactive', value: s.inactiveRiders, color: '#f59e0b' },
+                { name: 'Deleted', value: s.deletedRiders, color: '#f43f5e' }
+            ],
+            wallet: [
+                { name: 'Collections', value: s.totalPositiveAmount },
+                { name: 'Risk / Dues', value: s.totalNegativeAmount }
+            ],
+            leads: [
+                { name: 'Converted', value: s.convertedLeads, color: '#84cc16' },
+                { name: 'Pipeline', value: Math.max(0, s.totalLeads - s.convertedLeads), color: '#94a3b8' }
+            ]
+        };
+    } catch (error) {
+        console.error('Error generating chart data:', error);
+        // safe fallback
+        chartData = { riders: [], wallet: [], leads: [] };
+    }
 
 
     return (
