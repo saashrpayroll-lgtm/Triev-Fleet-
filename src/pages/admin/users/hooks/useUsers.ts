@@ -454,19 +454,19 @@ export const useUsers = () => {
         }
     }, [currentUser, fetchUsers]);
 
-    // Send Password Reset
-    const sendResetEmail = useCallback(async (email: string) => {
-        try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/reset-password`,
-            });
-            if (error) throw error;
-            toast.success(`Reset link sent to ${email}`);
-        } catch (err: any) {
-            console.error('Reset Password Error:', err);
-            toast.error(err.message || 'Failed to send reset link');
-        }
-    }, []);
+    // Send Password Reset - Currently not used, kept for future reference
+    // const sendResetEmail = useCallback(async (email: string) => {
+    //     try {
+    //         const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    //             redirectTo: `${window.location.origin}/reset-password`,
+    //         });
+    //         if (error) throw error;
+    //         toast.success(`Reset link sent to ${email}`);
+    //     } catch (err: any) {
+    //         console.error('Reset Password Error:', err);
+    //         toast.error(err.message || 'Failed to send reset link');
+    //     }
+    // }, []);
 
     // Soft Delete User
     const deleteUser = useCallback(async (user: User) => {
