@@ -296,7 +296,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
                                         <p className={`text-xs leading-relaxed ${!note.isRead ? 'text-foreground/90 font-medium' : 'text-muted-foreground'} line-clamp-2`}>
                                             {safeRender(note.message)}
                                         </p>
-                                        {note.tags && (note.tags as any).length > 0 && ( // Cast tags as any if needed or use optional chaining if tags is valid
+                                        {note.tags && Array.isArray(note.tags) && note.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1 mt-2">
                                                 {(note.tags as any).map((t: string) => ( // Cast needed if types mismatch, keeping simplistic here
                                                     <span key={safeRender(t)} className="text-[10px] bg-background/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">

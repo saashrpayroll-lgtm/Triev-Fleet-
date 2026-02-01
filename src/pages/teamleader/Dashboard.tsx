@@ -205,7 +205,7 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
                     <h1 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
-                        Welcome back, {typeof userData?.fullName === 'string' ? userData.fullName.split(' ')[0] : 'Leader'}!
+                        Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}!
                     </h1>
                     <p className="text-muted-foreground text-lg mt-1 font-medium flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
