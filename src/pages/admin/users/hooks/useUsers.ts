@@ -680,7 +680,7 @@ export const useUsers = () => {
         updateUser,
         toggleStatus: toggleUserStatus,
         suspendUser,
-        sendResetEmail,
+        // sendResetEmail, // Commented out - not currently used
         deleteUser,
         restoreUser,
         syncUsernames,
