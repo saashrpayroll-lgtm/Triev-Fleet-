@@ -48,87 +48,83 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   const { user, userData, loading } = useSupabaseAuth();
 
   if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user || !userData) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Handle Guest/Uninitialized Profile
+  if ((userData.role as string) === 'guest') {
     return (
-  if (loading) {
-      return <LoadingScreen />;
-    }
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+        <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
+        <p className="text-muted-foreground max-w-md mb-6">
+          Your account is authenticated, but no user profile was found in our database.
+          Please contact your administrator to create your profile.
+        </p>
+        <div className="p-4 bg-muted/50 rounded-lg text-left text-xs font-mono mb-6 w-full max-w-md overflow-auto">
+          <p>User ID: {user.id}</p>
+          <p>Email: {user.email}</p>
+          <p>Status: {userData.status}</p>
+        </div>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+        >
+          Sign Out
+        </button>
+      </div>
     );
   }
 
-if (!user || !userData) {
-  return <Navigate to="/login" replace />;
-}
+  if (allowedRoles && !allowedRoles.includes(userData.role)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
-// Handle Guest/Uninitialized Profile
-if ((userData.role as string) === 'guest') {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-      <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
-      <p className="text-muted-foreground max-w-md mb-6">
-        Your account is authenticated, but no user profile was found in our database.
-        Please contact your administrator to create your profile.
-      </p>
-      <div className="p-4 bg-muted/50 rounded-lg text-left text-xs font-mono mb-6 w-full max-w-md overflow-auto">
-        <p>User ID: {user.id}</p>
-        <p>Email: {user.email}</p>
-        <p>Status: {userData.status}</p>
+  // Check if user is suspended
+  if (userData.status === 'suspended') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive mb-4">Account Suspended</h1>
+          <p className="text-muted-foreground">
+            Your account has been temporarily suspended. Please contact your administrator.
+          </p>
+        </div>
       </div>
-      <button
-        onClick={() => supabase.auth.signOut()}
-        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-      >
-        Sign Out
-      </button>
-    </div>
-  );
-}
+    );
+  }
 
-if (allowedRoles && !allowedRoles.includes(userData.role)) {
-  return <Navigate to="/unauthorized" replace />;
-}
-
-// Check if user is suspended
-if (userData.status === 'suspended') {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-destructive mb-4">Account Suspended</h1>
-        <p className="text-muted-foreground">
-          Your account has been temporarily suspended. Please contact your administrator.
-        </p>
+  if (userData.status === 'inactive') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-destructive mb-4">Account Inactive</h1>
+          <p className="text-muted-foreground mb-4">
+            Your account is currently inactive. Please contact your administrator.
+          </p>
+          {/* Emergency Recovery for Admin (Supabase version) */}
+          {userData.username === 'saunvir1130' && ( // Assuming username field exists in Supabase users
+            <button
+              onClick={async () => {
+                if (user) {
+                  await supabase.from('users').update({ status: 'active' }).eq('id', user.id);
+                  window.location.reload();
+                }
+              }}
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:bg-primary/90"
+            >
+              Emergency Reactivate (Admin Only)
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-if (userData.status === 'inactive') {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-destructive mb-4">Account Inactive</h1>
-        <p className="text-muted-foreground mb-4">
-          Your account is currently inactive. Please contact your administrator.
-        </p>
-        {/* Emergency Recovery for Admin (Supabase version) */}
-        {userData.username === 'saunvir1130' && ( // Assuming username field exists in Supabase users
-          <button
-            onClick={async () => {
-              if (user) {
-                await supabase.from('users').update({ status: 'active' }).eq('id', user.id);
-                window.location.reload();
-              }
-            }}
-            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:bg-primary/90"
-          >
-            Emergency Reactivate (Admin Only)
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-return <>{children}</>;
+  return <>{children}</>;
 };
 
 // Public Route Component (redirects to dashboard if already logged in)
