@@ -494,7 +494,7 @@ export const useUsers = () => {
             if (error) {
                 // Handle FK constraint errors
                 if (error.code === '23503') {
-                    throw new Error("Cannot delete user because they are assigned to active Riders, Leads, or Logs. Please reassign their data first.");
+                    throw new Error("Unable to delete: This user still has active dependencies in the database. Please ensure you have run the 'fix_user_deletion_schema.sql' migration in Supabase SQL Editor to allow cascading deletes.");
                 }
                 throw error;
             }
