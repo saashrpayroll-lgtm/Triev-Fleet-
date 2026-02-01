@@ -22,9 +22,19 @@ export const useToast = () => {
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
-    const addToast = useCallback((message: string, type: ToastType, duration = 4000) => {
+    const addToast = useCallback((message: string | any, type: ToastType, duration = 4000) => {
         const id = Math.random().toString(36).substr(2, 9);
-        setToasts(prev => [...prev, { id, message, type, duration }]);
+        let safeMessage = message;
+        if (typeof message === 'object') {
+            try {
+                safeMessage = message.message || JSON.stringify(message); // Try to get .message property first (common in Error objects)
+            } catch (e) {
+                safeMessage = 'An error occurred (Ref: Object)';
+            }
+        } else {
+            safeMessage = String(message || '');
+        }
+        setToasts(prev => [...prev, { id, message: safeMessage, type, duration }]);
     }, []);
 
     const removeToast = useCallback((id: string) => {
