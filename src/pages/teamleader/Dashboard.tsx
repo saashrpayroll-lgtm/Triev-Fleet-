@@ -232,7 +232,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600/60 mb-0.5">Team Insight</p>
-                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{aiInsight}"</p>
+                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{typeof aiInsight === 'string' ? aiInsight : String(aiInsight || '')}"</p>
                     </div>
                 </motion.div>
             )}

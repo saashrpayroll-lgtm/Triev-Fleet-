@@ -160,7 +160,7 @@ const Profile: React.FC = () => {
                                     <img src={userData.profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-slate-900 text-4xl font-bold text-pink-400">
-                                        {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : 'L'}
+                                        {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : String(userData.fullName || 'L').charAt(0).toUpperCase()}
                                     </div>
                                 )}
 
@@ -195,15 +195,15 @@ const Profile: React.FC = () => {
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-slate-400 text-sm">
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
                                 <Shield size={14} className="text-emerald-400" />
-                                <span className="font-mono">{userData.userId || 'ID: UNKNOWN'}</span>
+                                <span className="font-mono">{typeof userData.userId === 'string' ? userData.userId : String(userData.userId || 'ID: UNKNOWN')}</span>
                             </div>
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
                                 <Mail size={14} className="text-blue-400" />
-                                <span>{userData.email}</span>
+                                <span>{typeof userData.email === 'string' ? userData.email : String(userData.email || '')}</span>
                             </div>
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
                                 <Smartphone size={14} className="text-purple-400" />
-                                <span>{userData.mobile}</span>
+                                <span>{typeof userData.mobile === 'string' ? userData.mobile : String(userData.mobile || '')}</span>
                             </div>
                         </div>
 
@@ -285,7 +285,7 @@ const Profile: React.FC = () => {
                                     />
                                 ) : (
                                     <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 font-medium text-foreground">
-                                        {typeof userData.fullName === 'string' ? userData.fullName : 'Leader'}
+                                        {typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Leader')}
                                     </div>
                                 )}
                             </div>
@@ -295,7 +295,7 @@ const Profile: React.FC = () => {
                                     Reporting Manager
                                 </label>
                                 <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 text-muted-foreground cursor-not-allowed">
-                                    {userData.reportingManager || 'System Admin'}
+                                    {typeof userData.reportingManager === 'string' ? userData.reportingManager : String(userData.reportingManager || 'System Admin')}
                                 </div>
                             </div>
 
@@ -304,7 +304,7 @@ const Profile: React.FC = () => {
                                     Job Location
                                 </label>
                                 <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 text-muted-foreground cursor-not-allowed flex items-center gap-2">
-                                    <MapPin size={14} /> {userData.jobLocation || 'Remote HQ'}
+                                    <MapPin size={14} /> {typeof userData.jobLocation === 'string' ? userData.jobLocation : String(userData.jobLocation || 'Remote HQ')}
                                 </div>
                             </div>
                         </div>

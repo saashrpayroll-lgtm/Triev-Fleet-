@@ -123,10 +123,10 @@ const TeamLeaderLayout: React.FC = () => {
                         <div className="flex items-center gap-3">
                             <div className="text-right">
                                 <p className="font-medium text-sm">{typeof userData?.fullName === 'string' ? userData.fullName : 'Leader'}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{userData?.role}</p>
+                                <p className="text-xs text-muted-foreground capitalize">{typeof userData?.role === 'string' ? userData.role : String(userData?.role || '')}</p>
                             </div>
                             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
-                                {typeof userData?.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : 'L'}
+                                {typeof userData?.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : String(userData?.fullName || 'L').charAt(0).toUpperCase()}
                             </div>
                         </div>
                     </div>

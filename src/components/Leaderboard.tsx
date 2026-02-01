@@ -139,7 +139,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             {/* Header */}
                             <div className="flex items-center gap-4 mb-6">
                                 <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} group-hover:rotate-6 transition-transform`}>
-                                    {(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
+                                    {String(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="overflow-hidden flex-1">
                                     <div

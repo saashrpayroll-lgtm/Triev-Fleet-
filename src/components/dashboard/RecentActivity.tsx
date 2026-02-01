@@ -100,7 +100,7 @@ const RecentActivity: React.FC = () => {
                             <div className="flex gap-3">
                                 <div className="mt-0.5">{getIcon(log.actionType)}</div>
                                 <div className="space-y-0.5">
-                                    <p className="font-medium text-foreground">{log.actionType.replace(/_/g, ' ')}</p>
+                                    <p className="font-medium text-foreground">{typeof log.actionType === 'string' ? log.actionType.replace(/_/g, ' ') : String(log.actionType || '')}</p>
                                     <p className="text-muted-foreground text-xs line-clamp-2">
                                         {typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}
                                     </p>

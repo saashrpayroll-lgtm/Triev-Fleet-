@@ -155,7 +155,7 @@ const Profile: React.FC = () => {
                                         <img src={userData.profilePicUrl} alt="Profile" className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-110" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-slate-950 text-5xl font-black text-indigo-500">
-                                            {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : 'A'}
+                                            {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : String(userData.fullName || 'A').charAt(0).toUpperCase()}
                                         </div>
                                     )}
 
@@ -186,10 +186,10 @@ const Profile: React.FC = () => {
                                     Account Holder
                                 </p>
                                 <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-                                    {typeof userData.fullName === 'string' ? userData.fullName : 'Admin'}
+                                    {typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Admin')}
                                 </h1>
                                 <p className="text-slate-400 font-medium text-lg flex items-center justify-center md:justify-start gap-2">
-                                    @{userData.username || userData.email.split('@')[0]}
+                                    @{typeof userData.username === 'string' ? userData.username : (typeof userData.email === 'string' ? userData.email.split('@')[0] : 'user')}
                                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-xs font-mono border border-slate-700">Verified</span>
                                 </p>
                             </div>
@@ -204,7 +204,7 @@ const Profile: React.FC = () => {
                                         </div>
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</span>
                                     </div>
-                                    <p className="text-white font-semibold pl-12 truncate">{userData.email}</p>
+                                    <p className="text-white font-semibold pl-12 truncate">{typeof userData.email === 'string' ? userData.email : String(userData.email || '')}</p>
                                 </div>
 
                                 {/* Mobile */}
@@ -215,7 +215,7 @@ const Profile: React.FC = () => {
                                         </div>
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mobile Number</span>
                                     </div>
-                                    <p className="text-white font-semibold pl-12">{userData.mobile || 'Not Linked'}</p>
+                                    <p className="text-white font-semibold pl-12">{typeof userData.mobile === 'string' ? userData.mobile : String(userData.mobile || 'Not Linked')}</p>
                                 </div>
 
                                 {/* Working Area */}
@@ -226,7 +226,7 @@ const Profile: React.FC = () => {
                                         </div>
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Working Area</span>
                                     </div>
-                                    <p className="text-white font-semibold pl-12">{userData.jobLocation || 'Headquarters (HQ)'}</p>
+                                    <p className="text-white font-semibold pl-12">{typeof userData.jobLocation === 'string' ? userData.jobLocation : String(userData.jobLocation || 'Headquarters (HQ)')}</p>
                                 </div>
 
                                 {/* User ID (System) */}

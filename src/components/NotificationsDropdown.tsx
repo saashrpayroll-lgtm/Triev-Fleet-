@@ -286,14 +286,14 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
                                     <div className="flex-1 min-w-0 z-10">
                                         <div className="flex items-start justify-between gap-2 mb-1">
                                             <h4 className={`text-sm font-semibold truncate transition-colors ${!note.isRead ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>
-                                                {typeof note.title === 'string' ? note.title : String(note.title)}
+                                                {typeof note.title === 'string' ? note.title : String(note.title || 'Notification')}
                                             </h4>
                                             <span className="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0 font-medium">
                                                 {note.createdAt ? formatDistanceToNow(new Date(note.createdAt), { addSuffix: true }).replace('about ', '') : ''}
                                             </span>
                                         </div>
                                         <p className={`text-xs leading-relaxed ${!note.isRead ? 'text-foreground/90 font-medium' : 'text-muted-foreground'} line-clamp-2`}>
-                                            {typeof note.message === 'string' ? note.message : JSON.stringify(note.message)}
+                                            {typeof note.message === 'string' ? note.message : (typeof note.message === 'object' ? JSON.stringify(note.message) : String(note.message || ''))}
                                         </p>
                                         {note.tags && (note.tags as any).length > 0 && ( // Cast tags as any if needed or use optional chaining if tags is valid
                                             <div className="flex flex-wrap gap-1 mt-2">
