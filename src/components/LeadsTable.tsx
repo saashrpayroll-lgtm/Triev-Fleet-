@@ -37,7 +37,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         }
     };
 
-    const getCategoryBadge = (category: LeadCategory) => {
+    const getCategoryBadge = (category: LeadCategory | string) => {
+        // Safety check for object
+        if (typeof category === 'object' && category !== null) return null;
+
         switch (category) {
             case 'Genuine':
                 return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">GENUINE</span>;
@@ -75,10 +78,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     {leads.map((lead) => (
                         <tr key={lead.id} className="hover:bg-muted/30 group">
                             <td className="px-4 py-3 text-sm font-medium text-foreground">
-                                #{lead.leadId}
+                                #{String(lead.leadId || '')}
                             </td>
                             <td className="px-4 py-3">
-                                <div className="font-semibold text-sm">{lead.riderName}</div>
+                                <div className="font-semibold text-sm">{String(lead.riderName || 'Unknown')}</div>
                                 <div className="flex items-center gap-2 mt-1">
                                     <a
                                         href={`tel:${lead.mobileNumber}`}
@@ -100,15 +103,15 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 </div>
                             </td>
                             <td className="px-4 py-3 text-sm">
-                                <div className="text-foreground">{lead.city}</div>
-                                <div className="text-muted-foreground text-xs">{lead.source}</div>
+                                <div className="text-foreground">{typeof lead.city === 'string' ? lead.city : 'N/A'}</div>
+                                <div className="text-muted-foreground text-xs">{typeof lead.source === 'string' ? lead.source : 'Unknown Source'}</div>
                             </td>
                             <td className="px-4 py-3">
                                 {getCategoryBadge(lead.category)}
                             </td>
                             <td className="px-4 py-3">
                                 <span className={`px-2 py-1 rounded-md text-xs font-semibold ${getStatusColor(lead.status)}`}>
-                                    {lead.status}
+                                    {typeof lead.status === 'string' ? lead.status : String(lead.status || '')}
                                 </span>
                             </td>
                             {showLocation && (

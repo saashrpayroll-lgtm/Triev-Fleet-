@@ -19,9 +19,14 @@ const UserLeads: React.FC = () => {
             setLoading(true);
             const { data, error } = await supabase
                 .from('leads')
-                .select('*')
+                .select(`
+                    id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
+                    city, status, score, category, source, createdAt:created_at,
+                    drivingLicense:driving_license, clientInterested:client_interested,
+                    location
+                `)
                 .eq('createdBy', userData.id)
-                .order('createdAt', { ascending: false });
+                .order('created_at', { ascending: false });
 
             if (data) setLeads(data as Lead[]);
             if (error) console.error("Error fetching leads:", error);
