@@ -68,6 +68,7 @@ const Dashboard: React.FC = () => {
                 supabase.from('users').select(`
                     id,
                     fullName:full_name,
+                    email,
                     status,
                     role
                 `).eq('role', 'teamLeader')
