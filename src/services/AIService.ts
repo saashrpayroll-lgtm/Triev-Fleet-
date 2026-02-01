@@ -253,7 +253,7 @@ Provide 2-3 concise bullet points about onboarding checklist, expectations, or i
         return text ? cleanText(text) : "- New rider onboarded\n- Verify all documents\n- Schedule orientation";
     },
 
-    generatePaymentReminder: async (rider: any, language: 'hindi' | 'english', tone: 'professional' | 'friendly' | 'urgent'): Promise<string> => {
+    generatePaymentReminder: async (_rider: any, language: 'hindi' | 'english', tone: 'professional' | 'friendly' | 'urgent'): Promise<string> => {
         const languageInstruction = language === 'hindi' ? 'Write the message in Hindi (Devanagari script)' : 'Write the message in English';
         const toneInstruction = tone === 'professional' ? 'professional and respectful' : tone === 'friendly' ? 'friendly and polite' : 'urgent but respectful';
 
