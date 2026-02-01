@@ -146,7 +146,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            className={`relative rounded-3xl border p-5 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm group hover:scale-[1.03] hover:shadow-2xl transition-all duration-300 cursor-pointer ${isFirst ? 'md:-mt-8 md:mb-4 md:py-8 shadow-xl z-10 ring-1 ring-yellow-500/20' : 'shadow-lg'}`}
+                            className={`relative rounded-2xl border p-3 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm group hover:scale-[1.02] hover:shadow-xl transition-all duration-300 cursor-pointer ${isFirst ? 'md:-mt-4 md:mb-2 md:py-4 shadow-lg z-10 ring-1 ring-yellow-500/20' : 'shadow-md'}`}
                             onClick={() => {
                                 if (isDashboard) {
                                     navigate('/admin/leaderboard');
@@ -156,18 +156,18 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             }}
                         >
                             {/* Rank Badge */}
-                            <div className={`absolute -right-3 -top-3 w-10 h-10 rounded-full ${styles.badge} text-white font-bold flex items-center justify-center shadow-lg ring-4 ring-white dark:ring-background z-20 group-hover:scale-110 transition-transform`}>
+                            <div className={`absolute -right-2 -top-2 w-8 h-8 rounded-full ${styles.badge} text-white text-sm font-bold flex items-center justify-center shadow-md ring-2 ring-white dark:ring-background z-20 group-hover:scale-110 transition-transform`}>
                                 #{actualRank + 1}
                             </div>
 
                             {/* Header */}
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} group-hover:rotate-6 transition-transform`}>
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-base font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} group-hover:rotate-6 transition-transform`}>
                                     {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="overflow-hidden flex-1">
                                     <div
-                                        className="font-bold text-base truncate flex items-center gap-1 hover:text-primary transition-colors hover:underline decoration-dotted underline-offset-4"
+                                        className="font-bold text-sm truncate flex items-center gap-1 hover:text-primary transition-colors hover:underline decoration-dotted underline-offset-4"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             navigate(`/admin/users?highlightUserId=${tl.id}`);
@@ -176,11 +176,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                         {safeRender(tl.fullName || tl.email || 'Unknown')}
                                         <ExternalLink size={10} className="opacity-50" />
                                     </div>
-                                    <p className="text-xs text-muted-foreground truncate opacity-80 group-hover:opacity-100 transition-opacity">
+                                    <p className="text-[10px] text-muted-foreground truncate opacity-80 group-hover:opacity-100 transition-opacity">
                                         {safeRender(tl.email)}
                                     </p>
                                     <div className="flex items-center gap-1 mt-0.5">
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 font-mono text-muted-foreground flex items-center gap-0.5">
+                                        <span className="text-[9px] px-1 py-0.5 rounded-full bg-black/5 dark:bg-white/10 font-mono text-muted-foreground flex items-center gap-0.5">
                                             <Hash size={8} /> {safeRender(tl.id).slice(0, 6)}
                                         </span>
                                     </div>
@@ -188,15 +188,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             </div>
 
                             {/* Score Bar */}
-                            <div className="mb-6 bg-white/50 dark:bg-black/10 p-3 rounded-xl">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-semibold text-muted-foreground">Performance Score</span>
-                                    <div className="flex items-center gap-1 text-yellow-600 font-bold">
-                                        <Sparkles size={12} className="fill-current" />
+                            <div className="mb-3 bg-white/50 dark:bg-black/10 p-2 rounded-lg">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[10px] font-semibold text-muted-foreground">Performance Score</span>
+                                    <div className="flex items-center gap-1 text-yellow-600 text-sm font-bold">
+                                        <Sparkles size={10} className="fill-current" />
                                         {Math.round(tl.score)}
                                     </div>
                                 </div>
-                                <div className="h-2 w-full bg-black/5 rounded-full overflow-hidden">
+                                <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${Math.min(tl.score, 100)}%` }}
@@ -207,26 +207,26 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             </div>
 
                             {/* Stats Grid */}
-                            <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="grid grid-cols-2 gap-2 mb-3">
                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <Users size={12} className="text-blue-500" /> Riders
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <Users size={10} className="text-blue-500" /> Riders
                                     </div>
-                                    <p className="font-bold text-sm">
+                                    <p className="font-bold text-xs">
                                         {tl.stats.activeRiders}<span className="text-muted-foreground font-normal">/{tl.stats.totalRiders}</span>
                                     </p>
                                 </div>
                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <CheckCircle size={12} className="text-green-500" /> Conversion
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <CheckCircle size={10} className="text-green-500" /> Conversion
                                     </div>
-                                    <p className="font-bold text-sm">{tl.stats.conversionRate}%</p>
+                                    <p className="font-bold text-xs">{tl.stats.conversionRate}%</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <Wallet size={12} className="text-purple-500" /> Avg Wallet
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <Wallet size={10} className="text-purple-500" /> Avg Wallet
                                     </div>
-                                    <p className={`font-bold text-sm ${tl.stats.wallet < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    <p className={`font-bold text-xs ${tl.stats.wallet < 0 ? 'text-red-600' : 'text-green-600'}`}>
                                         ₹{tl.stats.totalRiders > 0 ? Math.round(tl.stats.wallet / tl.stats.totalRiders) : 0}
                                     </p>
                                 </div>
