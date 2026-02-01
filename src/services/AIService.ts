@@ -246,6 +246,18 @@ export const AIService = {
         return text ? text.trim() : rawNotes;
     },
 
+    suggestRiderNotes: async (riderData: { riderName?: string; clientName?: string; status?: string; walletAmount?: number }): Promise<string> => {
+        const prompt = `Generate professional onboarding notes for a new rider with the following details:
+Name: ${riderData.riderName || 'New Rider'}
+Client: ${riderData.clientName || 'Not specified'}
+Status: ${riderData.status || 'active'}
+Wallet: ₹${riderData.walletAmount || 0}
+
+Provide 2-3 concise bullet points about onboarding checklist, expectations, or initial observations.`;
+        const text = await AIOrchestrator.execute('speed', prompt, "You are a Fleet Onboarding Specialist."); // Groq
+        return text ? cleanText(text) : "- New rider onboarded\n- Verify all documents\n- Schedule orientation";
+    },
+
     parseSearchQuery: async (query: string): Promise<{ role?: string; status?: string; location?: string; keyword?: string; }> => {
         const prompt = `Extract filter parameters from query: "${query}". Return JSON with keys: role, status, location, keyword.`;
         const text = await AIOrchestrator.execute('speed', prompt, "You are a Search Parser. Output JSON only."); // Groq

@@ -267,16 +267,6 @@ const Reports: React.FC = () => {
                     </h1>
                     <p className="text-muted-foreground mt-1">Generate insights from your rider fleet.</p>
                 </div>
-                {canGenerate && (
-                    <button
-                        onClick={handleGenerateReport}
-                        disabled={generating}
-                        className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
-                    >
-                        {generating ? <RefreshCw className="animate-spin" size={20} /> : <TrendingUp size={20} />}
-                        {reportGenerated ? 'Re-generate Report' : 'Generate Report'}
-                    </button>
-                )}
                 <div className="bg-card/50 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-center">
                     <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Records</div>
                     <div className="text-xl font-bold text-primary">{riders.length}</div>

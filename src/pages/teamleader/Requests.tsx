@@ -369,7 +369,7 @@ const Requests: React.FC = () => {
                         placeholder="Search subject or ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background text-foreground"
                     />
                 </div>
                 <div className="flex items-center gap-2 min-w-[200px]">
@@ -561,7 +561,7 @@ const Requests: React.FC = () => {
                                     value={formData.subject}
                                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                                     placeholder="Brief summary of the issue"
-                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary/50"
+                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary/50 bg-background text-foreground"
                                 />
                             </div>
 
@@ -586,7 +586,7 @@ const Requests: React.FC = () => {
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="Detailed explanation..."
-                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary/50 resize-none"
+                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary/50 resize-none bg-background text-foreground"
                                 />
                             </div>
 

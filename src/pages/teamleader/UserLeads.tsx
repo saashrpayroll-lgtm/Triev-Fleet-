@@ -25,7 +25,7 @@ const UserLeads: React.FC = () => {
                     drivingLicense:driving_license, clientInterested:client_interested,
                     location
                 `)
-                .eq('createdBy', userData.id)
+                .eq('created_by', userData.id)
                 .order('created_at', { ascending: false });
 
             if (data) setLeads(data as Lead[]);
@@ -42,7 +42,7 @@ const UserLeads: React.FC = () => {
                 event: '*',
                 schema: 'public',
                 table: 'leads',
-                filter: `createdBy=eq.${userData.id}`
+                filter: `created_by=eq.${userData.id}`
             }, () => {
                 fetchLeads(); // Re-fetch to sort properly
             })
