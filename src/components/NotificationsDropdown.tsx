@@ -298,8 +298,8 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
                                         {note.tags && (note.tags as any).length > 0 && ( // Cast tags as any if needed or use optional chaining if tags is valid
                                             <div className="flex flex-wrap gap-1 mt-2">
                                                 {(note.tags as any).map((t: string) => ( // Cast needed if types mismatch, keeping simplistic here
-                                                    <span key={t} className="text-[10px] bg-background/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
-                                                        #{t}
+                                                    <span key={typeof t === 'string' ? t : JSON.stringify(t)} className="text-[10px] bg-background/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
+                                                        #{typeof t === 'string' ? t : String(t || '')}
                                                     </span>
                                                 ))}
                                             </div>
