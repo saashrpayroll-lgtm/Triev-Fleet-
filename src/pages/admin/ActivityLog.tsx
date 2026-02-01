@@ -53,7 +53,19 @@ const ActivityLog: React.FC = () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('activity_logs')
-            .select('*')
+            .select(`
+                id,
+                userName:user_name,
+                userId:user_id,
+                userRole:user_role,
+                actionType:action_type,
+                targetType:target_type,
+                targetId:target_id,
+                details,
+                timestamp,
+                isDeleted:is_deleted,
+                metadata
+            `)
             .not('is_deleted', 'eq', true)
             .order('timestamp', { ascending: false })
             .limit(1000);
@@ -61,26 +73,12 @@ const ActivityLog: React.FC = () => {
         if (data) {
             const localDeleted = getLocalDeletedIds();
 
-            const mappedLogs = data.map((log: any) => ({
-                ...log,
-                userName: log.user_name,
-                userId: log.user_id,
-                userRole: log.user_role,
-                actionType: log.action_type,
-                targetType: log.target_type,
-                targetId: log.target_id,
-                isDeleted: log.is_deleted,
-                details: log.details,
-                metadata: log.metadata,
-                timestamp: log.timestamp
-            }));
-
             // Filter out server-deleted AND local-deleted
-            const validLogs = mappedLogs.filter(l =>
+            const validLogs = (data as ActivityLog[]).filter(l =>
                 l.isDeleted !== true && !localDeleted.has(l.id)
             );
 
-            setLogs(validLogs as ActivityLog[]);
+            setLogs(validLogs);
         }
 
         if (error) {

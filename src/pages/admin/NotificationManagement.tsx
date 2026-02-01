@@ -61,24 +61,23 @@ const NotificationManagement: React.FC = () => {
         try {
             const { data } = await supabase
                 .from('announcements')
-                .select('*')
+                .select(`
+                    id,
+                    title,
+                    body,
+                    targetRole:target_role,
+                    targetId:target_id,
+                    targetName:target_name,
+                    priority,
+                    tags,
+                    type,
+                    createdBy:created_by,
+                    createdAt:created_at
+                `)
                 .order('created_at', { ascending: false });
 
             if (data) {
-                const mappedAnnouncements: SystemNotification[] = data.map((item: any) => ({
-                    id: item.id,
-                    title: item.title,
-                    body: item.body,
-                    targetRole: item.target_role,
-                    targetId: item.target_id,
-                    targetName: item.target_name,
-                    priority: item.priority,
-                    tags: item.tags || [],
-                    type: item.type,
-                    createdBy: item.created_by,
-                    createdAt: item.created_at
-                }));
-                setNotifications(mappedAnnouncements);
+                setNotifications(data as SystemNotification[]);
             }
         } catch (error) {
             console.error("Error fetching announcements:", error);

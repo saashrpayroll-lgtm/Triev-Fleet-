@@ -36,7 +36,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
             const { data } = await supabase
                 .from('activity_logs')
                 .select('*')
-                .eq('targetId', rider.id)
+                .eq('target_id', rider.id)
                 .order('timestamp', { ascending: false })
                 .limit(10);
 
@@ -56,16 +56,16 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
         // Log Action
         try {
             await supabase.from('activity_logs').insert({
-                userId: userData.id,
-                userName: userData.fullName,
-                userRole: userData.role,
-                actionType: type === 'call' ? 'call_rider' : type === 'whatsapp' ? 'whatsapp_rider' : 'sent_reminder',
-                targetType: 'rider',
-                targetId: rider.id,
+                user_id: userData.id,
+                user_name: userData.fullName,
+                user_role: userData.role,
+                action_type: type === 'call' ? 'call_rider' : type === 'whatsapp' ? 'whatsapp_rider' : 'sent_reminder',
+                target_type: 'rider',
+                target_id: rider.id,
                 details: type === 'reminder' ? `Sent payment reminder: "${message?.substring(0, 50)}..."` : `Initiated ${type} to rider`,
                 metadata: { mobile: rider.mobileNumber, amount: rider.walletAmount },
                 timestamp: new Date().toISOString(),
-                isDeleted: false
+                is_deleted: false
             });
             fetchHistory(); // Refresh history
         } catch (e) {

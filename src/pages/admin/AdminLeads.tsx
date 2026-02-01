@@ -7,7 +7,7 @@ import LeadForm from '@/components/LeadForm';
 import BulkActionsBar from '@/components/BulkActionsBar'; // Import
 import { AIService } from '@/services/AIService';
 import { Plus, Sparkles, Download, Filter, Search, Trash2 } from 'lucide-react';
-import { mapLeadFromDB, mapLeadToDB } from '@/utils/leadUtils';
+import { mapLeadToDB } from '@/utils/leadUtils';
 
 import { useLocation } from 'react-router-dom';
 
@@ -39,12 +39,18 @@ const AdminLeads: React.FC = () => {
 
         const fetchData = async () => {
             // 1. Fetch Riders
-            const { data: riderData } = await supabase.from('riders').select('*');
-            if (riderData) setRiders(riderData as Rider[]);
+            const { data: riderData } = await supabase.from('riders').select(`
+                id, mobileNumber:mobile_number, trievId:triev_id, riderName:rider_name
+            `);
+            if (riderData) setRiders(riderData as any);
 
             // 2. Fetch Leads
-            const { data: leadData } = await supabase.from('leads').select('*').order('id', { ascending: false });
-            if (leadData) setLeads((leadData || []).map(mapLeadFromDB));
+            const { data: leadData } = await supabase.from('leads').select(`
+                id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
+                city, status, score, category, source, createdAt:created_at,
+                drivingLicense:driving_license, clientInterested:client_interested
+            `).order('id', { ascending: false });
+            if (leadData) setLeads(leadData as any);
 
             setLoading(false);
         };

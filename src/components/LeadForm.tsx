@@ -96,7 +96,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
             const { data: leadsData } = await supabase
                 .from('leads')
                 .select('id')
-                .eq('mobileNumber', phone) // Relying on query normalization if any
+                .eq('mobile_number', phone) // Verified column: mobile_number
                 .limit(10);
 
             // Check self exclusion
@@ -161,12 +161,12 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
         try {
             const { data } = await supabase
                 .from('leads')
-                .select('leadId')
-                .order('leadId', { ascending: false })
+                .select('lead_id')
+                .order('lead_id', { ascending: false })
                 .limit(1);
 
             if (!data || data.length === 0) return 10001;
-            return (data[0].leadId || 10000) + 1;
+            return (data[0].lead_id || 10000) + 1;
         } catch (e) {
             return 10000 + Math.floor(Math.random() * 9000);
         }

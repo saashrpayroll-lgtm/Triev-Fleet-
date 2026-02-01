@@ -48,35 +48,33 @@ const RequestManagement: React.FC = () => {
     // Selection State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    // Mappers
-    const mapRequestToApp = (r: any): Request => ({
-        id: r.id,
-        ticketId: r.ticket_id,
-        type: r.type,
-        subject: r.subject,
-        description: r.description,
-        priority: r.priority,
-        userId: r.user_id,
-        userName: r.user_name,
-        email: r.email,
-        userRole: r.user_role,
-        status: r.status,
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-        relatedEntityId: r.related_entity_id,
-        relatedEntityName: r.related_entity_name,
-        relatedEntityType: r.related_entity_type,
-        resolvedAt: r.resolved_at,
-        resolvedBy: r.resolved_by,
-        adminResponse: r.admin_response,
-        timeline: r.timeline,
-        internalNotes: r.internal_notes
-    });
 
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            let query = supabase.from('requests').select('*');
+            let query = supabase.from('requests').select(`
+                id,
+                ticketId:ticket_id,
+                type,
+                subject,
+                description,
+                priority,
+                userId:user_id,
+                userName:user_name,
+                email,
+                userRole:user_role,
+                status,
+                createdAt:created_at,
+                updatedAt:updated_at,
+                relatedEntityId:related_entity_id,
+                relatedEntityName:related_entity_name,
+                relatedEntityType:related_entity_type,
+                resolvedAt:resolved_at,
+                resolvedBy:resolved_by,
+                adminResponse:admin_response,
+                timeline,
+                internalNotes:internal_notes
+            `);
 
             if (activeTab === 'trash') {
                 query = query.eq('status', 'deleted');
@@ -87,7 +85,7 @@ const RequestManagement: React.FC = () => {
             const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) throw error;
-            setRequests(data?.map(mapRequestToApp) || []);
+            setRequests((data || []) as Request[]);
         } catch (err: any) {
             console.error("Error fetching requests:", err);
             setError("Failed to load requests.");
@@ -142,12 +140,19 @@ const RequestManagement: React.FC = () => {
             try {
                 const { data } = await supabase
                     .from('riders')
-                    .select('*')
+                    .select(`
+                        id, 
+                        trievId:triev_id, 
+                        riderName:rider_name, 
+                        mobileNumber:mobile_number, 
+                        walletAmount:wallet_amount, 
+                        status
+                    `)
                     .eq('id', request.relatedEntityId)
                     .single();
 
                 if (data) {
-                    setLinkedRider(data as Rider);
+                    setLinkedRider(data as any);
                 }
             } catch (e) {
                 console.error("Error fetching rider details", e);

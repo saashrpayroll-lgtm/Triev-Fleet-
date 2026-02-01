@@ -50,25 +50,6 @@ export const useUsers = () => {
         }
     }, []);
 
-    // Helper: Map DB User (snake_case) to App User (camelCase)
-    const mapUserFromDB = (dbUser: any): User => ({
-        id: dbUser.id,
-        email: dbUser.email,
-        fullName: dbUser.full_name,
-        role: dbUser.role,
-        status: dbUser.status,
-        mobile: dbUser.mobile,
-        userId: dbUser.user_id,
-        username: dbUser.username,
-        jobLocation: dbUser.job_location,
-        reportingManager: dbUser.reporting_manager,
-        permissions: dbUser.permissions || {},
-        remarks: dbUser.remarks,
-        profilePicUrl: dbUser.profile_pic_url,
-        suspendedUntil: dbUser.suspended_until, // Keep string or date as needed
-        createdAt: dbUser.created_at,
-        updatedAt: dbUser.updated_at
-    });
 
     // Pagination State
     const [page, setPage] = useState(0);
@@ -87,7 +68,24 @@ export const useUsers = () => {
 
         const { data, error } = await supabase
             .from('users')
-            .select('*')
+            .select(`
+                id,
+                email,
+                fullName:full_name,
+                role,
+                status,
+                mobile,
+                userId:user_id,
+                username,
+                jobLocation:job_location,
+                reportingManager:reporting_manager,
+                permissions,
+                remarks,
+                profilePicUrl:profile_pic_url,
+                suspendedUntil:suspended_until,
+                createdAt:created_at,
+                updatedAt:updated_at
+            `)
             .order('created_at', { ascending: false })
             .range(currentOffset, currentOffset + USERS_PER_PAGE - 1);
 
@@ -97,8 +95,7 @@ export const useUsers = () => {
             setError(msg);
             toast.error(msg);
         } else {
-            // MAP DB RESPONSE TO APP MODEL
-            const mappedUsers = (data || []).map(mapUserFromDB);
+            const mappedUsers = (data || []) as User[];
 
             setUsers(prev => {
                 const combined = isRefresh ? mappedUsers : [...prev, ...mappedUsers];

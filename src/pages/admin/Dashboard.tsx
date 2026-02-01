@@ -39,10 +39,38 @@ const Dashboard: React.FC = () => {
 
         try {
             const [ridersRes, leadsRes, requestsRes, usersRes] = await Promise.all([
-                supabase.from('riders').select('*'),
-                supabase.from('leads').select('*'),
-                supabase.from('requests').select('*'),
-                supabase.from('users').select('*').eq('role', 'teamLeader')
+                supabase.from('riders').select(`
+                    id,
+                    trievId:triev_id,
+                    riderName:rider_name,
+                    mobileNumber:mobile_number,
+                    chassisNumber:chassis_number,
+                    clientName:client_name,
+                    walletAmount:wallet_amount,
+                    allotmentDate:allotment_date,
+                    status,
+                    teamLeaderId:team_leader_id,
+                    createdAt:created_at
+                `),
+                supabase.from('leads').select(`
+                    id,
+                    leadId:lead_id,
+                    riderName:rider_name,
+                    status,
+                    createdBy:created_by,
+                    createdAt:created_at
+                `),
+                supabase.from('requests').select(`
+                    id,
+                    status,
+                    createdAt:created_at
+                `),
+                supabase.from('users').select(`
+                    id,
+                    fullName:full_name,
+                    status,
+                    role
+                `).eq('role', 'teamLeader')
             ]);
 
             if (ridersRes.error) throw ridersRes.error;

@@ -5,11 +5,11 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface ActivityLog {
     id: string;
-    action: string;
-    description: string;
-    created_at: string;
-    user_id: string;
-    user_name?: string;
+    actionType: string;
+    details: string;
+    timestamp: string;
+    userId: string;
+    userName?: string;
     metadata?: any;
 }
 
@@ -22,12 +22,20 @@ const RecentActivity: React.FC = () => {
             // Fetch last 5 logs
             const { data, error } = await supabase
                 .from('activity_logs')
-                .select('*')
-                .order('created_at', { ascending: false })
+                .select(`
+                    id, 
+                    actionType:action_type, 
+                    details, 
+                    timestamp, 
+                    userId:user_id, 
+                    userName:user_name, 
+                    metadata
+                `)
+                .order('timestamp', { ascending: false })
                 .limit(5);
 
             if (error) throw error;
-            setActivities(data || []);
+            setActivities((data || []) as ActivityLog[]);
         } catch (err) {
             console.error("Failed to fetch activity:", err);
         } finally {
@@ -40,9 +48,19 @@ const RecentActivity: React.FC = () => {
 
         // Realtime Subscription
         const sub = supabase
-            .channel('recent-activity')
+            .channel('recent-activity-sync')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
-                setActivities(prev => [payload.new as ActivityLog, ...prev].slice(0, 5));
+                const item = payload.new as any;
+                const mapped: ActivityLog = {
+                    id: item.id,
+                    actionType: item.action_type,
+                    details: item.details,
+                    timestamp: item.timestamp,
+                    userId: item.user_id,
+                    userName: item.user_name,
+                    metadata: item.metadata
+                };
+                setActivities(prev => [mapped, ...prev].slice(0, 5));
             })
             .subscribe();
 
@@ -80,12 +98,12 @@ const RecentActivity: React.FC = () => {
                     {activities.map((log) => (
                         <li key={log.id} className="p-3 hover:bg-muted/50 transition-colors text-sm">
                             <div className="flex gap-3">
-                                <div className="mt-0.5">{getIcon(log.action)}</div>
+                                <div className="mt-0.5">{getIcon(log.actionType)}</div>
                                 <div className="space-y-0.5">
-                                    <p className="font-medium text-foreground">{log.action}</p>
-                                    <p className="text-muted-foreground text-xs line-clamp-2">{log.description}</p>
+                                    <p className="font-medium text-foreground">{log.actionType.replace(/_/g, ' ')}</p>
+                                    <p className="text-muted-foreground text-xs line-clamp-2">{log.details}</p>
                                     <p className="text-[10px] text-muted-foreground/70 pt-1">
-                                        {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                                        {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
                                     </p>
                                 </div>
                             </div>

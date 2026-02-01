@@ -31,7 +31,7 @@ const DataManagement: React.FC = () => {
                     {
                         event: '*',
                         schema: 'public',
-                        table: 'importHistory'
+                        table: 'import_history'
                     },
                     (_) => {
                         // For simplicity, re-fetch on any change. 
@@ -50,8 +50,18 @@ const DataManagement: React.FC = () => {
     const fetchHistory = async () => {
         try {
             const { data, error } = await supabase
-                .from('importHistory')
-                .select('*')
+                .from('import_history')
+                .select(`
+                    id,
+                    adminName:admin_name,
+                    importType:import_type,
+                    totalRows:total_rows,
+                    successCount:success_count,
+                    failureCount:failure_count,
+                    status,
+                    timestamp,
+                    errors
+                `)
                 .order('timestamp', { ascending: false })
                 .limit(20);
 
@@ -93,7 +103,7 @@ const DataManagement: React.FC = () => {
     const handleDeleteHistory = async (id: string) => {
         if (!confirm("Are you sure you want to delete this import record?")) return;
         try {
-            const { error } = await supabase.from('importHistory').delete().eq('id', id);
+            const { error } = await supabase.from('import_history').delete().eq('id', id);
             if (error) throw error;
 
             setSelectedHistoryIds(prev => {
@@ -114,7 +124,7 @@ const DataManagement: React.FC = () => {
 
         try {
             const idsToDelete = Array.from(selectedHistoryIds);
-            const { error } = await supabase.from('importHistory').delete().in('id', idsToDelete);
+            const { error } = await supabase.from('import_history').delete().in('id', idsToDelete);
 
             if (error) throw error;
 

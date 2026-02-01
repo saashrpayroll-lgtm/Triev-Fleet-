@@ -57,14 +57,19 @@ const Dashboard: React.FC = () => {
                 // 1. Fetch My Riders
                 const { data: myRidersData, error: myRidersError } = await supabase
                     .from('riders')
-                    .select('*')
+                    .select(`
+                        id,
+                        trievId:triev_id,
+                        riderName:rider_name,
+                        status,
+                        walletAmount:wallet_amount,
+                        teamLeaderId:team_leader_id
+                    `)
                     .eq('team_leader_id', userData.id);
 
                 if (myRidersError) throw myRidersError;
 
-                const myRiders = ((myRidersData as any[]) || []).map(r => ({
-                    ...r, walletAmount: r.wallet_amount, teamLeaderId: r.team_leader_id, status: r.status
-                })) as Rider[];
+                const myRiders = (myRidersData || []) as Rider[];
 
                 // 2. Fetch My Leads
                 const { data: myLeadsData, error: myLeadsError } = await supabase
@@ -102,13 +107,21 @@ const Dashboard: React.FC = () => {
 
                 // 3. Global Leaderboard Data (Fetch all TLs and Riders for Leaderboard Algo)
                 // Leaderboard shows everyone to encourage competition.
-                const { data: tlsData } = await supabase.from('users').select('*').eq('role', 'teamLeader');
-                const allTls = ((tlsData as any[]) || []).map(u => ({ ...u, fullName: u.full_name })) as User[];
+                const { data: tlsData } = await supabase.from('users').select(`
+                    id,
+                    fullName:full_name,
+                    email,
+                    role
+                `).eq('role', 'teamLeader');
+                const allTls = (tlsData || []) as User[];
 
-                const { data: allRidersData } = await supabase.from('riders').select('*');
-                const allRiders = ((allRidersData as any[]) || []).map(r => ({
-                    ...r, walletAmount: r.wallet_amount, teamLeaderId: r.team_leader_id
-                })) as Rider[];
+                const { data: allRidersData } = await supabase.from('riders').select(`
+                    id,
+                    status,
+                    walletAmount:wallet_amount,
+                    teamLeaderId:team_leader_id
+                `);
+                const allRiders = (allRidersData || []) as Rider[];
 
                 const { data: allLeadsData } = await supabase.from('leads').select('*');
                 const allLeads = ((allLeadsData || [])).map(mapLeadFromDB);

@@ -311,10 +311,22 @@ const RiderManagement: React.FC = () => {
         if (!editingRider) return;
 
         try {
-            const { error } = await supabase.from('riders').update({
-                ...formData,
+            const dbPayload = {
+                triev_id: formData.trievId,
+                rider_name: formData.riderName,
+                mobile_number: formData.mobileNumber,
+                chassis_number: formData.chassisNumber,
+                client_name: formData.clientName,
+                client_id: formData.clientId,
+                wallet_amount: formData.walletAmount,
+                allotment_date: formData.allotmentDate,
+                remarks: formData.remarks || formData.comments,
+                status: formData.status,
+                team_leader_id: formData.teamLeaderId,
                 updated_at: new Date().toISOString(),
-            }).eq('id', editingRider.id);
+            };
+
+            const { error } = await supabase.from('riders').update(dbPayload).eq('id', editingRider.id);
 
             if (error) throw error;
 

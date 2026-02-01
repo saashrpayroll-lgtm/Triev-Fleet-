@@ -25,9 +25,6 @@ import {
     getNegativeWalletRiders,
     transformRiderData,
     ActivityLogEntry,
-    mapRiderFromDB,
-    mapUserFromDB,
-    mapRequestFromDB
 } from '@/utils/reportUtils';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/utils/exportUtils';
 
@@ -75,15 +72,35 @@ const Reports: React.FC = () => {
         setLoading(true);
         try {
             const [ridersRes, usersRes, requestsRes] = await Promise.all([
-                supabase.from('riders').select('*'),
-                supabase.from('users').select('*'),
-                supabase.from('requests').select('*')
+                supabase.from('riders').select(`
+                    id, 
+                    trievId:triev_id, 
+                    riderName:rider_name, 
+                    mobileNumber:mobile_number, 
+                    chassisNumber:chassis_number, 
+                    clientName:client_name, 
+                    clientId:client_id, 
+                    walletAmount:wallet_amount, 
+                    allotmentDate:allotment_date, 
+                    remarks,
+                    status, 
+                    teamLeaderId:team_leader_id,
+                    teamLeaderName:team_leader_name,
+                    createdAt:created_at
+                `),
+                supabase.from('users').select(`
+                    id, fullName:full_name, email, role, status
+                `),
+                supabase.from('requests').select(`
+                    id, ticketId:ticket_id, type, subject, description, priority, 
+                    status, userId:user_id, userName:user_name, userRole:user_role, 
+                    createdAt:created_at
+                `)
             ]);
 
-            setRiders((ridersRes.data || []).map(mapRiderFromDB));
-            const allUsers = (usersRes.data || []).map(mapUserFromDB);
-            setTeamLeaders(allUsers.filter(u => u.role === 'teamLeader'));
-            setRequests((requestsRes.data || []).map(mapRequestFromDB));
+            setRiders((ridersRes.data || []) as any);
+            setTeamLeaders((usersRes.data || []).filter((u: any) => u.role === 'teamLeader') as any);
+            setRequests((requestsRes.data || []) as any);
         } catch (error) {
             console.error('Error fetching data:', error);
             toast.error("Failed to fetch analytics data");
@@ -204,7 +221,17 @@ const Reports: React.FC = () => {
     };
 
     const fetchActivityLogs = async () => {
-        const { data } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(2000);
+        const { data } = await supabase.from('activity_logs').select(`
+            id,
+            action:action_type,
+            entityType:target_type,
+            entityId:target_id,
+            details,
+            timestamp,
+            performedBy:user_name,
+            isDeleted:is_deleted,
+            metadata
+        `).order('timestamp', { ascending: false }).limit(2000);
         return (data || []) as ActivityLogEntry[];
     };
 

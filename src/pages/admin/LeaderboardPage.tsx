@@ -33,35 +33,38 @@ const LeaderboardPage: React.FC = () => {
         const fetchData = async () => {
             try {
                 // Fetch TLs
-                const { data: usersData } = await supabase.from('users').select('*').eq('role', 'teamLeader');
+                const { data: usersData } = await supabase.from('users').select(`
+                    id,
+                    fullName:full_name,
+                    mobile,
+                    email,
+                    status
+                `).eq('role', 'teamLeader');
                 if (usersData) {
-                    const mappedUsers = usersData.map((u: any) => ({
-                        ...u,
-                        fullName: u.full_name,
-                        mobile: u.mobile,
-                    }));
-                    setTeamLeaders(mappedUsers as User[]);
+                    setTeamLeaders(usersData as User[]);
                 }
 
                 // Fetch Riders
-                const { data: ridersData } = await supabase.from('riders').select('*');
+                const { data: ridersData } = await supabase.from('riders').select(`
+                    id,
+                    trievId:triev_id,
+                    riderName:rider_name,
+                    status,
+                    walletAmount:wallet_amount,
+                    teamLeaderId:team_leader_id
+                `);
                 if (ridersData) {
-                    const mappedRiders = ridersData.map((r: any) => ({
-                        ...r,
-                        walletAmount: r.wallet_amount,
-                        teamLeaderId: r.team_leader_id
-                    }));
-                    setRiders(mappedRiders as Rider[]);
+                    setRiders(ridersData as Rider[]);
                 }
 
                 // Fetch Leads
-                const { data: leadsData } = await supabase.from('leads').select('*');
+                const { data: leadsData } = await supabase.from('leads').select(`
+                    id,
+                    status,
+                    createdBy:created_by
+                `);
                 if (leadsData) {
-                    const mappedLeads = leadsData.map((l: any) => ({
-                        ...l,
-                        createdBy: l.created_by
-                    }));
-                    setLeads(mappedLeads as Lead[]);
+                    setLeads(leadsData as Lead[]);
                 }
 
             } catch (error) {

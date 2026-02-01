@@ -31,6 +31,9 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [loading, setLoading] = useState(true);
 
     const formatUserData = (data: any): User => {
+        // Since we use aliasing in .select(), 'data' should already have camelCase keys.
+        // But for safety and for the Realtime payload (which is raw snake_case), we keep some mapping or ensure Realtime also uses aliasing (which it doesn't easily).
+        // Actually, Realtime payload data is always raw DB columns.
         return {
             id: data.id,
             userId: data.user_id || data.userId,
@@ -46,11 +49,10 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             jobLocation: data.job_location || data.jobLocation,
             profilePicUrl: data.profile_pic_url || data.profilePicUrl,
             username: data.username,
-            createdAt: data.created_at,
-            updatedAt: data.updated_at,
+            createdAt: data.created_at || data.createdAt,
+            updatedAt: data.updated_at || data.updatedAt,
             remarks: data.remarks,
             suspendedUntil: data.suspended_until || data.suspendedUntil,
-            currentLocation: data.current_location || data.currentLocation
         } as User;
     };
 
@@ -126,7 +128,24 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             // Try to get user from 'users' table
             let { data, error } = await supabase
                 .from('users')
-                .select('*')
+                .select(`
+                    id,
+                    userId:user_id,
+                    fullName:full_name,
+                    email,
+                    mobile,
+                    role,
+                    status,
+                    permissions,
+                    reportingManager:reporting_manager,
+                    jobLocation:job_location,
+                    profilePicUrl:profile_pic_url,
+                    remarks,
+                    suspendedUntil:suspended_until,
+                    username,
+                    createdAt:created_at,
+                    updatedAt:updated_at
+                `)
                 .eq('id', userId)
                 .single();
 

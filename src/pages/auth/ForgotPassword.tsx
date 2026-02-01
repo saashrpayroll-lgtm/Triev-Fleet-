@@ -32,10 +32,12 @@ const ForgotPassword: React.FC = () => {
             // 2. Create Request
             const { error: insertError } = await supabase.from('requests').insert({
                 type: 'password_reset',
+                subject: 'Password Reset Request',
+                description: `User ${email} has requested a password reset.`,
                 email: email,
-                userId: userId,
+                user_id: userId,
                 status: 'pending',
-                createdAt: new Date().toISOString()
+                created_at: new Date().toISOString()
             });
 
             if (insertError) throw insertError;

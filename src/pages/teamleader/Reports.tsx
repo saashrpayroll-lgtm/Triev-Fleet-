@@ -8,8 +8,7 @@ import {
     generateRiderListReport,
     generateWalletSummaryReport,
     generateClientDistributionReport,
-    transformRiderData,
-    mapRiderFromDB
+    transformRiderData
 } from '@/utils/reportUtils';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
@@ -46,15 +45,30 @@ const Reports: React.FC = () => {
             setLoading(true);
             const { data, error } = await supabase
                 .from('riders')
-                .select('*')
-                .eq('team_leader_id', userData.id); // Use snake_case for DB query
+                .select(`
+                    id, 
+                    trievId:triev_id, 
+                    riderName:rider_name, 
+                    mobileNumber:mobile_number, 
+                    chassisNumber:chassis_number, 
+                    clientName:client_name, 
+                    clientId:client_id, 
+                    walletAmount:wallet_amount, 
+                    allotmentDate:allotment_date, 
+                    remarks,
+                    status, 
+                    teamLeaderId:team_leader_id,
+                    teamLeaderName:team_leader_name,
+                    createdAt:created_at,
+                    updatedAt:updated_at
+                `)
+                .eq('team_leader_id', userData.id);
 
             if (error) {
                 console.error('Error fetching riders:', error);
                 toast.error('Failed to load rider data');
             } else {
-                // Map DB data to App Type
-                setRiders((data || []).map(mapRiderFromDB));
+                setRiders((data || []) as Rider[]);
             }
         } catch (error) {
             console.error('Error fetching riders:', error);

@@ -47,13 +47,13 @@ const logImportHistory = async (
     totalRows: number
 ) => {
     try {
-        await supabase.from('importHistory').insert({
-            adminId,
-            adminName,
-            importType: type,
-            totalRows,
-            successCount: summary.success,
-            failureCount: summary.failed,
+        await supabase.from('import_history').insert({
+            admin_id: adminId,
+            admin_name: adminName,
+            import_type: type,
+            total_rows: totalRows,
+            success_count: summary.success,
+            failure_count: summary.failed,
             status: summary.failed === 0 ? 'success' : (summary.success === 0 ? 'failed' : 'partial'),
             errors: summary.errors.slice(0, 50), // Limit errors stored
             timestamp: new Date().toISOString()
