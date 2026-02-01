@@ -36,17 +36,18 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
     );
 
     const getCategoryBadge = () => {
+        const cat = typeof lead.category === 'string' ? lead.category : 'Genuine'; // Fallback
         const config = {
             'Genuine': { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: ShieldCheck },
             'Match': { color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Repeat },
             'Duplicate': { color: 'bg-rose-100 text-rose-700 border-rose-200', icon: AlertTriangle },
-        }[lead.category] || { color: 'bg-gray-100 text-gray-600', icon: User };
+        }[cat] || { color: 'bg-gray-100 text-gray-600', icon: User };
 
         const Icon = config.icon;
 
         return (
             <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${config.color}`}>
-                <Icon size={14} /> {lead.category}
+                <Icon size={14} /> {typeof lead.category === 'string' ? lead.category : JSON.stringify(lead.category)}
             </span>
         );
     };
@@ -58,7 +59,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                 <div className="p-6 border-b border-border flex justify-between items-start bg-muted/20">
                     <div className="flex gap-4 items-center">
                         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
-                            {lead.riderName.charAt(0)}
+                            {lead.riderName?.charAt(0) || 'U'}
                         </div>
                         <div>
                             <h2 className="text-xl font-bold flex items-center gap-2">
@@ -155,12 +156,16 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                                     </div>
                                     <div>
                                         <label className="text-xs text-muted-foreground mb-1 block">GPS Location</label>
-                                        <div
-                                            className="text-sm font-medium text-blue-600 flex items-center gap-1 cursor-pointer hover:underline"
-                                            onClick={() => window.open(`https://www.google.com/maps?q=${lead.location.lat},${lead.location.lng}`, '_blank')}
-                                        >
-                                            <MapPin size={14} /> View on Map
-                                        </div>
+                                        {lead.location && lead.location.lat ? (
+                                            <div
+                                                className="text-sm font-medium text-blue-600 flex items-center gap-1 cursor-pointer hover:underline"
+                                                onClick={() => window.open(`https://www.google.com/maps?q=${lead.location.lat},${lead.location.lng}`, '_blank')}
+                                            >
+                                                <MapPin size={14} /> View on Map
+                                            </div>
+                                        ) : (
+                                            <div className="text-sm text-muted-foreground italic">Location not available</div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

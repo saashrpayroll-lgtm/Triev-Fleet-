@@ -137,22 +137,27 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
         if (isCheckingMobile) return <span className="text-xs animate-pulse text-muted-foreground ml-2">Verifying...</span>;
         if (!leadCategory) return null;
 
-        const styles = {
+        const styles: Record<string, string> = {
             'Genuine': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
             'Match': 'bg-blue-500/10 text-blue-500 border-blue-500/20',
             'Duplicate': 'bg-red-500/10 text-red-500 border-red-500/20'
         };
 
-        const icons = {
+        const icons: Record<string, React.ReactNode> = {
             'Genuine': <CheckCircle size={12} />,
             'Match': <AlertTriangle size={12} />,
             'Duplicate': <XCircle size={12} />
         };
 
+        // Fallback for unknown categories
+        const style = styles[leadCategory as string] || 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+        const icon = icons[leadCategory as string] || <CheckCircle size={12} />;
+
         return (
-            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${styles[leadCategory]} ml-2`}>
-                {icons[leadCategory]}
-                {leadCategory}
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${style} ml-2`}>
+                {icon}
+                {/* Safely render category */}
+                {typeof leadCategory === 'string' ? leadCategory : JSON.stringify(leadCategory)}
             </div>
         );
     };
@@ -345,9 +350,13 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
                         <div className="flex-1">
                             <p className="text-xs font-bold text-foreground/80 flex items-center justify-between">
                                 {location ? "GPS Location Locked" : "Acquiring GPS..."}
-                                {location && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded">±{Math.round(location.accuracy)}m</span>}
+                                {location?.accuracy && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded">±{Math.round(location.accuracy)}m</span>}
                             </p>
-                            {location && <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>}
+                            {location?.lat !== undefined && location?.lng !== undefined && (
+                                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                    {Number(location.lat).toFixed(6)}, {Number(location.lng).toFixed(6)}
+                                </p>
+                            )}
                         </div>
                     </div>
 

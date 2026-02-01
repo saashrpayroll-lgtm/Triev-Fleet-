@@ -51,7 +51,8 @@ const AdminLeads: React.FC = () => {
             const { data: leadData } = await supabase.from('leads').select(`
                 id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
                 city, status, score, category, source, createdAt:created_at,
-                drivingLicense:driving_license, clientInterested:client_interested
+                drivingLicense:driving_license, clientInterested:client_interested,
+                location
             `).order('id', { ascending: false });
             if (leadData) setLeads(leadData as any);
 
