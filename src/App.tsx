@@ -287,6 +287,7 @@ function AppRoutes() {
 
 import { Toaster } from 'sonner';
 import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
+import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 
 function App() {
   console.log('App component rendering (Supabase)');
@@ -297,7 +298,9 @@ function App() {
           <ToastProvider>
             <BrowserRouter>
               <AppRoutes />
-              <FloatingChatWidget />
+              <ComponentErrorBoundary name="ChatWidget">
+                <FloatingChatWidget />
+              </ComponentErrorBoundary>
               <Toaster position="top-right" richColors />
             </BrowserRouter>
           </ToastProvider>

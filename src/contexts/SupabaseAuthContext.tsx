@@ -40,8 +40,8 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             email: data.email,
             mobile: data.mobile,
             fullName: data.full_name || data.fullName,
-            role: data.role,
-            status: data.status,
+            role: typeof data.role === 'string' ? data.role : 'guest', // Safer
+            status: typeof data.status === 'string' ? data.status : 'active', // Safer
             permissions: typeof data.permissions === 'string'
                 ? JSON.parse(data.permissions)
                 : (data.permissions || {}),
@@ -49,9 +49,9 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             jobLocation: data.job_location || data.jobLocation,
             profilePicUrl: data.profile_pic_url || data.profilePicUrl,
             username: data.username,
-            createdAt: data.created_at || data.createdAt,
-            updatedAt: data.updated_at || data.updatedAt,
-            remarks: data.remarks,
+            createdAt: typeof (data.created_at || data.createdAt) === 'object' ? new Date(data.created_at || data.createdAt).toISOString() : (data.created_at || data.createdAt),
+            updatedAt: typeof (data.updated_at || data.updatedAt) === 'object' ? new Date(data.updated_at || data.updatedAt).toISOString() : (data.updated_at || data.updatedAt),
+            remarks: typeof data.remarks === 'object' ? JSON.stringify(data.remarks) : data.remarks,
             suspendedUntil: data.suspended_until || data.suspendedUntil,
         } as User;
     };
