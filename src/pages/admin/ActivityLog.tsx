@@ -8,11 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ActivityLog {
     id: string;
     userName: string;
-    userId: string;
-    userRole: string;
+    userId: string | null;
+    userRole: string | null;
     actionType: string;
     targetType: string;
-    targetId: string;
+    targetId: string | null;
     details: string;
     timestamp: string;
     isDeleted: boolean;
@@ -429,8 +429,8 @@ const ActivityLog: React.FC = () => {
                                             {log.details}
                                         </p>
                                         <div className="flex gap-2 text-[10px] text-muted-foreground">
-                                            <span>ID: {log.id.split('-')[0]}...</span>
-                                            {log.targetId && <span>Target: {log.targetId.split('-')[0]}...</span>}
+                                            <span>ID: {log.id?.split('-')[0] || '...'}</span>
+                                            {log.targetId && <span>Target: {log.targetId?.split('-')[0] || '...'}</span>}
                                         </div>
                                     </div>
 
@@ -440,7 +440,7 @@ const ActivityLog: React.FC = () => {
                                                 <User size={12} />
                                                 <span className="truncate max-w-[100px] font-medium text-foreground" title={log.userName}>{log.userName}</span>
                                             </div>
-                                            <span className="text-[10px] opacity-60 ml-1">ID: {log.userId.split('-')[0]}...</span>
+                                            <span className="text-[10px] opacity-60 ml-1">ID: {log.userId?.split('-')[0] || 'System'}</span>
                                         </div>
                                         {log.metadata?.ip && (
                                             <div className="flex items-center gap-1.5 hidden md:flex">
