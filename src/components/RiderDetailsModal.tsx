@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Rider, ActivityLog } from '@/types';
-import { X, Phone, MessageCircle, History, AlertTriangle, ShieldCheck, Building2, Bike, UserCheck, Share2, Calendar } from 'lucide-react';
+import { X, Phone, MessageCircle, History, AlertTriangle, ShieldCheck, Building2, Bike, UserCheck, Share2, Calendar, Download } from 'lucide-react';
 import { AIService } from '@/services/AIService';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -29,6 +29,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
     const [reminderLang, setReminderLang] = useState<'hindi' | 'english'>('hindi');
     const [aiMessage, setAiMessage] = useState('');
     const [generating, setGenerating] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         // Calculate Score
@@ -143,6 +144,41 @@ ${new Date().toLocaleString('en-IN')}`;
         toast.success('Share card opened in WhatsApp!');
     };
 
+    const handleDownloadCard = async () => {
+        if (!cardRef.current) return;
+
+        try {
+            // Use html2canvas if available, otherwise show text share
+            if (typeof window !== 'undefined' && (window as any).html2canvas) {
+                const canvas = await (window as any).html2canvas(cardRef.current, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    logging: false
+                });
+
+                canvas.toBlob((blob: Blob | null) => {
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `rider-card-${rider.trievId}.png`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        toast.success('Card downloaded successfully!');
+                    }
+                });
+            } else {
+                // Fallback: copy formatted text
+                const cardText = generateShareCard();
+                await navigator.clipboard.writeText(cardText);
+                toast.success('Card details copied to clipboard!');
+            }
+        } catch (error) {
+            console.error('Error downloading card:', error);
+            toast.error('Failed to download card');
+        }
+    };
+
     const handleAction = async (type: 'call' | 'whatsapp' | 'reminder' | 'call_tl', message?: string) => {
         if (!userData) return;
 
@@ -211,7 +247,7 @@ ${new Date().toLocaleString('en-IN')}`;
                     </button>
                 </div>
 
-                <div className="p-6 grid lg:grid-cols-3 gap-6">
+                <div className="p-6 grid lg:grid-cols-3 gap-6" ref={cardRef}>
                     {/* Left Column: Rider Info */}
                     <div className="lg:col-span-2 space-y-4">
 
@@ -317,17 +353,17 @@ ${new Date().toLocaleString('en-IN')}`;
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => handleAction('call')}
-                                className="flex items-center justify-center gap-2 p-3 rounded-lg border hover:bg-green-50 hover:border-green-300 transition-colors font-medium"
+                                className="flex items-center justify-center gap-2 p-3 rounded-lg border border-green-200 bg-white hover:bg-green-600 hover:border-green-600 text-green-700 hover:text-white transition-all font-medium group"
                             >
-                                <Phone size={18} className="text-green-600" />
-                                Call Rider
+                                <Phone size={18} className="text-green-600 group-hover:text-white" />
+                                <span className="group-hover:text-white">Call Rider</span>
                             </button>
                             <button
                                 onClick={() => handleAction('whatsapp')}
-                                className="flex items-center justify-center gap-2 p-3 rounded-lg border hover:bg-green-50 hover:border-green-300 transition-colors font-medium"
+                                className="flex items-center justify-center gap-2 p-3 rounded-lg border border-green-200 bg-white hover:bg-green-600 hover:border-green-600 text-green-700 hover:text-white transition-all font-medium group"
                             >
-                                <MessageCircle size={18} className="text-green-500" />
-                                WhatsApp
+                                <MessageCircle size={18} className="text-green-600 group-hover:text-white" />
+                                <span className="group-hover:text-white">WhatsApp</span>
                             </button>
 
                             {rider.walletAmount < 0 && (
@@ -342,10 +378,17 @@ ${new Date().toLocaleString('en-IN')}`;
 
                             <button
                                 onClick={handleShareCard}
-                                className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold"
+                                className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold"
                             >
                                 <Share2 size={18} />
-                                Share Card to WhatsApp
+                                Share Text Card
+                            </button>
+                            <button
+                                onClick={handleDownloadCard}
+                                className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transition-all font-bold"
+                            >
+                                <Download size={18} />
+                                Download Card
                             </button>
                         </div>
 
