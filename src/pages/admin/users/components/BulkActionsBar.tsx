@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Lock, X } from 'lucide-react';
+import { Trash2, Lock, X, RefreshCw } from 'lucide-react';
 
 interface BulkActionsBarProps {
     selectedCount: number;
@@ -7,6 +7,7 @@ interface BulkActionsBarProps {
     onDelete: () => void;
     onSuspend: () => void;
     onToggleStatus: () => void;
+    isProcessing?: boolean;
 }
 
 const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
@@ -14,16 +15,21 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     onClearSelection,
     onDelete,
     onSuspend,
-    onToggleStatus
+    onToggleStatus,
+    isProcessing = false
 }) => {
     if (selectedCount === 0) return null;
 
     return (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
-            <div className="bg-gray-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-6 border border-white/10">
+            <div className={`bg-gray-900/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-6 border border-white/10 transition-all ${isProcessing ? 'opacity-70 pointer-events-none' : ''}`}>
                 <div className="flex items-center gap-3 border-r border-white/20 pr-6">
-                    <span className="bg-white/20 px-2 py-0.5 rounded text-sm font-bold">{selectedCount}</span>
-                    <span className="text-sm font-medium">Selected</span>
+                    {isProcessing ? (
+                        <RefreshCw size={16} className="animate-spin text-primary" />
+                    ) : (
+                        <span className="bg-white/20 px-2 py-0.5 rounded text-sm font-bold">{selectedCount}</span>
+                    )}
+                    <span className="text-sm font-medium">{isProcessing ? 'Processing...' : 'Selected'}</span>
                 </div>
 
                 <div className="flex items-center gap-2">

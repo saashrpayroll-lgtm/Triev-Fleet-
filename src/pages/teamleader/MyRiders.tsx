@@ -52,20 +52,20 @@ const MyRiders: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
     // Permission Checks
-    // Permission Checks (Strict Defaults: Allow access only if explicitly true or if permission object is entirely missing for legacy)
-    // Permission Checks (Strict Defaults: Allow access only if explicitly true or if permission object is entirely missing for legacy)
-    const canViewPage = userData?.permissions?.modules?.riders ?? false;
-    const canAddRider = userData?.permissions?.riders?.create ?? false;
-    const canExport = userData?.permissions?.riders?.export ?? false;
-    const canDelete = userData?.permissions?.riders?.delete ?? false;
+    const canViewPage = userData?.permissions?.modules?.riders ?? true;
+    const canAddRider = userData?.permissions?.riders?.create ?? true;
+    const canExport = userData?.permissions?.riders?.export ?? true;
+    const canDelete = userData?.permissions?.riders?.delete ?? true;
 
     // Pass specific permissions to dropdown
     const riderActionPermissions = {
-        view: userData?.permissions?.riders?.view ?? false,
-        edit: userData?.permissions?.riders?.edit ?? false,
-        statusChange: userData?.permissions?.riders?.statusChange ?? false,
-        softDelete: userData?.permissions?.riders?.delete ?? false,
+        view: userData?.permissions?.riders?.view ?? true,
+        edit: userData?.permissions?.riders?.edit ?? true,
+        statusChange: userData?.permissions?.riders?.statusChange ?? true,
+        softDelete: userData?.permissions?.riders?.delete ?? true,
         hardDelete: userData?.permissions?.riders?.hardDelete ?? false,
+        canCall: userData?.permissions?.riders?.edit ?? true,
+        canWhatsApp: userData?.permissions?.riders?.edit ?? true,
     };
 
 
@@ -881,20 +881,24 @@ const MyRiders: React.FC = () => {
                                                 <div className="flex flex-col gap-1">
                                                     <span>{rider.mobileNumber}</span>
                                                     <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => handleCall(rider.mobileNumber)}
-                                                            className="text-green-600 hover:text-green-700 transition-colors"
-                                                            title="Call"
-                                                        >
-                                                            <Phone size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleWhatsApp(rider.mobileNumber)}
-                                                            className="text-green-600 hover:text-green-700 transition-colors"
-                                                            title="WhatsApp"
-                                                        >
-                                                            <MessageCircle size={14} />
-                                                        </button>
+                                                        {(riderActionPermissions.canCall) && (
+                                                            <button
+                                                                onClick={() => handleCall(rider.mobileNumber)}
+                                                                className="text-green-600 hover:text-green-700 transition-colors"
+                                                                title="Call"
+                                                            >
+                                                                <Phone size={14} />
+                                                            </button>
+                                                        )}
+                                                        {(riderActionPermissions.canWhatsApp) && (
+                                                            <button
+                                                                onClick={() => handleWhatsApp(rider.mobileNumber)}
+                                                                className="text-green-600 hover:text-green-700 transition-colors"
+                                                                title="WhatsApp"
+                                                            >
+                                                                <MessageCircle size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>

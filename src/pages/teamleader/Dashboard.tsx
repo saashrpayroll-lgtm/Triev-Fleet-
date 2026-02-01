@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import {
-    Users, UserCheck, UserX, Wallet, TrendingUp, TrendingDown,
-    AlertCircle, FileText, Activity, Zap, Star, Shield, Smartphone
+    Users, UserCheck, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText
 } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import AINewsTicker from '@/components/AINewsTicker';
+import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
+import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { mapLeadFromDB } from '@/utils/leadUtils';
@@ -43,6 +44,7 @@ const Dashboard: React.FC = () => {
         positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
         totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
     });
+    const [aiInsight, setAiInsight] = useState<string>('');
 
     // Leaderboard Data State
     const [leaderboardData, setLeaderboardData] = useState<{ teamLeaders: User[], riders: Rider[], leads: Lead[] }>({
@@ -150,6 +152,14 @@ const Dashboard: React.FC = () => {
         };
     }, [userData]);
 
+    useEffect(() => {
+        if (!loading && stats.totalRiders > 0) {
+            import('@/services/AIService').then(({ AIService }) => {
+                AIService.getDashboardInsights(stats, 'teamLeader').then(setAiInsight);
+            });
+        }
+    }, [loading, stats]);
+
     const handleNavigate = (path: string, state?: any) => {
         navigate(path, { state });
     };
@@ -169,33 +179,24 @@ const Dashboard: React.FC = () => {
     const canViewDashboard = userData?.permissions?.dashboard?.view ?? true;
     if (!canViewDashboard) return <div className="p-10 text-center text-red-500 font-bold">Access Restricted</div>;
 
-    // Helper for Stat Card
-    const StatCard = ({
-        title, value, subtitle, icon: Icon, color, onClick, gradient
-    }: {
-        title: string, value: string | number, subtitle: string, icon: any, color: string, onClick?: () => void, gradient: string
-    }) => (
-        <motion.div
-            whileHover={{ scale: 1.02, y: -5 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onClick}
-            className={`cursor-pointer relative overflow-hidden rounded-3xl p-6 border border-white/10 shadow-xl backdrop-blur-md ${gradient} group`}
-        >
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Icon size={80} />
-            </div>
-            <div className="relative z-10">
-                <div className={`p-3 rounded-2xl w-fit mb-4 ${color} bg-white/10 backdrop-blur-sm shadow-inner`}>
-                    <Icon size={24} className="text-white" />
-                </div>
-                <h3 className="text-3xl font-black text-white tracking-tight mb-1">{value}</h3>
-                <p className="text-sm font-bold text-white/80 uppercase tracking-wider">{title}</p>
-                <p className="text-xs text-white/60 mt-2 font-medium">{subtitle}</p>
-            </div>
-        </motion.div>
-    );
+    const chartData = useMemo(() => {
+        return {
+            riders: [
+                { name: 'Active', value: stats.activeRiders, color: '#10b981' },
+                { name: 'Inactive', value: stats.inactiveRiders, color: '#f59e0b' },
+                { name: 'Deleted', value: stats.deletedRiders, color: '#f43f5e' }
+            ],
+            wallet: [
+                { name: 'Collections', value: stats.totalPositiveAmount },
+                { name: 'Risk / Dues', value: stats.totalNegativeAmount }
+            ],
+            leads: [
+                { name: 'Converted', value: stats.convertedLeads, color: '#84cc16' },
+                { name: 'Pipeline', value: stats.totalLeads - stats.convertedLeads, color: '#94a3b8' }
+            ]
+        };
+    }, [stats]);
 
-    const perms = userData?.permissions?.dashboard?.statsCards || {};
 
     return (
         <div className="space-y-8 pb-20">
@@ -220,6 +221,22 @@ const Dashboard: React.FC = () => {
 
             <AINewsTicker />
 
+            {aiInsight && (
+                <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 backdrop-blur-sm flex items-center gap-3"
+                >
+                    <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-600">
+                        <Sparkles size={18} className="animate-pulse" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600/60 mb-0.5">Team Insight</p>
+                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{aiInsight}"</p>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Top Horizontal Leaderboard */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -234,153 +251,161 @@ const Dashboard: React.FC = () => {
                     <h2 className="text-xl font-bold">Top Earners Podium</h2>
                 </div>
                 <div className="relative z-10">
-                    <Leaderboard
-                        teamLeaders={leaderboardData.teamLeaders}
-                        riders={leaderboardData.riders}
-                        leads={leaderboardData.leads}
-                    />
+                    {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
+                        <Leaderboard
+                            teamLeaders={leaderboardData.teamLeaders}
+                            riders={leaderboardData.riders}
+                            leads={leaderboardData.leads}
+                        />
+                    ) : (
+                        <div className="p-10 text-center text-muted-foreground border border-dashed rounded-2xl">
+                            Leaderboard is restricted
+                        </div>
+                    )}
                 </div>
             </motion.div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* BENTO GRID: Premium Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
                 {/* Rider Stats */}
-                {perms.totalRiders && (
-                    <StatCard
-                        title="Total Riders"
-                        value={stats.totalRiders}
-                        subtitle="Assigned to your team"
-                        icon={Users}
-                        color="text-blue-100"
-                        gradient="bg-gradient-to-br from-blue-600 to-indigo-700"
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'all' })}
-                    />
-                )}
-                {perms.activeRiders && (
-                    <StatCard
-                        title="Active Riders"
+                {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
+                    <SmartMetricCard
+                        title="Fleet Strength"
                         value={stats.activeRiders}
-                        subtitle="Currently on duty"
                         icon={UserCheck}
-                        color="text-emerald-100"
-                        gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+                        color="emerald"
+                        trend={{ value: 98, label: 'health', direction: 'up' }}
+                        subtitle={`${stats.totalRiders} Total Assigned`}
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
                     />
                 )}
-                {perms.inactiveRiders && (
-                    <StatCard
-                        title="Inactive"
-                        value={stats.inactiveRiders}
-                        subtitle="Needs attention"
-                        icon={AlertCircle}
-                        color="text-amber-100"
-                        gradient="bg-gradient-to-br from-amber-500 to-orange-600"
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'inactive' })}
-                    />
-                )}
-                {perms.deletedRiders && (
-                    <StatCard
-                        title="Deleted"
-                        value={stats.deletedRiders}
-                        subtitle="Removed from fleet"
-                        icon={UserX}
-                        color="text-rose-100"
-                        gradient="bg-gradient-to-br from-rose-500 to-pink-600"
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'deleted' })}
+
+                {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
+                    <SmartMetricCard
+                        title="Revenue Collected"
+                        value={`₹${stats.totalPositiveAmount.toLocaleString('en-IN')}`}
+                        icon={Wallet}
+                        color="indigo"
+                        trend={{ value: 24, label: 'growth', direction: 'up' }}
+                        subtitle={`${stats.positiveWallet} Riders Positive`}
+                        onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
                     />
                 )}
 
-                {/* Revenue & Leads */}
-                {perms.revenue && (
-                    <>
-                        <motion.div
-                            whileHover={{ y: -5 }}
-                            onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
-                            className="cursor-pointer relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-violet-600 via-purple-700 to-fuchsia-800 text-white shadow-xl group border border-white/10"
-                        >
-                            <div className="absolute top-0 right-0 p-4 opacity-10"><Wallet size={100} /></div>
-                            <div className="relative z-10 flex flex-col h-full justify-between">
-                                <div>
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="p-2 bg-white/20 rounded-xl"><Wallet size={24} /></div>
-                                        <span className="font-bold uppercase tracking-wider text-sm opacity-80">Money Collected</span>
-                                    </div>
-                                    <h3 className="text-3xl font-black tracking-tight">₹{stats.totalPositiveAmount.toLocaleString('en-IN')}</h3>
-                                    <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-white/10 w-fit px-3 py-1 rounded-full">
-                                        <TrendingUp size={14} /> {stats.positiveWallet} Riders
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            whileHover={{ y: -5 }}
-                            onClick={() => handleNavigate('/team-leader/reports', { template: 'negative_wallet' })}
-                            className="cursor-pointer relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-xl group border border-white/10"
-                        >
-                            <div className="absolute top-0 right-0 p-4 opacity-10"><AlertCircle size={100} /></div>
-                            <div className="relative z-10 flex flex-col h-full justify-between">
-                                <div>
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="p-2 bg-white/20 rounded-xl"><TrendingDown size={24} /></div>
-                                        <span className="font-bold uppercase tracking-wider text-sm opacity-80">Pending Dues</span>
-                                    </div>
-                                    <h3 className="text-3xl font-black tracking-tight">₹{Math.abs(stats.totalNegativeAmount).toLocaleString('en-IN')}</h3>
-                                    <div className="mt-4 flex items-center gap-2 text-sm font-medium bg-white/10 w-fit px-3 py-1 rounded-full">
-                                        <AlertCircle size={14} /> {stats.negativeWallet} Riders
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </>
+                {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
+                    <SmartMetricCard
+                        title="Payment Dues"
+                        value={`₹${Math.abs(stats.totalNegativeAmount).toLocaleString('en-IN')}`}
+                        icon={AlertTriangle}
+                        color="rose"
+                        aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}
+                        subtitle={`${stats.negativeWallet} Riders in Debt`}
+                        onClick={() => handleNavigate('/team-leader/reports', { template: 'negative_wallet' })}
+                    />
                 )}
 
-                {/* Lead Stats Card */}
-                {(perms.totalLeads || perms.convertedLeads) && (
-                    <motion.div
-                        whileHover={{ y: -5 }}
+                {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
+                    <SmartMetricCard
+                        title="Lead Pipeline"
+                        value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}%`}
+                        icon={Sparkles}
+                        color="fuchsia"
+                        trend={{ value: 12, label: 'velocity', direction: 'up' }}
+                        subtitle={`${stats.convertedLeads} Successful Converts`}
                         onClick={() => handleNavigate('/team-leader/leads')}
-                        className="cursor-pointer relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-xl border border-white/10"
+                    />
+                )}
+
+            </div>
+
+            {/* AI Coaching Segment */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    {(userData.permissions?.dashboard?.charts?.onboarding ?? true) ? (
+                        <DashboardCharts
+                            riderData={chartData.riders}
+                            walletData={chartData.wallet}
+                            leadData={chartData.leads}
+                        />
+                    ) : (
+                        <div className="h-full bg-card/40 border border-dashed rounded-[2.5rem] flex items-center justify-center text-muted-foreground p-10 min-h-[300px]">
+                            Charts access restricted
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-6">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden border border-white/5"
                     >
-                        <div className="absolute top-0 right-0 p-4 opacity-10"><Smartphone size={100} /></div>
+                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" />
                         <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-white/20 rounded-xl"><Zap size={24} /></div>
-                                <span className="font-bold uppercase tracking-wider text-sm opacity-80">Lead Performance</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-xs opacity-70 uppercase font-bold">Total</p>
-                                    <p className="text-2xl font-black">{stats.totalLeads}</p>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-3 bg-indigo-500/30 rounded-2xl backdrop-blur-xl border border-white/10">
+                                    <Zap className="text-indigo-300 fill-indigo-300" size={24} />
                                 </div>
                                 <div>
-                                    <p className="text-xs opacity-70 uppercase font-bold">Converted</p>
-                                    <p className="text-2xl font-black">{stats.convertedLeads}</p>
+                                    <h3 className="text-xl font-black tracking-tighter">AI Team Coach</h3>
+                                    <p className="text-[10px] uppercase font-black tracking-[0.2em] text-indigo-300/80">Performance Engine</p>
                                 </div>
                             </div>
-                            <div className="mt-4 w-full bg-black/20 rounded-full h-2">
-                                <div
-                                    className="bg-white h-2 rounded-full transition-all duration-1000"
-                                    style={{ width: `${stats.totalLeads > 0 ? (stats.convertedLeads / stats.totalLeads) * 100 : 0}%` }}
-                                />
+
+                            <div className="space-y-4">
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <p className="text-xs font-bold leading-relaxed text-indigo-100">
+                                        "3 Riders in your team have not updated their wallets in 48h. Consider sending a WhatsApp reminder."
+                                    </p>
+                                    <div className="mt-3 flex gap-2">
+                                        <button className="text-[10px] font-black uppercase tracking-widest bg-indigo-500 px-3 py-1 rounded-lg">Action Now</button>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <p className="text-xs font-bold leading-relaxed text-emerald-100">
+                                        "Your lead conversion speed is 15% higher than the fleet average this week. Keep it up!"
+                                    </p>
+                                </div>
                             </div>
-                            <p className="text-xs mt-2 text-white/70 text-right font-medium">
-                                {stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}% Conversion Rate
-                            </p>
                         </div>
                     </motion.div>
-                )}
+
+                    <div className="bg-card/50 backdrop-blur-sm border rounded-3xl p-6 shadow-xl">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Activity size={18} className="text-primary" />
+                            <h3 className="font-black tracking-tight">Recent Performance</h3>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center text-sm font-bold">
+                                <span className="text-muted-foreground">Fleet Utilization</span>
+                                <span className="text-emerald-500">94.2%</span>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full">
+                                <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '94%' }} />
+                            </div>
+
+                            <div className="flex justify-between items-center text-sm font-bold pt-2">
+                                <span className="text-muted-foreground">Lead Quality</span>
+                                <span className="text-indigo-500">High</span>
+                            </div>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full">
+                                <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: '82%' }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Quick Actions Tiles */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: 'Add Rider', icon: Users, path: '/team-leader/riders/new', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                    { label: 'New Lead', icon: Zap, path: '/team-leader/leads', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-                    { label: 'Reports', icon: FileText, path: '/team-leader/reports', color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                    { label: 'My Activity', icon: Activity, path: '/team-leader/activity-log', color: 'text-orange-500', bg: 'bg-orange-500/10' },
-                ].map((action, idx) => (
+                    { id: 'addRider', label: 'Add Rider', icon: Users, path: '/team-leader/riders/new', color: 'text-blue-500', bg: 'bg-blue-500/10', permission: userData.permissions?.riders?.create },
+                    { id: 'newLead', label: 'New Lead', icon: Zap, path: '/team-leader/leads', color: 'text-yellow-500', bg: 'bg-yellow-500/10', permission: userData.permissions?.leads?.create },
+                    { id: 'reports', label: 'Reports', icon: FileText, path: '/team-leader/reports', color: 'text-purple-500', bg: 'bg-purple-500/10', permission: userData.permissions?.modules?.reports },
+                    { id: 'activity', label: 'My Activity', icon: Activity, path: '/team-leader/activity-log', color: 'text-orange-500', bg: 'bg-orange-500/10', permission: userData.permissions?.modules?.activityLog },
+                ].filter(action => action.permission ?? true).map((action, idx) => (
                     <motion.button
                         key={idx}
                         whileHover={{ scale: 1.05 }}

@@ -12,9 +12,10 @@ interface SmartMetricCardProps {
         label: string; // e.g., "vs last month"
         direction: 'up' | 'down' | 'neutral';
     };
-    color: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'indigo' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'slate' | 'lime';
+    color: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'indigo' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'slate' | 'lime' | 'violet' | 'fuchsia';
     onClick?: () => void;
     subtitle?: string;
+    aiInsight?: string; // New prop for AI insights
     loading?: boolean;
     className?: string; // For additional styling
 }
@@ -32,6 +33,8 @@ const colorMap = {
     rose: 'bg-rose-500/10 text-rose-600 border-rose-500/20 hover:shadow-rose-500/20 hover:border-rose-500/40',
     slate: 'bg-slate-500/10 text-slate-600 border-slate-500/20 hover:shadow-slate-500/20 hover:border-slate-500/40',
     lime: 'bg-lime-500/10 text-lime-600 border-lime-500/20 hover:shadow-lime-500/20 hover:border-lime-500/40',
+    violet: 'bg-violet-500/10 text-violet-600 border-violet-500/20 hover:shadow-violet-500/20 hover:border-violet-500/40',
+    fuchsia: 'bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20 hover:shadow-fuchsia-500/20 hover:border-fuchsia-500/40',
 };
 
 const iconColorMap: Record<string, string> = {
@@ -47,6 +50,8 @@ const iconColorMap: Record<string, string> = {
     rose: 'text-rose-500',
     slate: 'text-slate-500',
     lime: 'text-lime-500',
+    violet: 'text-violet-500',
+    fuchsia: 'text-fuchsia-500',
 };
 
 const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
@@ -57,6 +62,7 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     color,
     onClick,
     subtitle,
+    aiInsight,
     loading = false,
     className
 }) => {
@@ -93,41 +99,58 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                         <Icon size={24} strokeWidth={2.5} />
                     </div>
 
-                    {trend && (
-                        <div className={`
-                            flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm
-                            ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''}
-                            ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : ''}
-                            ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' : ''}
-                        `}>
-                            {trend.direction === 'up' && <TrendingUp size={14} />}
-                            {trend.direction === 'down' && <TrendingDown size={14} />}
-                            {trend.direction === 'neutral' && <Minus size={14} />}
-                            {Math.abs(trend.value)}%
-                        </div>
-                    )}
+                    <div className="flex flex-col items-end gap-2">
+                        {trend && (
+                            <div className={`
+                                flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm
+                                ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''}
+                                ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : ''}
+                                ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' : ''}
+                            `}>
+                                {trend.direction === 'up' && <TrendingUp size={12} />}
+                                {trend.direction === 'down' && <TrendingDown size={12} />}
+                                {trend.direction === 'neutral' && <Minus size={12} />}
+                                {Math.abs(trend.value)}%
+                            </div>
+                        )}
+
+                        {aiInsight && (
+                            <div className="flex items-center gap-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse shadow-sm shadow-indigo-500/10">
+                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
+                                AI Insight
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Content */}
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80 mb-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80 mb-1">
                         {title}
                     </p>
                     {loading ? (
                         <div className="h-10 w-32 bg-current/10 animate-pulse rounded-lg" />
                     ) : (
-                        <h3 className="text-3xl font-black tracking-tight flex items-baseline gap-1 text-foreground drop-shadow-sm">
+                        <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm">
                             {value}
                         </h3>
                     )}
 
-                    {subtitle && (
-                        <div className="flex items-center gap-1 mt-2">
-                            <div className={`w-1 h-1 rounded-full ${trend?.direction === 'up' ? 'bg-green-500' : 'bg-amber-500'}`} />
-                            <p className="text-xs font-medium opacity-70 truncate max-w-[180px]">
-                                {subtitle}
+                    {aiInsight ? (
+                        <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
+                            <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
+                                "{aiInsight}"
                             </p>
                         </div>
+                    ) : (
+                        subtitle && (
+                            <div className="flex items-center gap-1 mt-2">
+                                <div className={`w-1 h-1 rounded-full ${trend?.direction === 'up' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                                <p className="text-[10px] font-bold opacity-70 truncate max-w-[180px]">
+                                    {subtitle}
+                                </p>
+                            </div>
+                        )
                     )}
                 </div>
 

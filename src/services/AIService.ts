@@ -1,4 +1,4 @@
-import { Rider } from '@/types';
+import { Rider, User, Lead } from '@/types';
 import { supabase } from '@/config/supabase';
 import { AIConfigService } from './AIConfigService';
 
@@ -258,6 +258,37 @@ export const AIService = {
         const prompt = `Analyze user statistics and provide 3 bulleted actionable insights.\nStats: ${JSON.stringify(stats)}`;
         const text = await AIOrchestrator.execute('analysis', prompt, "You are a Data Analyst."); // Gemini
         return text || "Failed to generate insights.";
+    },
+
+    getTeamPerformanceAnalysis: async (tlData: User, riders: Rider[], leads: Lead[]): Promise<string> => {
+        const stats = {
+            totalRiders: riders.length,
+            activeRiders: riders.filter(r => r.status === 'active').length,
+            avgWallet: riders.length > 0 ? riders.reduce((sum, r) => sum + r.walletAmount, 0) / riders.length : 0,
+            leadsConverted: leads.filter(l => l.status === 'Convert').length,
+            totalLeads: leads.length
+        };
+        const prompt = `Analyze Team Leader ${tlData.fullName}'s performance based on these metrics: ${JSON.stringify(stats)}. Provide a 2-sentence performance verdict.`;
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Performance Reviewer.");
+        return text ? cleanText(text) : "Performance data being processed.";
+    },
+
+    predictChurnRisk: async (rider: Rider): Promise<{ risk: 'Low' | 'Medium' | 'High', reasoning: string }> => {
+        const prompt = `Predict churn risk for rider: ${JSON.stringify(rider)}. 
+        Consider: negative wallet, frequency of activity, status.
+        Output strictly JSON: { "risk": "Low"|"Medium"|"High", "reasoning": "..." }`;
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Retention Specialist. Output JSON.");
+        try {
+            return JSON.parse(text?.match(/\{[\s\S]*\}/)?.[0] || '{"risk": "Low", "reasoning": "Standard activity profile."}');
+        } catch (e) {
+            return { risk: 'Low', reasoning: 'Data insufficient for accurate prediction.' };
+        }
+    },
+
+    generateBulkAnnouncement: async (topic: string, target: 'riders' | 'teamLeaders'): Promise<string> => {
+        const prompt = `Write a professional announcement for ${target} regarding: "${topic}". Keep it under 200 characters for mobile display.`;
+        const text = await AIOrchestrator.execute('creative', prompt, "You are a Communications Manager.");
+        return text ? cleanText(text) : `Update on ${topic}. Please check the bulletin.`;
     },
 
     // --- Lead Scoring ---

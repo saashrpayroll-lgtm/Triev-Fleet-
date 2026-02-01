@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, AlertTriangle, Coins
+    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone
 } from 'lucide-react';
 import { Rider, User, Lead, Request } from '@/types';
 import AINewsTicker from '@/components/AINewsTicker';
@@ -152,9 +152,17 @@ const Dashboard: React.FC = () => {
 
         // Wallet Calcs
         const totalWallet = riders.reduce((sum, r) => sum + r.walletAmount, 0);
-        const positiveWallet = riders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0);
-        const negativeWallet = riders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0);
+        const positiveWalletData = riders.filter(r => r.walletAmount > 0);
+        const negativeWalletData = riders.filter(r => r.walletAmount < 0);
+        const zeroWalletData = riders.filter(r => r.walletAmount === 0);
+
+        const positiveSum = positiveWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
+        const negativeSum = negativeWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
         const avgWallet = riders.length > 0 ? Math.round(totalWallet / riders.length) : 0;
+
+        // Critical Monitors
+        const highDebtRiders = negativeWalletData.filter(r => r.walletAmount < -3000);
+        const criticalRequests = requests.filter(r => r.priority === 'high');
 
         return {
             // Riders
@@ -163,20 +171,28 @@ const Dashboard: React.FC = () => {
             inactiveRiders: riders.filter(r => r.status === 'inactive').length,
             deletedRiders: riders.filter(r => r.status === 'deleted').length,
 
+            // Wallet Counts
+            positiveWalletCount: positiveWalletData.length,
+            negativeWalletCount: negativeWalletData.length,
+            zeroWalletCount: zeroWalletData.length,
+            highDebtCount: highDebtRiders.length,
+
+            // Finance Amounts
+            totalCollection: positiveSum,
+            outstandingDues: Math.abs(negativeSum),
+            netBalance: totalWallet,
+            avgBalance: avgWallet,
+
             // Leads
             totalLeads: leads.length,
             convertedLeads: leads.filter(l => l.status === 'Convert').length,
+            newLeadsToday: leads.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length,
             conversionRate: leads.length > 0 ? Math.round((leads.filter(l => l.status === 'Convert').length / leads.length) * 100) : 0,
-
-            // Finance
-            totalCollection: positiveWallet,
-            outstandingDues: Math.abs(negativeWallet),
-            netBalance: totalWallet,
-            avgBalance: avgWallet,
 
             // Requests
             pendingRequests: requests.filter(r => r.status === 'pending').length,
             resolvedRequests: requests.filter(r => r.status === 'resolved').length,
+            criticalRequests: criticalRequests.length,
 
             // TL Stats (Admin Only)
             totalTLs: teamLeaders.length,
@@ -196,7 +212,7 @@ const Dashboard: React.FC = () => {
             ],
             wallet: [
                 { name: 'Collections', value: stats.totalCollection },
-                { name: 'Dues', value: stats.outstandingDues }
+                { name: 'Risk / Dues', value: stats.outstandingDues }
             ],
             leads: [
                 { name: 'Converted', value: stats.convertedLeads, color: '#84cc16' },
@@ -271,96 +287,113 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* BENTO GRID: 8+ Smart Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100">
+            {/* BENTO GRID: 12+ Smart Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
-                {/* --- ROW 1: CORE STATS --- */}
-                {/* 1. Active Riders (Hero Card) */}
+                {/* --- ROW 1: MISSION CRITICAL --- */}
                 <SmartMetricCard
-                    title="Active Riders"
-                    value={stats.activeRiders}
-                    icon={UserCheck}
+                    title="System Health"
+                    value={`${stats.activeRiders}/${stats.totalRiders}`}
+                    icon={Activity}
                     color="emerald"
-                    trend={{ value: 5, label: 'growth', direction: 'up' }}
-                    subtitle={`${stats.totalRiders} Total / ${stats.inactiveRiders} Inactive`}
-                    onClick={() => navigate('/admin/riders?filter=active')}
-                    className="md:col-span-2 lg:col-span-1 shadow-emerald-500/10"
+                    trend={{ value: 94, label: 'uptime', direction: 'up' }}
+                    subtitle="Active Riders Ratio"
+                    className="shadow-emerald-500/10"
                 />
 
-                {/* 2. Total Collections */}
                 <SmartMetricCard
                     title="Total Collections"
                     value={`₹${(stats.totalCollection / 100000).toFixed(2)}L`}
                     icon={Wallet}
                     color="indigo"
                     trend={{ value: 12, label: 'revenue', direction: 'up' }}
-                    subtitle="Positive Wallet Balance"
-                    onClick={() => navigate('/admin/riders?filter=all')}
+                    subtitle={`${stats.positiveWalletCount} Positive Wallets`}
                 />
 
-                {/* 3. Outstanding Dues */}
                 <SmartMetricCard
-                    title="Outstanding Dues"
+                    title="Outstanding Risk"
                     value={`₹${(stats.outstandingDues / 1000).toFixed(1)}k`}
                     icon={AlertTriangle}
                     color="rose"
-                    trend={{ value: 8, label: 'risk', direction: 'down' }}
-                    subtitle="Negative Wallet Balance"
-                    onClick={() => navigate('/admin/riders?filter=all')}
+                    aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
+                    subtitle={`${stats.negativeWalletCount} Negative Wallets`}
                 />
 
-                {/* 4. Lead Efficiency */}
                 <SmartMetricCard
-                    title="Lead Conversion"
+                    title="Growth Engine"
                     value={`${stats.conversionRate}%`}
                     icon={UserPlus}
-                    color="purple"
-                    trend={{ value: 2, label: 'rate', direction: stats.conversionRate > 20 ? 'up' : 'neutral' }}
-                    subtitle={`${stats.convertedLeads} Converted Today`}
-                    onClick={() => navigate('/admin/leads?status=Convert')}
+                    color="fuchsia"
+                    trend={{ value: 5, label: 'velocity', direction: 'up' }}
+                    subtitle={`${stats.newLeadsToday} New Leads Today`}
                 />
 
-                {/* --- ROW 2: GRANULAR STATS --- */}
-
-                {/* 5. Net Profit/Balance (Tall Card/Wide) */}
+                {/* --- ROW 2: WALLET GRANULARITY --- */}
                 <SmartMetricCard
-                    title="Net Float"
-                    value={`₹${(stats.netBalance / 1000).toFixed(2)}k`}
+                    title="Zero Balance"
+                    value={stats.zeroWalletCount}
                     icon={Coins}
                     color="amber"
-                    subtitle="Collections - Dues"
-                    className="lg:col-span-1"
-                    onClick={() => navigate('/admin/riders')}
+                    subtitle="Dormant Wallets"
                 />
 
-                {/* 6. Inactive/Deleted Riders */}
                 <SmartMetricCard
-                    title="Churn Monitors"
-                    value={stats.inactiveRiders + stats.deletedRiders}
-                    icon={Users}
-                    color="orange"
-                    subtitle={`${stats.deletedRiders} Deleted / ${stats.inactiveRiders} Inactive`}
-                    onClick={() => navigate('/admin/riders?filter=inactive')}
+                    title="Highly Indebted"
+                    value={stats.highDebtCount}
+                    icon={TrendingDown}
+                    color="red"
+                    className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
+                    subtitle="Debt > ₹3000"
                 />
 
-                {/* 7. Pending Requests */}
+                <SmartMetricCard
+                    title="Avg Wallet"
+                    value={`₹${stats.avgBalance}`}
+                    icon={TrendingUp}
+                    color="cyan"
+                    subtitle="Mean Fleet Balance"
+                />
+
+                <SmartMetricCard
+                    title="Net Liquidity"
+                    value={`₹${(stats.netBalance / 1000).toFixed(1)}k`}
+                    icon={Smartphone}
+                    color="violet"
+                    subtitle="Total System Value"
+                />
+
+                {/* --- ROW 3: OPS & TEAM --- */}
                 <SmartMetricCard
                     title="Pending Ops"
                     value={stats.pendingRequests}
                     icon={Inbox}
                     color="blue"
-                    subtitle="Unresolved Tickets"
-                    onClick={() => navigate('/admin/requests')}
+                    aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
+                    subtitle={`${stats.criticalRequests} High Priority`}
                 />
 
-                {/* 8. Avg Wallet Balance */}
                 <SmartMetricCard
-                    title="Avg Rider Wallet"
-                    value={`₹${stats.avgBalance}`}
-                    icon={TrendingUp}
-                    color="cyan"
-                    subtitle="Per Active Rider"
-                    onClick={() => navigate('/admin/riders')}
+                    title="Team Strength"
+                    value={stats.totalTLs}
+                    icon={Users}
+                    color="orange"
+                    subtitle={`${stats.activeTLs} Active Leaders`}
+                />
+
+                <SmartMetricCard
+                    title="Conversion"
+                    value={stats.convertedLeads}
+                    icon={Sparkles}
+                    color="lime"
+                    subtitle="Last 30 Days"
+                />
+
+                <SmartMetricCard
+                    title="Churn Monitor"
+                    value={stats.inactiveRiders}
+                    icon={UserCheck}
+                    color="slate"
+                    subtitle={`${stats.deletedRiders} Permanently Deleted`}
                 />
 
             </div>

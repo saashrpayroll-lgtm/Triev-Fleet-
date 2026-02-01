@@ -139,13 +139,65 @@ export const useUsers = () => {
 
         const subscription = supabase
             .channel('users-list-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (_) => {
-                // On real-time update, we might validly just re-fetch the first page 
-                // or optimally update the specific item in state. 
-                // For simplicity/reliability, we'll refresh the user list or just update the single item if possible.
-                // Refetching whole list might lose scroll position, but data consistency is key.
-                // A better approach for real-time list: Update item in place if ID exists, else prepend if new.
-                fetchUsers(true);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload: any) => {
+                console.log('Real-time sync payload:', payload);
+                const { eventType, new: next, old } = payload;
+
+                setUsers(prev => {
+                    if (eventType === 'INSERT') {
+                        // Prepend new users
+                        const mappedNew = {
+                            id: next.id,
+                            email: next.email,
+                            fullName: next.full_name,
+                            role: next.role,
+                            status: next.status,
+                            mobile: next.mobile,
+                            userId: next.user_id,
+                            username: next.username,
+                            jobLocation: next.job_location,
+                            reportingManager: next.reporting_manager,
+                            permissions: next.permissions,
+                            remarks: next.remarks,
+                            profilePicUrl: next.profile_pic_url,
+                            suspendedUntil: next.suspended_until,
+                            createdAt: next.created_at,
+                            updatedAt: next.updated_at
+                        } as User;
+                        return [mappedNew, ...prev];
+                    }
+
+                    if (eventType === 'UPDATE') {
+                        return prev.map(u => {
+                            if (u.id === next.id) {
+                                return {
+                                    ...u,
+                                    email: next.email,
+                                    fullName: next.full_name,
+                                    role: next.role,
+                                    status: next.status,
+                                    mobile: next.mobile,
+                                    userId: next.user_id,
+                                    username: next.username,
+                                    jobLocation: next.job_location,
+                                    reportingManager: next.reporting_manager,
+                                    permissions: next.permissions,
+                                    remarks: next.remarks,
+                                    profilePicUrl: next.profile_pic_url,
+                                    suspendedUntil: next.suspended_until,
+                                    updatedAt: next.updated_at
+                                } as User;
+                            }
+                            return u;
+                        });
+                    }
+
+                    if (eventType === 'DELETE') {
+                        return prev.filter(u => u.id !== old.id);
+                    }
+
+                    return prev;
+                });
             })
             .subscribe();
 
@@ -518,88 +570,107 @@ export const useUsers = () => {
         toast.info('Username sync not required for Supabase DB.', 2000);
     }, [currentUser]);
 
+    // Unified Bulk Action Handler
+    const runBulkAction = useCallback(async (selectedUsers: User[], action: (u: User) => Promise<boolean>, actionLabel: string) => {
+        let successCount = 0;
+        let failCount = 0;
+        let immuneCount = 0;
+
+        for (const user of selectedUsers) {
+            if (isImmune(user)) {
+                immuneCount++;
+                continue;
+            }
+
+            try {
+                const success = await action(user);
+                if (success) successCount++;
+                else failCount++;
+            } catch (err) {
+                console.error(`Bulk ${actionLabel} failed for ${user.email}:`, err);
+                failCount++;
+            }
+        }
+
+        if (successCount > 0) {
+            toast.success(`Successfully ${actionLabel} ${successCount} users`);
+        }
+        if (failCount > 0) {
+            toast.error(`Failed to ${actionLabel} ${failCount} users`);
+        }
+        if (immuneCount > 0) {
+            toast.warning(`${immuneCount} Super Admin accounts were protected and skipped`);
+        }
+
+        // No need to fetchUsers(true) here because real-time listener will handle it!
+        // But for safety/feedback:
+        // await fetchUsers(true); 
+    }, [toast, isImmune]);
+
     // Bulk Delete
     const bulkDeleteUsers = useCallback(async (selectedUsers: User[]) => {
-        if (!confirm(`Delete ${selectedUsers.length} users?`)) return;
-        try {
-            const ids = selectedUsers.map(u => u.id);
+        if (!confirm(`Move ${selectedUsers.length} users to trash?`)) return;
+        await runBulkAction(selectedUsers, async (u) => {
             const { error } = await supabase.from('users').update({
                 status: 'deleted',
                 updated_at: new Date().toISOString()
-            }).in('id', ids);
+            }).eq('id', u.id);
 
-            if (error) throw error;
+            if (error) return false;
 
-            toast.success('Selected users deleted');
             logActivity({
-                actionType: 'bulkUserDeleted',
+                actionType: 'userDeleted',
                 targetType: 'user',
-                targetId: 'bulk',
-                details: `Bulk deleted ${selectedUsers.length} users`,
+                targetId: u.id,
+                details: `Soft deleted via bulk action`,
                 performedBy: currentUser?.email || 'admin'
             }).catch(console.error);
-            await fetchUsers(); // Auto-refresh
-        } catch (err) {
-            toast.error('Failed to delete some users');
-        }
-    }, [currentUser, fetchUsers]);
+            return true;
+        }, 'deleted');
+    }, [currentUser, runBulkAction]);
 
     const bulkSuspendUsers = useCallback(async (selectedUsers: User[]) => {
-        try {
-            const ids = selectedUsers.map(u => u.id);
+        if (!confirm(`Suspend ${selectedUsers.length} users?`)) return;
+        await runBulkAction(selectedUsers, async (u) => {
             const { error } = await supabase.from('users').update({
                 status: 'suspended',
                 updated_at: new Date().toISOString()
-            }).in('id', ids);
+            }).eq('id', u.id);
 
-            if (error) throw error;
+            if (error) return false;
 
-            toast.success('Selected users suspended');
             logActivity({
-                actionType: 'bulkUserSuspended',
+                actionType: 'userEdited',
                 targetType: 'user',
-                targetId: 'bulk',
-                details: `Bulk suspended ${selectedUsers.length} users`,
+                targetId: u.id,
+                details: `Suspended via bulk action`,
                 performedBy: currentUser?.email || 'admin'
             }).catch(console.error);
-            await fetchUsers(); // Auto-refresh
-        } catch (err) {
-            toast.error('Failed to suspend some users');
-        }
-    }, [fetchUsers]);
+            return true;
+        }, 'suspended');
+    }, [currentUser, runBulkAction]);
 
     const bulkToggleStatus = useCallback(async (selectedUsers: User[]) => {
         if (!confirm(`Toggle status for ${selectedUsers.length} users?`)) return;
-        try {
-            // Sequential to ensure immunity checks and individual logs
-            let successCount = 0;
-            for (const user of selectedUsers) {
-                if (isImmune(user)) continue;
-                // We recreate logic to avoid calling the hook function inside loop if it has dependencies
-                const userId = user.id;
-                const currentStatus = user.status;
-                const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        await runBulkAction(selectedUsers, async (u) => {
+            const newStatus = u.status === 'active' ? 'inactive' : 'active';
+            const { error } = await supabase.from('users').update({
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            }).eq('id', u.id);
 
-                const { error } = await supabase.from('users').update({
-                    status: newStatus,
-                    updated_at: new Date().toISOString()
-                }).eq('id', userId);
+            if (error) return false;
 
-                if (!error) successCount++;
-            }
-            toast.success(`Updated status for ${successCount} users`);
             logActivity({
-                actionType: 'bulkStatusChanged',
+                actionType: 'statusChanged',
                 targetType: 'user',
-                targetId: 'bulk',
-                details: `Bulk changed status for ${successCount} users`,
+                targetId: u.id,
+                details: `Status toggled to ${newStatus} via bulk action`,
                 performedBy: currentUser?.email || 'admin'
             }).catch(console.error);
-            await fetchUsers(); // Auto-refresh
-        } catch (err) {
-            toast.error('Failed to update status for some users');
-        }
-    }, [currentUser, fetchUsers]);
+            return true;
+        }, 'updated (status)');
+    }, [currentUser, runBulkAction]);
 
     return {
         users,

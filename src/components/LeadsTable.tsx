@@ -10,6 +10,11 @@ interface LeadsTableProps {
     onDelete: (lead: Lead) => void;
     onEdit: (lead: Lead) => void;
     showLocation: boolean; // Only for Admin
+    permissions?: {
+        edit?: boolean;
+        delete?: boolean;
+        statusChange?: boolean;
+    };
 }
 
 const LeadsTable: React.FC<LeadsTableProps> = ({
@@ -19,7 +24,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     // onStatusChange,
     onDelete,
     onEdit,
-    showLocation
+    showLocation,
+    permissions = { edit: true, delete: true, statusChange: true }
 }) => {
 
     const getStatusColor = (status: LeadStatus) => {
@@ -123,14 +129,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                             <td className="px-4 py-3 text-right">
                                 <div className="flex justify-end items-center gap-2">
                                     {/* Simple Action Buttons for now, can be dropdown */}
-                                    {userRole === 'admin' && (
+                                    {(userRole === 'admin' || permissions.delete) && (
                                         <button onClick={() => onDelete(lead)} className="text-red-500 hover:bg-red-50 p-1 rounded">
                                             <Trash2 size={16} />
                                         </button>
                                     )}
-                                    <button onClick={() => onEdit(lead)} className="text-blue-500 hover:bg-blue-50 p-1 rounded">
-                                        <Edit2 size={16} />
-                                    </button>
+                                    {(userRole === 'admin' || permissions.edit) && (
+                                        <button onClick={() => onEdit(lead)} className="text-blue-500 hover:bg-blue-50 p-1 rounded">
+                                            <Edit2 size={16} />
+                                        </button>
+                                    )}
                                 </div>
                             </td>
                         </tr>

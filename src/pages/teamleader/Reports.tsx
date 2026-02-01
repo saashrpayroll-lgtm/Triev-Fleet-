@@ -231,6 +231,21 @@ const Reports: React.FC = () => {
     };
 
 
+    const canViewPage = userData?.permissions?.modules?.reports ?? true;
+    const canGenerate = userData?.permissions?.reports?.generate ?? true;
+    const canExport = userData?.permissions?.reports?.export ?? true;
+
+    if (!canViewPage) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center p-8 bg-muted/30 rounded-lg">
+                    <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
+                    <p className="text-muted-foreground">You do not have permission to view the Reports page.</p>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -252,6 +267,16 @@ const Reports: React.FC = () => {
                     </h1>
                     <p className="text-muted-foreground mt-1">Generate insights from your rider fleet.</p>
                 </div>
+                {canGenerate && (
+                    <button
+                        onClick={handleGenerateReport}
+                        disabled={generating}
+                        className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                    >
+                        {generating ? <RefreshCw className="animate-spin" size={20} /> : <TrendingUp size={20} />}
+                        {reportGenerated ? 'Re-generate Report' : 'Generate Report'}
+                    </button>
+                )}
                 <div className="bg-card/50 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-center">
                     <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Records</div>
                     <div className="text-xl font-bold text-primary">{riders.length}</div>
@@ -366,18 +391,20 @@ const Reports: React.FC = () => {
                             </div>
                         )}
 
-                        <button
-                            onClick={handleGenerateReport}
-                            disabled={generating}
-                            className="w-full md:w-auto md:float-right bg-primary text-primary-foreground px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-70"
-                        >
-                            {generating ? (
-                                <RefreshCw size={18} className="animate-spin" />
-                            ) : (
-                                <TrendingUp size={18} />
-                            )}
-                            Generate Report
-                        </button>
+                        {canGenerate && (
+                            <button
+                                onClick={handleGenerateReport}
+                                disabled={generating}
+                                className="w-full md:w-auto md:float-right bg-primary text-primary-foreground px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-70"
+                            >
+                                {generating ? (
+                                    <RefreshCw size={18} className="animate-spin" />
+                                ) : (
+                                    <TrendingUp size={18} />
+                                )}
+                                Generate Report
+                            </button>
+                        )}
                         <div className="clear-both"></div>
                     </div>
 
@@ -389,15 +416,19 @@ const Reports: React.FC = () => {
                                     Results: <span className="text-primary font-bold">{reportData.length}</span> entries
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={handleExportCSV} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs">
-                                        <Download size={14} /> CSV
-                                    </button>
-                                    <button onClick={handleExportExcel} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-green-600 hover:text-green-500 flex items-center gap-1 text-xs">
-                                        <Download size={14} /> Excel
-                                    </button>
-                                    <button onClick={handleExportPDF} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-red-600 hover:text-red-500 flex items-center gap-1 text-xs">
-                                        <Download size={14} /> PDF
-                                    </button>
+                                    {canExport && (
+                                        <>
+                                            <button onClick={handleExportCSV} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs">
+                                                <Download size={14} /> CSV
+                                            </button>
+                                            <button onClick={handleExportExcel} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-green-600 hover:text-green-500 flex items-center gap-1 text-xs">
+                                                <Download size={14} /> Excel
+                                            </button>
+                                            <button onClick={handleExportPDF} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-red-600 hover:text-red-500 flex items-center gap-1 text-xs">
+                                                <Download size={14} /> PDF
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 

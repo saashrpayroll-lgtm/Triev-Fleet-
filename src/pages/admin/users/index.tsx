@@ -51,6 +51,7 @@ const UserManagementPage: React.FC = () => {
     const [editingPermissions, setEditingPermissions] = useState<User | null>(null);
     const [suspendingUser, setSuspendingUser] = useState<User | null>(null);
     const [viewingUser, setViewingUser] = useState<User | null>(null);
+    const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
 
     // New: Selected Users for Bulk
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -87,9 +88,11 @@ const UserManagementPage: React.FC = () => {
             toast.error("Permission Denied: You cannot delete users.");
             return;
         }
+        setIsSubmittingBulk(true);
         const usersToDelete = users.filter(u => selectedUserIds.includes(u.id));
         await bulkDeleteUsers(usersToDelete);
         setSelectedUserIds([]);
+        setIsSubmittingBulk(false);
     };
 
     const handleBulkSuspend = async () => {
@@ -97,9 +100,11 @@ const UserManagementPage: React.FC = () => {
             toast.error("Permission Denied: You cannot suspend users.");
             return;
         }
+        setIsSubmittingBulk(true);
         const usersToSuspend = users.filter(u => selectedUserIds.includes(u.id));
         await bulkSuspendUsers(usersToSuspend);
         setSelectedUserIds([]);
+        setIsSubmittingBulk(false);
     };
 
     const handleBulkToggleStatus = async () => {
@@ -107,9 +112,11 @@ const UserManagementPage: React.FC = () => {
             toast.error("Permission Denied: You cannot change user status.");
             return;
         }
+        setIsSubmittingBulk(true);
         const usersToToggle = users.filter(u => selectedUserIds.includes(u.id));
         await bulkToggleStatus(usersToToggle);
         setSelectedUserIds([]);
+        setIsSubmittingBulk(false);
     };
 
     const handleExport = () => {
@@ -387,6 +394,7 @@ const UserManagementPage: React.FC = () => {
                 onDelete={handleBulkDelete}
                 onSuspend={handleBulkSuspend}
                 onToggleStatus={handleBulkToggleStatus}
+                isProcessing={isSubmittingBulk}
             />
         </div>
     );

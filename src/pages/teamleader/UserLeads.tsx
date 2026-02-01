@@ -48,6 +48,23 @@ const UserLeads: React.FC = () => {
         };
     }, [userData?.id]);
 
+    // Permission Checks
+    const canViewPage = userData?.permissions?.modules?.leads ?? true;
+    const canCreate = userData?.permissions?.leads?.create ?? true;
+    const canEdit = userData?.permissions?.leads?.edit ?? true;
+    const canDelete = userData?.permissions?.leads?.delete ?? true;
+
+    if (!canViewPage) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center p-8 bg-muted/30 rounded-lg">
+                    <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
+                    <p className="text-muted-foreground">You do not have permission to view the Leads page.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -55,13 +72,15 @@ const UserLeads: React.FC = () => {
                     <h1 className="text-3xl font-bold">My Leads</h1>
                     <p className="text-muted-foreground">Track your sourced leads</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
-                >
-                    <Plus size={20} />
-                    Start Sourcing
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                    >
+                        <Plus size={20} />
+                        Start Sourcing
+                    </button>
+                )}
             </div>
 
             {showAddModal && (
@@ -80,10 +99,15 @@ const UserLeads: React.FC = () => {
                     leads={leads}
                     loading={loading}
                     userRole="teamLeader"
-                    onDelete={() => { }} // Team Leads typically don't hard delete? Or strict permissions.
-                    onStatusChange={() => { }} // Maybe restricted?
+                    onDelete={() => { }}
+                    onStatusChange={() => { }}
                     onEdit={() => { }}
                     showLocation={false}
+                    permissions={{
+                        edit: canEdit,
+                        delete: canDelete,
+                        statusChange: canEdit
+                    }}
                 />
             </div>
         </div>

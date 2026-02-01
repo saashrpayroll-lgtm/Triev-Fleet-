@@ -124,6 +124,21 @@ const Requests: React.FC = () => {
         teamLeaderId: r.team_leader_id || r.teamLeaderId
     });
 
+    const canViewPage = userData?.permissions?.modules?.requests ?? true;
+    const canCreate = userData?.permissions?.modules?.requests ?? true; // Use module access as proxy for creation
+    const canDelete = userData?.permissions?.requests?.delete ?? true;
+
+    if (!canViewPage) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center p-8 bg-muted/30 rounded-lg">
+                    <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
+                    <p className="text-muted-foreground">You do not have permission to view the Requests page.</p>
+                </div>
+            </div>
+        );
+    }
+
     const fetchRequests = async () => {
         try {
             const { data, error } = await supabase
@@ -334,13 +349,15 @@ const Requests: React.FC = () => {
                     <h1 className="text-3xl font-bold">My Requests</h1>
                     <p className="text-muted-foreground mt-1">Track and manage your support tickets</p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                    <Plus size={20} />
-                    New Request
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                        <Plus size={20} />
+                        New Request
+                    </button>
+                )}
             </div>
 
             {/* Filters */}
@@ -356,14 +373,16 @@ const Requests: React.FC = () => {
                     />
                 </div>
                 <div className="flex items-center gap-2 min-w-[200px]">
-                    <button
-                        onClick={handleBulkDelete}
-                        disabled={selectedIds.size === 0}
-                        className={`p-2 rounded-md transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-muted-foreground opacity-50 cursor-not-allowed'}`}
-                        title="Delete Selected"
-                    >
-                        <Trash2 size={18} />
-                    </button>
+                    {canDelete && (
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={selectedIds.size === 0}
+                            className={`p-2 rounded-md transition-colors ${selectedIds.size > 0 ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'text-muted-foreground opacity-50 cursor-not-allowed'}`}
+                            title="Delete Selected"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    )}
                     <div className="h-6 w-px bg-border mx-1"></div>
                     <button
                         onClick={toggleSelectAll}
@@ -437,13 +456,15 @@ const Requests: React.FC = () => {
                                 <div className="flex flex-col items-end gap-2 text-sm text-muted-foreground min-w-[140px] md:pl-4">
                                     {/* Actions Row */}
                                     <div className="flex items-center justify-end gap-1 mb-1">
-                                        <button
-                                            onClick={() => handleDelete(req.id)}
-                                            className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded transition-all"
-                                            title="Delete Request"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        {canDelete && (
+                                            <button
+                                                onClick={() => handleDelete(req.id)}
+                                                className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded transition-all"
+                                                title="Delete Request"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => toggleSelection(req.id)}
                                             className="p-1.5 text-muted-foreground hover:text-primary transition-colors"
