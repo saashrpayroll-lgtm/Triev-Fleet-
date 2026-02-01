@@ -140,9 +140,9 @@ export const processRiderImport = async (
             // But we need to handle missing values safely.
 
             let orString = '';
-            if (row['Triev ID']) orString += `trievId.eq.${row['Triev ID']},`;
-            if (mobile) orString += `mobileNumber.eq.${mobile},`;
-            if (row['Chassis Number']) orString += `chassisNumber.eq.${row['Chassis Number']},`;
+            if (row['Triev ID']) orString += `triev_id.eq.${row['Triev ID']},`;
+            if (mobile) orString += `mobile_number.eq.${mobile},`;
+            if (row['Chassis Number']) orString += `chassis_number.eq.${row['Chassis Number']},`;
 
             if (orString.endsWith(',')) orString = orString.slice(0, -1);
 
@@ -156,19 +156,19 @@ export const processRiderImport = async (
             }
 
             const riderData: any = {
-                riderName: row['Rider Name'],
-                mobileNumber: mobile,
-                trievId: row['Triev ID'] || '',
-                chassisNumber: row['Chassis Number'] || '',
-                clientName: clientName as ClientName,
-                clientId: row['Client ID'] || '',
-                walletAmount: parseCurrency(row['Wallet Amount'] || 0),
-                allotmentDate: allotmentDate,
+                rider_name: row['Rider Name'],
+                mobile_number: mobile,
+                triev_id: row['Triev ID'] || '',
+                chassis_number: row['Chassis Number'] || '',
+                client_name: clientName as ClientName,
+                client_id: row['Client ID'] || '',
+                wallet_amount: parseCurrency(row['Wallet Amount'] || 0),
+                allotment_date: allotmentDate,
                 remarks: row['Remarks'] || '',
-                teamLeaderId: teamLeaderId,
-                teamLeaderName: teamLeaderName,
+                team_leader_id: teamLeaderId,
+                team_leader_name: teamLeaderName,
                 status: 'active',
-                updatedAt: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
             };
 
             if (matchData) {
@@ -182,8 +182,8 @@ export const processRiderImport = async (
                 // Create New
                 const newRider = {
                     ...riderData,
-                    createdAt: new Date().toISOString(),
-                    // deletedAt is undefined/null by default in DB structure usually
+                    created_at: new Date().toISOString(),
+                    // deleted_at is undefined/null by default in DB structure usually
                 };
                 const { error } = await supabase.from('riders').insert(newRider);
                 if (error) throw error;
