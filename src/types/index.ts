@@ -56,6 +56,7 @@ export interface UserPermissions {
         bulkActions: {
             statusChange: boolean;
             delete: boolean;
+            sendReminders: boolean;
             assignTeamLeader: boolean;
             export: boolean;
         };

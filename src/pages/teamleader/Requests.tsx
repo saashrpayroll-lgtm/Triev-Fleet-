@@ -112,7 +112,8 @@ const Requests: React.FC = () => {
         related_entity_id: r.relatedEntityId || null,
         related_entity_name: r.relatedEntityName || null,
         related_entity_type: r.relatedEntityType || null,
-        created_at: r.createdAt
+        created_at: r.createdAt,
+        updated_at: r.updatedAt || r.createdAt || new Date().toISOString()
     });
 
     // Rider Mapper (simplified)
@@ -197,6 +198,7 @@ const Requests: React.FC = () => {
                 nextId = Number(maxTicketData[0].ticket_id) + 1;
             }
 
+            const timestamp = new Date().toISOString();
             const newRequestApp = {
                 ticketId: nextId,
                 type: formData.type,
@@ -208,7 +210,8 @@ const Requests: React.FC = () => {
                 email: userData.email,
                 userRole: userData.role,
                 status: 'pending',
-                createdAt: new Date().toISOString(),
+                createdAt: timestamp,
+                updatedAt: timestamp,
                 ...(formData.relatedEntityId ? {
                     relatedEntityId: formData.relatedEntityId,
                     relatedEntityName: entityName,
@@ -244,9 +247,10 @@ const Requests: React.FC = () => {
                     status: 'pending'
                 }
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating request:", error);
-            alert("Failed to create request: " + (error instanceof Error ? error.message : "Unknown error"));
+            const errorMessage = error?.message || error?.error_description || error?.hint || JSON.stringify(error) || "Unknown error";
+            alert("Failed to create request: " + errorMessage);
         } finally {
             setSubmitting(false);
         }

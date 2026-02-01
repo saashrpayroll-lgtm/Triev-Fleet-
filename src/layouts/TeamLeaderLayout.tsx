@@ -40,7 +40,7 @@ const TeamLeaderLayout: React.FC = () => {
         { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
         { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
         { path: '/team-leader/requests', icon: HelpCircle, label: 'My Requests', visible: userData?.permissions?.modules?.requests ?? true },
-        { path: '/team-leader/profile', icon: User, label: 'Profile', visible: userData?.permissions?.modules?.profile ?? true },
+        { path: '/team-leader/profile', icon: User, label: 'Profile', visible: true }, // Profile should always be accessible
     ].filter(item => {
         // Double check against pure undefined if keys missing
         if (item.visible === undefined) return true;

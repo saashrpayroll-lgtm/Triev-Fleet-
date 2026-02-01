@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import PaymentReminderModal from '@/components/PaymentReminderModal';
+import BulkReminderModal from '@/components/BulkReminderModal';
 import ExportModal, { ExportFormat } from '@/components/ExportModal';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
@@ -36,6 +37,7 @@ const MyRiders: React.FC = () => {
     const [showExportModal, setShowExportModal] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
+    const [showBulkReminderModal, setShowBulkReminderModal] = useState(false);
 
     // Advanced filters
     const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
@@ -592,8 +594,50 @@ const MyRiders: React.FC = () => {
         }
     };
 
+    const handleBulkSendReminders = async (message: string) => {
+        const selectedRidersList = riders.filter(r => selectedRiders.has(r.id));
+        const negativeBalanceRiders = selectedRidersList.filter(r => r.walletAmount < 0);
+
+        if (negativeBalanceRiders.length === 0) {
+            toast.error('No riders with negative balance selected');
+            return;
+        }
+
+        try {
+            // Open WhatsApp for each rider
+            for (const rider of negativeBalanceRiders) {
+                const personalizedMessage = message
+                    .replace('{name}', rider.riderName)
+                    .replace('{amount}', Math.abs(rider.walletAmount).toLocaleString('en-IN'));
+
+                const encodedMessage = encodeURIComponent(personalizedMessage);
+                const cleanNumber = rider.mobileNumber.replace(/\\D/g, '');
+
+                // Open WhatsApp in new tab
+                window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
+
+                // Small delay between opening tabs
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            await logActivity({
+                actionType: 'payment_reminder',
+                targetType: 'rider',
+                targetId: 'multiple',
+                details: `Sent bulk payment reminder to ${negativeBalanceRiders.length} riders`
+            });
+
+            toast.success(`Opened WhatsApp for ${negativeBalanceRiders.length} rider(s)`);
+            setSelectedRiders(new Set());
+        } catch (error) {
+            console.error('Error sending bulk reminders:', error);
+            toast.error('Failed to send reminders');
+        }
+    };
+
     const canBulkStatusChange = userData?.permissions?.riders?.bulkActions?.statusChange ?? false;
     const canBulkDelete = userData?.permissions?.riders?.bulkActions?.delete ?? false;
+    const canBulkSendReminders = userData?.permissions?.riders?.bulkActions?.sendReminders ?? true; // Default true for all
 
     const getBulkActions = () => {
         const actions = [];
@@ -606,6 +650,15 @@ const MyRiders: React.FC = () => {
             actions.push({
                 label: 'Change to Inactive',
                 onClick: () => handleBulkStatusChange('inactive'),
+            });
+        }
+
+        if (canBulkSendReminders) {
+            actions.push({
+                label: 'Send Bulk Reminder',
+                onClick: () => setShowBulkReminderModal(true),
+                variant: 'default',
+                icon: <AlertTriangle size={16} />,
             });
         }
 
@@ -881,24 +934,20 @@ const MyRiders: React.FC = () => {
                                                 <div className="flex flex-col gap-1">
                                                     <span>{rider.mobileNumber}</span>
                                                     <div className="flex gap-2">
-                                                        {(riderActionPermissions.canCall) && (
-                                                            <button
-                                                                onClick={() => handleCall(rider.mobileNumber)}
-                                                                className="text-green-600 hover:text-green-700 transition-colors"
-                                                                title="Call"
-                                                            >
-                                                                <Phone size={14} />
-                                                            </button>
-                                                        )}
-                                                        {(riderActionPermissions.canWhatsApp) && (
-                                                            <button
-                                                                onClick={() => handleWhatsApp(rider.mobileNumber)}
-                                                                className="text-green-600 hover:text-green-700 transition-colors"
-                                                                title="WhatsApp"
-                                                            >
-                                                                <MessageCircle size={14} />
-                                                            </button>
-                                                        )}
+                                                        <button
+                                                            onClick={() => handleCall(rider.mobileNumber)}
+                                                            className="text-green-600 hover:text-green-700 transition-colors"
+                                                            title="Call"
+                                                        >
+                                                            <Phone size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleWhatsApp(rider.mobileNumber)}
+                                                            className="text-green-600 hover:text-green-700 transition-colors"
+                                                            title="WhatsApp"
+                                                        >
+                                                            <MessageCircle size={14} />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </td>
@@ -1044,6 +1093,14 @@ const MyRiders: React.FC = () => {
                     onExport={handleExport}
                     availableColumns={availableExportColumns}
                     title={`Export ${selectedRiders.size > 0 ? `${selectedRiders.size} Selected` : 'All'} Riders`}
+                />
+            )}
+
+            {showBulkReminderModal && (
+                <BulkReminderModal
+                    riders={riders.filter(r => selectedRiders.has(r.id))}
+                    onClose={() => setShowBulkReminderModal(false)}
+                    onSend={handleBulkSendReminders}
                 />
             )}
         </div>
