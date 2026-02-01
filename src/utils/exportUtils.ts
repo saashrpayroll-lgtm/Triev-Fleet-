@@ -103,7 +103,11 @@ export const downloadRiderTemplate = () => {
         "Mobile Number": "",
         "Chassis Number": "",
         "Team Leader": "",
-        "Status": "active"
+        "Client Name": "",
+        "Allotment Date": new Date().toISOString().split('T')[0],
+        "Wallet Amount": "0",
+        "Status": "active",
+        "Remarks": ""
     }];
     exportRidersToCSV(headers, "Rider_Import_Template");
 };

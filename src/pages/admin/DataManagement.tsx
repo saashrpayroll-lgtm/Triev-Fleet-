@@ -556,9 +556,11 @@ const DataManagement: React.FC = () => {
                                 <h3 className="font-semibold text-base mb-2">1. Rider Import</h3>
                                 <p>Use for adding new riders or updating details like name, chassis number, etc.</p>
                                 <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground">
-                                    <li>Required: <strong>Rider Name</strong></li>
-                                    <li>Required (One of): <strong>Triev ID</strong>, <strong>Mobile Number</strong>, or <strong>Chassis Number</strong> (for matching).</li>
+                                    <li>Required: <strong>Rider Name</strong>, <strong>Team Leader</strong>, <strong>Client Name</strong>.</li>
+                                    <li>Required: <strong>Allotment Date</strong>, <strong>Wallet Amount</strong> (can be 0).</li>
+                                    <li>Required (One of for matching): <strong>Triev ID</strong>, <strong>Mobile Number</strong>, or <strong>Chassis Number</strong>.</li>
                                     <li>Team Leader name must match an existing Team Leader in the system EXACTLY.</li>
+                                    <li>Optional: <strong>Remarks</strong>.</li>
                                 </ul>
                             </div>
 
