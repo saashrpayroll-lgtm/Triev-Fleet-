@@ -284,7 +284,7 @@ const Dashboard: React.FC = () => {
                 {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
                     <SmartMetricCard
                         title="Revenue Collected"
-                        value={`₹${stats.totalPositiveAmount.toLocaleString('en-IN')}`}
+                        value={stats.totalPositiveAmount}
                         icon={Wallet}
                         color="indigo"
                         trend={{ value: 24, label: 'growth', direction: 'up' }}
@@ -296,7 +296,7 @@ const Dashboard: React.FC = () => {
                 {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
                     <SmartMetricCard
                         title="Payment Dues"
-                        value={`₹${Math.abs(stats.totalNegativeAmount).toLocaleString('en-IN')}`}
+                        value={Math.abs(stats.totalNegativeAmount)}
                         icon={AlertTriangle}
                         color="rose"
                         aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}

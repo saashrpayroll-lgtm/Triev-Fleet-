@@ -299,24 +299,27 @@ const Dashboard: React.FC = () => {
                     trend={{ value: 94, label: 'uptime', direction: 'up' }}
                     subtitle="Active Riders Ratio"
                     className="shadow-emerald-500/10"
+                    onClick={() => navigate('/admin/riders', { state: { filter: 'active' } })}
                 />
 
                 <SmartMetricCard
                     title="Total Collections"
-                    value={`₹${(stats.totalCollection / 100000).toFixed(2)}L`}
+                    value={stats.totalCollection}
                     icon={Wallet}
                     color="indigo"
                     trend={{ value: 12, label: 'revenue', direction: 'up' }}
                     subtitle={`${stats.positiveWalletCount} Positive Wallets`}
+                    onClick={() => navigate('/admin/data', { state: { tab: 'import' } })}
                 />
 
                 <SmartMetricCard
                     title="Outstanding Risk"
-                    value={`₹${(stats.outstandingDues / 1000).toFixed(1)}k`}
+                    value={stats.outstandingDues}
                     icon={AlertTriangle}
                     color="rose"
                     aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
                     subtitle={`${stats.negativeWalletCount} Negative Wallets`}
+                    onClick={() => navigate('/admin/riders', { state: { filter: 'negative_wallet' } })}
                 />
 
                 <SmartMetricCard
@@ -326,6 +329,7 @@ const Dashboard: React.FC = () => {
                     color="fuchsia"
                     trend={{ value: 5, label: 'velocity', direction: 'up' }}
                     subtitle={`${stats.newLeadsToday} New Leads Today`}
+                    onClick={() => navigate('/admin/leads')}
                 />
 
                 {/* --- ROW 2: WALLET GRANULARITY --- */}
@@ -335,6 +339,7 @@ const Dashboard: React.FC = () => {
                     icon={Coins}
                     color="amber"
                     subtitle="Dormant Wallets"
+                    onClick={() => navigate('/admin/riders', { state: { filter: 'zero_balance' } })}
                 />
 
                 <SmartMetricCard
@@ -344,22 +349,25 @@ const Dashboard: React.FC = () => {
                     color="red"
                     className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
                     subtitle="Debt > ₹3000"
+                    onClick={() => navigate('/admin/riders', { state: { filter: 'high_debt' } })}
                 />
 
                 <SmartMetricCard
                     title="Avg Wallet"
-                    value={`₹${stats.avgBalance}`}
+                    value={stats.avgBalance}
                     icon={TrendingUp}
                     color="cyan"
                     subtitle="Mean Fleet Balance"
+                    onClick={() => navigate('/admin/riders')}
                 />
 
                 <SmartMetricCard
                     title="Net Liquidity"
-                    value={`₹${(stats.netBalance / 1000).toFixed(1)}k`}
+                    value={stats.netBalance}
                     icon={Smartphone}
                     color="violet"
                     subtitle="Total System Value"
+                    onClick={() => navigate('/admin/riders')}
                 />
 
                 {/* --- ROW 3: OPS & TEAM --- */}
@@ -370,6 +378,7 @@ const Dashboard: React.FC = () => {
                     color="blue"
                     aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
                     subtitle={`${stats.criticalRequests} High Priority`}
+                    onClick={() => navigate('/admin/requests')}
                 />
 
                 <SmartMetricCard
@@ -378,6 +387,7 @@ const Dashboard: React.FC = () => {
                     icon={Users}
                     color="orange"
                     subtitle={`${stats.activeTLs} Active Leaders`}
+                    onClick={() => navigate('/admin/users', { state: { filter: 'teamLeader' } })}
                 />
 
                 <SmartMetricCard
@@ -386,6 +396,7 @@ const Dashboard: React.FC = () => {
                     icon={Sparkles}
                     color="lime"
                     subtitle="Last 30 Days"
+                    onClick={() => navigate('/admin/leads', { state: { filter: 'Convert' } })}
                 />
 
                 <SmartMetricCard
@@ -394,6 +405,7 @@ const Dashboard: React.FC = () => {
                     icon={UserCheck}
                     color="slate"
                     subtitle={`${stats.deletedRiders} Permanently Deleted`}
+                    onClick={() => navigate('/admin/riders', { state: { filter: 'inactive' } })}
                 />
 
             </div>

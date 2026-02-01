@@ -96,12 +96,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                         <Trophy size={20} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg flex items-center gap-2">
+                        <h3 className="font-bold text-lg flex items-center gap-2 text-foreground">
                             Top Performers Leaderboard
                             <Sparkles size={16} className="text-yellow-500 fill-yellow-500 animate-pulse" />
                         </h3>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            Updated {new Date().toLocaleTimeString()}
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-widest">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            Live Sync: {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </p>
                     </div>
                 </div>
@@ -222,10 +223,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             </div>
 
                             {/* Shine Effect on Hover */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000 z-30 pointer-events-none rounded-3xl" />
+                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000 z-30 pointer-events-none rounded-3xl" />
                         </motion.div>
                     );
                 })}
+            </div>
+
+            {/* Micro-animations for score updates - visual indicator */}
+            <div className="mt-8 flex justify-center overflow-hidden h-1">
+                <motion.div
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '100%' }}
+                    transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
+                    className="w-1/3 h-full bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+                />
             </div>
 
             <p className="text-center text-[10px] text-muted-foreground mt-4 opacity-0 animate-in fade-in duration-1000 delay-500">

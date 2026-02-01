@@ -71,8 +71,9 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
             onClick={onClick}
             className={`
                 relative overflow-hidden rounded-2xl border p-5 
-                transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer
+                transition-all duration-500 hover:scale-[1.03] hover:-translate-y-2 cursor-pointer
                 backdrop-blur-md bg-white/40 dark:bg-black/20
+                hover:shadow-xl active:scale-95
                 ${colorMap[color]}
                 bg-gradient-to-br from-white/60 to-white/10 dark:from-white/5 dark:to-transparent
                 shadow-sm
@@ -131,8 +132,8 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                     {loading ? (
                         <div className="h-10 w-32 bg-current/10 animate-pulse rounded-lg" />
                     ) : (
-                        <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm">
-                            {value}
+                        <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
+                            {typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : value}
                         </h3>
                     )}
 
