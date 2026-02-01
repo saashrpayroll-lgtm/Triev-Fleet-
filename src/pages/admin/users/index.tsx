@@ -31,7 +31,7 @@ const StatCard = ({ title, value, icon: Icon, color, bg }: { title: string, valu
 const UserManagementPage: React.FC = () => {
     const {
         users, loading, createUser, updateUser,
-        toggleStatus, suspendUser, sendResetEmail, deleteUser,
+        toggleStatus, suspendUser, deleteUser,
         restoreUser, syncUsernames, permanentDeleteUser, bulkDeleteUsers, bulkSuspendUsers, bulkToggleStatus,
         getNextId, loadMore, hasMore
     } = useUsers();
