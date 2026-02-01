@@ -30,16 +30,16 @@ export const sendNotification = async ({
             title,
             message,
             type,
-            relatedEntity: relatedEntityId ? { id: relatedEntityId, type: relatedEntityType } : null,
-            isRead: false,
-            createdAt: timestamp
+            related_entity: relatedEntityId ? { id: relatedEntityId, type: relatedEntityType } : {},
+            is_read: false,
+            created_at: timestamp
         };
 
         if (targetUserId) {
             // Send to single user
             await supabase.from('notifications').insert({
                 ...baseNotification,
-                userId: targetUserId
+                user_id: targetUserId
             });
         } else if (targetRole) {
             // Send to all users with role
@@ -48,7 +48,7 @@ export const sendNotification = async ({
             if (users && users.length > 0) {
                 const notifications = users.map(user => ({
                     ...baseNotification,
-                    userId: user.id
+                    user_id: user.id
                 }));
                 await supabase.from('notifications').insert(notifications);
             }

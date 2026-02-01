@@ -1,5 +1,6 @@
 import { supabase } from '@/config/supabase';
 import { ImportSummary, ClientName } from '@/types';
+import { logActivity } from './activityLog';
 
 // Constants for Rider Import
 export const REQUIRED_RIDER_COLUMNS = [
@@ -202,6 +203,19 @@ export const processRiderImport = async (
         }
     }
 
+    // Log the overall activity to the main Activity page
+    await logActivity({
+        actionType: 'Rider Bulk Import',
+        targetType: 'system',
+        targetId: 'multiple',
+        details: `Imported ${summary.success} riders, ${summary.failed} failures.`,
+        metadata: {
+            adminName,
+            success: summary.success,
+            failed: summary.failed
+        }
+    }).catch(console.error);
+
     // Log Import History
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);
 
@@ -233,10 +247,10 @@ export const processWalletUpdate = async (
 
             let matchData = null;
             if (trievId) {
-                const { data } = await supabase.from('riders').select('id').eq('trievId', trievId).single();
+                const { data } = await supabase.from('riders').select('id').eq('triev_id', trievId).maybeSingle();
                 matchData = data;
             } else if (mobile) {
-                const { data } = await supabase.from('riders').select('id').eq('mobileNumber', mobile).single();
+                const { data } = await supabase.from('riders').select('id').eq('mobile_number', mobile).maybeSingle();
                 matchData = data;
             }
 
@@ -246,8 +260,8 @@ export const processWalletUpdate = async (
 
             // Update
             const { error } = await supabase.from('riders').update({
-                walletAmount: amount, // Direct set
-                updatedAt: new Date().toISOString()
+                wallet_amount: amount, // Direct set
+                updated_at: new Date().toISOString()
             }).eq('id', matchData.id);
 
             if (error) throw error;
@@ -264,6 +278,19 @@ export const processWalletUpdate = async (
             });
         }
     }
+
+    // Log the overall activity to the main Activity page
+    await logActivity({
+        actionType: 'Wallet Bulk Update',
+        targetType: 'system',
+        targetId: 'multiple',
+        details: `Updated wallets for ${summary.success} riders, ${summary.failed} failures.`,
+        metadata: {
+            adminName,
+            success: summary.success,
+            failed: summary.failed
+        }
+    }).catch(console.error);
 
     // Log Import History
     await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
