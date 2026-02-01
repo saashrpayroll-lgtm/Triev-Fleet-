@@ -50,8 +50,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             score += (totalWallet < 0 ? Math.floor(totalWallet / 1000) * 2 : 0);
             score += convertedLeads * 20;
 
+            // CRITICAL FIX: Only include primitive fields, not the entire object
+            // This prevents any JSONB or object fields from causing React Error #310
             return {
-                ...tl,
+                id: tl.id,
+                fullName: tl.fullName,
+                email: tl.email,
+                role: tl.role,
                 score: Math.max(0, score),
                 stats: {
                     activeRiders: activeCount,
