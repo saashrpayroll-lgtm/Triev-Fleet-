@@ -20,11 +20,9 @@ export interface ActivityLogData {
 export const logActivity = async (data: ActivityLogData) => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        // const currentUserEmail = user?.email || 'system'; // Unused
         const currentUserId = user?.id || 'system';
-        const currentUserName = user?.user_metadata?.full_name || user?.email || 'System';
+        const currentUserName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'System';
         const currentUserRole = user?.user_metadata?.role || 'admin';
-
 
         const logEntry = {
             user_id: currentUserId,
@@ -36,9 +34,12 @@ export const logActivity = async (data: ActivityLogData) => {
             details: data.details,
             metadata: {
                 ...data.metadata,
+                timestamp: new Date().toISOString(),
                 userAgent: navigator.userAgent,
                 screenHeight: window.screen.height,
                 screenWidth: window.screen.width,
+                viewport: `${window.innerWidth}x${window.innerHeight}`,
+                language: navigator.language
             },
             timestamp: new Date().toISOString(),
             is_deleted: false

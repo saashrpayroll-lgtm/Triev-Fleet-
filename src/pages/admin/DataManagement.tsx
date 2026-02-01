@@ -8,6 +8,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import { downloadRiderTemplate, downloadWalletTemplate } from '@/utils/exportUtils';
 import { Download as DownloadIcon } from 'lucide-react';
+import { logActivity } from '@/utils/activityLog';
 
 const DataManagement: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -106,6 +107,13 @@ const DataManagement: React.FC = () => {
                 return newSet;
             });
             fetchHistory(); // Refresh to be sure
+            logActivity({
+                actionType: 'importHistoryDeleted',
+                targetType: 'system',
+                targetId: id,
+                details: `Deleted an import history record`,
+                performedBy: userData?.email || 'admin'
+            }).catch(console.error);
         } catch (error) {
             console.error("Error deleting history:", error);
             alert("Failed to delete record.");
@@ -124,6 +132,13 @@ const DataManagement: React.FC = () => {
 
             setSelectedHistoryIds(new Set());
             fetchHistory();
+            logActivity({
+                actionType: 'bulkImportHistoryDeleted',
+                targetType: 'system',
+                targetId: 'multiple',
+                details: `Bulk deleted ${idsToDelete.length} import history records`,
+                performedBy: userData?.email || 'admin'
+            }).catch(console.error);
         } catch (error) {
             console.error("Error bulk deleting history:", error);
             alert("Failed to delete records.");

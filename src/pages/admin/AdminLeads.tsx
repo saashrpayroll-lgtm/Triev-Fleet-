@@ -185,6 +185,15 @@ const AdminLeads: React.FC = () => {
         try {
             const { error } = await supabase.from('leads').delete().eq('id', lead.id);
             if (error) throw error;
+
+            logActivity({
+                actionType: 'leadDeleted',
+                targetType: 'lead',
+                targetId: String(lead.leadId),
+                details: `Permanently deleted lead #${lead.leadId}`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
         } catch (error) {
             console.error("Delete failed", error);
             alert("Failed to delete lead");
@@ -194,6 +203,15 @@ const AdminLeads: React.FC = () => {
     const handleStatusChange = async (lead: Lead, newStatus: LeadStatus) => {
         try {
             await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id);
+
+            logActivity({
+                actionType: 'statusChanged',
+                targetType: 'lead',
+                targetId: String(lead.leadId),
+                details: `Changed lead #${lead.leadId} status to ${newStatus}`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
         } catch (error) {
             console.error("Error updating status", error);
         }
@@ -265,6 +283,14 @@ const AdminLeads: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+
+        logActivity({
+            actionType: 'reportGenerated',
+            targetType: 'lead',
+            targetId: 'multiple',
+            details: `Exported ${filteredLeads.length} leads to CSV`,
+            performedBy: currentUser?.email
+        }).catch(console.error);
     };
 
     const handleAIRecommend = async (lead: Lead) => {

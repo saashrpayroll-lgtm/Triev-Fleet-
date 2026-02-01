@@ -555,6 +555,13 @@ export const useUsers = () => {
             if (error) throw error;
 
             toast.success('Selected users suspended');
+            logActivity({
+                actionType: 'bulkUserSuspended',
+                targetType: 'user',
+                targetId: 'bulk',
+                details: `Bulk suspended ${selectedUsers.length} users`,
+                performedBy: currentUser?.email || 'admin'
+            }).catch(console.error);
             await fetchUsers(); // Auto-refresh
         } catch (err) {
             toast.error('Failed to suspend some users');
@@ -581,6 +588,13 @@ export const useUsers = () => {
                 if (!error) successCount++;
             }
             toast.success(`Updated status for ${successCount} users`);
+            logActivity({
+                actionType: 'bulkStatusChanged',
+                targetType: 'user',
+                targetId: 'bulk',
+                details: `Bulk changed status for ${successCount} users`,
+                performedBy: currentUser?.email || 'admin'
+            }).catch(console.error);
             await fetchUsers(); // Auto-refresh
         } catch (err) {
             toast.error('Failed to update status for some users');

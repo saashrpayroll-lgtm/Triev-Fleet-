@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/config/supabase';
 import { Search, Trash2, Calendar, Download, Globe, Clock, User, Activity, Filter, RefreshCw, X } from 'lucide-react';
-import { format, formatDistanceToNow, isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { format, isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ActivityLog {
@@ -29,6 +29,7 @@ const ActivityLog: React.FC = () => {
     const [selectedLogs, setSelectedLogs] = useState<Set<string>>(new Set());
     const [filterAction, setFilterAction] = useState('all');
     const [filterUser, setFilterUser] = useState('all');
+    const [filterRole, setFilterRole] = useState('all');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [showFilters, setShowFilters] = useState(false);
@@ -48,44 +49,45 @@ const ActivityLog: React.FC = () => {
         localStorage.setItem('deleted_activity_logs', JSON.stringify(Array.from(current)));
     };
 
+    const [showMetadata, setShowMetadata] = useState<any | null>(null);
+
     // Fetch Logs
     const fetchLogs = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('activity_logs')
-            .select(`
-                id,
-                userName:user_name,
-                userId:user_id,
-                userRole:user_role,
-                actionType:action_type,
-                targetType:target_type,
-                targetId:target_id,
-                details,
-                timestamp,
-                isDeleted:is_deleted,
-                metadata
-            `)
-            .not('is_deleted', 'eq', true)
-            .order('timestamp', { ascending: false })
-            .limit(1000);
+        try {
+            const { data, error } = await supabase
+                .from('activity_logs')
+                .select(`
+                    id,
+                    userName:user_name,
+                    userId:user_id,
+                    userRole:user_role,
+                    actionType:action_type,
+                    targetType:target_type,
+                    targetId:target_id,
+                    details,
+                    timestamp,
+                    isDeleted:is_deleted,
+                    metadata
+                `)
+                .order('timestamp', { ascending: false })
+                .limit(2000);
 
-        if (data) {
-            const localDeleted = getLocalDeletedIds();
+            if (error) throw error;
 
-            // Filter out server-deleted AND local-deleted
-            const validLogs = (data as ActivityLog[]).filter(l =>
-                l.isDeleted !== true && !localDeleted.has(l.id)
-            );
-
-            setLogs(validLogs);
-        }
-
-        if (error) {
+            if (data) {
+                const localDeleted = getLocalDeletedIds();
+                const validLogs = (data as ActivityLog[]).filter(l =>
+                    l.isDeleted !== true && !localDeleted.has(l.id)
+                );
+                setLogs(validLogs);
+            }
+        } catch (error: any) {
             console.error('Error fetching logs:', error);
-            toast.error('Failed to load activity logs');
+            toast.error(error.message || 'Failed to load activity logs');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -105,21 +107,23 @@ const ActivityLog: React.FC = () => {
     // Derived Lists
     const uniqueUsers = useMemo(() => Array.from(new Set(logs.map(l => l.userName || 'Unknown').filter(Boolean))), [logs]);
     const uniqueActions = useMemo(() => Array.from(new Set(logs.map(l => l.actionType || 'Unknown'))), [logs]);
+    const uniqueRoles = useMemo(() => Array.from(new Set(logs.map(l => l.userRole || 'Unknown'))), [logs]);
 
     // Filtering Logic
     const filteredLogs = useMemo(() => {
         return logs.filter(log => {
-            // Text Search
+            const searchTermLower = searchTerm.toLowerCase();
             const matchesSearch =
-                (log.details || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (log.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (log.actionType || '').toLowerCase().includes(searchTerm.toLowerCase());
+                (log.details || '').toLowerCase().includes(searchTermLower) ||
+                (log.userName || '').toLowerCase().includes(searchTermLower) ||
+                (log.userId || '').toLowerCase().includes(searchTermLower) ||
+                (log.actionType || '').toLowerCase().includes(searchTermLower) ||
+                (log.targetId || '').toLowerCase().includes(searchTermLower);
 
-            // Dropdowns
             const matchesAction = filterAction === 'all' || log.actionType === filterAction;
             const matchesUser = filterUser === 'all' || log.userName === filterUser;
+            const matchesRole = filterRole === 'all' || log.userRole === filterRole;
 
-            // Date Range
             let matchesDate = true;
             if (dateFrom || dateTo) {
                 const logDate = parseISO(log.timestamp);
@@ -128,9 +132,9 @@ const ActivityLog: React.FC = () => {
                 matchesDate = isWithinInterval(logDate, { start, end });
             }
 
-            return matchesSearch && matchesAction && matchesUser && matchesDate;
+            return matchesSearch && matchesAction && matchesUser && matchesRole && matchesDate;
         });
-    }, [logs, searchTerm, filterAction, filterUser, dateFrom, dateTo]);
+    }, [logs, searchTerm, filterAction, filterUser, filterRole, dateFrom, dateTo]);
 
     // Handlers
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,6 +233,7 @@ const ActivityLog: React.FC = () => {
         setSearchTerm('');
         setFilterAction('all');
         setFilterUser('all');
+        setFilterRole('all');
         setDateFrom('');
         setDateTo('');
         toast.info("Filters cleared");
@@ -315,6 +320,17 @@ const ActivityLog: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-muted-foreground uppercase">Role</label>
+                                    <select
+                                        value={filterRole}
+                                        onChange={e => setFilterRole(e.target.value)}
+                                        className="w-full p-2.5 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
+                                    >
+                                        <option value="all">Every Role</option>
+                                        {uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
                                     <label className="text-xs font-semibold text-muted-foreground uppercase">Action Type</label>
                                     <select
                                         value={filterAction}
@@ -349,7 +365,7 @@ const ActivityLog: React.FC = () => {
                                         />
                                     </div>
                                 </div>
-                                <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                                <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-4">
                                     <button onClick={clearFilters} className="text-sm text-red-500 hover:text-red-600 font-medium hover:underline">
                                         Clear All Filters
                                     </button>
@@ -412,12 +428,19 @@ const ActivityLog: React.FC = () => {
                                         <p className="text-sm text-foreground/80 line-clamp-2 md:line-clamp-1" title={log.details}>
                                             {log.details}
                                         </p>
+                                        <div className="flex gap-2 text-[10px] text-muted-foreground">
+                                            <span>ID: {log.id.split('-')[0]}...</span>
+                                            {log.targetId && <span>Target: {log.targetId.split('-')[0]}...</span>}
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                        <div className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md">
-                                            <User size={12} />
-                                            <span className="truncate max-w-[100px]" title={log.userName}>{log.userName}</span>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md">
+                                                <User size={12} />
+                                                <span className="truncate max-w-[100px] font-medium text-foreground" title={log.userName}>{log.userName}</span>
+                                            </div>
+                                            <span className="text-[10px] opacity-60 ml-1">ID: {log.userId.split('-')[0]}...</span>
                                         </div>
                                         {log.metadata?.ip && (
                                             <div className="flex items-center gap-1.5 hidden md:flex">
@@ -431,9 +454,12 @@ const ActivityLog: React.FC = () => {
                                             <Clock size={12} className="text-primary" />
                                             {log.timestamp ? format(parseISO(log.timestamp), 'MMM dd, HH:mm') : '-'}
                                         </span>
-                                        <span className="text-[10px] text-muted-foreground">
-                                            {log.timestamp ? formatDistanceToNow(parseISO(log.timestamp), { addSuffix: true }) : ''}
-                                        </span>
+                                        <button
+                                            onClick={() => setShowMetadata(log)}
+                                            className="text-[10px] text-primary hover:underline"
+                                        >
+                                            View Metadata
+                                        </button>
                                     </div>
                                 </div>
 
@@ -459,6 +485,68 @@ const ActivityLog: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Metadata Modal */}
+            <AnimatePresence>
+                {showMetadata && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-card border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl"
+                        >
+                            <div className="p-4 border-b flex justify-between items-center bg-muted/30">
+                                <h3 className="font-bold text-lg flex items-center gap-2">
+                                    <Activity size={20} className="text-primary" /> Log Details
+                                </h3>
+                                <button onClick={() => setShowMetadata(null)} className="p-2 hover:bg-muted rounded-full transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground font-semibold uppercase text-[10px]">Action</p>
+                                        <p className="font-medium">{showMetadata.actionType}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground font-semibold uppercase text-[10px]">Timestamp</p>
+                                        <p className="font-medium">{format(parseISO(showMetadata.timestamp), 'yyyy-MM-dd HH:mm:ss')}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground font-semibold uppercase text-[10px]">User</p>
+                                        <p className="font-medium">{showMetadata.userName}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-muted-foreground font-semibold uppercase text-[10px]">Role</p>
+                                        <p className="font-medium capitalize">{showMetadata.userRole}</p>
+                                    </div>
+                                    <div className="col-span-2 space-y-1">
+                                        <p className="text-muted-foreground font-semibold uppercase text-[10px]">Details</p>
+                                        <p className="bg-muted/50 p-3 rounded-xl border border-dashed text-sm">{showMetadata.details}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-muted-foreground font-semibold uppercase text-[10px]">Extended Metadata (JSON)</p>
+                                    <pre className="p-4 bg-zinc-950 text-emerald-400 text-xs rounded-xl overflow-x-auto border border-white/5">
+                                        {JSON.stringify(showMetadata.metadata || {}, null, 2)}
+                                    </pre>
+                                </div>
+                            </div>
+                            <div className="p-4 border-t bg-muted/30 flex justify-end">
+                                <button
+                                    onClick={() => setShowMetadata(null)}
+                                    className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

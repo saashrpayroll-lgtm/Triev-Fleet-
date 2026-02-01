@@ -251,6 +251,15 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
                 // UPDATE
                 const { error } = await supabase.from('leads').update(dbPayload).eq('id', initialData.id);
                 if (error) throw error;
+
+                logActivity({
+                    actionType: 'leadEdited',
+                    targetType: 'lead',
+                    targetId: String(initialData.leadId),
+                    details: `Updated Lead #${initialData.leadId}`,
+                    metadata: { changes: leadData }
+                }).catch(console.error);
+
                 setStatusData({ message: "Lead Updated!", type: 'success' });
             } else {
                 // INSERT
