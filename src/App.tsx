@@ -49,86 +49,86 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
+  if (loading) {
+      return <LoadingScreen />;
+    }
     );
   }
 
-  if (!user || !userData) {
-    return <Navigate to="/login" replace />;
-  }
+if (!user || !userData) {
+  return <Navigate to="/login" replace />;
+}
 
-  // Handle Guest/Uninitialized Profile
-  if ((userData.role as string) === 'guest') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
-        <p className="text-muted-foreground max-w-md mb-6">
-          Your account is authenticated, but no user profile was found in our database.
-          Please contact your administrator to create your profile.
+// Handle Guest/Uninitialized Profile
+if ((userData.role as string) === 'guest') {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
+      <p className="text-muted-foreground max-w-md mb-6">
+        Your account is authenticated, but no user profile was found in our database.
+        Please contact your administrator to create your profile.
+      </p>
+      <div className="p-4 bg-muted/50 rounded-lg text-left text-xs font-mono mb-6 w-full max-w-md overflow-auto">
+        <p>User ID: {user.id}</p>
+        <p>Email: {user.email}</p>
+        <p>Status: {userData.status}</p>
+      </div>
+      <button
+        onClick={() => supabase.auth.signOut()}
+        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+      >
+        Sign Out
+      </button>
+    </div>
+  );
+}
+
+if (allowedRoles && !allowedRoles.includes(userData.role)) {
+  return <Navigate to="/unauthorized" replace />;
+}
+
+// Check if user is suspended
+if (userData.status === 'suspended') {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-destructive mb-4">Account Suspended</h1>
+        <p className="text-muted-foreground">
+          Your account has been temporarily suspended. Please contact your administrator.
         </p>
-        <div className="p-4 bg-muted/50 rounded-lg text-left text-xs font-mono mb-6 w-full max-w-md overflow-auto">
-          <p>User ID: {user.id}</p>
-          <p>Email: {user.email}</p>
-          <p>Status: {userData.status}</p>
-        </div>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-        >
-          Sign Out
-        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (allowedRoles && !allowedRoles.includes(userData.role)) {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
-  // Check if user is suspended
-  if (userData.status === 'suspended') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-destructive mb-4">Account Suspended</h1>
-          <p className="text-muted-foreground">
-            Your account has been temporarily suspended. Please contact your administrator.
-          </p>
-        </div>
+if (userData.status === 'inactive') {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-destructive mb-4">Account Inactive</h1>
+        <p className="text-muted-foreground mb-4">
+          Your account is currently inactive. Please contact your administrator.
+        </p>
+        {/* Emergency Recovery for Admin (Supabase version) */}
+        {userData.username === 'saunvir1130' && ( // Assuming username field exists in Supabase users
+          <button
+            onClick={async () => {
+              if (user) {
+                await supabase.from('users').update({ status: 'active' }).eq('id', user.id);
+                window.location.reload();
+              }
+            }}
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:bg-primary/90"
+          >
+            Emergency Reactivate (Admin Only)
+          </button>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (userData.status === 'inactive') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-destructive mb-4">Account Inactive</h1>
-          <p className="text-muted-foreground mb-4">
-            Your account is currently inactive. Please contact your administrator.
-          </p>
-          {/* Emergency Recovery for Admin (Supabase version) */}
-          {userData.username === 'saunvir1130' && ( // Assuming username field exists in Supabase users
-            <button
-              onClick={async () => {
-                if (user) {
-                  await supabase.from('users').update({ status: 'active' }).eq('id', user.id);
-                  window.location.reload();
-                }
-              }}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:bg-primary/90"
-            >
-              Emergency Reactivate (Admin Only)
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+return <>{children}</>;
 };
 
 // Public Route Component (redirects to dashboard if already logged in)
@@ -310,5 +310,55 @@ function App() {
     </GlobalErrorBoundary>
   );
 }
+
+// Helper component for loading state
+const LoadingScreen = () => {
+  const [showSlowLoading, setShowSlowLoading] = React.useState(false);
+  const [showReset, setShowReset] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer1 = setTimeout(() => setShowSlowLoading(true), 3000); // 3s
+    const timer2 = setTimeout(() => setShowReset(true), 8000); // 8s
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, []);
+
+  const handleReset = async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+      <div className="text-lg font-medium">Loading Application...</div>
+
+      {showSlowLoading && (
+        <p className="text-muted-foreground text-sm mt-2 animate-in fade-in">
+          Connecting to secure services...
+        </p>
+      )}
+
+      {showReset && (
+        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4">
+          <p className="text-amber-600 dark:text-amber-500 text-sm mb-3">
+            Taking longer than expected?
+          </p>
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 text-sm font-medium border border-border shadow-sm"
+          >
+            Reset & Reload
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default App;
