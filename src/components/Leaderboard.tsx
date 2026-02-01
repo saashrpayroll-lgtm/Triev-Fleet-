@@ -149,10 +149,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                             navigate(`/admin/users?highlightUserId=${tl.id}`);
                                         }}
                                     >
-                                        {tl.fullName || tl.email || 'Unknown'}
+                                        {typeof tl.fullName === 'string' ? tl.fullName : String(tl.fullName || tl.email || 'Unknown')}
                                         <ExternalLink size={10} className="opacity-50" />
                                     </div>
-                                    <p className="text-xs text-muted-foreground truncate opacity-80 group-hover:opacity-100 transition-opacity">{tl.email}</p>
+                                    <p className="text-xs text-muted-foreground truncate opacity-80 group-hover:opacity-100 transition-opacity">
+                                        {typeof tl.email === 'string' ? tl.email : String(tl.email || '')}
+                                    </p>
                                     <div className="flex items-center gap-1 mt-0.5">
                                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 font-mono text-muted-foreground flex items-center gap-0.5">
                                             <Hash size={8} /> {tl.id.slice(0, 6)}

@@ -133,14 +133,24 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                         <div className="h-10 w-32 bg-current/10 animate-pulse rounded-lg" />
                     ) : (
                         <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
-                            {typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : value}
+                            {typeof value === 'number'
+                                ? `₹${value.toLocaleString('en-IN')}`
+                                : typeof value === 'object'
+                                    ? JSON.stringify(value)
+                                    : value}
                         </h3>
                     )}
 
-                    {aiInsight ? (
+                    {aiInsight && typeof aiInsight === 'string' ? (
                         <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
                             <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
                                 "{aiInsight}"
+                            </p>
+                        </div>
+                    ) : aiInsight && typeof aiInsight === 'object' ? (
+                        <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
+                            <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
+                                {JSON.stringify(aiInsight)}
                             </p>
                         </div>
                     ) : (
