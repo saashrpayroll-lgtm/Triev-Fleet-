@@ -224,11 +224,6 @@ export const AIService = {
         return text ? cleanText(text) : "Request processed successfully.";
     },
 
-    generatePaymentReminder: async (rider: Rider, language: 'hindi' | 'english', tone: string = 'professional'): Promise<string> => {
-        const prompt = `Write a payment reminder message for a rider named ${rider.riderName}. debt: ${Math.abs(rider.walletAmount)}. Lang: ${language}. Tone: ${tone}.`;
-        const text = await AIOrchestrator.execute('speed', prompt, "You are a Collection Agent."); // Groq
-        return text ? cleanText(text) : `Reminder: Please clear your dues of Rs. ${Math.abs(rider.walletAmount)}.`;
-    },
 
     suggestRequestContent: async (userInput: string): Promise<{ subject: string, description: string, type: string } | null> => {
         const prompt = `Based on: "${userInput}", suggest Subject, Description, and Request Type. Output strictly JSON: { "subject": "...", "description": "...", "type": "..." }`;
