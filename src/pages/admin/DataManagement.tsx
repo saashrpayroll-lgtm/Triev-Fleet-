@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2 } from 'lucide-react';
+import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import DataImport from '@/components/DataImport';
 import GlassCard from '@/components/GlassCard';
 import { processRiderImport, processWalletUpdate } from '@/utils/importUtils';
@@ -43,6 +44,7 @@ const DataManagement: React.FC = () => {
     }, []);
 
     const fetchHistory = async () => {
+        setLoadingHistory(true);
         try {
             const { data, error } = await supabase
                 .from('import_history')
@@ -60,10 +62,15 @@ const DataManagement: React.FC = () => {
                 .order('timestamp', { ascending: false })
                 .limit(20);
 
-            if (error) throw error;
+            if (error) {
+                console.error("Supabase Error fetching history:", error);
+                toast.error(`History Fetch Failed: ${error.message} (${error.code})`);
+                throw error;
+            }
             setHistory(data || []);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Error fetching history:", err);
+            // toast.error is handled above if it's a supabase error
         } finally {
             setLoadingHistory(false);
         }
@@ -502,17 +509,39 @@ const DataManagement: React.FC = () => {
                 {activeTab === 'history' && (
                     <div className="space-y-4">
                         <GlassCard className="p-6">
-                            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                                <History className="text-purple-500" /> Import History
-                            </h2>
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <History className="text-purple-500" /> Import History
+                                </h2>
+                                <button
+                                    onClick={() => fetchHistory()}
+                                    disabled={loadingHistory}
+                                    className="p-2 hover:bg-muted rounded-full transition-colors group"
+                                    title="Refresh History"
+                                >
+                                    <RefreshCw size={20} className={`${loadingHistory ? 'animate-spin text-primary' : 'text-muted-foreground group-hover:text-primary'}`} />
+                                </button>
+                            </div>
                             {loadingHistory ? (
                                 <div className="text-center py-12">
                                     <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                                     <p className="text-muted-foreground">Loading history...</p>
                                 </div>
                             ) : history.length === 0 ? (
-                                <div className="text-center text-muted-foreground py-12 bg-muted/10 rounded-xl border border-dashed border-muted">
-                                    No history records found.
+                                <div className="text-center text-muted-foreground py-16 bg-muted/10 rounded-2xl border border-dashed border-muted/50 flex flex-col items-center gap-3">
+                                    <div className="p-4 bg-muted/20 rounded-full">
+                                        <History size={40} className="text-muted-foreground/50" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="font-semibold text-lg">No history records found</p>
+                                        <p className="text-sm">New imports will appear here automatically.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => fetchHistory()}
+                                        className="mt-2 text-sm text-primary hover:underline font-medium"
+                                    >
+                                        Click to try refreshing
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
