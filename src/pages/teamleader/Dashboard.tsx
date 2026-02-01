@@ -14,6 +14,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
+import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 
 interface DashboardStats {
     // Riders
@@ -220,7 +221,9 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            <AINewsTicker />
+            <ComponentErrorBoundary name="AI News Ticker">
+                <AINewsTicker />
+            </ComponentErrorBoundary>
 
             {aiInsight && (
                 <motion.div
@@ -253,11 +256,13 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
-                        <Leaderboard
-                            teamLeaders={leaderboardData.teamLeaders}
-                            riders={leaderboardData.riders}
-                            leads={leaderboardData.leads}
-                        />
+                        <ComponentErrorBoundary name="Leaderboard">
+                            <Leaderboard
+                                teamLeaders={leaderboardData.teamLeaders}
+                                riders={leaderboardData.riders}
+                                leads={leaderboardData.leads}
+                            />
+                        </ComponentErrorBoundary>
                     ) : (
                         <div className="p-10 text-center text-muted-foreground border border-dashed rounded-2xl">
                             Leaderboard is restricted
@@ -324,11 +329,13 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     {(userData.permissions?.dashboard?.charts?.onboarding ?? true) ? (
-                        <DashboardCharts
-                            riderData={chartData.riders}
-                            walletData={chartData.wallet}
-                            leadData={chartData.leads}
-                        />
+                        <ComponentErrorBoundary name="Dashboard Charts">
+                            <DashboardCharts
+                                riderData={chartData.riders}
+                                walletData={chartData.wallet}
+                                leadData={chartData.leads}
+                            />
+                        </ComponentErrorBoundary>
                     ) : (
                         <div className="h-full bg-card/40 border border-dashed rounded-[2.5rem] flex items-center justify-center text-muted-foreground p-10 min-h-[300px]">
                             Charts access restricted

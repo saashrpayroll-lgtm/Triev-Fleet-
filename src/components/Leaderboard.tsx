@@ -3,6 +3,8 @@ import { User, Rider, Lead } from '@/types';
 import { Trophy, Sparkles, Wallet, Users, CheckCircle, Smartphone, Calendar, Activity, Hash, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { safeRender } from '@/utils/safeRender';
+
 
 interface LeaderboardProps {
     teamLeaders: User[];
@@ -139,7 +141,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             {/* Header */}
                             <div className="flex items-center gap-4 mb-6">
                                 <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} group-hover:rotate-6 transition-transform`}>
-                                    {String(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
+                                    {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="overflow-hidden flex-1">
                                     <div
@@ -149,15 +151,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                             navigate(`/admin/users?highlightUserId=${tl.id}`);
                                         }}
                                     >
-                                        {typeof tl.fullName === 'string' ? tl.fullName : String(tl.fullName || tl.email || 'Unknown')}
+                                        {safeRender(tl.fullName || tl.email || 'Unknown')}
                                         <ExternalLink size={10} className="opacity-50" />
                                     </div>
                                     <p className="text-xs text-muted-foreground truncate opacity-80 group-hover:opacity-100 transition-opacity">
-                                        {typeof tl.email === 'string' ? tl.email : String(tl.email || '')}
+                                        {safeRender(tl.email)}
                                     </p>
                                     <div className="flex items-center gap-1 mt-0.5">
                                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 font-mono text-muted-foreground flex items-center gap-0.5">
-                                            <Hash size={8} /> {tl.id.slice(0, 6)}
+                                            <Hash size={8} /> {safeRender(tl.id).slice(0, 6)}
                                         </span>
                                     </div>
                                 </div>
