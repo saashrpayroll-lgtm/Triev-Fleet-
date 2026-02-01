@@ -153,7 +153,7 @@ const AdminLayout: React.FC = () => {
                         </div>
 
                         {/* User Info */}
-                        <Link to="/admin/profile" className="flex items-center gap-3 pl-6 border-l border-border hover:opacity-80 transition-opacity">
+                        <Link to="/portal/profile" className="flex items-center gap-3 pl-6 border-l border-border hover:opacity-80 transition-opacity">
                             <div className="text-right">
                                 <p className="font-medium text-sm">{typeof userData?.fullName === 'string' ? userData.fullName : 'Admin'}</p>
                                 <p className="text-xs text-muted-foreground capitalize">{typeof userData?.role === 'string' ? userData.role : String(userData?.role || 'admin')}</p>
