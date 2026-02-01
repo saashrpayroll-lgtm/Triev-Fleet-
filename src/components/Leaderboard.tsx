@@ -28,7 +28,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
     // AI Scoring Algorithm (Same logic, enhanced display)
     const scoredTLs = useMemo(() => {
-        return teamLeaders.map(tl => {
+        console.log('🎯 LEADERBOARD useMemo: Starting calculation');
+        console.log('🎯 LEADERBOARD useMemo: teamLeaders.length:', teamLeaders.length);
+
+        const result = teamLeaders.map(tl => {
+            console.log('🎯 LEADERBOARD useMemo: Processing TL:', tl.id);
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
             const activeCount = tlRiders.filter(r => r.status === 'active').length;
             const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
@@ -52,7 +56,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
             // CRITICAL FIX: Only include primitive fields, not the entire object
             // This prevents any JSONB or object fields from causing React Error #310
-            return {
+            const tlData = {
                 id: tl.id,
                 fullName: tl.fullName,
                 email: tl.email,
@@ -68,7 +72,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                     activity: activityScore
                 }
             };
+            console.log('🎯 LEADERBOARD useMemo: Created tlData:', JSON.stringify(tlData));
+            return tlData;
         }).sort((a, b) => b.score - a.score).slice(0, 3);
+
+        console.log('🎯 LEADERBOARD useMemo: Final result:', result.length, 'items');
+        return result;
     }, [teamLeaders, riders, leads]);
 
     const getRankStyles = (index: number) => {
