@@ -155,7 +155,7 @@ const Profile: React.FC = () => {
                                         <img src={userData.profilePicUrl} alt="Profile" className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-110" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-slate-950 text-5xl font-black text-indigo-500">
-                                            {userData.fullName?.charAt(0).toUpperCase()}
+                                            {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : 'A'}
                                         </div>
                                     )}
 
@@ -186,7 +186,7 @@ const Profile: React.FC = () => {
                                     Account Holder
                                 </p>
                                 <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-                                    {userData.fullName}
+                                    {typeof userData.fullName === 'string' ? userData.fullName : 'Admin'}
                                 </h1>
                                 <p className="text-slate-400 font-medium text-lg flex items-center justify-center md:justify-start gap-2">
                                     @{userData.username || userData.email.split('@')[0]}

@@ -59,7 +59,9 @@ const AINewsTicker: React.FC = () => {
                 {news.map((item, index) => (
                     <div key={item.id} className="inline-flex items-center mx-12 text-base font-medium">
                         <Activity size={16} className="mr-3 text-indigo-300" />
-                        <span className="text-indigo-50 tracking-wide">{item.details}</span>
+                        <span className="text-indigo-50 tracking-wide">
+                            {typeof item.details === 'string' ? item.details : JSON.stringify(item.details)}
+                        </span>
                         <span className="ml-3 text-xs text-indigo-300/80 font-mono border border-indigo-500/30 px-1.5 rounded">
                             {item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                         </span>

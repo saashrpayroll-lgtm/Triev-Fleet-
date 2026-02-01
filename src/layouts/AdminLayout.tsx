@@ -155,14 +155,14 @@ const AdminLayout: React.FC = () => {
                         {/* User Info */}
                         <Link to="/admin/profile" className="flex items-center gap-3 pl-6 border-l border-border hover:opacity-80 transition-opacity">
                             <div className="text-right">
-                                <p className="font-medium text-sm">{userData?.fullName}</p>
+                                <p className="font-medium text-sm">{typeof userData?.fullName === 'string' ? userData.fullName : 'Admin'}</p>
                                 <p className="text-xs text-muted-foreground capitalize">{userData?.role}</p>
                             </div>
                             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold overflow-hidden border border-primary/20">
                                 {userData?.profilePicUrl ? (
                                     <img src={userData.profilePicUrl} alt="User" className="w-full h-full object-cover" />
                                 ) : (
-                                    userData?.fullName?.charAt(0).toUpperCase()
+                                    typeof userData?.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : 'A'
                                 )}
                             </div>
                         </Link>

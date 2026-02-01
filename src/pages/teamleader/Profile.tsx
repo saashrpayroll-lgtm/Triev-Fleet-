@@ -160,7 +160,7 @@ const Profile: React.FC = () => {
                                     <img src={userData.profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-slate-900 text-4xl font-bold text-pink-400">
-                                        {userData.fullName?.charAt(0).toUpperCase()}
+                                        {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : 'L'}
                                     </div>
                                 )}
 
@@ -186,7 +186,7 @@ const Profile: React.FC = () => {
                     {/* User Info */}
                     <div className="text-center md:text-left flex-1 space-y-3">
                         <div className="flex flex-col md:flex-row items-center gap-3">
-                            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{userData.fullName}</h1>
+                            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{typeof userData.fullName === 'string' ? userData.fullName : 'Leader'}</h1>
                             <span className="px-3 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full text-xs font-bold uppercase tracking-wide shadow-[0_0_10px_rgba(168,85,247,0.2)]">
                                 Team Leader
                             </span>
@@ -285,7 +285,7 @@ const Profile: React.FC = () => {
                                     />
                                 ) : (
                                     <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 font-medium text-foreground">
-                                        {userData.fullName}
+                                        {typeof userData.fullName === 'string' ? userData.fullName : 'Leader'}
                                     </div>
                                 )}
                             </div>
