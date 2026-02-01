@@ -15,37 +15,31 @@ const DataManagement: React.FC = () => {
     const [history, setHistory] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
-    // Real-time History Fetching
+    // Initial Fetch & Real-time History
     useEffect(() => {
-        if (activeTab === 'history') {
-            setLoadingHistory(true);
+        fetchHistory();
 
-            // Initial fetch
-            fetchHistory();
+        // Real-time subscription
+        const channel = supabase
+            .channel('import-history-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'import_history'
+                },
+                (payload) => {
+                    console.log('History change received:', payload);
+                    fetchHistory();
+                }
+            )
+            .subscribe();
 
-            // Real-time subscription
-            const channel = supabase
-                .channel('import-history-changes')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: '*',
-                        schema: 'public',
-                        table: 'import_history'
-                    },
-                    (_) => {
-                        // For simplicity, re-fetch on any change. 
-                        // Optimization: Append/Update locally based on payload.
-                        fetchHistory();
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
-        }
-    }, [activeTab]);
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     const fetchHistory = async () => {
         try {
@@ -155,9 +149,11 @@ const DataManagement: React.FC = () => {
 
     // Google Sheets State
     const [sheetConfig, setSheetConfig] = useState({
-        sheetId: '1BxiMvs0XRA5nLFd...', // Default or empty
-        range: 'Sheet1!A1:Z100'
+        sheetId: '',
+        range: 'Sheet1!A1:Z500',
+        apiKey: ''
     });
+    const [syncMode, setSyncMode] = useState<'rider' | 'wallet'>('rider');
     const [isAutoSyncing, setIsAutoSyncing] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -193,8 +189,9 @@ const DataManagement: React.FC = () => {
 
             const summary = await syncGoogleSheet({
                 sheetId: sheetConfig.sheetId,
-                range: sheetConfig.range
-            }, userData.id, userData.fullName);
+                range: sheetConfig.range,
+                apiKey: sheetConfig.apiKey || undefined
+            }, userData.id, userData.fullName, syncMode);
 
             setLastSyncTime(new Date());
 
@@ -333,27 +330,55 @@ const DataManagement: React.FC = () => {
                             {/* Configuration Form */}
                             <div className="lg:col-span-2 space-y-6">
                                 <form onSubmit={(e) => handleGoogleSync(e, false)} className="space-y-5">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium flex items-center gap-2">
-                                            Sheet ID <span className="text-xs text-muted-foreground">(from URL)</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={sheetConfig.sheetId}
-                                            onChange={e => setSheetConfig({ ...sheetConfig, sheetId: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
-                                            placeholder="e.g., 1BxiMvs0XRA5nLFd..."
-                                        />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium flex items-center gap-2">
+                                                Sheet ID <span className="text-xs text-muted-foreground">(from URL)</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={sheetConfig.sheetId}
+                                                onChange={e => setSheetConfig({ ...sheetConfig, sheetId: e.target.value })}
+                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
+                                                placeholder="e.g., 1BxiMvs0XRA5nLFd..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Sync Mode</label>
+                                            <select
+                                                value={syncMode}
+                                                onChange={e => setSyncMode(e.target.value as 'rider' | 'wallet')}
+                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all text-sm"
+                                            >
+                                                <option value="rider">Bulk Rider Import (New/Update)</option>
+                                                <option value="wallet">Bulk Wallet Update (Existing)</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Range / Sheet Name</label>
-                                        <input
-                                            type="text"
-                                            value={sheetConfig.range}
-                                            onChange={e => setSheetConfig({ ...sheetConfig, range: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
-                                            placeholder="e.g., Sheet1!A1:Z100"
-                                        />
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Range / Sheet Name</label>
+                                            <input
+                                                type="text"
+                                                value={sheetConfig.range}
+                                                onChange={e => setSheetConfig({ ...sheetConfig, range: e.target.value })}
+                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
+                                                placeholder="e.g., Sheet1!A1:Z500"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium flex items-center gap-2">
+                                                API Key <span className="text-xs text-muted-foreground">(Optional if Public)</span>
+                                            </label>
+                                            <input
+                                                type="password"
+                                                value={sheetConfig.apiKey}
+                                                onChange={e => setSheetConfig({ ...sheetConfig, apiKey: e.target.value })}
+                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
+                                                placeholder="Enter API Key from Cloud Console"
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Auto Sync Toggle */}
@@ -380,10 +405,33 @@ const DataManagement: React.FC = () => {
                                             className="flex-1 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                         >
                                             {isSyncing ? <span className="animate-spin">⟳</span> : <FileText size={18} />}
-                                            {isSyncing ? 'Syncing...' : 'Sync Now (Manual)'}
+                                            {isSyncing ? 'Syncing...' : `Sync ${syncMode === 'rider' ? 'Riders' : 'Wallets'} Now`}
                                         </button>
                                     </div>
                                 </form>
+
+                                {/* Sample Formats */}
+                                <div className="mt-8 border-t pt-6">
+                                    <h4 className="font-bold text-sm mb-4 flex items-center gap-2">
+                                        <HelpCircle size={16} className="text-blue-500" /> Google Sheet Sample Formats
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+                                            <div className="text-xs font-bold text-primary mb-2 uppercase">Mode: Rider Import</div>
+                                            <div className="bg-background/80 p-2 rounded font-mono text-[10px] overflow-x-auto whitespace-nowrap">
+                                                Rider Name | Triev ID | Mobile Number | Chassis Number | Client Name | Team Leader | Allotment Date | Wallet Amount
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-2">Required: Rider Name, Team Leader, Client Name. One identifier required.</p>
+                                        </div>
+                                        <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+                                            <div className="text-xs font-bold text-primary mb-2 uppercase">Mode: Wallet Update</div>
+                                            <div className="bg-background/80 p-2 rounded font-mono text-[10px] overflow-x-auto whitespace-nowrap">
+                                                Triev ID | Mobile Number | Wallet Amount
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-2">Required: Wallet Amount. Primary lookup: Triev ID, then Mobile.</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Status Panel */}
@@ -404,7 +452,7 @@ const DataManagement: React.FC = () => {
 
                                             <div className="p-3 bg-background/60 rounded-lg border border-border/50">
                                                 <p className="text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wider">Last Result</p>
-                                                {history.length > 0 && history[0].importType === 'rider' ? (
+                                                {history.length > 0 ? (
                                                     <div className="space-y-1">
                                                         <div className="flex justify-between text-sm">
                                                             <span className="text-green-600 font-medium">Success: {history[0].successCount}</span>
@@ -587,7 +635,7 @@ const DataManagement: React.FC = () => {
                     </GlassCard>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

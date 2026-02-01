@@ -224,34 +224,49 @@ export const processWalletUpdate = async (
 
         try {
             // Priority: Triev ID -> Mobile
-            const trievId = row['Triev ID']?.trim();
+            const trievId = String(row['Triev ID'] || '').trim();
             const mobile = String(row['Mobile Number'] || '').replace(/[^0-9]/g, '');
             const amount = parseCurrency(row['Wallet Amount']);
 
-            if (!trievId && !mobile) throw new Error("Missing Triev ID or Mobile Number");
-            if (isNaN(amount)) throw new Error("Invalid Wallet Amount");
+            if (!trievId && !mobile) {
+                throw new Error("Missing Identifier: 'Triev ID' or 'Mobile Number' is required column.");
+            }
+            if (isNaN(amount)) throw new Error("Invalid Wallet Amount value.");
 
             let matchData = null;
+            let identifierUsed = '';
+
+            // 1. Try Triev ID first (more precise)
             if (trievId) {
-                const { data } = await supabase.from('riders').select('id').eq('triev_id', trievId).maybeSingle();
-                matchData = data;
-            } else if (mobile) {
-                const { data } = await supabase.from('riders').select('id').eq('mobile_number', mobile).maybeSingle();
-                matchData = data;
+                const { data } = await supabase.from('riders').select('id, rider_name').eq('triev_id', trievId).maybeSingle();
+                if (data) {
+                    matchData = data;
+                    identifierUsed = `Triev ID: ${trievId}`;
+                }
+            }
+
+            // 2. Try Mobile if Triev ID failed or wasn't provided
+            if (!matchData && mobile) {
+                const { data } = await supabase.from('riders').select('id, rider_name').eq('mobile_number', mobile).maybeSingle();
+                if (data) {
+                    matchData = data;
+                    identifierUsed = `Mobile: ${mobile}`;
+                }
             }
 
             if (!matchData) {
-                throw new Error(`Rider not found for ID: ${trievId || mobile}`);
+                throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
             }
 
             // Update
             const { error } = await supabase.from('riders').update({
-                wallet_amount: amount, // Direct set
+                wallet_amount: amount,
                 updated_at: new Date().toISOString()
             }).eq('id', matchData.id);
 
             if (error) throw error;
 
+            console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
             summary.success++;
 
         } catch (err: any) {

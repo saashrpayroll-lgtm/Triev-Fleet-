@@ -11,14 +11,12 @@ interface GoogleSheetConfig {
 }
 
 export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<any[]> => {
-    // This function would usually fetch data from the Google Sheets API
-    // GET https://sheets.googleapis.com/v4/spreadsheets/{spreadsheetId}/values/{range}?key={apiKey}
-
     if (!config.sheetId || !config.range) {
         throw new Error("Sheet ID and Range are required");
     }
 
-    const apiKey = config.apiKey || 'AIzaSyDvUJI4Eg0e4G3PHdu12QKnfyR-MYyjIoc'; // Use provided key as default
+    // Priority: 1. Config Key, 2. Env Var, 3. Default
+    const apiKey = config.apiKey || import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || 'AIzaSyDvUJI4Eg0e4G3PHdu12QKnfyR-MYyjIoc';
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${config.range}?key=${apiKey}`;
 
     console.log(`Fetching Google Sheet: ${config.sheetId}, Range: ${config.range}`);
@@ -27,24 +25,31 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
         const response = await fetch(url);
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(`Google Sheets API Error: ${error.error?.message || response.statusText}`);
+            const message = error.error?.message || response.statusText;
+
+            if (response.status === 403) {
+                throw new Error("Access Denied: Ensure your Google Sheet is set to 'Anyone with the link can view' (Public).");
+            } else if (response.status === 400) {
+                throw new Error(`Bad Request: Check your Sheet ID and Range format. (${message})`);
+            }
+            throw new Error(`Google Sheets API Error: ${message}`);
         }
         const data = await response.json();
         const values = data.values;
 
         if (!values || values.length === 0) {
-            throw new Error("No data found in the spreadsheet.");
+            throw new Error("No data found in the spreadsheet or range.");
         }
 
         return values;
     } catch (error: any) {
         console.error("Google Sheets Fetch Error:", error);
-        throw new Error("Failed to fetch Google Sheet data. Ensure the Sheet is Public (Viewer) or check the API Key.");
+        throw error;
     }
 };
 
 export const parseGoogleSheetData = (rawData: any[]): any[] => {
-    if (!rawData || rawData.length < 2) return [];
+    if (!rawData || rawData.length < 1) return [];
 
     const headers = rawData[0];
     const rows = rawData.slice(1);
@@ -52,7 +57,11 @@ export const parseGoogleSheetData = (rawData: any[]): any[] => {
     return rows.map(row => {
         const rowData: any = {};
         headers.forEach((header: string, index: number) => {
-            rowData[header] = row[index];
+            // Trim headers to avoid matching issues
+            const cleanHeader = (header || '').trim();
+            if (cleanHeader) {
+                rowData[cleanHeader] = row[index];
+            }
         });
         return rowData;
     });
@@ -62,7 +71,7 @@ export const syncGoogleSheet = async (
     config: GoogleSheetConfig,
     adminId: string,
     adminName: string,
-    mode: 'rider' | 'wallet' = 'rider'
+    mode: 'rider' | 'wallet'
 ): Promise<ImportSummary> => {
     try {
         const rawData = await fetchGoogleSheetData(config);
@@ -70,8 +79,10 @@ export const syncGoogleSheet = async (
 
         if (mode === 'rider') {
             return await processRiderImport(parsedData, adminId, adminName);
-        } else {
+        } else if (mode === 'wallet') {
             return await processWalletUpdate(parsedData, adminId, adminName);
+        } else {
+            throw new Error("Invalid sync mode selected.");
         }
     } catch (error: any) {
         console.error("Google Sheets Sync Error:", error);
