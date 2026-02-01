@@ -14,6 +14,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
+import { sanitizeArray } from '@/utils/sanitizeData';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 
 interface DashboardStats {
@@ -117,7 +118,16 @@ const Dashboard: React.FC = () => {
                     email,
                     role
                 `).eq('role', 'teamLeader');
-                const allTls = (tlsData || []) as User[];
+                const allTls = sanitizeArray((tlsData || []) as User[]);
+
+                // DEBUG: Log team leaders data structure
+                console.log('🔍 DEBUG: Team Leaders Data (SANITIZED):', JSON.stringify(allTls[0], null, 2));
+                console.log('🔍 DEBUG: Team Leaders Count:', allTls.length);
+                if (allTls[0]) {
+                    console.log('🔍 DEBUG: First TL fullName type:', typeof allTls[0].fullName, allTls[0].fullName);
+                    console.log('🔍 DEBUG: First TL email type:', typeof allTls[0].email, allTls[0].email);
+                    console.log('🔍 DEBUG: First TL role type:', typeof allTls[0].role, allTls[0].role);
+                }
 
                 const { data: allRidersData } = await supabase.from('riders').select(`
                     id,

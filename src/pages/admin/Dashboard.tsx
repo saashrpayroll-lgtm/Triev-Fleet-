@@ -13,6 +13,7 @@ import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
 import { startOfWeek, startOfMonth } from 'date-fns';
+import { sanitizeArray } from '@/utils/sanitizeData';
 
 type DateFilter = 'all' | 'month' | 'week';
 
@@ -80,7 +81,7 @@ const Dashboard: React.FC = () => {
                 riders: ridersRes.data as Rider[] || [],
                 leads: leadsRes.data as Lead[] || [],
                 requests: requestsRes.data as Request[] || [],
-                teamLeaders: usersRes.data as User[] || []
+                teamLeaders: sanitizeArray(usersRes.data as User[] || [])
             });
         } catch (error) {
             console.error('Data Load Error:', error);

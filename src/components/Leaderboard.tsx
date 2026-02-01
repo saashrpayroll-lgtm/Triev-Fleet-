@@ -14,6 +14,14 @@ interface LeaderboardProps {
 }
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], action }) => {
+    // DEBUG: Log incoming data
+    console.log('🎯 LEADERBOARD: Received teamLeaders:', teamLeaders.length);
+    if (teamLeaders[0]) {
+        console.log('🎯 LEADERBOARD: First TL:', JSON.stringify(teamLeaders[0], null, 2));
+        console.log('🎯 LEADERBOARD: fullName:', typeof teamLeaders[0].fullName, teamLeaders[0].fullName);
+        console.log('🎯 LEADERBOARD: email:', typeof teamLeaders[0].email, teamLeaders[0].email);
+    }
+
     const navigate = useNavigate();
     const location = useLocation();
     const isDashboard = location.pathname.includes('dashboard') || location.pathname === '/admin' || location.pathname === '/team-leader';
