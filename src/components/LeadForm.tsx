@@ -284,7 +284,15 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
 
         } catch (error: any) {
             console.error("Error saving lead:", error);
-            setStatusData({ message: error.message || "Failed to save lead", type: 'error' });
+
+            let message = error.message || "Failed to save lead";
+
+            // Specialized handling for Foreign Key violations (Sync issues)
+            if (error.message?.includes('violates foreign key constraint "leads_created_by_fkey"')) {
+                message = "Auth Sync Error: Your account record is missing in the system table. Please contact Admin or run the Sync Script.";
+            }
+
+            setStatusData({ message, type: 'error' });
         } finally {
             setLoading(false);
         }
