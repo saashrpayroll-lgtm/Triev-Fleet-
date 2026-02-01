@@ -2,6 +2,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     Cell, PieChart, Pie, Legend
 } from 'recharts';
+import { safeRender } from '@/utils/safeRender';
 
 interface DashboardChartsProps {
     riderData: { name: string; value: number; color: string }[]; // Active, Inactive, Deleted
@@ -107,6 +108,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                                 cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
                                 formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
+                                labelFormatter={(label) => safeRender(label)}
                             />
                             <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
                                 {walletData.map((entry, index) => (
