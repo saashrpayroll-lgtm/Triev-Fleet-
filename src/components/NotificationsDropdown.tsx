@@ -4,6 +4,7 @@ import { supabase } from '@/config/supabase';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Notification } from '@/types';
+import { safeRender } from '@/utils/safeRender';
 
 interface NotificationsDropdownProps {
     userId: string;
@@ -293,13 +294,13 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
                                             </span>
                                         </div>
                                         <p className={`text-xs leading-relaxed ${!note.isRead ? 'text-foreground/90 font-medium' : 'text-muted-foreground'} line-clamp-2`}>
-                                            {typeof note.message === 'string' ? note.message : (typeof note.message === 'object' ? JSON.stringify(note.message) : String(note.message || ''))}
+                                            {safeRender(note.message)}
                                         </p>
                                         {note.tags && (note.tags as any).length > 0 && ( // Cast tags as any if needed or use optional chaining if tags is valid
                                             <div className="flex flex-wrap gap-1 mt-2">
                                                 {(note.tags as any).map((t: string) => ( // Cast needed if types mismatch, keeping simplistic here
-                                                    <span key={typeof t === 'string' ? t : JSON.stringify(t)} className="text-[10px] bg-background/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
-                                                        #{typeof t === 'string' ? t : String(t || '')}
+                                                    <span key={safeRender(t)} className="text-[10px] bg-background/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
+                                                        #{safeRender(t)}
                                                     </span>
                                                 ))}
                                             </div>

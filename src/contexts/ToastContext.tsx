@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import ToastItem, { Toast, ToastType } from '@/components/Toast';
+import { safeRender } from '@/utils/safeRender';
 
 interface ToastContextType {
     addToast: (message: string, type: ToastType, duration?: number) => void;
@@ -24,16 +25,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const addToast = useCallback((message: string | any, type: ToastType, duration = 4000) => {
         const id = Math.random().toString(36).substr(2, 9);
-        let safeMessage = message;
-        if (typeof message === 'object') {
-            try {
-                safeMessage = message.message || JSON.stringify(message); // Try to get .message property first (common in Error objects)
-            } catch (e) {
-                safeMessage = 'An error occurred (Ref: Object)';
-            }
-        } else {
-            safeMessage = String(message || '');
-        }
+        const safeMessage = safeRender(message);
         setToasts(prev => [...prev, { id, message: safeMessage, type, duration }]);
     }, []);
 

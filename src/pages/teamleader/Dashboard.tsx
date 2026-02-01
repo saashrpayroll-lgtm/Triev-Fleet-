@@ -13,6 +13,7 @@ import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { mapLeadFromDB } from '@/utils/leadUtils';
+import { safeRender } from '@/utils/safeRender';
 
 interface DashboardStats {
     // Riders
@@ -232,7 +233,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600/60 mb-0.5">Team Insight</p>
-                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{typeof aiInsight === 'string' ? aiInsight : String(aiInsight || '')}"</p>
+                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{safeRender(aiInsight)}"</p>
                     </div>
                 </motion.div>
             )}

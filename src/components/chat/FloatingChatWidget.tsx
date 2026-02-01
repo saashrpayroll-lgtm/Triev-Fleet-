@@ -5,6 +5,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext'; // Assuming yo
 import { ChatService } from '@/services/ChatService';
 import { AIService } from '@/services/AIService';
 import { ChatMessage, ChatMode, ChatSession } from '@/types/chat';
+import { safeRender } from '@/utils/safeRender';
 
 const FloatingChatWidget: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -274,7 +275,7 @@ const FloatingChatWidget: React.FC = () => {
                                         ? 'bg-primary text-primary-foreground rounded-br-none'
                                         : 'bg-card border border-border rounded-bl-none shadow-sm'
                                         }`}>
-                                        <p>{typeof msg.content === 'string' ? msg.content : (typeof msg.content === 'object' ? JSON.stringify(msg.content) : String(msg.content || ''))}</p>
+                                        <p>{safeRender(msg.content)}</p>
                                         <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>

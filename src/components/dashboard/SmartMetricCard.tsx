@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { safeRender } from '@/utils/safeRender';
 // import { cn } from '@/lib/utils'; // Removed to avoid dependency issues
 
 interface SmartMetricCardProps {
@@ -135,20 +136,14 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                         <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
                             {typeof value === 'number'
                                 ? `₹${value.toLocaleString('en-IN')}`
-                                : (typeof value === 'object' ? JSON.stringify(value) : String(value || ''))}
+                                : safeRender(value)}
                         </h3>
                     )}
 
-                    {aiInsight && typeof aiInsight === 'string' ? (
+                    {aiInsight && safeRender(aiInsight) ? (
                         <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
                             <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
-                                "{aiInsight}"
-                            </p>
-                        </div>
-                    ) : aiInsight && typeof aiInsight === 'object' ? (
-                        <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
-                            <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
-                                {JSON.stringify(aiInsight)}
+                                "{safeRender(aiInsight)}"
                             </p>
                         </div>
                     ) : (

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { Sparkles, Activity } from 'lucide-react';
+import { safeRender } from '@/utils/safeRender';
 
 interface NewsItem {
     id: string;
@@ -60,7 +61,7 @@ const AINewsTicker: React.FC = () => {
                     <div key={item.id} className="inline-flex items-center mx-12 text-base font-medium">
                         <Activity size={16} className="mr-3 text-indigo-300" />
                         <span className="text-indigo-50 tracking-wide">
-                            {typeof item.details === 'string' ? item.details : (typeof item.details === 'object' ? JSON.stringify(item.details) : String(item.details || ''))}
+                            {safeRender(item.details)}
                         </span>
                         <span className="ml-3 text-xs text-indigo-300/80 font-mono border border-indigo-500/30 px-1.5 rounded">
                             {item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
