@@ -1,7 +1,8 @@
 import React from 'react';
-import { User } from '@/types';
+import { User, PasswordResetRequest } from '@/types';
 import ActionMenu from './ActionMenu';
 import { UserCheck, UserX, Clock, ShieldAlert } from 'lucide-react';
+import PasswordResetIndicator from '@/components/PasswordResetIndicator';
 
 interface UserTableProps {
     users: User[];
@@ -18,6 +19,8 @@ interface UserTableProps {
     selectedUsers: string[];
     onToggleSelect: (userId: string) => void;
     onSelectAll: (userIds: string[]) => void;
+    // Password Reset Props
+    passwordResetRequests?: PasswordResetRequest[];
 }
 
 const UserTable: React.FC<UserTableProps> = ({
@@ -33,7 +36,8 @@ const UserTable: React.FC<UserTableProps> = ({
     onView,
     selectedUsers = [],
     onToggleSelect,
-    onSelectAll
+    onSelectAll,
+    passwordResetRequests = []
 }) => {
     // Helper to check if all visible users are selected
     const allSelected = users.length > 0 && users.every(u => selectedUsers.includes(u.id));
@@ -148,11 +152,20 @@ const UserTable: React.FC<UserTableProps> = ({
                                         {(user.fullName || user.email || '?').charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <div
-                                            onClick={() => onView(user)}
-                                            className="font-semibold text-foreground cursor-pointer hover:text-primary transition-colors"
-                                        >
-                                            {user.fullName || 'No Name'}
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                onClick={() => onView(user)}
+                                                className="font-semibold text-foreground cursor-pointer hover:text-primary transition-colors"
+                                            >
+                                                {user.fullName || 'No Name'}
+                                            </div>
+                                            {/* Show yellow key if user has pending reset request */}
+                                            {passwordResetRequests.some(req => req.userId === user.id) && (
+                                                <PasswordResetIndicator
+                                                    hasPendingReset={true}
+                                                    onClick={() => onResetPassword(user)}
+                                                />
+                                            )}
                                         </div>
                                         <div className="text-xs text-muted-foreground font-mono">{user.email}</div>
                                     </div>

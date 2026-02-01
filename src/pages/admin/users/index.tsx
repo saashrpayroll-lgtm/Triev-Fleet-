@@ -8,10 +8,12 @@ import BulkActionsBar from './components/BulkActionsBar';
 import PermissionsEditor from '@/components/PermissionsEditor';
 import SuspendUserModal from '@/components/SuspendUserModal';
 import UserDetailModal from './components/UserDetailModal';
-import { User } from '@/types';
+import { User, PasswordResetRequest } from '@/types';
 import { exportToExcel } from '@/utils/exportUtils';
 import { useToast } from '@/contexts/ToastContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/config/supabase';
+import { DEFAULT_RESET_PASSWORD } from '@/utils/passwordUtils';
 
 // Stats Card Component
 const StatCard = ({ title, value, icon: Icon, color, bg }: { title: string, value: number, icon: any, color: string, bg: string }) => (
@@ -56,6 +58,9 @@ const UserManagementPage: React.FC = () => {
     // New: Selected Users for Bulk
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
+    // Password Reset Requests
+    const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
+
     // Effect to parse URL params
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -75,6 +80,38 @@ const UserManagementPage: React.FC = () => {
             }
         }
     }, [location.search]);
+
+    // Fetch password reset requests
+    useEffect(() => {
+        const fetchResetRequests = async () => {
+            const { data, error } = await supabase
+                .from('password_reset_requests')
+                .select('*')
+                .eq('status', 'pending');
+
+            if (!error && data) {
+                setPasswordResetRequests(data as PasswordResetRequest[]);
+            }
+        };
+
+        fetchResetRequests();
+
+        // Subscribe to changes
+        const subscription = supabase
+            .channel('password_reset_requests_changes')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'password_reset_requests'
+            }, () => {
+                fetchResetRequests();
+            })
+            .subscribe();
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, []);
 
     // Handlers
     const toggleSelect = (id: string) => {
@@ -158,6 +195,70 @@ const UserManagementPage: React.FC = () => {
         const success = await updateUser(editingUser.id, data);
         setIsSubmitting(false);
         if (success) setEditingUser(null);
+    };
+
+    // Handle password reset by admin
+    const handleAdminResetPassword = async (user: User) => {
+        if (userData?.permissions?.users?.edit === false) {
+            toast.error("Permission Denied: You cannot reset passwords.");
+            return;
+        }
+
+        try {
+            // Update user password to default
+            const { error: authError } = await supabase.auth.admin.updateUserById(user.id, {
+                password: DEFAULT_RESET_PASSWORD
+            });
+
+            if (authError) {
+                console.error('Error resetting password:', authError);
+                toast.error('Failed to reset password');
+                return;
+            }
+
+            // Update user record to force password change
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({
+                    force_password_change: true,
+                    last_password_change: new Date().toISOString()
+                })
+                .eq('id', user.id);
+
+            if (updateError) {
+                console.error('Error updating user record:', updateError);
+            }
+
+            // Mark all pending reset requests for this user as approved
+            const { error: requestError } = await supabase
+                .from('password_reset_requests')
+                .update({
+                    status: 'approved',
+                    processed_at: new Date().toISOString(),
+                    processed_by: userData?.id
+                })
+                .eq('user_id', user.id)
+                .eq('status', 'pending');
+
+            if (requestError) {
+                console.error('Error updating reset request:', requestError);
+            }
+
+            // Log activity
+            await supabase.from('activity_logs').insert({
+                user_id: userData?.id,
+                action_type: 'password_reset',
+                target_type: 'user',
+                target_id: user.id,
+                details: `Admin reset password for ${user.fullName} to default`,
+                timestamp: new Date().toISOString()
+            });
+
+            toast.success(`Password reset to "${DEFAULT_RESET_PASSWORD}". ${user.fullName} will be forced to change on next login.`);
+        } catch (err) {
+            console.error('Error:', err);
+            toast.error('Failed to reset password');
+        }
     };
 
     // Derived Logic
@@ -310,7 +411,7 @@ const UserManagementPage: React.FC = () => {
                 onEdit={setEditingUser}
                 onPermissions={setEditingPermissions}
                 onSuspend={setSuspendingUser}
-                onResetPassword={(u) => sendResetEmail(u.email)}
+                onResetPassword={handleAdminResetPassword}
                 onToggleStatus={toggleStatus}
                 onDelete={showDeleted ? restoreUser : deleteUser}
                 onPermanentDelete={permanentDeleteUser}
@@ -318,6 +419,7 @@ const UserManagementPage: React.FC = () => {
                 selectedUsers={selectedUserIds}
                 onToggleSelect={toggleSelect}
                 onSelectAll={setSelectedUserIds}
+                passwordResetRequests={passwordResetRequests}
             />
 
             {/* Pagination / Load More */}

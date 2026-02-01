@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Link } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import ForgotPasswordModal from '@/components/ForgotPasswordModal';
+import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 
 const LoginPage: React.FC = () => {
     const [loginInput, setLoginInput] = useState('');
@@ -10,6 +11,9 @@ const LoginPage: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [showForcePasswordChange, setShowForcePasswordChange] = useState(false);
+    const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
 
     const { login } = useSupabaseAuth();
 
@@ -55,6 +59,21 @@ const LoginPage: React.FC = () => {
             }
 
             await login(emailToLogin, password);
+
+            // Check if user needs to change password
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: userRecord } = await supabase
+                    .from('users')
+                    .select('id, force_password_change')
+                    .eq('id', user.id)
+                    .single();
+
+                if (userRecord?.force_password_change) {
+                    setLoggedInUserId(userRecord.id);
+                    setShowForcePasswordChange(true);
+                }
+            }
 
             // Navigation is handled by App.tsx redirect based on auth state
         } catch (err: unknown) {
@@ -137,12 +156,13 @@ const LoginPage: React.FC = () => {
                                 {/* Remember me - Removed for now or can be reimplemented */}
                             </label>
 
-                            <Link
-                                to="/forgot-password"
+                            <button
+                                type="button"
+                                onClick={() => setShowForgotPassword(true)}
                                 className="text-sm text-primary hover:underline transition-all"
                             >
                                 Forgot Password?
-                            </Link>
+                            </button>
                         </div>
 
                         <button
@@ -169,6 +189,21 @@ const LoginPage: React.FC = () => {
                     © 2026 Triev Rider Pro. All rights reserved.
                 </p>
             </div>
+
+            {/* Modals */}
+            {showForgotPassword && (
+                <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />
+            )}
+
+            {showForcePasswordChange && loggedInUserId && (
+                <ForcePasswordChangeModal
+                    userId={loggedInUserId}
+                    onPasswordChanged={() => {
+                        setShowForcePasswordChange(false);
+                        window.location.reload();
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -131,11 +131,27 @@ export interface User {
     updatedAt: string;
     remarks?: string;
     profilePicUrl?: string;
+    forcePasswordChange?: boolean; // Force user to change password on next login
+    lastPasswordChange?: string; // Timestamp of last password change
     currentLocation?: {
         lat: number;
         lng: number;
         timestamp: string;
     };
+}
+
+// Password Reset Request Types
+export type PasswordResetStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PasswordResetRequest {
+    id: string;
+    userId: string;
+    mobileNumber: string;
+    status: PasswordResetStatus;
+    requestedAt: string;
+    processedAt?: string | null;
+    processedBy?: string | null;
+    createdAt: string;
 }
 
 // Rider Types
