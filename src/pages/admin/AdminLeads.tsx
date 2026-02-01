@@ -8,10 +8,13 @@ import BulkActionsBar from '@/components/BulkActionsBar'; // Import
 import { AIService } from '@/services/AIService';
 import { Plus, Sparkles, Download, Filter, Search, Trash2 } from 'lucide-react';
 import { mapLeadToDB } from '@/utils/leadUtils';
+import { logActivity } from '@/utils/activityLog';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 import { useLocation } from 'react-router-dom';
 
 const AdminLeads: React.FC = () => {
+    const { userData: currentUser } = useSupabaseAuth();
     const location = useLocation();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [riders, setRiders] = useState<Rider[]>([]); // For matching logic
@@ -83,6 +86,15 @@ const AdminLeads: React.FC = () => {
             const { error } = await supabase.from('leads').delete().in('id', selectedIds);
             if (error) throw error;
 
+            // Log activity
+            await logActivity({
+                actionType: 'Lead Bulk Delete',
+                targetType: 'lead',
+                targetId: 'multiple',
+                details: `Permanently deleted ${selectedIds.length} leads.`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
             // Optimistic update
             setLeads(prev => prev.filter(l => !selectedIds.includes(l.id)));
             setSelectedIds([]);
@@ -139,6 +151,21 @@ const AdminLeads: React.FC = () => {
                     const payload = mapLeadToDB({ category: u.category, score: u.score });
                     return supabase.from('leads').update(payload).eq('id', u.id);
                 }));
+
+                // Log activity
+                await logActivity({
+                    actionType: 'Lead AI Scoring',
+                    targetType: 'lead',
+                    targetId: 'multiple',
+                    details: `Bulk AI scored ${updates.length} leads.`,
+                    performedBy: currentUser?.email
+                }).catch(console.error);
+
+                setLeads(prev => prev.map(l => {
+                    const updated = updates.find(u => u.id === l.id);
+                    return updated ? { ...l, category: updated.category, score: updated.score } : l;
+                }));
+
                 alert(`AI Scored ${updates.length} leads successfully!`);
                 // State update will happen via subscription or next fetch
             } else {

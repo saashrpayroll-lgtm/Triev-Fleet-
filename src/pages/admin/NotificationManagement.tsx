@@ -8,6 +8,7 @@ import { AIService } from '@/services/AIService';
 import { NotificationService } from '@/services/NotificationService';
 import GlassCard from '@/components/GlassCard';
 import { toast } from 'sonner';
+import { logActivity } from '@/utils/activityLog';
 
 interface SystemNotification {
     id: string;
@@ -253,6 +254,15 @@ const NotificationManagement: React.FC = () => {
                 setSearchTarget('');
             }, 500);
 
+            // Log activity
+            await logActivity({
+                actionType: 'Broadcast Sent',
+                targetType: 'notification',
+                targetId: announcementId,
+                details: `Sent ${priority} priority broadcast: ${title}`,
+                performedBy: currentUser.fullName || currentUser.email
+            }).catch(console.error);
+
         } catch (error: any) {
             console.error("Send Error:", error);
             toast.error(error.message || "Failed to send.", { id: toastId, duration: 5000 });
@@ -278,6 +288,16 @@ const NotificationManagement: React.FC = () => {
             await supabase.from('announcements').delete().eq('id', id);
 
             toast.success("Message recalled and deleted.", { id: toastId, duration: 4000 });
+
+            // Log activity
+            await logActivity({
+                actionType: 'Broadcast Recalled',
+                targetType: 'notification',
+                targetId: id,
+                details: `Recalled and deleted broadcast announcement.`,
+                performedBy: currentUser?.fullName || currentUser?.email
+            }).catch(console.error);
+
             // Realtime will update list
         } catch (e) {
             console.error(e);

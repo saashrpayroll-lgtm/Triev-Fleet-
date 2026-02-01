@@ -70,21 +70,20 @@ export const processRiderImport = async (
     adminName: string
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
-    // Supabase rate limits/concurrency handling
-    // We'll process in small chunks to avoid overwhelming the client/connection
 
     // Pre-fetch Team Leaders to map Name -> ID
     const teamLeaderMap = new Map<string, string>(); // Name -> ID
     try {
         const { data: users, error } = await supabase
             .from('users')
-            .select('id, fullName:full_name') // Aliasing for compatibility
+            .select('id, fullName:full_name')
             .eq('role', 'teamLeader');
 
         if (error) throw error;
 
         users?.forEach((user: any) => {
-            teamLeaderMap.set(user.fullName.toLowerCase(), user.id);
+            const name = (user.fullName || '').trim().toLowerCase();
+            if (name) teamLeaderMap.set(name, user.id);
         });
     } catch (error) {
         console.error("Error fetching team leaders:", error);
@@ -93,28 +92,26 @@ export const processRiderImport = async (
 
     summary.total = fileData.length;
 
-    // Process row by row for ensuring correct duplicate logic
-    // (Batched queries for duplicates could be faster but much more complex to implement correctly with the OR logic)
     for (let i = 0; i < fileData.length; i++) {
         const row = fileData[i];
-        const rowNum = i + 2; // Assuming header is row 1
+        const rowNum = i + 2;
 
         try {
-            // 1. Validation
-            if (!row['Triev ID'] && !row['Mobile Number'] && !row['Chassis Number']) {
+            // 1. Validation & Data Prep
+            const riderName = (row['Rider Name'] || '').trim();
+            const trievId = String(row['Triev ID'] || '').trim();
+            const mobile = String(row['Mobile Number'] || '').replace(/[^0-9]/g, '');
+            const chassis = String(row['Chassis Number'] || '').trim();
+
+            if (!trievId && !mobile && !chassis) {
                 throw new Error("Missing Identifier (Triev ID, Mobile, or Chassis required)");
             }
-            if (!row['Rider Name']) throw new Error("Missing Rider Name");
+            if (!riderName) throw new Error("Missing Rider Name");
 
-            const teamLeaderName = row['Team Leader']?.trim();
-            const teamLeaderId = teamLeaderMap.get(teamLeaderName?.toLowerCase());
+            const teamLeaderName = (row['Team Leader'] || '').trim();
+            const teamLeaderId = teamLeaderMap.get(teamLeaderName.toLowerCase()) || null;
 
-            if (!teamLeaderId) {
-                throw new Error(`Team Leader '${teamLeaderName}' not found`);
-            }
-
-            // 2. Data Preparation
-            const mobile = String(row['Mobile Number'] || '').replace(/[^0-9]/g, '');
+            // Handle Client
             const clientName = isValidClient(row['Client Name']) ? row['Client Name'] : 'Other';
 
             // Handle Date
@@ -126,67 +123,56 @@ export const processRiderImport = async (
                 }
             }
 
-            // 3. Duplicate Detection Logic 
-            const conditions = [];
-
-            if (row['Triev ID']) conditions.push(`trievId.eq.${row['Triev ID']}`);
-            if (mobile) conditions.push(`mobileNumber.eq.${mobile}`);
-            // Note: Supabase OR syntax is tricky with mixed fields.
-            // Simplest robust way is to query based on hierarchy or construct explicit OR string
-
+            // 2. Optimized Duplicate Detection
             let matchData = null;
+            const orConditions = [];
+            if (trievId) orConditions.push(`triev_id.eq.${trievId}`);
+            if (mobile) orConditions.push(`mobile_number.eq.${mobile}`);
+            if (chassis) orConditions.push(`chassis_number.eq.${chassis}`);
 
-            // Try explicit independent checks if OR is too complex or just chain them
-            // Or use .or() syntax: .or(`trievId.eq.${id},mobileNumber.eq.${mobile}`)
-            // But we need to handle missing values safely.
+            if (orConditions.length > 0) {
+                const { data, error } = await supabase
+                    .from('riders')
+                    .select('id')
+                    .or(orConditions.join(','))
+                    .maybeSingle();
 
-            let orString = '';
-            if (row['Triev ID']) orString += `triev_id.eq.${row['Triev ID']},`;
-            if (mobile) orString += `mobile_number.eq.${mobile},`;
-            if (row['Chassis Number']) orString += `chassis_number.eq.${row['Chassis Number']},`;
-
-            if (orString.endsWith(',')) orString = orString.slice(0, -1);
-
-            if (orString) {
-                const { data, error } = await supabase.from('riders').select('id').or(orString).maybeSingle();
-                if (error && error.code !== 'PGRST116') { // PGRST116 is "one row expected" failure if multiple exist, but maybeSingle handles it mostly?
-                    // actually .or can return multiple. .maybeSingle() returns one or null.
-                    // If multiple match, we take the first one found essentially merging them.
+                if (error && error.code !== 'PGRST116') {
+                    console.error("Duplicate search error:", error);
+                } else if (data) {
+                    matchData = data;
                 }
-                matchData = data;
             }
 
+            // 3. Prepare Payload
             const riderData: any = {
-                rider_name: row['Rider Name'],
+                rider_name: riderName,
                 mobile_number: mobile,
-                triev_id: row['Triev ID'] || '',
-                chassis_number: row['Chassis Number'] || '',
-                client_name: clientName as ClientName,
+                triev_id: trievId,
+                chassis_number: chassis,
+                client_name: clientName,
                 client_id: row['Client ID'] || '',
                 wallet_amount: parseCurrency(row['Wallet Amount'] || 0),
                 allotment_date: allotmentDate,
                 remarks: row['Remarks'] || '',
                 team_leader_id: teamLeaderId,
-                team_leader_name: teamLeaderName,
+                team_leader_name: teamLeaderId ? teamLeaderName : 'Unassigned',
                 status: 'active',
                 updated_at: new Date().toISOString(),
             };
 
+            // 4. Upsert
             if (matchData) {
-                // Update Existing
                 const { error } = await supabase
                     .from('riders')
                     .update(riderData)
                     .eq('id', matchData.id);
                 if (error) throw error;
             } else {
-                // Create New
-                const newRider = {
+                const { error } = await supabase.from('riders').insert({
                     ...riderData,
-                    created_at: new Date().toISOString(),
-                    // deleted_at is undefined/null by default in DB structure usually
-                };
-                const { error } = await supabase.from('riders').insert(newRider);
+                    created_at: new Date().toISOString()
+                });
                 if (error) throw error;
             }
 

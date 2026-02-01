@@ -7,6 +7,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { AIService } from '@/services/AIService';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { logActivity } from '@/utils/activityLog';
 
 const RequestManagement: React.FC = () => {
     const [requests, setRequests] = useState<Request[]>([]);
@@ -236,6 +237,15 @@ const RequestManagement: React.FC = () => {
             }
             toast.success("Request updated successfully.");
 
+            // Log activity
+            await logActivity({
+                actionType: (resolutionStatus === 'resolved' || resolutionStatus === 'rejected') ? 'Ticket Resolved' : 'Ticket Updated',
+                targetType: 'request',
+                targetId: selectedRequest.id,
+                details: `${resolutionStatus === 'resolved' ? 'Resolved' : 'Updated'} ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}: ${resolutionStatus}`,
+                performedBy: currentUser.email
+            }).catch(console.error);
+
         } catch (error) {
             console.error("Failed to update:", error);
             toast.error("Error updating request.");
@@ -254,6 +264,15 @@ const RequestManagement: React.FC = () => {
                 .eq('id', id);
 
             if (error) throw error;
+
+            // Log activity
+            await logActivity({
+                actionType: 'Ticket Deleted',
+                targetType: 'request',
+                targetId: id,
+                details: `Moved ticket to trash.`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
 
             setRequests(prev => prev.filter(r => r.id !== id));
             setSelectedIds(prev => {
@@ -298,6 +317,15 @@ const RequestManagement: React.FC = () => {
 
             if (error) throw error;
 
+            // Log activity
+            await logActivity({
+                actionType: isTrash ? 'Ticket Purged' : 'Ticket Deleted',
+                targetType: 'request',
+                targetId: 'multiple',
+                details: `${isTrash ? 'Permanently deleted' : 'Moved to trash'} ${selectedIds.size} requests.`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
             setRequests(prev => prev.filter(r => !selectedIds.has(r.id)));
             setSelectedIds(new Set());
             toast.success(`Successfully ${isTrash ? 'deleted' : 'moved to trash'} ${selectedIds.size} requests.`);
@@ -318,6 +346,15 @@ const RequestManagement: React.FC = () => {
 
             if (error) throw error;
 
+            // Log activity
+            await logActivity({
+                actionType: 'Ticket Purged',
+                targetType: 'request',
+                targetId: id,
+                details: `Permanently deleted ticket.`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
             setRequests(prev => prev.filter(r => r.id !== id));
             toast.success("Request permanently deleted.");
         } catch (e: any) {
@@ -333,9 +370,17 @@ const RequestManagement: React.FC = () => {
                 .update({ status: 'pending', updated_at: new Date().toISOString() })
                 .eq('id', id);
             if (error) throw error;
+
+            // Log activity
+            await logActivity({
+                actionType: 'Ticket Restored',
+                targetType: 'request',
+                targetId: id,
+                details: `Restored ticket from trash.`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
             setRequests(prev => prev.filter(r => r.id !== id));
-            setRequests(prev => prev.filter(r => r.id !== id));
-            toast.success("Request restored to Pending.");
         } catch (e) {
             console.error(e);
             toast.error("Failed to restore request.");
