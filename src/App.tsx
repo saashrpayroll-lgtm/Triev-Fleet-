@@ -59,6 +59,30 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return <Navigate to="/login" replace />;
   }
 
+  // Handle Guest/Uninitialized Profile
+  if ((userData.role as string) === 'guest') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+        <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
+        <p className="text-muted-foreground max-w-md mb-6">
+          Your account is authenticated, but no user profile was found in our database.
+          Please contact your administrator to create your profile.
+        </p>
+        <div className="p-4 bg-muted/50 rounded-lg text-left text-xs font-mono mb-6 w-full max-w-md overflow-auto">
+          <p>User ID: {user.id}</p>
+          <p>Email: {user.email}</p>
+          <p>Status: {userData.status}</p>
+        </div>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+        >
+          Sign Out
+        </button>
+      </div>
+    );
+  }
+
   if (allowedRoles && !allowedRoles.includes(userData.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
@@ -133,7 +157,7 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 };
 
 function AppRoutes() {
-  const { userData } = useSupabaseAuth();
+  const { userData, user } = useSupabaseAuth();
 
   return (
     <Routes>
@@ -223,9 +247,29 @@ function AppRoutes() {
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <h1 className="text-2xl font-bold mb-4">Unauthorized</h1>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-6">
                 You don't have permission to access this page.
               </p>
+              {/* Debug Info for User */}
+              <div className="bg-muted p-4 rounded-lg text-left text-xs font-mono mb-6 inline-block max-w-sm">
+                <p className="font-bold mb-2">Diagnostic Info:</p>
+                <p>Your Role: <span className="text-primary">{userData?.role || 'None'}</span></p>
+                {/* <p>Required Role: {allowedRoles?.join(' or ') || 'None'}</p> */}
+                <p>User ID: {user?.id}</p>
+              </div>
+              <br />
+              <button
+                onClick={() => window.history.back()}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 mr-2"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }}
+                className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         }

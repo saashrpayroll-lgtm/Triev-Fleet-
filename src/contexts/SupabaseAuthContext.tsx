@@ -155,20 +155,23 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                 // Optional: Create basic user record here if needed
             } else if (error) {
                 console.error('Error fetching user data:', error);
+                // toast.error(`Profile Load Error: ${error.message}`);
             }
 
             if (data) {
                 setUserData(formatUserData(data));
             } else {
-                // Fallback for visual debugging before DB migration is complete
+                console.warn('User profile not found in database. Using minimal fallback.');
+                // Minimal fallback to allow login but restrict access
                 setUserData({
                     id: userId,
                     email: email || '',
-                    role: 'admin', // DEFAULT TO ADMIN FOR INITIAL SETUP - CHANGE THIS LATER
-                    fullName: 'Supabase User',
-                    status: 'active',
-                    username: email?.split('@')[0] || 'user'
-                } as User);
+                    role: 'guest', // SAFE DEFAULT: 'guest' prevents access to protected routes instead of granting Admin
+                    fullName: email?.split('@')[0] || 'Guest User',
+                    status: 'active', // Allow login to see "Unauthorized" or "Setup Profile" page
+                    username: email?.split('@')[0] || 'guest',
+                    permissions: {}
+                } as any as User);
             }
 
         } catch (err) {
