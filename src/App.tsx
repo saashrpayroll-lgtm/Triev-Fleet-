@@ -201,9 +201,9 @@ function AppRoutes() {
         <Route path="requests" element={<TLRequests />} />
       </Route>
 
-      {/* Admin Routes */}
+      {/* Admin Portal Routes */}
       <Route
-        path="/admin"
+        path="/portal"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminLayout />
@@ -229,7 +229,7 @@ function AppRoutes() {
         path="/"
         element={
           userData?.role === 'admin' ? (
-            <Navigate to="/admin" replace />
+            <Navigate to="/portal" replace />
           ) : (
             <Navigate to="/team-leader" replace />
           )

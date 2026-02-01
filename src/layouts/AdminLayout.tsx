@@ -43,18 +43,18 @@ const AdminLayout: React.FC = () => {
     };
 
     const navItems = [
-        { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
-        { path: '/admin/leads', icon: Target, label: 'Lead Management', visible: userData?.permissions?.modules?.leads ?? true },
-        { path: '/admin/riders', icon: Users, label: 'Rider Management', visible: userData?.permissions?.modules?.riders ?? true },
-        { path: '/admin/users', icon: UserCog, label: 'User Management', visible: userData?.permissions?.modules?.users ?? true },
-        { path: '/admin/analytics', icon: Activity, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
-        { path: '/admin/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
-        { path: '/admin/notifications', icon: Bell, label: 'Notifications', visible: userData?.permissions?.modules?.notifications ?? true },
-        { path: '/admin/requests', icon: ShieldAlert, label: 'Request Management', visible: userData?.permissions?.modules?.requests ?? true },
-        { path: '/admin/data', icon: Database, label: 'Data Management', visible: userData?.permissions?.modules?.dataManagement ?? true },
-        { path: '/admin/reports', icon: FileText, label: 'Reports Management', visible: userData?.permissions?.modules?.reports ?? true },
-        { path: '/admin/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
-        { path: '/admin/profile', icon: User, label: 'Profile', visible: userData?.permissions?.modules?.profile ?? true },
+        { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
+        { path: '/portal/leads', icon: Target, label: 'Lead Management', visible: userData?.permissions?.modules?.leads ?? true },
+        { path: '/portal/riders', icon: Users, label: 'Rider Management', visible: userData?.permissions?.modules?.riders ?? true },
+        { path: '/portal/users', icon: UserCog, label: 'User Management', visible: userData?.permissions?.modules?.users ?? true },
+        { path: '/portal/analytics', icon: Activity, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
+        { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
+        { path: '/portal/notifications', icon: Bell, label: 'Notifications', visible: userData?.permissions?.modules?.notifications ?? true },
+        { path: '/portal/requests', icon: ShieldAlert, label: 'Request Management', visible: userData?.permissions?.modules?.requests ?? true },
+        { path: '/portal/data', icon: Database, label: 'Data Management', visible: userData?.permissions?.modules?.dataManagement ?? true },
+        { path: '/portal/reports', icon: FileText, label: 'Reports Management', visible: userData?.permissions?.modules?.reports ?? true },
+        { path: '/portal/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
+        { path: '/portal/profile', icon: User, label: 'Profile', visible: userData?.permissions?.modules?.profile ?? true },
     ].filter(item => item.visible);
 
     return (
