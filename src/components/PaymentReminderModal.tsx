@@ -17,7 +17,7 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
     const generateMessage = async () => {
         setLoading(true);
         // Randomize tone slightly to ensure variation on refresh
-        const tones = ['polite', 'firm', 'urgent', 'professional'];
+        const tones: ('professional' | 'friendly' | 'urgent')[] = ['professional', 'friendly', 'urgent'];
         const randomTone = tones[Math.floor(Math.random() * tones.length)];
 
         try {

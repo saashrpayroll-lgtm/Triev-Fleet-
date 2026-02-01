@@ -56,7 +56,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         },
         riders: {
             view: false, create: false, edit: false, delete: false, hardDelete: false, statusChange: false, export: false,
-            bulkActions: { statusChange: false, delete: false, assignTeamLeader: false, export: false },
+            bulkActions: { statusChange: false, delete: false, sendReminders: false, assignTeamLeader: false, export: false },
             fields: { viewSensitive: false }
         },
         leads: { view: false, create: false, edit: false, delete: false, statusChange: false, export: false },

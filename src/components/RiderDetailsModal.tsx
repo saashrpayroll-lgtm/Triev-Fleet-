@@ -87,7 +87,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
 
     const generateAiReminder = async () => {
         setGenerating(true);
-        const msg = await AIService.generatePaymentReminder(rider, reminderLang);
+        const msg = await AIService.generatePaymentReminder(rider, reminderLang, 'professional');
         setAiMessage(msg);
         setGenerating(false);
     };
