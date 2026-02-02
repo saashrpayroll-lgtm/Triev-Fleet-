@@ -37,6 +37,57 @@ import LeaderboardPage from '@/pages/admin/LeaderboardPage';
 
 import '@/index.css';
 import FloatingChatWidget from '@/components/chat/FloatingChatWidget';
+import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
+
+// Helper component for loading state
+const LoadingScreen = () => {
+  const [showSlowLoading, setShowSlowLoading] = React.useState(false);
+  const [showReset, setShowReset] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer1 = setTimeout(() => setShowSlowLoading(true), 3000); // 3s
+    const timer2 = setTimeout(() => setShowReset(true), 8000); // 8s
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, []);
+
+  const handleReset = async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+      <div className="text-lg font-medium">Loading Application...</div>
+
+      {showSlowLoading && (
+        <p className="text-muted-foreground text-sm mt-2 animate-in fade-in">
+          Connecting to secure services...
+        </p>
+      )}
+
+      {showReset && (
+        <div className="mt-8 animate-in fade-in slide-in-from-bottom-4">
+          <p className="text-amber-600 dark:text-amber-500 text-sm mb-3">
+            Taking longer than expected?
+          </p>
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 text-sm font-medium border border-border shadow-sm"
+          >
+            Reset & Reload
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Protected Route Component
 interface ProtectedRouteProps {
@@ -152,7 +203,7 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
   return <>{children}</>;
 };
 
-import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
+
 
 function AppRoutes() {
   const { userData, user, refreshUserData } = useSupabaseAuth();
@@ -291,82 +342,49 @@ function AppRoutes() {
           }
         />
       </Routes>
-      );
+    </>
+  );
 }
 
-      import {Toaster} from 'sonner';
-      import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
-      import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
+import { Toaster } from 'sonner';
+import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
+import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 
-      function App() {
-        console.log('App component rendering (Supabase)');
-      return (
-      <GlobalErrorBoundary>
-        <SupabaseAuthProvider>
-          <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-            <ToastProvider>
-              <BrowserRouter>
-                <AppRoutes />
-                <ComponentErrorBoundary name="ChatWidget">
-                  <FloatingChatWidget />
-                </ComponentErrorBoundary>
-                <Toaster position="top-right" richColors />
-              </BrowserRouter>
-            </ToastProvider>
-          </ThemeProvider>
-        </SupabaseAuthProvider>
-      </GlobalErrorBoundary>
-      );
+function App() {
+  console.log('App component rendering (Supabase)');
+  return (
+    <GlobalErrorBoundary>
+      <SupabaseAuthProvider>
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+          <ToastProvider>
+            <BrowserRouter>
+              <AppRoutes />
+              <ComponentErrorBoundary name="ChatWidget">
+                <FloatingChatWidget />
+              </ComponentErrorBoundary>
+              <Toaster position="top-right" richColors />
+            </BrowserRouter>
+          </ToastProvider>
+        </ThemeProvider>
+        function App() {
+          console.log('App component rendering (Supabase)');
+        return (
+        <GlobalErrorBoundary>
+          <SupabaseAuthProvider>
+            <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+              <ToastProvider>
+                <BrowserRouter>
+                  <AppRoutes />
+                  <ComponentErrorBoundary name="ChatWidget">
+                    <FloatingChatWidget />
+                  </ComponentErrorBoundary>
+                  <Toaster position="top-right" richColors />
+                </BrowserRouter>
+              </ToastProvider>
+            </ThemeProvider>
+          </SupabaseAuthProvider>
+        </GlobalErrorBoundary>
+        );
 }
 
-// Helper component for loading state
-const LoadingScreen = () => {
-  const [showSlowLoading, setShowSlowLoading] = React.useState(false);
-      const [showReset, setShowReset] = React.useState(false);
-
-  React.useEffect(() => {
-    const timer1 = setTimeout(() => setShowSlowLoading(true), 3000); // 3s
-    const timer2 = setTimeout(() => setShowReset(true), 8000); // 8s
-
-    return () => {
-        clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
-  }, []);
-
-  const handleReset = async () => {
-        localStorage.clear();
-      sessionStorage.clear();
-      await supabase.auth.signOut();
-      window.location.href = '/login';
-  };
-
-      return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-        <div className="text-lg font-medium">Loading Application...</div>
-
-        {showSlowLoading && (
-          <p className="text-muted-foreground text-sm mt-2 animate-in fade-in">
-            Connecting to secure services...
-          </p>
-        )}
-
-        {showReset && (
-          <div className="mt-8 animate-in fade-in slide-in-from-bottom-4">
-            <p className="text-amber-600 dark:text-amber-500 text-sm mb-3">
-              Taking longer than expected?
-            </p>
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 text-sm font-medium border border-border shadow-sm"
-            >
-              Reset & Reload
-            </button>
-          </div>
-        )}
-      </div>
-      );
-};
-
-      export default App;
+        export default App;
