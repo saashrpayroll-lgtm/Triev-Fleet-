@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/config/supabase';
-import { Request, RequestStatus, Rider } from '@/types';
+import { Request as AppRequest, RequestStatus, Rider } from '@/types';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { XCircle, Clock, FileText, MessageSquare, Sparkles, Send, User, Phone, Wallet, Trash2, CheckSquare, Square } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -11,7 +11,7 @@ import { logActivity } from '@/utils/activityLog';
 import { DEFAULT_RESET_PASSWORD } from '@/utils/passwordUtils';
 
 const RequestManagement: React.FC = () => {
-    const [requests, setRequests] = useState<Request[]>([]);
+    const [requests, setRequests] = useState<AppRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const { userData: currentUser } = useSupabaseAuth();
     const navigate = useNavigate();
@@ -35,7 +35,7 @@ const RequestManagement: React.FC = () => {
     }, [location.search]);
 
     // Resolution Modal
-    const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+    const [selectedRequest, setSelectedRequest] = useState<AppRequest | null>(null);
     const [linkedRider, setLinkedRider] = useState<Rider | null>(null);
 
     // Resolution Form
@@ -130,7 +130,7 @@ const RequestManagement: React.FC = () => {
         return matchesTab && matchesStatus;
     });
 
-    const handleOpenResolution = async (request: Request) => {
+    const handleOpenResolution = async (request: AppRequest) => {
         setSelectedRequest(request);
         setResolutionStatus(request.status === 'pending' ? 'in_progress' : request.status);
         setResolutionNote('');
@@ -233,7 +233,7 @@ const RequestManagement: React.FC = () => {
                 resolvedAt: new Date().toISOString(),
                 resolvedBy: currentUser?.email,
                 timeline: updatedTimeline
-            } as Request : r));
+            } as AppRequest : r));
 
             toast.success("Password reset successfully & Ticket Resolved!");
             setSelectedRequest(null);
@@ -296,10 +296,12 @@ const RequestManagement: React.FC = () => {
 
             if (error) throw error;
 
-            setRequests(prev => prev.map(r => r.id === selectedRequest.id ? {
-                ...r,
-                ...updatePayload
-            } as Request : r));
+            setRequests(prev => prev.map((r: AppRequest) => {
+                if (r.id === selectedRequest.id) {
+                    return { ...r, ...updatePayload };
+                }
+                return r;
+            }));
 
             setSelectedRequest(null);
 
