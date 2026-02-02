@@ -53,11 +53,13 @@ export interface UserPermissions {
         hardDelete: boolean; // Permanent
         statusChange: boolean;
         export: boolean;
+        call: boolean; // Permission to click Call button
+        whatsapp: boolean; // Permission to click WhatsApp button
         bulkActions: {
             statusChange: boolean;
             delete: boolean;
             sendReminders: boolean;
-            assignTeamLeader: boolean;
+            assignTeamLeader: boolean; // Admin/TL with rights
             export: boolean;
         };
         fields: {
@@ -72,6 +74,12 @@ export interface UserPermissions {
         delete: boolean;
         statusChange: boolean;
         export: boolean;
+        bulkActions: { // Added bulkActions for Leads
+            statusChange: boolean;
+            delete: boolean;
+            assign: boolean; // Assign to self or others
+            export: boolean;
+        };
     };
     users: { // Admin Panel User Management
         view: boolean;

@@ -66,8 +66,8 @@ const MyRiders: React.FC = () => {
         statusChange: userData?.permissions?.riders?.statusChange ?? true,
         softDelete: userData?.permissions?.riders?.delete ?? true,
         hardDelete: userData?.permissions?.riders?.hardDelete ?? false,
-        canCall: userData?.permissions?.riders?.edit ?? true,
-        canWhatsApp: userData?.permissions?.riders?.edit ?? true,
+        canCall: userData?.permissions?.riders?.call ?? true,     // Updated to granular permission
+        canWhatsApp: userData?.permissions?.riders?.whatsapp ?? true, // Updated to granular permission
     };
 
 
@@ -934,20 +934,24 @@ const MyRiders: React.FC = () => {
                                                 <div className="flex flex-col gap-1">
                                                     <span>{rider.mobileNumber}</span>
                                                     <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => handleCall(rider.mobileNumber)}
-                                                            className="text-green-600 hover:text-green-700 transition-colors"
-                                                            title="Call"
-                                                        >
-                                                            <Phone size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleWhatsApp(rider.mobileNumber)}
-                                                            className="text-green-600 hover:text-green-700 transition-colors"
-                                                            title="WhatsApp"
-                                                        >
-                                                            <MessageCircle size={14} />
-                                                        </button>
+                                                        {riderActionPermissions.canCall && (
+                                                            <button
+                                                                onClick={() => handleCall(rider.mobileNumber)}
+                                                                className="text-green-600 hover:text-green-700 transition-colors"
+                                                                title="Call"
+                                                            >
+                                                                <Phone size={14} />
+                                                            </button>
+                                                        )}
+                                                        {riderActionPermissions.canWhatsApp && (
+                                                            <button
+                                                                onClick={() => handleWhatsApp(rider.mobileNumber)}
+                                                                className="text-green-600 hover:text-green-700 transition-colors"
+                                                                title="WhatsApp"
+                                                            >
+                                                                <MessageCircle size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>

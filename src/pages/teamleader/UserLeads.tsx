@@ -58,6 +58,7 @@ const UserLeads: React.FC = () => {
     const canCreate = userData?.permissions?.leads?.create ?? true;
     const canEdit = userData?.permissions?.leads?.edit ?? true;
     const canDelete = userData?.permissions?.leads?.delete ?? true;
+    const canStatusChange = userData?.permissions?.leads?.statusChange ?? true;
 
     if (!canViewPage) {
         return (
@@ -111,7 +112,7 @@ const UserLeads: React.FC = () => {
                     permissions={{
                         edit: canEdit,
                         delete: canDelete,
-                        statusChange: canEdit
+                        statusChange: canStatusChange
                     }}
                 />
             </div>

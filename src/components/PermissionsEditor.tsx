@@ -56,10 +56,14 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         },
         riders: {
             view: false, create: false, edit: false, delete: false, hardDelete: false, statusChange: false, export: false,
+            call: false, whatsapp: false, // New defaults
             bulkActions: { statusChange: false, delete: false, sendReminders: false, assignTeamLeader: false, export: false },
             fields: { viewSensitive: false }
         },
-        leads: { view: false, create: false, edit: false, delete: false, statusChange: false, export: false },
+        leads: {
+            view: false, create: false, edit: false, delete: false, statusChange: false, export: false,
+            bulkActions: { statusChange: false, delete: false, assign: false, export: false } // New defaults
+        },
         users: { view: false, create: false, edit: false, delete: false, managePermissions: false, suspend: false },
         wallet: { view: false, addFunds: false, deductFunds: false, viewHistory: false, bulkUpdate: false },
         notifications: { view: false, broadcast: false, delete: false },
@@ -209,6 +213,16 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'riders_hard_delete', label: 'Hard Delete Riders', description: 'Permanently remove rider data', risk: 'high', path: 'riders.hardDelete' },
                 { id: 'riders_export', label: 'Export Data', description: 'Download rider lists as CSV/Excel', risk: 'medium', path: 'riders.export' },
                 { id: 'riders_status', label: 'Change Status', description: 'Activate or deactivate riders', risk: 'medium', path: 'riders.statusChange' },
+
+                // New Granular Buttons
+                { id: 'riders_call', label: 'Call Button', description: 'Enable "Call" button on rider cards', risk: 'low', path: 'riders.call' },
+                { id: 'riders_whatsapp', label: 'WhatsApp Button', description: 'Enable "WhatsApp" button on rider cards', risk: 'low', path: 'riders.whatsapp' },
+
+                // Bulk Actions
+                { id: 'riders_bulk_status', label: 'Bulk Status Change', description: 'Change status for multiple riders at once', risk: 'medium', path: 'riders.bulkActions.statusChange' },
+                { id: 'riders_bulk_delete', label: 'Bulk Delete', description: 'Delete multiple riders at once', risk: 'high', path: 'riders.bulkActions.delete' },
+                { id: 'riders_bulk_remind', label: 'Bulk Reminders', description: 'Send payment reminders to multiple riders', risk: 'low', path: 'riders.bulkActions.sendReminders' },
+                { id: 'riders_bulk_assign', label: 'Bulk Assign TL', description: 'Assign Team Leaders to multiple riders', risk: 'medium', path: 'riders.bulkActions.assignTeamLeader' },
             ]
         },
         {
@@ -220,6 +234,11 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'leads_create', label: 'Create Leads', description: 'Add new potential riders', risk: 'low', path: 'leads.create' },
                 { id: 'leads_status', label: 'Change Status', description: 'Update lead progress (e.g. New -> Contacted)', risk: 'medium', path: 'leads.statusChange' },
                 { id: 'leads_delete', label: 'Delete Leads', description: 'Remove leads from the system', risk: 'high', path: 'leads.delete' },
+
+                // New Bulk & Granular
+                { id: 'leads_bulk_status', label: 'Bulk Status Change', description: 'Change status for multiple leads', risk: 'medium', path: 'leads.bulkActions.statusChange' },
+                { id: 'leads_bulk_delete', label: 'Bulk Delete', description: 'Delete multiple leads at once', risk: 'high', path: 'leads.bulkActions.delete' },
+                { id: 'leads_bulk_assign', label: 'Bulk Assign', description: 'Assign leads to other users', risk: 'medium', path: 'leads.bulkActions.assign' },
             ]
         },
         {
