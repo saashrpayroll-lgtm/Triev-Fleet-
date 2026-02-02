@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/config/supabase';
 import AnimatedBackground from '@/components/auth/AnimatedBackground';
 import { toast } from 'sonner';
 

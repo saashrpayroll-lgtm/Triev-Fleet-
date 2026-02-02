@@ -251,53 +251,6 @@ const RequestManagement: React.FC = () => {
             }).catch(console.error);
 
         } catch (e: any) {
-            const newTimelineEvent = {
-                status: 'resolved',
-                remark: `Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`,
-                timestamp: new Date().toISOString(),
-                updatedBy: currentUser?.email || 'Admin',
-                role: 'admin' as const
-            };
-
-            const updatedTimeline = [...(selectedRequest.timeline || []), newTimelineEvent];
-
-            const { error: updateError } = await supabase
-                .from('requests')
-                .update({
-                    status: 'resolved',
-                    admin_response: `Password has been reset to: ${DEFAULT_RESET_PASSWORD}\nPlease login and change it immediately.`,
-                    timeline: updatedTimeline, // Use JSON array directly
-                    resolved_at: new Date().toISOString(),
-                    resolved_by: currentUser?.email || 'Admin',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', selectedRequest.id);
-
-            if (updateError) throw updateError;
-
-            // Update local state
-            setRequests(prev => prev.map(r => r.id === selectedRequest.id ? {
-                ...r,
-                status: 'resolved',
-                adminResponse: `Password has been reset to: ${DEFAULT_RESET_PASSWORD}\nPlease login and change it immediately.`,
-                resolvedAt: new Date().toISOString(),
-                resolvedBy: currentUser?.email,
-                timeline: updatedTimeline
-            } as Request : r));
-
-            toast.success("Password reset successfully & Ticket Resolved!");
-            setSelectedRequest(null);
-
-            // Log activity
-            await logActivity({
-                actionType: 'Ticket Resolved',
-                targetType: 'request',
-                targetId: selectedRequest.id,
-                details: `Reset password & Resolved ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}`,
-                performedBy: currentUser?.email
-            }).catch(console.error);
-
-        } catch (e: any) {
             console.error("Reset Password Failed:", e);
             toast.error(e.message || "Failed to reset password");
         } finally {
