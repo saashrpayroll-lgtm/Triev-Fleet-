@@ -87,7 +87,7 @@ const RequestManagement: React.FC = () => {
             const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) throw error;
-            setRequests((data || []) as Request[]);
+            setRequests((data || []) as AppRequest[]);
         } catch (err: any) {
             console.error("Error fetching requests:", err);
             setError('Failed to load requests.');
