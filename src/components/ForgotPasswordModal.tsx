@@ -28,49 +28,34 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
 
         try {
             const input = mobile.trim();
-            const isEmail = input.includes('@');
+            // Simple normalization for mobile (strip everything but digits/+) is handled in SQL now or we send raw
+            // Ideally send clean input
+            const searchInput = input.replace(/[^a-zA-Z0-9@.+]/g, '');
 
-            // Normalize mobile if it's not an email
-            const normalizedMobile = !isEmail ? input.replace(/\D/g, '') : '';
+            console.log('Calling secure lookup for:', searchInput);
 
-            console.log('Searching for:', isEmail ? 'Email' : 'Mobile', input);
+            // Use the secure RPC function to bypass RLS
+            const { data: users, error: userError } = await supabase
+                .rpc('get_user_by_recovery_contact', {
+                    p_contact: searchInput
+                });
 
-            let query = supabase
-                .from('users')
-                .select('id, full_name, mobile, email');
-
-            if (isEmail) {
-                // Search by email (case-insensitive)
-                query = query.ilike('email', input);
-            } else {
-                // Broad Mobile Search (Wildcard)
-                // We extract the last 10 digits and search for them anywhere in the string
-                // This covers: 9999209582, +919999209582, 09999209582, 919999209582
-
-                let searchPattern = normalizedMobile;
-                if (normalizedMobile.length >= 10) {
-                    // Take the last 10 digits
-                    searchPattern = normalizedMobile.slice(-10);
-                }
-
-                // Search for the pattern appearing anywhere in the mobile column
-                query = query.ilike('mobile', `%${searchPattern}%`);
-            }
-
-            const { data: users, error: userError } = await query.limit(1);
-
-            console.log('Search result:', { users, userError });
+            console.log('Secure Search result:', { users, userError });
 
             if (userError) {
                 console.error('Database error:', userError);
-                setError('Database error. Please try again.');
+                // Fallback for clearer error if function is missing (though user said they ran it)
+                if (userError.message?.includes('function') && userError.message?.includes('not found')) {
+                    setError('System update required. Please contact admin to run the database migration.');
+                } else {
+                    setError('Database connection error. Please try again.');
+                }
                 setLoading(false);
                 return;
             }
 
             if (!users || users.length === 0) {
-                const searchDebug = isEmail ? input : `*%${normalizedMobile.slice(-10)}%* (Any format containing these 10 digits)`;
-                setError(`No account found. We searched for: ${searchDebug}. Try your Email Address instead.`);
+                setError(`No account found. We searched for: ${searchInput}. Try your Email Address instead.`);
                 setLoading(false);
                 return;
             }
