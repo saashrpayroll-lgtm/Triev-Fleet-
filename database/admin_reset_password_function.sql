@@ -20,7 +20,7 @@ BEGIN
   WHERE id = auth.uid();
 
   IF current_user_role IS NULL OR current_user_role != 'admin' THEN
-    RAISE EXCEPTION 'Permission Denied: You must be an admin to perform this action.';
+    RAISE EXCEPTION 'Permission Denied: User (ID: %) has role "%". Expected "admin".', auth.uid(), COALESCE(current_user_role, 'NULL');
   END IF;
 
   -- 2. Update the user's password in auth.users
