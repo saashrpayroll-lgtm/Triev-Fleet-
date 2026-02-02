@@ -210,7 +210,7 @@ function AppRoutes() {
 
   return (
     <>
-      {userData?.force_password_change && user && (
+      {userData?.['force_password_change'] && user && (
         <ForcePasswordChangeModal
           userId={user.id}
           onPasswordChanged={refreshUserData}
@@ -366,25 +366,9 @@ function App() {
             </BrowserRouter>
           </ToastProvider>
         </ThemeProvider>
-        function App() {
-          console.log('App component rendering (Supabase)');
-        return (
-        <GlobalErrorBoundary>
-          <SupabaseAuthProvider>
-            <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-              <ToastProvider>
-                <BrowserRouter>
-                  <AppRoutes />
-                  <ComponentErrorBoundary name="ChatWidget">
-                    <FloatingChatWidget />
-                  </ComponentErrorBoundary>
-                  <Toaster position="top-right" richColors />
-                </BrowserRouter>
-              </ToastProvider>
-            </ThemeProvider>
-          </SupabaseAuthProvider>
-        </GlobalErrorBoundary>
-        );
+      </SupabaseAuthProvider>
+    </GlobalErrorBoundary>
+  );
 }
 
-        export default App;
+export default App;
