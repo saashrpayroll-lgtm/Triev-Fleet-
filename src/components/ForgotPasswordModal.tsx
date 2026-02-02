@@ -30,7 +30,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             // Check if user exists with this mobile number
             const { data: user, error: userError } = await supabase
                 .from('users')
-                .select('id, fullName, mobile')
+                .select('id, full_name, mobile')
                 .eq('mobile', mobile)
                 .single();
 
