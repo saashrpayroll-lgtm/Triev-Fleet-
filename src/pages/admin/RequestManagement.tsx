@@ -89,7 +89,7 @@ const RequestManagement: React.FC = () => {
             setRequests((data || []) as Request[]);
         } catch (err: any) {
             console.error("Error fetching requests:", err);
-            setError("Failed to load requests.");
+            setError(`Failed to load requests: ${err.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
