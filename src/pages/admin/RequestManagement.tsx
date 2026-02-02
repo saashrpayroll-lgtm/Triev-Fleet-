@@ -185,33 +185,72 @@ const RequestManagement: React.FC = () => {
 
         setSubmitting(true);
         try {
-            // 1. Attempt to reset password via Supabase Admin API
-            const { error: authError } = await supabase.auth.admin.updateUserById(selectedRequest.userId, {
-                password: DEFAULT_RESET_PASSWORD
+            // 1. Attempt to reset password via Custom RPC (Secure Database Function)
+            // This bypasses the need for Service Role Key on frontend
+            const { error: rpcError } = await supabase.rpc('admin_reset_password_v2', {
+                target_user_id: selectedRequest.userId,
+                new_password: DEFAULT_RESET_PASSWORD
             });
 
-            if (authError) {
-                console.error("Auth Error:", authError);
-                toast.error("Failed to reset password. Permission denied or invalid config.");
+            if (rpcError) {
+                console.error("RPC Error:", rpcError);
+                toast.error("Failed to reset password: " + rpcError.message);
                 setSubmitting(false);
                 return;
             }
 
-            // 2. Force password change flag in users table
-            await supabase.from('users').update({
-                force_password_change: true,
-                last_password_change: new Date().toISOString()
-            }).eq('id', selectedRequest.userId);
-
-            // 3. Auto-Resolve the ticket
+            // 2. Auto-Resolve the ticket
             setResolutionStatus('resolved');
             setResolutionNote(`Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`);
 
-            // We need to trigger the submit, but since state updates are async, 
-            // we'll call a modified version of update logic or just rely on the user clicking 'Update' 
-            // OR we can manually do it here. Best to manually do it to ensure atomicity.
-
             // Construct payload for resolution
+            const newTimelineEvent = {
+                status: 'resolved',
+                remark: `Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`,
+                timestamp: new Date().toISOString(),
+                updatedBy: currentUser?.email || 'Admin',
+                role: 'admin' as const
+            };
+
+            const updatedTimeline = [...(selectedRequest.timeline || []), newTimelineEvent];
+
+            const { error: updateError } = await supabase
+                .from('requests')
+                .update({
+                    status: 'resolved',
+                    admin_response: `Password has been reset to: ${DEFAULT_RESET_PASSWORD}\nPlease login and change it immediately.`,
+                    timeline: updatedTimeline,
+                    resolved_at: new Date().toISOString(),
+                    resolved_by: currentUser?.email || 'Admin',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', selectedRequest.id);
+
+            if (updateError) throw updateError;
+
+            // Update local state
+            setRequests(prev => prev.map(r => r.id === selectedRequest.id ? {
+                ...r,
+                status: 'resolved',
+                adminResponse: `Password has been reset to: ${DEFAULT_RESET_PASSWORD}\nPlease login and change it immediately.`,
+                resolvedAt: new Date().toISOString(),
+                resolvedBy: currentUser?.email,
+                timeline: updatedTimeline
+            } as Request : r));
+
+            toast.success("Password reset successfully & Ticket Resolved!");
+            setSelectedRequest(null);
+
+            // Log activity
+            await logActivity({
+                actionType: 'Ticket Resolved',
+                targetType: 'request',
+                targetId: selectedRequest.id,
+                details: `Reset password & Resolved ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
+        } catch (e: any) {
             const newTimelineEvent = {
                 status: 'resolved',
                 remark: `Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`,

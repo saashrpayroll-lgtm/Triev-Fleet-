@@ -4,6 +4,7 @@ import { SupabaseAuthProvider, useSupabaseAuth } from '@/contexts/SupabaseAuthCo
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import LoginPage from '@/pages/auth/LoginPage';
+import AdminLogin from '@/pages/admin/AdminLogin';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import { supabase } from '@/config/supabase';
@@ -223,6 +224,14 @@ function AppRoutes() {
           element={
             <PublicRoute>
               <LoginPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/admin-login"
+          element={
+            <PublicRoute>
+              <AdminLogin />
             </PublicRoute>
           }
         />
