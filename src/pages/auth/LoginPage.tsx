@@ -199,14 +199,6 @@ const LoginPage: React.FC = () => {
                                 )}
                             </button>
                         </form>
-
-                        {/* Sign Up Link */}
-                        <div className="mt-6 text-center text-sm text-white/70">
-                            Don't have an account?{' '}
-                            <a href="/register" className="text-white font-semibold hover:underline">
-                                Sign up now
-                            </a>
-                        </div>
                     </div>
 
                     {/* Footer */}
