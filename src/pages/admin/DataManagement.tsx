@@ -240,9 +240,24 @@ const DataManagement: React.FC = () => {
                 throw new Error("Invalid Configuration");
             }
 
+            // Fix Range Format: Quote sheet name if it contains spaces
+            let formattedRange = sheetConfig.range.trim();
+            if (formattedRange.includes('!')) {
+                const parts = formattedRange.split('!');
+                // Check if we have exactly 2 parts and the first part has spaces but no quotes
+                if (parts.length === 2) {
+                    let sheetName = parts[0];
+                    const cells = parts[1];
+                    if (sheetName.includes(' ') && !sheetName.startsWith("'") && !sheetName.endsWith("'")) {
+                        sheetName = `'${sheetName}'`;
+                        formattedRange = `${sheetName}!${cells}`;
+                    }
+                }
+            }
+
             const summary = await syncGoogleSheet({
                 sheetId: sheetConfig.sheetId,
-                range: sheetConfig.range,
+                range: formattedRange,
                 apiKey: sheetConfig.apiKey || undefined
             }, userData.id, userData.fullName, activeMode);
 
