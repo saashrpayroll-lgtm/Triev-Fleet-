@@ -152,13 +152,13 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                                     Mobile Number or Email
                                 </label>
                                 <div className="relative">
-                                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+                                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
                                     <input
                                         type="text"
                                         value={mobile}
                                         onChange={(e) => setMobile(e.target.value)}
                                         placeholder="Enter registered mobile or email"
-                                        className="w-full pl-11 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                                        className="w-full pl-11 pr-4 py-3 bg-white text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
                                         required
                                         disabled={loading}
                                     />
