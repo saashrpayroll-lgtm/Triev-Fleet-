@@ -131,8 +131,8 @@ export interface User {
     updatedAt: string;
     remarks?: string;
     profilePicUrl?: string;
-    forcePasswordChange?: boolean; // Force user to change password on next login
-    lastPasswordChange?: string; // Timestamp of last password change
+    force_password_change?: boolean; // Force user to change password on next login
+    last_password_change?: string; // Timestamp of last password change
     currentLocation?: {
         lat: number;
         lng: number;

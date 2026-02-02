@@ -210,7 +210,7 @@ function AppRoutes() {
 
   return (
     <>
-      {userData?.['force_password_change'] && user && (
+      {userData?.force_password_change && user && (
         <ForcePasswordChangeModal
           userId={user.id}
           onPasswordChanged={refreshUserData}
