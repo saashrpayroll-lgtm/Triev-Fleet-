@@ -18,28 +18,36 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
         e.preventDefault();
         setError('');
 
-        // Validate mobile number
-        if (!validateMobileNumber(mobile)) {
-            setError('Please enter a valid 10-digit mobile number');
+        // Basic validation
+        if (!mobile || mobile.length < 3) {
+            setError('Please enter a valid mobile number or email');
             return;
         }
 
         setLoading(true);
 
-
         try {
-            // Normalize mobile number (remove any non-digits)
-            const normalizedMobile = mobile.replace(/\D/g, '');
+            const input = mobile.trim();
+            const isEmail = input.includes('@');
 
-            console.log('Searching for mobile:', normalizedMobile);
+            // Normalize mobile if it's not an email
+            const normalizedMobile = !isEmail ? input.replace(/\D/g, '') : '';
 
-            // Try to find user with this mobile number
-            // Try exact match first, then with country code
-            const { data: users, error: userError } = await supabase
+            console.log('Searching for:', isEmail ? 'Email' : 'Mobile', input);
+
+            let query = supabase
                 .from('users')
-                .select('id, full_name, mobile, email')
-                .or(`mobile.eq.${normalizedMobile},mobile.eq.+91${normalizedMobile}`)
-                .limit(1);
+                .select('id, full_name, mobile, email');
+
+            if (isEmail) {
+                // Search by email
+                query = query.eq('email', input);
+            } else {
+                // Search by mobile (exact or with +91)
+                query = query.or(`mobile.eq.${normalizedMobile},mobile.eq.+91${normalizedMobile}`);
+            }
+
+            const { data: users, error: userError } = await query.limit(1);
 
             console.log('Search result:', { users, userError });
 
@@ -51,8 +59,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             }
 
             if (!users || users.length === 0) {
-                console.log('No user found with mobile:', normalizedMobile);
-                setError('No account found with this mobile number. Please check the number or contact admin.');
+                setError(`No account found with this ${isEmail ? 'email' : 'mobile number'}.`);
                 setLoading(false);
                 return;
             }
@@ -146,17 +153,16 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
 
                             <div>
                                 <label className="block text-sm font-medium mb-2">
-                                    Mobile Number
+                                    Mobile Number or Email
                                 </label>
                                 <div className="relative">
                                     <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
                                     <input
-                                        type="tel"
+                                        type="text"
                                         value={mobile}
-                                        onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                        placeholder="Enter 10-digit mobile number"
+                                        onChange={(e) => setMobile(e.target.value)}
+                                        placeholder="Enter registered mobile or email"
                                         className="w-full pl-11 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
-                                        maxLength={10}
                                         required
                                         disabled={loading}
                                     />
@@ -182,7 +188,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                                 <button
                                     type="submit"
                                     className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-50"
-                                    disabled={loading || mobile.length !== 10}
+                                    disabled={loading || mobile.length < 3}
                                 >
                                     {loading ? 'Submitting...' : 'Request Reset'}
                                 </button>
