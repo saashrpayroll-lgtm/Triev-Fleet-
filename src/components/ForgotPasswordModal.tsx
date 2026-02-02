@@ -76,7 +76,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                 return;
             }
 
-            // Create password reset request
+            // Create password reset request in specific table
             const { error: insertError } = await supabase
                 .from('password_reset_requests')
                 .insert({
@@ -91,6 +91,27 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                 setError('Failed to submit request. Please try again.');
                 setLoading(false);
                 return;
+            }
+
+            // ALSO Create a visible ticket in the main 'requests' table for the Admin Panel
+            const { error: ticketError } = await supabase
+                .from('requests')
+                .insert({
+                    user_id: user.id,
+                    type: 'password_reset',
+                    subject: 'Password Reset Request',
+                    description: `User requested password reset via Forgot Password screen.\nMobile: ${mobile}\nEmail: ${user.email}`,
+                    status: 'pending',
+                    priority: 'high',
+                    user_name: user.full_name,
+                    email: user.email || '',
+                    user_role: 'user', // Default rol
+                    created_at: new Date().toISOString()
+                });
+
+            if (ticketError) {
+                console.error('Error creating admin ticket:', ticketError);
+                // We don't block success if this fails, but it's bad.
             }
 
             // Success
