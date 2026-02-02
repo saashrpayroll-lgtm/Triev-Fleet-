@@ -1,5 +1,5 @@
 -- Secure User Lookup Function for Forgot Password
--- This allows finding a user's ID by mobile or email without exposing the entire users table to the public
+-- This allows finding a user's ID by mobile, email, or username without exposing the entire users table to the public
 
 CREATE OR REPLACE FUNCTION get_user_by_recovery_contact(p_contact TEXT)
 RETURNS TABLE (
@@ -24,7 +24,9 @@ BEGIN
     -- Match mobile if input has +91
     OR u.mobile = REPLACE(p_contact, '+91', '')
     -- Match email (case insensitive)
-    OR u.email ILIKE p_contact;
+    OR u.email ILIKE p_contact
+    -- Match username (case insensitive)
+    OR u.username ILIKE p_contact;
 END;
 $$;
 

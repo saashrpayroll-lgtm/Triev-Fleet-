@@ -5,7 +5,7 @@ import AnimatedBackground from '@/components/auth/AnimatedBackground';
 import { toast } from 'sonner';
 
 const AdminLogin: React.FC = () => {
-    const [email, setEmail] = useState('');
+    const [loginInput, setLoginInput] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
@@ -18,9 +18,31 @@ const AdminLogin: React.FC = () => {
         setLoading(true);
 
         try {
-            // 1. Perform standard login
+            let emailToLogin = loginInput;
+
+            // 1. Resolve Login Identifier (Email / Mobile / UserID)
+            const input = loginInput.trim();
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+
+            if (!isEmail) {
+                // If not standard email, try to resolve it
+                const isMobile = /^\d+$/.test(input);
+
+                if (isMobile) {
+                    const { data, error } = await supabase.rpc('get_email_by_mobile', { mobile_input: input });
+                    if (error || !data) throw new Error("Mobile number not found or not registered.");
+                    emailToLogin = data;
+                } else {
+                    // Assume Username / User ID
+                    const { data, error } = await supabase.rpc('get_email_by_username', { username_input: input });
+                    if (error || !data) throw new Error("User ID / Username not found.");
+                    emailToLogin = data;
+                }
+            }
+
+            // 2. Perform standard login with resolved email
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email,
+                email: emailToLogin,
                 password
             });
 
@@ -28,7 +50,7 @@ const AdminLogin: React.FC = () => {
 
             if (!authData.user) throw new Error("No user returned from login");
 
-            // 2. Strict Role Check
+            // 3. Strict Role Check
             // We fetch the 'role' from the public.users table for this user
             const { data: userData, error: userError } = await supabase
                 .from('users')
@@ -48,7 +70,7 @@ const AdminLogin: React.FC = () => {
                 throw new Error("ACCESS DENIED: You do not have administrator privileges.");
             }
 
-            // 3. Success - The App.tsx will reject public routes and redirect to /admin or /portal
+            // 4. Success - The App.tsx will reject public routes and redirect to /admin or /portal
             toast.success("Welcome back, Administrator.");
             // We rely on the AuthContext to detect the change and redirect, 
             // but we can enforce a reload or navigation if needed.
@@ -58,7 +80,7 @@ const AdminLogin: React.FC = () => {
             console.error('Admin Login error:', err);
             setError(err.message || 'Authentication failed');
             // Ensure session is cleared if any step failed after initial auth
-            if (err.message.includes("ACCESS DENIED")) {
+            if (err.message && err.message.includes("ACCESS DENIED")) {
                 await supabase.auth.signOut();
             }
         } finally {
@@ -100,14 +122,14 @@ const AdminLogin: React.FC = () => {
                             )}
 
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-red-500/80 uppercase tracking-wider">Email Address</label>
+                                <label className="text-xs font-bold text-red-500/80 uppercase tracking-wider">Email / Mobile / User ID</label>
                                 <div className="relative">
                                     <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        type="text"
+                                        value={loginInput}
+                                        onChange={(e) => setLoginInput(e.target.value)}
                                         className="w-full pl-4 pr-4 py-3 bg-red-950/10 border border-red-500/20 rounded-lg text-white placeholder-red-200/20 focus:outline-none focus:border-red-500/60 focus:ring-1 focus:ring-red-500/60 transition-all font-mono"
-                                        placeholder="admin@triev.com"
+                                        placeholder="admin@triev.com or 9876543210"
                                         required
                                     />
                                 </div>
