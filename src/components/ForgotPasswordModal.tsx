@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Smartphone, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
-import { validateMobileNumber } from '@/utils/passwordUtils';
+
 import { toast } from 'sonner';
 
 interface ForgotPasswordModalProps {
