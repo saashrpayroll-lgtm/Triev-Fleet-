@@ -8,6 +8,7 @@ import { AIService } from '@/services/AIService';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { logActivity } from '@/utils/activityLog';
+import { DEFAULT_RESET_PASSWORD } from '@/utils/passwordUtils';
 
 const RequestManagement: React.FC = () => {
     const [requests, setRequests] = useState<Request[]>([]);
@@ -171,6 +172,97 @@ const RequestManagement: React.FC = () => {
             console.error(e);
         } finally {
             setAiLoading(false);
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (!selectedRequest?.userId) {
+            toast.error("No User ID found for this request.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to reset the password to "${DEFAULT_RESET_PASSWORD}"?`)) return;
+
+        setSubmitting(true);
+        try {
+            // 1. Attempt to reset password via Supabase Admin API
+            const { error: authError } = await supabase.auth.admin.updateUserById(selectedRequest.userId, {
+                password: DEFAULT_RESET_PASSWORD
+            });
+
+            if (authError) {
+                console.error("Auth Error:", authError);
+                toast.error("Failed to reset password. Permission denied or invalid config.");
+                setSubmitting(false);
+                return;
+            }
+
+            // 2. Force password change flag in users table
+            await supabase.from('users').update({
+                force_password_change: true,
+                last_password_change: new Date().toISOString()
+            }).eq('id', selectedRequest.userId);
+
+            // 3. Auto-Resolve the ticket
+            setResolutionStatus('resolved');
+            setResolutionNote(`Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`);
+
+            // We need to trigger the submit, but since state updates are async, 
+            // we'll call a modified version of update logic or just rely on the user clicking 'Update' 
+            // OR we can manually do it here. Best to manually do it to ensure atomicity.
+
+            // Construct payload for resolution
+            const newTimelineEvent = {
+                status: 'resolved',
+                remark: `Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`,
+                timestamp: new Date().toISOString(),
+                updatedBy: currentUser?.email || 'Admin',
+                role: 'admin' as const
+            };
+
+            const updatedTimeline = [...(selectedRequest.timeline || []), newTimelineEvent];
+
+            const { error: updateError } = await supabase
+                .from('requests')
+                .update({
+                    status: 'resolved',
+                    admin_response: `Password has been reset to: ${DEFAULT_RESET_PASSWORD}\nPlease login and change it immediately.`,
+                    timeline: updatedTimeline, // Use JSON array directly
+                    resolved_at: new Date().toISOString(),
+                    resolved_by: currentUser?.email || 'Admin',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', selectedRequest.id);
+
+            if (updateError) throw updateError;
+
+            // Update local state
+            setRequests(prev => prev.map(r => r.id === selectedRequest.id ? {
+                ...r,
+                status: 'resolved',
+                adminResponse: `Password has been reset to: ${DEFAULT_RESET_PASSWORD}\nPlease login and change it immediately.`,
+                resolvedAt: new Date().toISOString(),
+                resolvedBy: currentUser?.email,
+                timeline: updatedTimeline
+            } as Request : r));
+
+            toast.success("Password reset successfully & Ticket Resolved!");
+            setSelectedRequest(null);
+
+            // Log activity
+            await logActivity({
+                actionType: 'Ticket Resolved',
+                targetType: 'request',
+                targetId: selectedRequest.id,
+                details: `Reset password & Resolved ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}`,
+                performedBy: currentUser?.email
+            }).catch(console.error);
+
+        } catch (e: any) {
+            console.error("Reset Password Failed:", e);
+            toast.error(e.message || "Failed to reset password");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -754,7 +846,24 @@ const RequestManagement: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="p-4 border-t bg-muted/5">
+                            <div className="p-4 border-t bg-muted/5 space-y-3">
+                                {selectedRequest.type === 'password_reset' && selectedRequest.status !== 'resolved' && (
+                                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-2">
+                                        <h4 className="text-sm font-semibold text-yellow-800 mb-1">Password Reset Action</h4>
+                                        <button
+                                            onClick={handleResetPassword}
+                                            disabled={submitting}
+                                            className="w-full py-2 bg-yellow-600 text-white rounded-md font-medium hover:bg-yellow-700 transition-colors flex items-center justify-center gap-2 text-sm shadow-sm"
+                                        >
+                                            <Sparkles size={14} />
+                                            Reset to Default ({DEFAULT_RESET_PASSWORD})
+                                        </button>
+                                        <p className="text-[10px] text-yellow-700 mt-2 text-center">
+                                            Sets password to {DEFAULT_RESET_PASSWORD} and resolves ticket.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <button
                                     onClick={submitResolution}
                                     disabled={submitting}
