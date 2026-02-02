@@ -185,8 +185,7 @@ const RequestManagement: React.FC = () => {
 
         setSubmitting(true);
         try {
-            // 1. Attempt to reset password via Custom RPC (Secure Database Function)
-            // This bypasses the need for Service Role Key on frontend
+            console.log("Attempting secure password reset via RPC...");
             const { error: rpcError } = await supabase.rpc('admin_reset_password_v2', {
                 target_user_id: selectedRequest.userId,
                 new_password: DEFAULT_RESET_PASSWORD
@@ -194,19 +193,17 @@ const RequestManagement: React.FC = () => {
 
             if (rpcError) {
                 console.error("RPC Error:", rpcError);
-                toast.error("Failed to reset password: " + rpcError.message);
-                setSubmitting(false);
-                return;
+                throw new Error("RPC Failed: " + rpcError.message);
             }
 
-            // 2. Auto-Resolve the ticket
+            // Auto-Resolve
             setResolutionStatus('resolved');
-            setResolutionNote(`Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`);
+            const resolutionMsg = `Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`;
+            setResolutionNote(resolutionMsg);
 
-            // Construct payload for resolution
             const newTimelineEvent = {
                 status: 'resolved',
-                remark: `Password reset to default ("${DEFAULT_RESET_PASSWORD}") by Admin.`,
+                remark: resolutionMsg,
                 timestamp: new Date().toISOString(),
                 updatedBy: currentUser?.email || 'Admin',
                 role: 'admin' as const
@@ -241,17 +238,16 @@ const RequestManagement: React.FC = () => {
             toast.success("Password reset successfully & Ticket Resolved!");
             setSelectedRequest(null);
 
-            // Log activity
             await logActivity({
                 actionType: 'Ticket Resolved',
                 targetType: 'request',
                 targetId: selectedRequest.id,
                 details: `Reset password & Resolved ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}`,
                 performedBy: currentUser?.email
-            }).catch(console.error);
+            }).catch(e => console.error("Log activity failed", e));
 
         } catch (e: any) {
-            console.error("Reset Password Failed:", e);
+            console.error("Reset Password Logic Failed:", e);
             toast.error(e.message || "Failed to reset password");
         } finally {
             setSubmitting(false);
@@ -274,7 +270,6 @@ const RequestManagement: React.FC = () => {
                 role: 'admin' as const
             };
 
-            // Ensure timeline is an array
             const currentTimeline = Array.isArray(selectedRequest.timeline) ? selectedRequest.timeline : [];
             const updatedTimeline = [...currentTimeline, newTimelineEvent];
 
@@ -289,8 +284,7 @@ const RequestManagement: React.FC = () => {
             if (resolutionStatus === 'resolved') {
                 updatePayload.resolved_at = new Date().toISOString();
                 updatePayload.resolved_by = currentUser.email || 'Admin';
-            } else if ((selectedRequest.status as string) === 'resolved') {
-                // If reopening a resolved ticket, clear resolution details
+            } else if (selectedRequest.status === 'resolved') {
                 updatePayload.resolved_at = null;
                 updatePayload.resolved_by = null;
             }
@@ -302,38 +296,31 @@ const RequestManagement: React.FC = () => {
 
             if (error) throw error;
 
-            // Update local state
             setRequests(prev => prev.map(r => r.id === selectedRequest.id ? {
                 ...r,
-                ...updatePayload,
-                // Adjust timestamp for local display if needed, keeping string or Date object consistency
-                // Supabase returns strings, but if type expects Timestamp objects we might need conversion or type update
-                // For now assuming Type is compatible or we use strings.
+                ...updatePayload
             } as Request : r));
 
             setSelectedRequest(null);
 
-            // Redirect if needed
             if (selectedRequest.type === 'password_reset' && resolutionStatus === 'resolved') {
                 if (confirm("Request resolved. Do you want to go to the User page?")) {
-                    // Navigate to the correct path for User Management
                     navigate('/portal/users', { state: { highlightUserId: selectedRequest.userId } });
                 }
             }
             toast.success("Request updated successfully.");
 
-            // Log activity
             await logActivity({
                 actionType: (resolutionStatus === 'resolved' || resolutionStatus === 'rejected') ? 'Ticket Resolved' : 'Ticket Updated',
                 targetType: 'request',
                 targetId: selectedRequest.id,
-                details: `${resolutionStatus === 'resolved' ? 'Resolved' : 'Updated'} ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}: ${resolutionStatus}`,
+                details: `${resolutionStatus} ticket #${selectedRequest.ticketId || selectedRequest.id.slice(0, 6)}`,
                 performedBy: currentUser.email
             }).catch(console.error);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to update:", error);
-            toast.error("Error updating request.");
+            toast.error("Error updating request: " + error.message);
         } finally {
             setSubmitting(false);
         }
