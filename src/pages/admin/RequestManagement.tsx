@@ -232,7 +232,8 @@ const RequestManagement: React.FC = () => {
             // Redirect if needed
             if (selectedRequest.type === 'password_reset' && resolutionStatus === 'resolved') {
                 if (confirm("Request resolved. Do you want to go to the User page?")) {
-                    navigate('/admin/users', { state: { highlightUserId: selectedRequest.userId } });
+                    // Navigate to the correct path for User Management
+                    navigate('/portal/users', { state: { highlightUserId: selectedRequest.userId } });
                 }
             }
             toast.success("Request updated successfully.");
