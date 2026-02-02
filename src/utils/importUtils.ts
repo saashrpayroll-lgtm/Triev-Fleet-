@@ -85,14 +85,12 @@ export const processRiderImport = async (
             const name = (user.fullName || '').trim().toLowerCase();
             if (name) {
                 teamLeaderMap.set(name, user.id);
-                // Also handle cases where sheet uses "FirstName LastName" and DB has "First Last" etc. 
-                // For now, strict case-insensitive match is best to avoid wrong assignments.
             }
         });
         console.log(`Loaded ${teamLeaderMap.size} users for potential assignment.`);
+        console.log("Team Leader Map Keys (Normalized):", Array.from(teamLeaderMap.keys()));
     } catch (error) {
         console.error("Error fetching users for validation:", error);
-        // We continue, but assignment will fail for names
     }
 
     summary.total = fileData.length;
@@ -114,7 +112,27 @@ export const processRiderImport = async (
             if (!riderName) throw new Error("Missing Rider Name");
 
             const teamLeaderName = (row['Team Leader'] || '').trim();
-            const teamLeaderId = teamLeaderMap.get(teamLeaderName.toLowerCase()) || null;
+            let teamLeaderId = null;
+            let assignmentStatus = 'Unassigned';
+
+            // Attempt Assignment
+            if (teamLeaderName) {
+                const normalizedTLName = teamLeaderName.toLowerCase();
+                teamLeaderId = teamLeaderMap.get(normalizedTLName) || null;
+
+                if (teamLeaderId) {
+                    assignmentStatus = teamLeaderName; // Keep original casing
+                } else {
+                    console.warn(`Row ${rowNum}: Team Leader '${teamLeaderName}' not found in DB. Normalized search key: '${normalizedTLName}'`);
+                    // Add a warning to errors list but continue
+                    summary.errors.push({
+                        row: rowNum,
+                        identifier: riderName,
+                        reason: `Warning: Team Leader '${teamLeaderName}' not found. Rider assigned to 'Unassigned'.`,
+                        data: { teamLeaderName, availableUsers: 'Check console' }
+                    });
+                }
+            }
 
             // Handle Client
             const clientName = isValidClient(row['Client Name']) ? row['Client Name'] : 'Other';
@@ -161,7 +179,7 @@ export const processRiderImport = async (
                 allotment_date: allotmentDate,
                 remarks: row['Remarks'] || '',
                 team_leader_id: teamLeaderId,
-                team_leader_name: teamLeaderId ? teamLeaderName : 'Unassigned',
+                team_leader_name: assignmentStatus,
                 status: 'active',
                 updated_at: new Date().toISOString(),
             };
@@ -196,7 +214,7 @@ export const processRiderImport = async (
 
     // Log the overall activity to the main Activity page
     await logActivity({
-        actionType: 'Rider Bulk Import',
+        actionType: 'bulkImport', // Fixed actionType to match schema
         targetType: 'system',
         targetId: 'multiple',
         details: `Imported ${summary.success} riders, ${summary.failed} failures.`,

@@ -18,79 +18,45 @@ const DataManagement: React.FC = () => {
     const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
 
     // Google Sheets State
-    const [sheetConfig, setSheetConfig] = useState({
-        sheetId: '',
-        range: 'Sheet1!A1:Z500',
-        apiKey: ''
+    const [sheetConfig, setSheetConfig] = useState(() => {
+        const saved = localStorage.getItem('googleSheetConfig');
+        return saved ? JSON.parse(saved) : {
+            sheetId: '',
+            range: 'Sheet1!A1:Z500',
+            apiKey: ''
+        };
     });
     const [syncMode, setSyncMode] = useState<'rider' | 'wallet'>('rider');
-    const [isAutoSyncing, setIsAutoSyncing] = useState(false);
+    const [isAutoSyncing, setIsAutoSyncing] = useState(() => {
+        return localStorage.getItem('isAutoSyncing') === 'true';
+    });
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
 
-    // Refs for Real-time listeners to avoid stale closures
+    // Refs for Real-time listeners & Interval to avoid stale closures
     const sheetConfigRef = React.useRef(sheetConfig);
     const syncModeRef = React.useRef(syncMode);
+    const isSyncingRef = React.useRef(isSyncing);
 
     useEffect(() => {
         sheetConfigRef.current = sheetConfig;
-        syncModeRef.current = syncMode;
-    }, [sheetConfig, syncMode]);
+        localStorage.setItem('googleSheetConfig', JSON.stringify(sheetConfig));
+    }, [sheetConfig]);
 
-    // Initial Fetch & Real-time History
     useEffect(() => {
-        fetchHistory();
+        syncModeRef.current = syncMode;
+    }, [syncMode]);
 
-        // Real-time subscription for import history
-        const historyChannel = supabase
-            .channel('import-history-changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'import_history'
-                },
-                () => fetchHistory()
-            )
-            .subscribe();
+    useEffect(() => {
+        isSyncingRef.current = isSyncing;
+    }, [isSyncing]);
 
-        // Real-time subscription for Google Sheet sync events
-        const syncChannel = supabase
-            .channel('google-sync-events')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'sync_events'
-                },
-                (payload) => {
-                    console.log('Sync event received:', payload);
-                    handleSyncEvent(payload.new);
-                }
-            )
-            .subscribe();
+    useEffect(() => {
+        localStorage.setItem('isAutoSyncing', String(isAutoSyncing));
+    }, [isAutoSyncing]);
 
-        return () => {
-            supabase.removeChannel(historyChannel);
-            supabase.removeChannel(syncChannel);
-        };
-    }, []); // Removed userData from dep to avoid refresh loops, handleSyncEvent uses stable ref
-
-    const handleSyncEvent = async (event: any) => {
-        if (!userData) return;
-
-        // Ensure this is for the current sheet and mode
-        const currentMode = event.event_type === 'wallet_sync' ? 'wallet' : 'rider';
-
-        if (event.sheet_id === sheetConfigRef.current.sheetId) {
-            console.log(`Triggering Real-time ${currentMode} Sync for Sheet: ${event.sheet_id}`);
-            toast.info(`Real-time ${currentMode} sync triggered from sheet...`);
-            handleGoogleSync(null, true, currentMode);
-        }
-    };
+    // DEFINE FUNCTIONS FIRST to avoid hoisting issues with const
 
     const fetchHistory = async () => {
         setLoadingHistory(true);
@@ -121,6 +87,81 @@ const DataManagement: React.FC = () => {
             console.error("Error fetching history:", err);
         } finally {
             setLoadingHistory(false);
+        }
+    };
+
+    const clearConfig = () => {
+        if (confirm("Clear Google Sheet configuration?")) {
+            const emptyConfig = { sheetId: '', range: 'Sheet1!A1:Z500', apiKey: '' };
+            setSheetConfig(emptyConfig);
+            setIsAutoSyncing(false);
+            localStorage.removeItem('googleSheetConfig');
+            localStorage.removeItem('isAutoSyncing');
+            toast.success("Configuration cleared");
+        }
+    };
+
+    const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, overrideMode?: 'rider' | 'wallet') => {
+        if (e) e.preventDefault();
+        if (!userData || isSyncing) return;
+        // ... rest of function matches existing structure, just ensuring clearConfig is inserted before it.
+
+        const activeMode = overrideMode || syncMode;
+        if (!isAuto) setIsSyncing(true);
+        setSyncError(null);
+
+        try {
+            if (!sheetConfig.sheetId || !sheetConfig.range || sheetConfig.sheetId.length < 10) {
+                if (!isAuto) alert("Please enter valid Sheet ID and Range");
+                throw new Error("Invalid Configuration");
+            }
+
+            // Fix Range Format: Quote sheet name if it contains spaces
+            let formattedRange = sheetConfig.range.trim();
+            if (formattedRange.includes('!')) {
+                const parts = formattedRange.split('!');
+                if (parts.length === 2) {
+                    let sheetName = parts[0];
+                    const cells = parts[1];
+                    if (sheetName.includes(' ') && !sheetName.startsWith("'") && !sheetName.endsWith("'")) {
+                        sheetName = `'${sheetName}'`;
+                        formattedRange = `${sheetName}!${cells}`;
+                    }
+                }
+            }
+
+            const summary = await syncGoogleSheet({
+                sheetId: sheetConfig.sheetId,
+                range: formattedRange,
+                apiKey: sheetConfig.apiKey || undefined
+            }, userData.id, userData.fullName, activeMode);
+
+            setLastSyncTime(new Date());
+
+            if (!isAuto) {
+                alert(`Sync Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
+            } else {
+                toast.success(`${activeMode === 'rider' ? 'Riders' : 'Wallets'} synced automatically.`);
+            }
+
+            fetchHistory();
+        } catch (err: any) {
+            console.error("Sync Failed:", err);
+            setSyncError(err.message || 'Sync failed');
+            if (!isAuto) alert("Sync Failed: " + err.message);
+        } finally {
+            if (!isAuto) setIsSyncing(false);
+        }
+    };
+
+    const handleSyncEvent = async (event: any) => {
+        if (!userData) return;
+        const currentMode = event.event_type === 'wallet_sync' ? 'wallet' : 'rider';
+
+        if (event.sheet_id === sheetConfigRef.current.sheetId) {
+            console.log(`Triggering Real-time ${currentMode} Sync for Sheet: ${event.sheet_id}`);
+            toast.info(`Real-time ${currentMode} sync triggered from sheet...`);
+            handleGoogleSync(null, true, currentMode);
         }
     };
 
@@ -215,69 +256,30 @@ const DataManagement: React.FC = () => {
         }
     };
 
-    // Auto-Sync Interval
+    // Initial Fetch & Real-time History
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isAutoSyncing) {
-            interval = setInterval(() => {
-                handleGoogleSync(null, true);
-            }, 10000);
-        }
-        return () => clearInterval(interval);
-    }, [isAutoSyncing, sheetConfig, userData]);
+        fetchHistory();
 
-    const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, overrideMode?: 'rider' | 'wallet') => {
-        if (e) e.preventDefault();
-        if (!userData || isSyncing) return;
+        // Real-time subscription
+        const historyChannel = supabase
+            .channel('import-history-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'import_history' }, () => fetchHistory())
+            .subscribe();
 
-        const activeMode = overrideMode || syncMode;
-        if (!isAuto) setIsSyncing(true);
-        setSyncError(null);
+        // Real-time sync events
+        const syncChannel = supabase
+            .channel('google-sync-events')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sync_events' }, (payload) => {
+                console.log('Sync event received:', payload);
+                handleSyncEvent(payload.new);
+            })
+            .subscribe();
 
-        try {
-            if (!sheetConfig.sheetId || !sheetConfig.range || sheetConfig.sheetId.length < 10) {
-                if (!isAuto) alert("Please enter valid Sheet ID and Range");
-                throw new Error("Invalid Configuration");
-            }
-
-            // Fix Range Format: Quote sheet name if it contains spaces
-            let formattedRange = sheetConfig.range.trim();
-            if (formattedRange.includes('!')) {
-                const parts = formattedRange.split('!');
-                // Check if we have exactly 2 parts and the first part has spaces but no quotes
-                if (parts.length === 2) {
-                    let sheetName = parts[0];
-                    const cells = parts[1];
-                    if (sheetName.includes(' ') && !sheetName.startsWith("'") && !sheetName.endsWith("'")) {
-                        sheetName = `'${sheetName}'`;
-                        formattedRange = `${sheetName}!${cells}`;
-                    }
-                }
-            }
-
-            const summary = await syncGoogleSheet({
-                sheetId: sheetConfig.sheetId,
-                range: formattedRange,
-                apiKey: sheetConfig.apiKey || undefined
-            }, userData.id, userData.fullName, activeMode);
-
-            setLastSyncTime(new Date());
-
-            if (!isAuto) {
-                alert(`Sync Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
-            } else {
-                toast.success(`${activeMode === 'rider' ? 'Riders' : 'Wallets'} synced automatically.`);
-            }
-
-            fetchHistory();
-        } catch (err: any) {
-            console.error("Sync Failed:", err);
-            setSyncError(err.message || 'Sync failed');
-            if (!isAuto) alert("Sync Failed: " + err.message);
-        } finally {
-            if (!isAuto) setIsSyncing(false);
-        }
-    };
+        return () => {
+            supabase.removeChannel(historyChannel);
+            supabase.removeChannel(syncChannel);
+        };
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -389,7 +391,14 @@ const DataManagement: React.FC = () => {
                                 <form onSubmit={(e) => handleGoogleSync(e, false)} className="space-y-5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium flex items-center gap-2">Sheet ID</label>
+                                            <div className="flex justify-between">
+                                                <label className="text-sm font-medium flex items-center gap-2">Sheet ID</label>
+                                                {sheetConfig.sheetId && (
+                                                    <button type="button" onClick={clearConfig} className="text-xs text-red-500 hover:underline">
+                                                        Clear Saved
+                                                    </button>
+                                                )}
+                                            </div>
                                             <input
                                                 type="text"
                                                 value={sheetConfig.sheetId}
