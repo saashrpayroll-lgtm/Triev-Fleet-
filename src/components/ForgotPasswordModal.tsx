@@ -26,19 +26,38 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
 
         setLoading(true);
 
-        try {
-            // Check if user exists with this mobile number
-            const { data: user, error: userError } = await supabase
-                .from('users')
-                .select('id, full_name, mobile')
-                .eq('mobile', mobile)
-                .single();
 
-            if (userError || !user) {
-                setError('No account found with this mobile number');
+        try {
+            // Normalize mobile number (remove any non-digits)
+            const normalizedMobile = mobile.replace(/\D/g, '');
+
+            console.log('Searching for mobile:', normalizedMobile);
+
+            // Try to find user with this mobile number
+            // Try exact match first, then with country code
+            const { data: users, error: userError } = await supabase
+                .from('users')
+                .select('id, full_name, mobile, email')
+                .or(`mobile.eq.${normalizedMobile},mobile.eq.+91${normalizedMobile}`)
+                .limit(1);
+
+            console.log('Search result:', { users, userError });
+
+            if (userError) {
+                console.error('Database error:', userError);
+                setError('Database error. Please try again.');
                 setLoading(false);
                 return;
             }
+
+            if (!users || users.length === 0) {
+                console.log('No user found with mobile:', normalizedMobile);
+                setError('No account found with this mobile number. Please check the number or contact admin.');
+                setLoading(false);
+                return;
+            }
+
+            const user = users[0];
 
             // Check if there's already a pending request
             const { data: existingRequest } = await supabase
