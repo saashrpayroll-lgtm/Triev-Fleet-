@@ -40,8 +40,8 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                 .select('id, full_name, mobile, email');
 
             if (isEmail) {
-                // Search by email
-                query = query.eq('email', input);
+                // Search by email (case-insensitive)
+                query = query.ilike('email', input);
             } else {
                 // Search by mobile (exact or with +91)
                 query = query.or(`mobile.eq.${normalizedMobile},mobile.eq.+91${normalizedMobile}`);
@@ -59,7 +59,8 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             }
 
             if (!users || users.length === 0) {
-                setError(`No account found with this ${isEmail ? 'email' : 'mobile number'}.`);
+                const searchDebug = isEmail ? input : `${normalizedMobile} or +91${normalizedMobile}`;
+                setError(`No account found. We searched for: ${searchDebug}`);
                 setLoading(false);
                 return;
             }
