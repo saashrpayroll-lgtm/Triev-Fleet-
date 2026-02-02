@@ -43,8 +43,24 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                 // Search by email (case-insensitive)
                 query = query.ilike('email', input);
             } else {
-                // Search by mobile (exact or with +91)
-                query = query.or(`mobile.eq.${normalizedMobile},mobile.eq.+91${normalizedMobile}`);
+                // Smart Mobile Search
+                // 1. Exact match
+                let orConditions = [`mobile.eq.${normalizedMobile}`];
+
+                // 2. With +91 prefix (if not already present in normalized)
+                orConditions.push(`mobile.eq.+91${normalizedMobile}`);
+
+                // 3. Handle case where user typed 91XXXXXXXXXX (12 digits starting with 91)
+                if (normalizedMobile.length === 12 && normalizedMobile.startsWith('91')) {
+                    const tenDigit = normalizedMobile.slice(2);
+                    orConditions.push(`mobile.eq.${tenDigit}`);
+                    orConditions.push(`mobile.eq.+91${tenDigit}`);
+                }
+
+                // 4. Handle case where user typed 10 digits, check if DB has just raw digits
+                // (Already covered by #1)
+
+                query = query.or(orConditions.join(','));
             }
 
             const { data: users, error: userError } = await query.limit(1);
@@ -59,7 +75,18 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             }
 
             if (!users || users.length === 0) {
-                const searchDebug = isEmail ? input : `${normalizedMobile} or +91${normalizedMobile}`;
+                let searchDebug = '';
+                if (isEmail) {
+                    searchDebug = input;
+                } else {
+                    const debugTerms = [normalizedMobile, `+91${normalizedMobile}`];
+                    if (normalizedMobile.length === 12 && normalizedMobile.startsWith('91')) {
+                        const tenDigit = normalizedMobile.slice(2);
+                        debugTerms.push(tenDigit);
+                        debugTerms.push(`+91${tenDigit}`);
+                    }
+                    searchDebug = debugTerms.join(' or ');
+                }
                 setError(`No account found. We searched for: ${searchDebug}`);
                 setLoading(false);
                 return;
