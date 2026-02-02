@@ -71,23 +71,28 @@ export const processRiderImport = async (
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
 
-    // Pre-fetch Team Leaders to map Name -> ID
+    // Pre-fetch Users to map Name -> ID (Auto-assign Team Leader)
     const teamLeaderMap = new Map<string, string>(); // Name -> ID
     try {
+        console.log("Fetching users for Team Leader assignment...");
         const { data: users, error } = await supabase
             .from('users')
-            .select('id, fullName:full_name')
-            .eq('role', 'teamLeader');
+            .select('id, fullName:full_name, role');
 
         if (error) throw error;
 
         users?.forEach((user: any) => {
             const name = (user.fullName || '').trim().toLowerCase();
-            if (name) teamLeaderMap.set(name, user.id);
+            if (name) {
+                teamLeaderMap.set(name, user.id);
+                // Also handle cases where sheet uses "FirstName LastName" and DB has "First Last" etc. 
+                // For now, strict case-insensitive match is best to avoid wrong assignments.
+            }
         });
+        console.log(`Loaded ${teamLeaderMap.size} users for potential assignment.`);
     } catch (error) {
-        console.error("Error fetching team leaders:", error);
-        throw new Error("Failed to fetch Team Leaders for validation.");
+        console.error("Error fetching users for validation:", error);
+        // We continue, but assignment will fail for names
     }
 
     summary.total = fileData.length;
