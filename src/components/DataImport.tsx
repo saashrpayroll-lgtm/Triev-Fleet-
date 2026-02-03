@@ -59,6 +59,11 @@ const DataImport: React.FC<DataImportProps> = ({ onImport, mode = 'rider' }) => 
                 );
                 if (match) initialMapping[reqCol] = match;
             });
+            // Specific alias for Team Leader -> Base
+            if (!initialMapping['Team Leader']) {
+                const baseHeader = headers.find(h => h.trim().toLowerCase() === 'base');
+                if (baseHeader) initialMapping['Team Leader'] = baseHeader;
+            }
             setColumnMapping(initialMapping);
             setStep('mapping');
         };

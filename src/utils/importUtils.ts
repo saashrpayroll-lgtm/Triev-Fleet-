@@ -111,7 +111,10 @@ export const processRiderImport = async (
             }
             if (!riderName) throw new Error("Missing Rider Name");
 
-            const teamLeaderName = (row['Team Leader'] || '').trim();
+            if (!riderName) throw new Error("Missing Rider Name");
+
+            // Check for 'Team Leader' OR 'Base' column
+            const teamLeaderName = (row['Team Leader'] || row['Base'] || '').trim();
             let teamLeaderId = null;
             let assignmentStatus = 'Unassigned';
 
