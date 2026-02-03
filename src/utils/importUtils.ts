@@ -81,10 +81,13 @@ export const processRiderImport = async (
         console.log("Fetching users for Team Leader assignment...");
         const { data: fetchedUsers, error } = await supabase
             .from('users')
-            .select('id, fullName:full_name, email, role');
+            .select('id, fullName:full_name, email, role')
+            .in('role', ['teamLeader', 'admin', 'manager'])
+            .range(0, 4999);
 
         if (error) throw error;
-        users = fetchedUsers;
+        users = fetchedUsers || [];
+        console.log(`[Import] Loaded ${users.length} potential Team Leaders.`);
 
         if (error) throw error;
 
