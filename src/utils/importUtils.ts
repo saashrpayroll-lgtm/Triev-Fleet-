@@ -321,3 +321,5 @@ export const processWalletUpdate = async (
 
     return summary;
 };
+
+// Auto-assignment features enhanced: ID, Email, Name matching
