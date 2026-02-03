@@ -119,7 +119,7 @@ export const processRiderImport = async (
             }
         });
         console.log(`Loaded ${users?.length} users. Identifiers mapped: ${teamLeaderMap.size} Names/Aliases, ${teamLeaderEmailMap.size} Emails.`);
-        console.log("[Debug] First 10 Map Keys:", Array.from(teamLeaderMap.keys()).slice(0, 10));
+        console.log("[Debug] Loaded Team Leaders:", Array.from(teamLeaderMap.keys()));
     } catch (error) {
         console.error("Error fetching users for validation:", error);
     }
@@ -186,16 +186,24 @@ export const processRiderImport = async (
 
                 // Strategy 4: Smart Linear Fallback (Partial Match)
                 if (!teamLeaderId) {
-                    console.log(`[Row ${rowNum}] Exact/Clean match failed. Trying Smart Linear Fallback...`);
+                    const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
+                    console.log(`[Row ${rowNum}] Exact/Clean match failed for '${cleanInputName}'. Trying Smart Linear Fallback...`);
+
                     const fallbackMatch = users?.find((u: any) => {
                         const dbName = (u.fullName || '').toLowerCase();
-                        // Check mutual inclusion
-                        return dbName.includes(normalizedTLName) || normalizedTLName.includes(dbName);
+                        // 1. Check if DB Name contains Clean Input (e.g. DB: "Mohit Prajapati" contains Input: "Mohit")
+                        // 2. Check if Clean Input contains DB Name (e.g. Input: "Mohit Prajapati" contains DB: "Mohit")
+                        // 3. Check if DB Name is part of the Normalized Input (existing check)
+
+                        return dbName.includes(cleanInputName) ||
+                            cleanInputName.includes(dbName) ||
+                            dbName.includes(normalizedTLName) ||
+                            normalizedTLName.includes(dbName);
                     });
 
                     if (fallbackMatch) {
                         teamLeaderId = fallbackMatch.id;
-                        console.log(`[Row ${rowNum}] Match FOUND via Smart Fallback! Mapped to: '${fallbackMatch.fullName}'`);
+                        console.log(`[Row ${rowNum}] Match FOUND via Smart Fallback! Mapped '${teamLeaderName}' -> '${fallbackMatch.fullName}'`);
                     }
                 }
 
