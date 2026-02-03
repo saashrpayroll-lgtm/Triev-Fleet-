@@ -107,14 +107,21 @@ export const processRiderImport = async (
                 const normalizedFull = fullNameRaw.toLowerCase();
                 teamLeaderMap.set(normalizedFull, userId);
 
-                // Strategy 4: Map "Clean" Name (remove content in parens e.g. "Name (ID)" -> "name")
+                // Strategy 4: Extract Unique ID (e.g. "KONTI/357")
+                // Regex looks for "KONTI/" followed by digits, possibly with spaces
+                const idMatch = fullNameRaw.match(/KONTI\s*\/?\s*\d+/i);
+                if (idMatch) {
+                    // Standardize ID format to "konti/123" (lowercase, no spaces)
+                    const uniqueId = idMatch[0].toLowerCase().replace(/\s+/g, '');
+                    teamLeaderMap.set(uniqueId, userId);
+                    console.log(`[Mapping Debug] Extracted Unique ID: '${uniqueId}' for '${fullNameRaw}' -> ID: ${userId}`);
+                }
+
+                // Strategy 5: Map "Clean" Name (remove content in parens e.g. "Name (ID)" -> "name")
                 // Example: "Om Prakash Singh ( KONTI/357 )" -> "om prakash singh"
                 const cleanName = fullNameRaw.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase();
                 if (cleanName && cleanName !== normalizedFull) {
-                    // Only set if different to avoid duplicate work, but overwriting is safe strictly
-                    // If multiple TLs have same clean name, last one wins (acceptable limitation for fuzzy match)
                     teamLeaderMap.set(cleanName, userId);
-                    console.log(`[Mapping Debug] Mapped '${fullNameRaw}' -> Clean Key: '${cleanName}'`);
                 }
             }
         });
@@ -166,13 +173,23 @@ export const processRiderImport = async (
                     teamLeaderId = teamLeaderEmailMap.get(normalizedTLName);
                     console.log(`[Row ${rowNum}] Match FOUND via Email!`);
                 }
+                // Strategy 2a: Check Processed Unique ID (KONTI/xxx)
+                const idMatch = teamLeaderName.match(/KONTI\s*\/?\s*\d+/i);
+                if (idMatch) {
+                    const uniqueId = idMatch[0].toLowerCase().replace(/\s+/g, '');
+                    if (teamLeaderMap.has(uniqueId)) {
+                        teamLeaderId = teamLeaderMap.get(uniqueId);
+                        console.log(`[Row ${rowNum}] Match FOUND via Unique ID ('${uniqueId}')!`);
+                    }
+                }
+
                 // Strategy 3: Check Name (Exact)
-                else if (teamLeaderMap.has(normalizedTLName)) {
+                if (!teamLeaderId && teamLeaderMap.has(normalizedTLName)) {
                     teamLeaderId = teamLeaderMap.get(normalizedTLName);
                     console.log(`[Row ${rowNum}] Match FOUND via Exact Name! ID: ${teamLeaderId}`);
                 }
                 // Strategy 4: Check "Clean" Input Name (remove parens from Input)
-                else {
+                else if (!teamLeaderId) {
                     const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
                     if (teamLeaderMap.has(cleanInputName)) {
                         teamLeaderId = teamLeaderMap.get(cleanInputName);
@@ -184,26 +201,34 @@ export const processRiderImport = async (
                     teamLeaderId = null;
                 }
 
-                // Strategy 4: Smart Linear Fallback (Partial Match)
+                // Strategy 5: Smart Linear Fallback (Partial Match) - STRICTER NOW
                 if (!teamLeaderId) {
                     const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
-                    console.log(`[Row ${rowNum}] Exact/Clean match failed for '${cleanInputName}'. Trying Smart Linear Fallback...`);
+                    console.log(`[Row ${rowNum}] Exact/ID/Clean match failed for '${cleanInputName}'. Trying Strict Fallback...`);
 
                     const fallbackMatch = users?.find((u: any) => {
                         const dbName = (u.fullName || '').toLowerCase();
-                        // 1. Check if DB Name contains Clean Input (e.g. DB: "Mohit Prajapati" contains Input: "Mohit")
-                        // 2. Check if Clean Input contains DB Name (e.g. Input: "Mohit Prajapati" contains DB: "Mohit")
-                        // 3. Check if DB Name is part of the Normalized Input (existing check)
 
-                        return dbName.includes(cleanInputName) ||
-                            cleanInputName.includes(dbName) ||
-                            dbName.includes(normalizedTLName) ||
-                            normalizedTLName.includes(dbName);
+                        // STRICTER RULES:
+                        // 1. If Input has a Unique ID (KONTI/...), ONLY match if DB name contains THAT ID.
+                        //    (Prevents "Mohit (KONTI/045)" matching "Mohit Prajapti (KONTI/205)")
+                        const inputIdMatch = normalizedTLName.match(/konti\s*\/?\s*\d+/i);
+                        const dbIdMatch = dbName.match(/konti\s*\/?\s*\d+/i);
+
+                        if (inputIdMatch && dbIdMatch) {
+                            // If both have IDs, they MUST match.
+                            const inputId = inputIdMatch[0].replace(/\s+/g, '');
+                            const dbId = dbIdMatch[0].replace(/\s+/g, '');
+                            if (inputId !== dbId) return false;
+                        }
+
+                        // 2. Fallback to name containment only if IDs check passed (or didn't exist)
+                        return dbName.includes(cleanInputName) || cleanInputName.includes(dbName);
                     });
 
                     if (fallbackMatch) {
                         teamLeaderId = fallbackMatch.id;
-                        console.log(`[Row ${rowNum}] Match FOUND via Smart Fallback! Mapped '${teamLeaderName}' -> '${fallbackMatch.fullName}'`);
+                        console.log(`[Row ${rowNum}] Match FOUND via Strict Fallback! Mapped '${teamLeaderName}' -> '${fallbackMatch.fullName}'`);
                     }
                 }
 
