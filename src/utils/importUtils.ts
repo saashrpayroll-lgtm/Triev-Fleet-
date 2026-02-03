@@ -75,11 +75,16 @@ export const processRiderImport = async (
     const teamLeaderMap = new Map<string, string>(); // Name -> ID
     const teamLeaderEmailMap = new Map<string, string>(); // Email -> ID
     const teamLeaderIdMap = new Set<string>(); // Valid IDs used for validation
+    let users: any[] | null = null;
+
     try {
         console.log("Fetching users for Team Leader assignment...");
-        const { data: users, error } = await supabase
+        const { data: fetchedUsers, error } = await supabase
             .from('users')
             .select('id, fullName:full_name, email, role');
+
+        if (error) throw error;
+        users = fetchedUsers;
 
         if (error) throw error;
 
@@ -167,10 +172,25 @@ export const processRiderImport = async (
                     teamLeaderId = null;
                 }
 
+                // Strategy 4: Smart Linear Fallback (Partial Match)
+                if (!teamLeaderId) {
+                    console.log(`[Row ${rowNum}] Exact/Clean match failed. Trying Smart Linear Fallback...`);
+                    const fallbackMatch = users?.find((u: any) => {
+                        const dbName = (u.fullName || '').toLowerCase();
+                        // Check mutual inclusion
+                        return dbName.includes(normalizedTLName) || normalizedTLName.includes(dbName);
+                    });
+
+                    if (fallbackMatch) {
+                        teamLeaderId = fallbackMatch.id;
+                        console.log(`[Row ${rowNum}] Match FOUND via Smart Fallback! Mapped to: '${fallbackMatch.fullName}'`);
+                    }
+                }
+
                 if (teamLeaderId) {
                     assignmentStatus = teamLeaderName; // Keep original casing
                 } else {
-                    console.warn(`Row ${rowNum}: Team Leader '${teamLeaderName}' not found in DB. Normalized search key: '${normalizedTLName}'`);
+                    console.warn(`Row ${rowNum}: Team Leader '${teamLeaderName}' NOT FOUND. Search keys checked: '${normalizedTLName}' against map.`);
                     // Add a warning to errors list but continue
                     summary.errors.push({
                         row: rowNum,
