@@ -106,11 +106,12 @@ export const processRiderImport = async (
                     // Only set if different to avoid duplicate work, but overwriting is safe strictly
                     // If multiple TLs have same clean name, last one wins (acceptable limitation for fuzzy match)
                     teamLeaderMap.set(cleanName, userId);
+                    console.log(`[Mapping Debug] Mapped '${fullNameRaw}' -> Clean Key: '${cleanName}'`);
                 }
             }
         });
         console.log(`Loaded ${users?.length} users. Identifiers mapped: ${teamLeaderMap.size} Names/Aliases, ${teamLeaderEmailMap.size} Emails.`);
-        // console.log("Team Leader Keys:", Array.from(teamLeaderMap.keys()));
+        console.log("[Debug] First 10 Map Keys:", Array.from(teamLeaderMap.keys()).slice(0, 10));
     } catch (error) {
         console.error("Error fetching users for validation:", error);
     }
@@ -133,8 +134,6 @@ export const processRiderImport = async (
             }
             if (!riderName) throw new Error("Missing Rider Name");
 
-            if (!riderName) throw new Error("Missing Rider Name");
-
             // Check for 'Team Leader' OR 'Base' column
             const teamLeaderName = (row['Team Leader'] || row['Base'] || '').trim();
             let teamLeaderId = null;
@@ -143,7 +142,28 @@ export const processRiderImport = async (
             // Attempt Assignment
             if (teamLeaderName) {
                 const normalizedTLName = teamLeaderName.toLowerCase();
-                teamLeaderId = teamLeaderMap.get(normalizedTLName) || null;
+                // Debugging specific row match
+                console.log(`[Row ${rowNum}] Checking Team Leader: '${teamLeaderName}' (Normalized: '${normalizedTLName}')`);
+
+                // Strategy 1: Check if input is a valid UUID
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (uuidRegex.test(teamLeaderName) && teamLeaderIdMap.has(teamLeaderName)) {
+                    teamLeaderId = teamLeaderName;
+                    console.log(`[Row ${rowNum}] Match FOUND via UUID!`);
+                }
+                // Strategy 2: Check Email
+                else if (teamLeaderEmailMap.has(normalizedTLName)) {
+                    teamLeaderId = teamLeaderEmailMap.get(normalizedTLName);
+                    console.log(`[Row ${rowNum}] Match FOUND via Email!`);
+                }
+                // Strategy 3: Check Name (Exact + Fuzzy/Clean)
+                else if (teamLeaderMap.has(normalizedTLName)) {
+                    teamLeaderId = teamLeaderMap.get(normalizedTLName);
+                    console.log(`[Row ${rowNum}] Match FOUND via Name (Exact/Fuzzy)! ID: ${teamLeaderId}`);
+                }
+                else {
+                    teamLeaderId = null;
+                }
 
                 if (teamLeaderId) {
                     assignmentStatus = teamLeaderName; // Keep original casing
