@@ -73,22 +73,44 @@ export const processRiderImport = async (
 
     // Pre-fetch Users to map Name -> ID (Auto-assign Team Leader)
     const teamLeaderMap = new Map<string, string>(); // Name -> ID
+    const teamLeaderEmailMap = new Map<string, string>(); // Email -> ID
+    const teamLeaderIdMap = new Set<string>(); // Valid IDs used for validation
     try {
         console.log("Fetching users for Team Leader assignment...");
         const { data: users, error } = await supabase
             .from('users')
-            .select('id, fullName:full_name, role');
+            .select('id, fullName:full_name, email, role');
 
         if (error) throw error;
 
         users?.forEach((user: any) => {
-            const name = (user.fullName || '').trim().toLowerCase();
-            if (name) {
-                teamLeaderMap.set(name, user.id);
+            const fullNameRaw = (user.fullName || '').trim();
+            const email = (user.email || '').trim().toLowerCase();
+            const userId = user.id;
+
+            // Strategy 1: Map exact ID
+            if (userId) teamLeaderIdMap.add(userId);
+
+            // Strategy 2: Map exact Email
+            if (email) teamLeaderEmailMap.set(email, userId);
+
+            // Strategy 3: Map Normalized Names
+            if (fullNameRaw) {
+                const normalizedFull = fullNameRaw.toLowerCase();
+                teamLeaderMap.set(normalizedFull, userId);
+
+                // Strategy 4: Map "Clean" Name (remove content in parens e.g. "Name (ID)" -> "name")
+                // Example: "Om Prakash Singh ( KONTI/357 )" -> "om prakash singh"
+                const cleanName = fullNameRaw.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase();
+                if (cleanName && cleanName !== normalizedFull) {
+                    // Only set if different to avoid duplicate work, but overwriting is safe strictly
+                    // If multiple TLs have same clean name, last one wins (acceptable limitation for fuzzy match)
+                    teamLeaderMap.set(cleanName, userId);
+                }
             }
         });
-        console.log(`Loaded ${teamLeaderMap.size} users for potential assignment.`);
-        console.log("Team Leader Map Keys (Normalized):", Array.from(teamLeaderMap.keys()));
+        console.log(`Loaded ${users?.length} users. Identifiers mapped: ${teamLeaderMap.size} Names/Aliases, ${teamLeaderEmailMap.size} Emails.`);
+        // console.log("Team Leader Keys:", Array.from(teamLeaderMap.keys()));
     } catch (error) {
         console.error("Error fetching users for validation:", error);
     }
