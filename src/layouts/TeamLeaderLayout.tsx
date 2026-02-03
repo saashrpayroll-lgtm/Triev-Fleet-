@@ -5,6 +5,7 @@ import { LayoutDashboard, Users, FileText, Activity, User, LogOut, Menu, X, Help
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
+import BottomNav from '@/components/layout/BottomNav';
 
 const TeamLeaderLayout: React.FC = () => {
     const { userData, signOut } = useSupabaseAuth();
@@ -49,10 +50,10 @@ const TeamLeaderLayout: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-background">
-            {/* Sidebar */}
+            {/* Sidebar - Hidden on Mobile */}
             <aside
-                className={`${sidebarOpen ? 'w-64' : 'w-20'
-                    } bg-card border-r border-border transition-all duration-300 flex flex-col shadow-lg z-20`}
+                className={`hidden md:flex ${sidebarOpen ? 'w-64' : 'w-20'
+                    } bg-card border-r border-border transition-all duration-300 flex-col shadow-lg z-20`}
             >
                 <div className="p-4 border-b border-border flex items-center justify-between bg-primary/5">
                     {sidebarOpen && (
@@ -68,7 +69,7 @@ const TeamLeaderLayout: React.FC = () => {
                     </button>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path;
@@ -101,16 +102,21 @@ const TeamLeaderLayout: React.FC = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden mb-16 md:mb-0">
                 {/* Header */}
-                <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+                <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-10">
                     <div>
-                        <h2 className="text-2xl font-semibold">
-                            {sidebarOpen ? '' : 'Triev Rider Pro'}
+                        <h2 className="text-lg md:text-2xl font-semibold flex items-center gap-2">
+                            {/* Mobile Logo */}
+                            <div className="md:hidden w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold shadow-sm">
+                                T
+                            </div>
+                            <span className="hidden md:inline">{sidebarOpen ? '' : 'Triev Rider Pro'}</span>
+                            <span className="md:hidden">Triev Rider Pro</span>
                         </h2>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 md:gap-4">
                         <ThemeToggle />
                         {/* Notifications */}
                         {userData && (
@@ -120,13 +126,13 @@ const TeamLeaderLayout: React.FC = () => {
                             />
                         )}
 
-                        {/* User Info */}
-                        <div className="flex items-center gap-3">
-                            <div className="text-right">
+                        {/* User Info - Compact on Mobile */}
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <div className="text-right hidden md:block">
                                 <p className="font-medium text-sm">{safeRender(userData?.fullName, 'Leader')}</p>
                                 <p className="text-xs text-muted-foreground capitalize">{safeRender(userData?.role)}</p>
                             </div>
-                            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
                                 {safeRender(userData?.fullName || 'L').charAt(0).toUpperCase()}
                             </div>
                         </div>
@@ -134,10 +140,13 @@ const TeamLeaderLayout: React.FC = () => {
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 overflow-y-auto p-6 bg-background">
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
                     <Outlet />
                 </main>
             </div>
+
+            {/* Bottom Nav */}
+            <BottomNav items={navItems} />
         </div>
     );
 };

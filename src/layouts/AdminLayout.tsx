@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import BottomNav from '@/components/layout/BottomNav';
 
 const AdminLayout: React.FC = () => {
     const { userData, signOut } = useSupabaseAuth();
@@ -57,13 +58,16 @@ const AdminLayout: React.FC = () => {
         { path: '/portal/profile', icon: User, label: 'Profile', visible: userData?.permissions?.modules?.profile ?? true },
     ].filter(item => item.visible);
 
+    // ... existing code ...
+
     return (
         <div className="flex h-screen bg-background">
-            {/* Sidebar */}
+            {/* Sidebar - Hidden on Mobile, Visible on Desktop */}
             <aside
-                className={`${sidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border/50 transition-all duration-300 ease-in-out flex flex-col shadow-xl z-20 relative`}
+                className={`hidden md:flex ${sidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border/50 transition-all duration-300 ease-in-out flex-col shadow-xl z-20 relative`}
             >
-                {/* Toggle Button - Absolute for smooth positioning */}
+                {/* ... existing sidebar content ... */}
+                {/* Toggle Button */}
                 <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
                     className="absolute -right-3 top-6 bg-primary text-primary-foreground p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform z-50 border-2 border-background"
@@ -130,17 +134,21 @@ const AdminLayout: React.FC = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
-                <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+            <div className="flex-1 flex flex-col overflow-hidden mb-16 md:mb-0">
+                {/* Header - Make Sticky and Adjust Padding */}
+                <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-10">
                     <div>
-                        <h2 className="text-2xl font-semibold">
-                            {sidebarOpen ? '' : 'Admin Panel'}
+                        {/* Mobile Logo/Title since Sidebar is hidden */}
+                        <h2 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+                            <div className="md:hidden w-8 h-8 bg-gradient-to-br from-primary to-violet-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shrink-0">
+                                A
+                            </div>
+                            {sidebarOpen ? <span className="md:hidden">Admin Panel</span> : 'Admin Panel'}
                         </h2>
                     </div>
 
                     {/* Right Side Actions */}
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3 md:gap-6">
                         <div className="flex items-center gap-2">
                             <ThemeToggle />
                             {/* Notifications */}
@@ -152,13 +160,13 @@ const AdminLayout: React.FC = () => {
                             )}
                         </div>
 
-                        {/* User Info */}
-                        <Link to="/portal/profile" className="flex items-center gap-3 pl-6 border-l border-border hover:opacity-80 transition-opacity">
-                            <div className="text-right">
+                        {/* User Info - Simplified on Mobile */}
+                        <Link to="/portal/profile" className="flex items-center gap-3 pl-3 md:pl-6 border-l border-border hover:opacity-80 transition-opacity">
+                            <div className="text-right hidden md:block">
                                 <p className="font-medium text-sm">{typeof userData?.fullName === 'string' ? userData.fullName : 'Admin'}</p>
                                 <p className="text-xs text-muted-foreground capitalize">{typeof userData?.role === 'string' ? userData.role : String(userData?.role || 'admin')}</p>
                             </div>
-                            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold overflow-hidden border border-primary/20">
+                            <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold overflow-hidden border border-primary/20">
                                 {userData?.profilePicUrl ? (
                                     <img src={userData.profilePicUrl} alt="User" className="w-full h-full object-cover" />
                                 ) : (
@@ -170,12 +178,16 @@ const AdminLayout: React.FC = () => {
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 overflow-y-auto p-6 bg-background">
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
                     <Outlet />
                 </main>
             </div>
+
+            {/* Bottom Nav for Mobile */}
+            <BottomNav items={navItems} />
         </div>
     );
 };
+
 
 export default AdminLayout;

@@ -17,6 +17,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import PaymentReminderModal from '@/components/PaymentReminderModal';
 import BulkReminderModal from '@/components/BulkReminderModal';
 import { toast } from 'sonner';
+import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 
@@ -868,6 +869,109 @@ const RiderManagement: React.FC = () => {
         ];
     };
 
+    // Table Columns Definition
+    const columns: Column<Rider>[] = [
+        {
+            header: <input
+                type="checkbox"
+                onChange={(e) => {
+                    e.stopPropagation();
+                    handleSelectAll();
+                }}
+                checked={paginatedRiders.length > 0 && paginatedRiders.every(r => selectedRiders.has(r.id))}
+            />,
+            accessorKey: 'id',
+            className: 'w-10 text-center',
+            cell: (rider) => (
+                <div onClick={(e) => e.stopPropagation()}>
+                    <input
+                        type="checkbox"
+                        checked={selectedRiders.has(rider.id)}
+                        onChange={() => handleSelectOne(rider.id)}
+                        className="cursor-pointer"
+                    />
+                </div>
+            )
+        },
+        {
+            header: <span className="cursor-pointer flex items-center gap-1" onClick={() => handleSort('trievId')}>Triev ID</span>,
+            accessorKey: 'trievId',
+            cell: (rider) => (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingRider(rider);
+                    }}
+                    className="text-primary hover:underline font-bold"
+                >
+                    {rider.trievId}
+                </button>
+            )
+        },
+        {
+            header: <span className="cursor-pointer" onClick={() => handleSort('riderName')}>Name</span>,
+            accessorKey: 'riderName'
+        },
+        {
+            header: 'Mobile',
+            accessorKey: 'mobileNumber',
+            cell: (rider) => (
+                <div className="flex flex-col gap-1">
+                    <span>{rider.mobileNumber}</span>
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleCall(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100" title="Call"><Phone size={14} /></button>
+                        <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100" title="WhatsApp"><MessageCircle size={14} /></button>
+                    </div>
+                </div>
+            )
+        },
+        { header: 'Chassis', accessorKey: 'chassisNumber', className: 'text-muted-foreground text-xs md:text-sm' },
+        {
+            header: <span className="cursor-pointer" onClick={() => handleSort('clientName')}>Client</span>,
+            accessorKey: 'clientName',
+            className: 'capitalize'
+        },
+        {
+            header: <span className="cursor-pointer" onClick={() => handleSort('walletAmount')}>Wallet</span>,
+            accessorKey: 'walletAmount',
+            cell: (rider) => (
+                <div className="flex items-center gap-2">
+                    <span className={`font-bold ${rider.walletAmount > 0 ? 'text-green-600' : rider.walletAmount < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                        ₹{rider.walletAmount}
+                    </span>
+                    {rider.walletAmount < 0 && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setReminderRider(rider);
+                            }}
+                            className="p-1.5 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-full shadow hover:shadow-lg hover:from-red-600 hover:to-pink-700 transition-all transform hover:-translate-y-0.5"
+                            title="Send Payment Reminder (AI)"
+                        >
+                            <MessageCircle size={14} />
+                        </button>
+                    )}
+                </div>
+            )
+        },
+        {
+            header: 'Status',
+            accessorKey: 'status',
+            cell: (rider) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${rider.status === 'active' ? 'bg-green-100 text-green-700' :
+                    rider.status === 'inactive' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                    }`}>
+                    {rider.status}
+                </span>
+            )
+        },
+        {
+            header: <span className="cursor-pointer" onClick={() => handleSort('teamLeaderName')}>Team Leader</span>,
+            accessorKey: 'teamLeaderName'
+        },
+    ];
+
     return (
 
         <div className="space-y-6">
@@ -1014,103 +1118,28 @@ const RiderManagement: React.FC = () => {
                 />
             )}
 
-            {/* Table */}
+            {/* Desktop and Mobile Table */}
             <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-muted/50">
-                            <tr>
-                                <th className="px-4 py-3"><input type="checkbox" onChange={handleSelectAll} checked={paginatedRiders.length > 0 && paginatedRiders.every(r => selectedRiders.has(r.id))} /></th>
-                                <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('trievId')}>Triev ID</th>
-                                <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('riderName')}>Name</th>
-                                <th className="px-4 py-3 text-left font-semibold">Mobile</th>
-                                <th className="px-4 py-3 text-left font-semibold">Chassis</th>
-                                <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('clientName')}>Client</th>
-                                <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('walletAmount')}>Wallet</th>
-                                <th className="px-4 py-3 text-left font-semibold">Status</th>
-                                <th className="px-4 py-3 text-left font-semibold cursor-pointer" onClick={() => handleSort('teamLeaderName')}>Team Leader</th>
-                                <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {paginatedRiders.length === 0 ? (
-                                <tr>
-                                    <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
-                                        No riders found.
-                                    </td>
-                                </tr>
-                            ) : (
-                                paginatedRiders.map((rider) => (
-                                    <tr key={rider.id} className="hover:bg-muted/30 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <input type="checkbox" checked={selectedRiders.has(rider.id)} onChange={() => handleSelectOne(rider.id)} />
-                                        </td>
-                                        <td className="px-4 py-3 font-medium text-sm">
-                                            <button
-                                                onClick={() => setViewingRider(rider)}
-                                                className="text-primary hover:underline font-bold"
-                                            >
-                                                {rider.trievId}
-                                            </button>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm">{rider.riderName}</td>
-                                        <td className="px-4 py-3 text-sm">
-                                            <div className="flex flex-col gap-1">
-                                                <span>{rider.mobileNumber}</span>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleCall(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100" title="Call"><Phone size={14} /></button>
-                                                    <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100" title="WhatsApp"><MessageCircle size={14} /></button>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-muted-foreground">{rider.chassisNumber}</td>
-                                        <td className="px-4 py-3 text-sm capitalize">{rider.clientName}</td>
-                                        <td className="px-4 py-3 text-sm font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`font-bold ${rider.walletAmount > 0 ? 'text-green-600' : rider.walletAmount < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                                                    ₹{rider.walletAmount}
-                                                </span>
-                                                {rider.walletAmount < 0 && (
-                                                    <button
-                                                        onClick={() => setReminderRider(rider)}
-                                                        className="p-1.5 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-full shadow hover:shadow-lg hover:from-red-600 hover:to-pink-700 transition-all transform hover:-translate-y-0.5"
-                                                        title="Send Payment Reminder (AI)"
-                                                    >
-                                                        <MessageCircle size={14} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${rider.status === 'active' ? 'bg-green-100 text-green-700' :
-                                                rider.status === 'inactive' ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
-                                                }`}>
-                                                {rider.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm">{rider.teamLeaderName}</td>
-                                        <td className="px-4 py-3 text-right">
-                                            <ActionDropdownMenu
-                                                rider={rider}
-                                                onView={() => setViewingRider(rider)}
-                                                onEdit={() => setEditingRider(rider)}
-                                                onStatusChange={(s) => handleStatusChange(rider, s)}
-                                                onDelete={() => handleDeleteRider(rider)}
-                                                onRestore={() => handleRestoreRider(rider)}
-                                                onPermanentDelete={() => handlePermanentDelete(rider)}
-                                                onReassign={() => setReassigningRider(rider)}
-                                                userRole="admin"
-                                            />
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                {/* Footer Padding for Dropdown Visibility */}
-                <div className="h-32 bg-transparent pointer-events-none" aria-hidden="true" />
+                <ResponsiveTable
+                    columns={columns}
+                    data={paginatedRiders}
+                    keyField="id"
+                    isLoading={loading}
+                    emptyMessage="No riders found matching your criteria."
+                    actions={(rider) => (
+                        <ActionDropdownMenu
+                            rider={rider}
+                            onView={() => setViewingRider(rider)}
+                            onEdit={() => setEditingRider(rider)}
+                            onStatusChange={(s) => handleStatusChange(rider, s)}
+                            onDelete={() => handleDeleteRider(rider)}
+                            onRestore={() => handleRestoreRider(rider)}
+                            onPermanentDelete={() => handlePermanentDelete(rider)}
+                            onReassign={() => setReassigningRider(rider)}
+                            userRole="admin"
+                        />
+                    )}
+                />
             </div>
 
             {/* Modals */}
