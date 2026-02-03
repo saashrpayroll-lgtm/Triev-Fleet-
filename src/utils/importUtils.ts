@@ -139,6 +139,8 @@ export const processRiderImport = async (
             let teamLeaderId = null;
             let assignmentStatus = 'Unassigned';
 
+            // -- Logic Enhanced with UUID/Email/Fuzzy Matching --
+
             // Attempt Assignment
             if (teamLeaderName) {
                 const normalizedTLName = teamLeaderName.toLowerCase();
