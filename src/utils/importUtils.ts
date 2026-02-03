@@ -163,12 +163,21 @@ export const processRiderImport = async (
                     teamLeaderId = teamLeaderEmailMap.get(normalizedTLName);
                     console.log(`[Row ${rowNum}] Match FOUND via Email!`);
                 }
-                // Strategy 3: Check Name (Exact + Fuzzy/Clean)
+                // Strategy 3: Check Name (Exact)
                 else if (teamLeaderMap.has(normalizedTLName)) {
                     teamLeaderId = teamLeaderMap.get(normalizedTLName);
-                    console.log(`[Row ${rowNum}] Match FOUND via Name (Exact/Fuzzy)! ID: ${teamLeaderId}`);
+                    console.log(`[Row ${rowNum}] Match FOUND via Exact Name! ID: ${teamLeaderId}`);
                 }
+                // Strategy 4: Check "Clean" Input Name (remove parens from Input)
                 else {
+                    const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
+                    if (teamLeaderMap.has(cleanInputName)) {
+                        teamLeaderId = teamLeaderMap.get(cleanInputName);
+                        console.log(`[Row ${rowNum}] Match FOUND via Clean Input Name ('${cleanInputName}')! ID: ${teamLeaderId}`);
+                    }
+                }
+
+                if (!teamLeaderId) {
                     teamLeaderId = null;
                 }
 
