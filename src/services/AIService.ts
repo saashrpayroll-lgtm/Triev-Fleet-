@@ -409,8 +409,17 @@ Return ONLY the message text, no explanations.`;
 
     // --- Chat ---
     chatWithBot: async (message: string, history: any[], context: any, _attachmentData?: any): Promise<string> => {
-        const system = `You are 'Triev AI', assisting ${context.userName} (${context.role}). Context: ${JSON.stringify(context)}.`;
-        // Build conversation string for simplicity in REST usage
+        let system = `You are 'Triev AI', assisting ${context.userName} (${context.role}). Context: ${JSON.stringify(context)}.`;
+
+        if (context.stats) {
+            system += `\n\n[LIVE DASHBOARD STATS]:
+- Active Riders: ${context.stats.activeRiders}
+- Total Riders: ${context.stats.totalRiders}
+- Total Leads: ${context.stats.totalLeads}
+- Total Wallet Balance: ₹${context.stats.totalWallet}
+(Use these numbers to answer user queries accurately. Do not invent numbers.)\n`;
+        }
+
         const conversation = history.map((h: any) => `${h.role === 'user' ? 'User' : 'AI'}: ${h.parts[0].text}`).join('\n');
         const prompt = `${conversation}\nUser: ${message}`;
 

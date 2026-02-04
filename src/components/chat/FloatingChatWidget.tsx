@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, Paperclip, Minimize2, Sparkles, User, Bot, Loader2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext'; // Assuming you have this
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/config/supabase';
 import { ChatService } from '@/services/ChatService';
 import { AIService } from '@/services/AIService';
 import { ChatMessage, ChatMode, ChatSession } from '@/types/chat';
@@ -131,7 +132,8 @@ const FloatingChatWidget: React.FC = () => {
                         role: userData?.role || 'guest',
                         userName: userData?.fullName,
                         page: location.pathname,
-                        permissions: userData?.permissions
+                        permissions: userData?.permissions,
+                        stats: aiContextStats // Inject Real-time Stats
                     },
                     attachmentData
                 );
@@ -198,6 +200,13 @@ const FloatingChatWidget: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false);
     const dragStartPos = useRef({ x: 0, y: 0 });
     const widgetStartPos = useRef({ x: 0, y: 0 });
+    const hasMoved = useRef(false);
+
+    const handleToggle = () => {
+        if (!hasMoved.current) {
+            setIsOpen(true);
+        }
+    };
 
     // Drag Handlers
     const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -206,7 +215,9 @@ const FloatingChatWidget: React.FC = () => {
             return;
         }
 
+        hasMoved.current = false; // Reset move flag
         setIsDragging(true);
+        // ... rest of drag start logic
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
 
@@ -214,16 +225,59 @@ const FloatingChatWidget: React.FC = () => {
         widgetStartPos.current = { ...position };
     };
 
+    // AI Context Data
+    const [aiContextStats, setAiContextStats] = useState<any>(null);
+
+    useEffect(() => {
+        // Fetch stats for AI context
+        const fetchStats = async () => {
+            if (!userData) return;
+            try {
+                // Parallel fetch for speed
+                const [riders, leads] = await Promise.all([
+                    supabase.from('riders').select('id, status, wallet_amount', { count: 'exact' }),
+                    supabase.from('leads').select('id, status', { count: 'exact' })
+                ]);
+
+                const activeRiders = riders.data?.filter(r => r.status === 'active').length || 0;
+                const totalRiders = riders.count || 0;
+                const totalWallet = riders.data?.reduce((sum, r) => sum + (r.wallet_amount || 0), 0) || 0;
+                const totalLeads = leads.count || 0;
+
+                setAiContextStats({
+                    activeRiders,
+                    totalRiders,
+                    totalWallet,
+                    totalLeads,
+                    lastUpdated: new Date().toISOString()
+                });
+            } catch (e) {
+                console.error("Failed to fetch AI stats", e);
+            }
+        };
+
+        if (isOpen && mode === 'ai') {
+            fetchStats();
+        }
+    }, [isOpen, mode, userData]);
+
+    // Drag Event Listeners
     useEffect(() => {
         const handleDragMove = (e: MouseEvent | TouchEvent) => {
             if (!isDragging) return;
-            e.preventDefault(); // Prevent scrolling while dragging
+            e.preventDefault();
 
             const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
             const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
 
-            const deltaX = dragStartPos.current.x - clientX; // Note: Inverted because we use right/bottom
+            const deltaX = dragStartPos.current.x - clientX;
             const deltaY = dragStartPos.current.y - clientY;
+
+            // Calculate distance moved
+            const moveDist = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
+            if (moveDist > 5) {
+                hasMoved.current = true; // Mark as moved
+            }
 
             setPosition({
                 x: Math.max(10, widgetStartPos.current.x + deltaX),
@@ -269,7 +323,7 @@ const FloatingChatWidget: React.FC = () => {
     if (!isOpen) {
         return (
             <button
-                onClick={() => setIsOpen(true)}
+                onClick={handleToggle}
                 style={{ right: `${position.x}px`, bottom: `${position.y}px` }}
                 {...dragHandlers}
                 className="fixed z-[60] w-14 h-14 bg-gradient-to-r from-primary to-purple-600 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-in zoom-in group touch-none cursor-move"
