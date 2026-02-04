@@ -27,19 +27,24 @@ ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Policies for chat_sessions
+-- Policies for chat_sessions
+DROP POLICY IF EXISTS "Users can view their own sessions" ON public.chat_sessions;
 CREATE POLICY "Users can view their own sessions"
 ON public.chat_sessions FOR SELECT
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own sessions" ON public.chat_sessions;
 CREATE POLICY "Users can insert their own sessions"
 ON public.chat_sessions FOR INSERT
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own sessions" ON public.chat_sessions;
 CREATE POLICY "Users can update their own sessions"
 ON public.chat_sessions FOR UPDATE
 USING (auth.uid() = user_id);
 
 -- Policies for chat_messages
+DROP POLICY IF EXISTS "Users can view messages in their sessions" ON public.chat_messages;
 CREATE POLICY "Users can view messages in their sessions"
 ON public.chat_messages FOR SELECT
 USING (
@@ -49,6 +54,7 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Users can insert messages in their sessions" ON public.chat_messages;
 CREATE POLICY "Users can insert messages in their sessions"
 ON public.chat_messages FOR INSERT
 WITH CHECK (
