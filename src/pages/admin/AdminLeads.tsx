@@ -451,8 +451,8 @@ const AdminLeads: React.FC = () => {
             </div>
             {/* Add/Edit Lead Modal */}
             {(showAddModal || editingLead) && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="max-h-[90vh] overflow-y-auto w-full max-w-2xl">
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4">
+                    <div className="w-full h-full md:h-auto max-w-2xl">
                         <LeadForm
                             initialData={editingLead || undefined}
                             onSuccess={() => {

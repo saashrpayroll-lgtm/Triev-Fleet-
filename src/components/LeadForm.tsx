@@ -308,7 +308,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
     const iconClasses = "absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 group-hover:text-primary transition-colors duration-300";
 
     return (
-        <div className="flex flex-col h-full max-h-[85vh] w-full max-w-2xl mx-auto bg-card/30 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        <div className="flex flex-col w-full max-w-2xl mx-auto bg-card/30 backdrop-blur-xl border border-white/10 md:rounded-3xl shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-300 h-full md:h-auto md:max-h-[85vh]">
             {/* Vibrant Gradients */}
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
             <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />

@@ -28,6 +28,8 @@ const FloatingChatWidget: React.FC = () => {
 
 
 
+    const [connectionError, setConnectionError] = useState<string | null>(null);
+
     // Initial Load & Auth logic
     useEffect(() => {
         if (isOpen && userData && mode === 'manual') {
@@ -42,22 +44,30 @@ const FloatingChatWidget: React.FC = () => {
 
     const loadManualSession = async () => {
         if (!userData) return;
-        const session = await ChatService.getOrCreateSession(userData.id);
-        if (session) {
-            setActiveSession(session);
-            const msgs = await ChatService.getMessages(session.id);
-            setMessages(msgs);
+        setConnectionError(null);
+        try {
+            const session = await ChatService.getOrCreateSession(userData.id);
+            if (session) {
+                setActiveSession(session);
+                const msgs = await ChatService.getMessages(session.id);
+                setMessages(msgs);
 
-            // Subscribe to realtime
-            const sub = ChatService.subscribeToSession(session.id, (payload) => {
-                const newMessage = payload.new as ChatMessage;
-                setMessages(prev => {
-                    if (prev.find(m => m.id === newMessage.id)) return prev;
-                    return [...prev, newMessage];
+                // Subscribe to realtime
+                const sub = ChatService.subscribeToSession(session.id, (payload) => {
+                    const newMessage = payload.new as ChatMessage;
+                    setMessages(prev => {
+                        if (prev.find(m => m.id === newMessage.id)) return prev;
+                        return [...prev, newMessage];
+                    });
                 });
-            });
 
-            return () => { sub.unsubscribe(); };
+                return () => { sub.unsubscribe(); };
+            } else {
+                setConnectionError("Failed to initialize chat session.");
+            }
+        } catch (err) {
+            console.error("Session load error", err);
+            setConnectionError("Connection failed. Please retry.");
         }
     };
 
@@ -183,6 +193,64 @@ const FloatingChatWidget: React.FC = () => {
         }
     };
 
+    // Drag State
+    const [position, setPosition] = useState({ x: 20, y: 20 }); // Bottom-Right offset
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStartPos = useRef({ x: 0, y: 0 });
+    const widgetStartPos = useRef({ x: 0, y: 0 });
+
+    // Drag Handlers
+    const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+        // Prevent drag if interacting with controls (unless it's the specific move handle)
+        if ((e.target as HTMLElement).closest('button, input, textarea') && !(e.target as HTMLElement).closest('.drag-handle')) {
+            return;
+        }
+
+        setIsDragging(true);
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+        dragStartPos.current = { x: clientX, y: clientY };
+        widgetStartPos.current = { ...position };
+    };
+
+    useEffect(() => {
+        const handleDragMove = (e: MouseEvent | TouchEvent) => {
+            if (!isDragging) return;
+            e.preventDefault(); // Prevent scrolling while dragging
+
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+            const deltaX = dragStartPos.current.x - clientX; // Note: Inverted because we use right/bottom
+            const deltaY = dragStartPos.current.y - clientY;
+
+            setPosition({
+                x: Math.max(10, widgetStartPos.current.x + deltaX),
+                y: Math.max(10, widgetStartPos.current.y + deltaY)
+            });
+        };
+
+        const handleDragEnd = () => {
+            setIsDragging(false);
+        };
+
+        if (isDragging) {
+            window.addEventListener('mousemove', handleDragMove);
+            window.addEventListener('mouseup', handleDragEnd);
+            window.addEventListener('touchmove', handleDragMove, { passive: false });
+            window.addEventListener('touchend', handleDragEnd);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleDragMove);
+            window.removeEventListener('mouseup', handleDragEnd);
+            window.removeEventListener('touchmove', handleDragMove);
+            window.removeEventListener('touchend', handleDragEnd);
+        };
+    }, [isDragging]);
+
+
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -190,29 +258,41 @@ const FloatingChatWidget: React.FC = () => {
         }
     };
 
-
-
     if (!userData) return null;
+
+    // Common Drag Handler Props
+    const dragHandlers = {
+        onMouseDown: handleDragStart,
+        onTouchStart: handleDragStart
+    };
 
     if (!isOpen) {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 z-[60] w-14 h-14 bg-gradient-to-r from-primary to-purple-600 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-in zoom-in group"
+                style={{ right: `${position.x}px`, bottom: `${position.y}px` }}
+                {...dragHandlers}
+                className="fixed z-[60] w-14 h-14 bg-gradient-to-r from-primary to-purple-600 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-in zoom-in group touch-none cursor-move"
             >
-                <MessageCircle size={30} className="group-hover:rotate-12 transition-transform" />
-                {/* Notification Badge could go here */}
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background"></span>
+                <MessageCircle size={30} className="group-hover:rotate-12 transition-transform pointer-events-none" />
+                {/* Notification Badge */}
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background pointer-events-none"></span>
             </button>
         );
     }
 
     return (
-        <div className={`fixed bottom-6 right-6 z-[60] bg-background border border-border rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 flex flex-col ${isMinimized ? 'w-72 h-16' : 'w-[400px] h-[600px] max-w-[calc(100vw-40px)]'}`}>
+        <div
+            style={{ right: `${position.x}px`, bottom: `${position.y}px` }}
+            className={`fixed z-[60] bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-[width,height] ${isMinimized ? 'w-72 h-16' : 'w-[400px] h-[600px] max-w-[calc(100vw-40px)]'}`}
+        >
 
-            {/* Header */}
-            <div className="p-4 bg-card border-b border-border flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
+            {/* Header - Draggable Area */}
+            <div
+                {...dragHandlers}
+                className="p-4 bg-card border-b border-border flex items-center justify-between shrink-0 cursor-move touch-none select-none"
+            >
+                <div className="flex items-center gap-3 pointer-events-none">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>
                         {mode === 'ai' ? <Sparkles size={20} /> : <User size={20} />}
                     </div>
@@ -221,8 +301,8 @@ const FloatingChatWidget: React.FC = () => {
                             {mode === 'ai' ? 'Triev AI Assistant' : 'Admin Support'}
                         </h3>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className={`w-2 h-2 rounded-full ${mode === 'ai' || activeSession ? 'bg-green-500' : 'bg-gray-400'}`} />
-                            {mode === 'ai' ? 'Online' : (activeSession ? 'Connected' : 'Connecting...')}
+                            <span className={`w-2 h-2 rounded-full ${mode === 'ai' || activeSession ? 'bg-green-500' : connectionError ? 'bg-red-500' : 'bg-gray-400'}`} />
+                            {mode === 'ai' ? 'Online' : (activeSession ? 'Connected' : connectionError ? 'Error' : 'Connecting...')}
                         </p>
                     </div>
                 </div>
