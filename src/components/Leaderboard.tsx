@@ -151,9 +151,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             onClick={() => {
                                 if (disableClick) return;
                                 if (isDashboard) {
-                                    navigate('/admin/leaderboard');
+                                    navigate('/portal/leaderboard');
                                 } else {
-                                    navigate(`/admin/users?highlightUserId=${tl.id}`);
+                                    navigate(`/portal/users?highlightUserId=${tl.id}`);
                                 }
                             }}
                         >
@@ -172,7 +172,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                         className="font-bold text-sm truncate flex items-center gap-1 hover:text-primary transition-colors hover:underline decoration-dotted underline-offset-4"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            navigate(`/admin/users?highlightUserId=${tl.id}`);
+                                            navigate(`/portal/users?highlightUserId=${tl.id}`);
                                         }}
                                     >
                                         {safeRender(tl.fullName || tl.email || 'Unknown')}
