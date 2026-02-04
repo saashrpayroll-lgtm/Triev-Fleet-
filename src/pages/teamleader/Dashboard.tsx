@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
-import AINewsTicker from '@/components/AINewsTicker';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import { motion } from 'framer-motion';
@@ -249,9 +248,7 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            <ComponentErrorBoundary name="AI News Ticker">
-                <AINewsTicker />
-            </ComponentErrorBoundary>
+
 
             {aiInsight && (
                 <motion.div
@@ -289,6 +286,7 @@ const Dashboard: React.FC = () => {
                                 teamLeaders={leaderboardData.teamLeaders}
                                 riders={leaderboardData.riders}
                                 leads={leaderboardData.leads}
+                                disableClick={true}
                             />
                         </ComponentErrorBoundary>
                     ) : (

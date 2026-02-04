@@ -11,9 +11,10 @@ interface LeaderboardProps {
     riders: Rider[];
     leads?: Lead[];
     action?: React.ReactNode;
+    disableClick?: boolean;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], action }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], action, disableClick = false }) => {
     // DEBUG: Log incoming data
     console.log('🎯 LEADERBOARD: Received teamLeaders:', teamLeaders.length);
     if (teamLeaders[0]) {
@@ -146,8 +147,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            className={`relative rounded-2xl border p-3 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm group hover:scale-[1.02] hover:shadow-xl transition-all duration-300 cursor-pointer ${isFirst ? 'md:-mt-4 md:mb-2 md:py-4 shadow-lg z-10 ring-1 ring-yellow-500/20' : 'shadow-md'}`}
+                            className={`relative rounded-2xl border p-3 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm group hover:scale-[1.02] hover:shadow-xl transition-all duration-300 ${disableClick ? 'cursor-default' : 'cursor-pointer'} ${isFirst ? 'md:-mt-4 md:mb-2 md:py-4 shadow-lg z-10 ring-1 ring-yellow-500/20' : 'shadow-md'}`}
                             onClick={() => {
+                                if (disableClick) return;
                                 if (isDashboard) {
                                     navigate('/admin/leaderboard');
                                 } else {

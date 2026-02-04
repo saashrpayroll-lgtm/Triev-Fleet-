@@ -6,7 +6,6 @@ import {
     Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone
 } from 'lucide-react';
 import { Rider, User, Lead, Request } from '@/types';
-import AINewsTicker from '@/components/AINewsTicker';
 import Leaderboard from '@/components/Leaderboard';
 import { AIService } from '@/services/AIService';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
@@ -253,7 +252,7 @@ const Dashboard: React.FC = () => {
         <div className="space-y-8 pb-10">
             {/* Header Section */}
             <div className="space-y-6">
-                <AINewsTicker />
+
 
                 <div className="flex flex-col md:flex-row gap-6 justify-between items-end">
                     <div>

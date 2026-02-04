@@ -72,6 +72,44 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 263.4 70% 50.4%;
   }
+
+  .orange {
+    /* Light Orange Theme */
+    --background: 33 100% 98%;
+    /* Very Light Orange/Cream */
+    --foreground: 20 14% 4%;
+    /* Dark Brown-Black for high contrast */
+
+    --card: 0 0% 100%;
+    /* White Cards for cleanness */
+    --card-foreground: 20 14% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14% 4%;
+
+    /* Primary: Vibrant Orange */
+    --primary: 24.6 95% 53.1%;
+    /* Orange 500 */
+    --primary-foreground: 33 100% 98%;
+
+    /* Secondary: Warm Brown/Clay */
+    --secondary: 20 20% 90%;
+    --secondary-foreground: 20 14% 4%;
+
+    --muted: 33 30% 95%;
+    --muted-foreground: 25 10% 45%;
+
+    --accent: 33 30% 93%;
+    /* Light Orange Accent */
+    --accent-foreground: 20 14% 4%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 33 20% 90%;
+    --input: 33 20% 90%;
+    --ring: 24.6 95% 53.1%;
+  }
 }
 
 @layer base {

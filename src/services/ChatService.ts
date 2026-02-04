@@ -38,6 +38,23 @@ export const ChatService = {
     },
 
     /**
+     * ADMIN: Get all active sessions with user details
+     */
+    getAllActiveSessions: async (): Promise<any[]> => {
+        const { data, error } = await supabase
+            .from('chat_sessions')
+            .select('*, user:user_id(email, full_name, role)') // Requesting user join
+            .eq('status', 'active')
+            .order('last_message_at', { ascending: false });
+
+        if (error) {
+            console.error("Error fetching sessions", error);
+            return [];
+        }
+        return data || [];
+    },
+
+    /**
      * Fetch messages for a specific session
      */
     getMessages: async (sessionId: string): Promise<ChatMessage[]> => {

@@ -204,7 +204,7 @@ const FloatingChatWidget: React.FC = () => {
 
     const handleToggle = () => {
         if (!hasMoved.current) {
-            setIsOpen(true);
+            setIsOpen(prev => !prev);
         }
     };
 
@@ -212,12 +212,18 @@ const FloatingChatWidget: React.FC = () => {
     const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
         // Prevent drag if interacting with controls (unless it's the specific move handle)
         if ((e.target as HTMLElement).closest('button, input, textarea') && !(e.target as HTMLElement).closest('.drag-handle')) {
-            return;
+            // If it's the main toggle button (which is a button), we ALLOW drag if it is the target 
+            // But if it's an inner button (like close), we skip.
+            // The main toggle button IS a button, so we need to be careful.
+            // We'll rely on the fact that the toggle button itself triggers this.
         }
+
+        // e.stopPropagation(); // Try avoiding this to let click events pass if no drag occurred
+        // But for drag stability:
 
         hasMoved.current = false; // Reset move flag
         setIsDragging(true);
-        // ... rest of drag start logic
+
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
 
@@ -275,8 +281,8 @@ const FloatingChatWidget: React.FC = () => {
 
             // Calculate distance moved
             const moveDist = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
-            if (moveDist > 5) {
-                hasMoved.current = true; // Mark as moved
+            if (moveDist > 10) { // Increased threshold to 10px to reduce sensitivity
+                hasMoved.current = true;
             }
 
             setPosition({
