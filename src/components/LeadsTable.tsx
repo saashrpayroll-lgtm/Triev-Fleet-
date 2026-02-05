@@ -8,6 +8,7 @@ interface LeadsTableProps {
     onStatusChange: (lead: Lead, newStatus: LeadStatus) => void;
     onDelete: (lead: Lead) => void;
     onEdit: (lead: Lead) => void;
+    onView?: (lead: Lead) => void;
     showLocation: boolean; // Only for Admin
     permissions?: {
         edit?: boolean;
@@ -28,6 +29,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     onStatusChange,
     onDelete,
     onEdit,
+    onView,
     showLocation,
     permissions = { edit: true, delete: true, statusChange: true },
     selectedIds = new Set(),
@@ -93,7 +95,15 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                     </button>
                                 )}
                             </td>
-                            <td className="px-4 py-3 text-sm font-medium text-foreground">#{String(lead.leadId || '')}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-foreground">
+                                {onView ? (
+                                    <button onClick={() => onView(lead)} className="text-blue-600 hover:text-blue-800 hover:underline font-bold">
+                                        #{String(lead.leadId || '')}
+                                    </button>
+                                ) : (
+                                    <span>#{String(lead.leadId || '')}</span>
+                                )}
+                            </td>
                             <td className="px-4 py-3">
                                 <div className="font-semibold text-sm">{String(lead.riderName || 'Unknown')}</div>
                                 <div className="flex items-center gap-2 mt-1">

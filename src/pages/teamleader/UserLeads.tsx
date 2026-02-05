@@ -4,6 +4,7 @@ import { Lead, Rider } from '@/types';
 import { AILeadStatsCards } from '@/components/AILeadStatsCards';
 import LeadsTable from '@/components/LeadsTable';
 import LeadForm from '@/components/LeadForm';
+import LeadDetailModal from '@/components/LeadDetailModal';
 import { Plus } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -16,6 +17,7 @@ const UserLeads: React.FC = () => {
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
     const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
 
@@ -298,8 +300,20 @@ const UserLeads: React.FC = () => {
                     onToggleSelect={handleToggleSelect}
                     onToggleSelectAll={handleToggleSelectAll}
                     getLeadAIStatus={getLeadAIStatus}
+                    onView={(lead) => setSelectedLead(lead)}
                 />
             </div>
+
+            {selectedLead && (
+                <LeadDetailModal
+                    lead={selectedLead}
+                    onClose={() => setSelectedLead(null)}
+                    onEdit={() => {
+                        toast.info("Edit functionality coming soon for Team Leaders");
+                        // Or implement if LeadForm supports it
+                    }}
+                />
+            )}
         </div>
     );
 };
