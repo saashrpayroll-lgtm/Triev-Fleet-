@@ -294,7 +294,7 @@ const AdminLeads: React.FC = () => {
         if (!mobile) return;
 
         if (status === 'Match') {
-            navigate(`/admin/riders?highlight=${mobile}`);
+            navigate(`/portal/riders?highlight=${mobile}`);
         } else if (status === 'Duplicate') {
             setSearchTerm(mobile);
             toast.info(`Showing duplicates for: ${mobile}`);
