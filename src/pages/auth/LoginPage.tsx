@@ -4,7 +4,7 @@ import { Eye, EyeOff, LogIn, Sparkles, Mail, Lock } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
-import AnimatedBackground from '@/components/auth/AnimatedBackground';
+
 
 const LoginPage: React.FC = () => {
     const [loginInput, setLoginInput] = useState('');
