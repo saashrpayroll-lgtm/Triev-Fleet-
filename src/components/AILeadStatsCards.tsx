@@ -21,38 +21,34 @@ export const AILeadStatsCards: React.FC<AILeadStatsCardsProps> = ({
     isAdmin
 }) => {
 
+    // Helper to normalize mobile numbers (last 10 digits, stripped of non-digits)
+    const normalizeMobile = (phone: string | null | undefined): string => {
+        if (!phone) return '';
+        const digits = phone.replace(/\D/g, '');
+        return digits.length > 10 ? digits.slice(-10) : digits;
+    };
+
     const stats = useMemo(() => {
         let genuine = 0;
         let duplicate = 0;
         let match = 0;
 
-        // Create Sets/Maps for faster lookups
-        const riderMobileSet = new Set(allRiders.map(r => r.mobileNumber));
+        // Create Sets/Maps for faster lookups with NORMALIZED numbers
+        const riderMobileSet = new Set(allRiders.map(r => normalizeMobile(r.mobileNumber)));
 
         // Count frequencies of mobile numbers in ALL leads
         const leadMobileCounts = new Map<string, number>();
         allLeads.forEach(l => {
-            const mobile = l.mobileNumber;
+            const mobile = normalizeMobile(l.mobileNumber);
             if (mobile) {
                 leadMobileCounts.set(mobile, (leadMobileCounts.get(mobile) || 0) + 1);
             }
         });
 
-        // Analyze current 'leads' (the dataset we are viewing/filtering)
-        // NOTE: The user requested stats for "Whole Data", but typically stats cards on a page reflect the data context.
-        // However, if the requirement is STRICTLY "Whole Data of entire system", we should iterate `allLeads`.
-        // Based on the "Props should come through AI and ... redirectable", usually this filters the CURRENT list.
-        // Let's analyze the `leads` passed in (which might be the full list or filtered list).
-        // Safest bet for "Stats" is to show stats for the *entire* available dataset (allLeads) so the counts don't jump around confusingly,
-        // OR show stats for the current list.
-        // "This should work as per over all / Whole Data of riders data / lead data" -> Suggests analyzing ALL leads.
-
-        const leadsToAnalyze = isAdmin ? allLeads : leads; // Admin usually sees all, TL sees theirs. 
-        // Actually, "Whole Data" implies we should analyze `allLeads` regardless of what's currently paginated/visible, 
-        // BUT for a Team Leader, do they care about duplicates in OTHER teams? Probably yes, to know if it's a wasted lead.
+        const leadsToAnalyze = isAdmin ? allLeads : leads;
 
         leadsToAnalyze.forEach(lead => {
-            const mobile = lead.mobileNumber;
+            const mobile = normalizeMobile(lead.mobileNumber);
             if (!mobile) return;
 
             const isRiderMatch = riderMobileSet.has(mobile);

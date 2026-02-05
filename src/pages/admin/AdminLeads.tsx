@@ -227,13 +227,20 @@ const AdminLeads: React.FC = () => {
     const [filterSource, setFilterSource] = useState('All');
     const [filterScore, setFilterScore] = useState('All');
 
+    // Helper to normalize mobile numbers
+    const normalizeMobile = (phone: string | null | undefined): string => {
+        if (!phone) return '';
+        const digits = phone.replace(/\D/g, '');
+        return digits.length > 10 ? digits.slice(-10) : digits;
+    };
+
     // Pre-calculate sets for filtering
     const { riderMobileSet, leadMobileCounts } = React.useMemo(() => {
-        const rSet = new Set(riders.map(r => r.mobileNumber));
+        const rSet = new Set(riders.map(r => normalizeMobile(r.mobileNumber)));
         const lCounts = new Map<string, number>();
         leads.forEach(l => {
-            const m = l.mobileNumber || l.leadId; // fallback
-            if (m) lCounts.set(String(m), (lCounts.get(String(m)) || 0) + 1);
+            const m = normalizeMobile(l.mobileNumber || String(l.leadId)); // fallback
+            if (m) lCounts.set(m, (lCounts.get(m) || 0) + 1);
         });
         return { riderMobileSet: rSet, leadMobileCounts: lCounts };
     }, [riders, leads]);
@@ -260,7 +267,7 @@ const AdminLeads: React.FC = () => {
         // AI Stats Filter
         let matchesAI = true;
         if (activeFilter) {
-            const mobile = lead.mobileNumber || String(lead.leadId);
+            const mobile = normalizeMobile(lead.mobileNumber || String(lead.leadId));
             const isMatch = riderMobileSet.has(mobile);
             const isDuplicate = (leadMobileCounts.get(mobile) || 0) > 1;
 
