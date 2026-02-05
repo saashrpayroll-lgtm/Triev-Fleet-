@@ -261,9 +261,8 @@ const Dashboard: React.FC = () => {
                 <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                     <Star size={200} />
                 </div>
-                <div className="mb-6 flex items-center gap-2 relative z-10">
-                    <Star className="text-yellow-500 fill-yellow-500 animate-pulse" size={24} />
-                    <h2 className="text-xl font-bold">Top Earners Podium</h2>
+                <div className="mb-2 relative z-10">
+                    {/* Header removed as requested */}
                 </div>
                 <div className="relative z-10">
                     {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
