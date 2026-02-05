@@ -250,21 +250,7 @@ const Dashboard: React.FC = () => {
 
 
 
-            {aiInsight && (
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 backdrop-blur-sm flex items-center gap-3"
-                >
-                    <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-600">
-                        <Sparkles size={18} className="animate-pulse" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600/60 mb-0.5">Team Insight</p>
-                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100 italic">"{safeRender(aiInsight)}"</p>
-                    </div>
-                </motion.div>
-            )}
+
 
             {/* Top Horizontal Leaderboard */}
             <motion.div
@@ -388,14 +374,34 @@ const Dashboard: React.FC = () => {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                                    <p className="text-xs font-bold leading-relaxed text-indigo-100">
-                                        "3 Riders in your team have not updated their wallets in 48h. Consider sending a WhatsApp reminder."
-                                    </p>
-                                    <div className="mt-3 flex gap-2">
-                                        <button className="text-[10px] font-black uppercase tracking-widest bg-indigo-500 px-3 py-1 rounded-lg">Action Now</button>
+                                {aiInsight ? (
+                                    <div className="p-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
+                                        <div className="flex items-center gap-2 mb-2 text-indigo-200 text-xs font-bold uppercase tracking-wider">
+                                            <Sparkles size={12} className="text-yellow-400 animate-pulse" />
+                                            Live Insight
+                                        </div>
+                                        <p className="text-sm font-medium leading-relaxed text-white">
+                                            "{safeRender(aiInsight)}"
+                                        </p>
+                                        <div className="mt-3 flex gap-2">
+                                            <button
+                                                onClick={() => handleNavigate('/team-leader/riders')}
+                                                className="text-[10px] font-black uppercase tracking-widest bg-white text-indigo-900 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                                            >
+                                                View Details
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                        <p className="text-xs font-bold leading-relaxed text-indigo-100">
+                                            "3 Riders in your team have not updated their wallets in 48h. Consider sending a WhatsApp reminder."
+                                        </p>
+                                        <div className="mt-3 flex gap-2">
+                                            <button className="text-[10px] font-black uppercase tracking-widest bg-indigo-500 px-3 py-1 rounded-lg">Action Now</button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
                                     <p className="text-xs font-bold leading-relaxed text-emerald-100">

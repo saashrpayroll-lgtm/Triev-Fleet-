@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { User, Rider, Lead } from '@/types';
-import { Trophy, Sparkles, Wallet, Users, CheckCircle, Smartphone, Calendar, Activity, Hash, ExternalLink } from 'lucide-react';
+import { Trophy, Sparkles, Calendar, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { safeRender } from '@/utils/safeRender';
@@ -134,7 +134,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                 {action}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {podiumOrder.map((tl, idx) => {
                     // Determine actual rank based on sorted list
                     const actualRank = scoredTLs.indexOf(tl);
@@ -144,10 +144,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                     return (
                         <motion.div
                             key={tl.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            className={`relative rounded-2xl border p-3 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm group hover:scale-[1.02] hover:shadow-xl transition-all duration-300 ${disableClick ? 'cursor-default' : 'cursor-pointer'} ${isFirst ? 'md:-mt-4 md:mb-2 md:py-4 shadow-lg z-10 ring-1 ring-yellow-500/20' : 'shadow-md'}`}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3, delay: idx * 0.1 }}
+                            className={`relative rounded-xl border p-3 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm hover:shadow-md transition-all ${disableClick ? 'cursor-default' : 'cursor-pointer'} ${isFirst ? 'ring-2 ring-yellow-500/30 ring-offset-2 dark:ring-offset-black' : ''}`}
                             onClick={() => {
                                 if (disableClick) return;
                                 if (isDashboard) {
@@ -157,101 +157,78 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 }
                             }}
                         >
-                            {/* Rank Badge */}
-                            <div className={`absolute -right-2 -top-2 w-8 h-8 rounded-full ${styles.badge} text-white text-sm font-bold flex items-center justify-center shadow-md ring-2 ring-white dark:ring-background z-20 group-hover:scale-110 transition-transform`}>
-                                #{actualRank + 1}
-                            </div>
-
-                            {/* Header */}
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-base font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} group-hover:rotate-6 transition-transform`}>
+                            {/* Rank & User Info Row */}
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className={`relative w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold bg-white dark:bg-black/20 shadow-sm ${styles.text}`}>
                                     {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
-                                </div>
-                                <div className="overflow-hidden flex-1">
-                                    <div
-                                        className="font-bold text-sm truncate flex items-center gap-1 hover:text-primary transition-colors hover:underline decoration-dotted underline-offset-4"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/portal/users?highlightUserId=${tl.id}`);
-                                        }}
-                                    >
-                                        {safeRender(tl.fullName || tl.email || 'Unknown')}
-                                        <ExternalLink size={10} className="opacity-50" />
+                                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${styles.badge} text-[10px] text-white flex items-center justify-center shadow-sm`}>
+                                        #{actualRank + 1}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground truncate opacity-80 group-hover:opacity-100 transition-opacity">
-                                        {safeRender(tl.email)}
-                                    </p>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                        <span className="text-[9px] px-1 py-0.5 rounded-full bg-black/5 dark:bg-white/10 font-mono text-muted-foreground flex items-center gap-0.5">
-                                            <Hash size={8} /> {safeRender(tl.id).slice(0, 6)}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between">
+                                        <div className="font-bold text-sm truncate pr-2">
+                                            {safeRender(tl.fullName || 'Unknown')}
+                                        </div>
+                                        <div className="flex items-center gap-1 text-yellow-600 font-bold text-xs bg-white/50 dark:bg-black/10 px-1.5 py-0.5 rounded">
+                                            <Sparkles size={8} className="fill-current" />
+                                            {Math.round(tl.score)}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between mt-0.5">
+                                        <p className="text-[10px] text-muted-foreground truncate opacity-80">
+                                            {safeRender(tl.role)}
+                                        </p>
+                                        <span className="text-[9px] font-mono text-muted-foreground bg-black/5 dark:bg-white/5 px-1 rounded">
+                                            ID: {safeRender(tl.id).slice(0, 4)}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Score Bar */}
-                            <div className="mb-3 bg-white/50 dark:bg-black/10 p-2 rounded-lg">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] font-semibold text-muted-foreground">Performance Score</span>
-                                    <div className="flex items-center gap-1 text-yellow-600 text-sm font-bold">
-                                        <Sparkles size={10} className="fill-current" />
-                                        {Math.round(tl.score)}
+                            {/* Score Progress */}
+                            <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden mb-3">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.min(tl.score, 100)}%` }}
+                                    className={`h-full rounded-full ${styles.badge}`}
+                                />
+                            </div>
+
+                            {/* Dense Stats Grid */}
+                            <div className="grid grid-cols-4 gap-1 mb-2">
+                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
+                                    <div className="text-[9px] text-muted-foreground">Riders</div>
+                                    <div className="text-xs font-bold text-blue-600">{tl.stats.activeRiders}</div>
+                                </div>
+                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
+                                    <div className="text-[9px] text-muted-foreground">Conv.</div>
+                                    <div className="text-xs font-bold text-green-600">{tl.stats.conversionRate}%</div>
+                                </div>
+                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
+                                    <div className="text-[9px] text-muted-foreground">Wallet</div>
+                                    <div className={`text-xs font-bold ${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                        {tl.stats.wallet >= 1000 ? `${(tl.stats.wallet / 1000).toFixed(1)}k` : tl.stats.wallet}
                                     </div>
                                 </div>
-                                <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${Math.min(tl.score, 100)}%` }}
-                                        transition={{ duration: 1, ease: "easeOut" }}
-                                        className={`h-full rounded-full ${styles.badge}`}
-                                    />
+                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
+                                    <div className="text-[9px] text-muted-foreground">Leads</div>
+                                    <div className="text-xs font-bold text-orange-600">{tl.stats.leads}</div>
                                 </div>
                             </div>
 
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                        <Users size={10} className="text-blue-500" /> Riders
-                                    </div>
-                                    <p className="font-bold text-xs">
-                                        {tl.stats.activeRiders}<span className="text-muted-foreground font-normal">/{tl.stats.totalRiders}</span>
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                        <CheckCircle size={10} className="text-green-500" /> Conversion
-                                    </div>
-                                    <p className="font-bold text-xs">{tl.stats.conversionRate}%</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                        <Wallet size={10} className="text-purple-500" /> Avg Wallet
-                                    </div>
-                                    <p className={`font-bold text-xs ${tl.stats.wallet < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        ₹{tl.stats.totalRiders > 0 ? Math.round(tl.stats.wallet / tl.stats.totalRiders) : 0}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <Calendar size={12} className="text-orange-500" /> Allotments
-                                    </div>
-                                    <p className="font-bold text-sm">{tl.stats.totalRiders}</p>
-                                </div>
+                            {/* Footer Metrics */}
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                                <span className="flex items-center gap-1">
+                                    <Activity size={10} /> Act: {tl.stats.activity}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <Calendar size={10} /> Total: {tl.stats.totalRiders}
+                                </span>
                             </div>
 
-                            {/* Footer */}
-                            <div className="flex items-center justify-between pt-4 border-t border-black/5 dark:border-white/5 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                    <Activity size={12} /> Activity: {tl.stats.activity}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <Smartphone size={12} /> {tl.stats.leads} Leads
-                                </div>
-                            </div>
-
-                            {/* Shine Effect on Hover */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000 z-30 pointer-events-none rounded-3xl" />
+                            {/* Shine Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000 pointer-events-none rounded-xl" />
                         </motion.div>
                     );
                 })}
