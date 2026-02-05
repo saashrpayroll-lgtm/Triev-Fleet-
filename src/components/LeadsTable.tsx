@@ -1,4 +1,4 @@
-import { Lead, LeadStatus, LeadCategory } from '@/types';
+import { Lead, LeadStatus } from '@/types';
 import { MapPin, Phone, MessageCircle, Edit2, Trash2, CheckSquare, Square, RefreshCw } from 'lucide-react';
 
 interface LeadsTableProps {
@@ -18,6 +18,7 @@ interface LeadsTableProps {
     selectedIds?: Set<string>;
     onToggleSelect?: (id: string) => void;
     onToggleSelectAll?: () => void;
+    getLeadAIStatus?: (lead: Lead) => 'Genuine' | 'Duplicate' | 'Match';
 }
 
 const LeadsTable: React.FC<LeadsTableProps> = ({
@@ -31,7 +32,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     permissions = { edit: true, delete: true, statusChange: true },
     selectedIds = new Set(),
     onToggleSelect,
-    onToggleSelectAll
+    onToggleSelectAll,
+    getLeadAIStatus
 }) => {
 
     const getStatusColor = (status: LeadStatus) => {
@@ -43,12 +45,14 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         }
     };
 
-    const getCategoryBadge = (category: LeadCategory | string) => {
+    const getCategoryBadge = (lead: Lead) => {
+        const category = getLeadAIStatus ? getLeadAIStatus(lead) : lead.category;
+
         if (typeof category === 'object' && category !== null) return null;
         switch (category) {
             case 'Genuine': return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-600 border border-green-200">GENUINE</span>;
-            case 'Match': return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200">MATCH</span>;
-            case 'Duplicate': return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">DUPLICATE</span>;
+            case 'Match': return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">MATCH</span>;
+            case 'Duplicate': return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">DUPLICATE</span>;
             default: return null;
         }
     };
@@ -105,7 +109,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 <div className="text-foreground">{typeof lead.city === 'string' ? lead.city : 'N/A'}</div>
                                 <div className="text-muted-foreground text-xs">{typeof lead.source === 'string' ? lead.source : 'Unknown Source'}</div>
                             </td>
-                            <td className="px-4 py-3">{getCategoryBadge(lead.category)}</td>
+                            <td className="px-4 py-3">{getCategoryBadge(lead)}</td>
                             <td className="px-4 py-3">
                                 <span className={`px-2 py-1 rounded-md text-xs font-semibold border ${getStatusColor(lead.status)}`}>
                                     {typeof lead.status === 'string' ? lead.status : String(lead.status || '')}

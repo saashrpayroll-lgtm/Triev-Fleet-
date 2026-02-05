@@ -47,14 +47,30 @@ const RiderManagement: React.FC = () => {
     const [showBulkAssignTL, setShowBulkAssignTL] = useState(false); // State for Bulk TL Modal
     const [showBulkReminderModal, setShowBulkReminderModal] = useState(false);
 
-    // URL Filter Logic
+    // Highlight Logic
+    const [highlightedRiderId, setHighlightedRiderId] = useState<string | null>(null);
+
+    // URL Filter & Highlight Logic
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const filterParam = params.get('filter');
+        const highlightMobile = params.get('highlight');
+
         if (filterParam && ['all', 'active', 'inactive', 'deleted'].includes(filterParam)) {
             setActiveTab(filterParam as TabType);
         }
-    }, [location.search]);
+
+        if (highlightMobile) {
+            setSearchTerm(highlightMobile);
+            // We need to wait for riders to load to find the ID, but search term will do the filtering.
+            // We can try to find the rider ID immediately if riders are loaded
+            const rider = riders.find(r => r.mobileNumber?.includes(highlightMobile));
+            if (rider) {
+                setHighlightedRiderId(rider.id);
+                setTimeout(() => setHighlightedRiderId(null), 3000);
+            }
+        }
+    }, [location.search, riders]); // Add riders to dependency to trigger when data loads
 
     // Advanced filters
     const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
@@ -1126,6 +1142,8 @@ const RiderManagement: React.FC = () => {
                     keyField="id"
                     isLoading={loading}
                     emptyMessage="No riders found matching your criteria."
+                    highlightedRowId={highlightedRiderId}
+                    onRowClick={(rider) => setViewingRider(rider)}
                     actions={(rider) => (
                         <ActionDropdownMenu
                             rider={rider}

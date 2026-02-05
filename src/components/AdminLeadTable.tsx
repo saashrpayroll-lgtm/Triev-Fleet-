@@ -28,6 +28,8 @@ interface AdminLeadTableProps {
     onDelete: (lead: Lead) => void;
     onPermanentDelete?: (lead: Lead) => void;
     onAIRecommend?: (lead: Lead) => void;
+    getLeadAIStatus?: (lead: Lead) => 'Genuine' | 'Duplicate' | 'Match';
+    onAIStatusClick?: (lead: Lead, status: 'Genuine' | 'Duplicate' | 'Match') => void;
 }
 
 // ... imports ...
@@ -42,7 +44,9 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
     onEdit,
     onDelete,
     onPermanentDelete,
-    onAIRecommend
+    onAIRecommend,
+    getLeadAIStatus,
+    onAIStatusClick
 }) => {
     // State for fixed position menu
     const [actionMenu, setActionMenu] = React.useState<{ id: string, top: number, right: number } | null>(null);
@@ -82,30 +86,45 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
         return 'bg-red-100 text-red-700 border-red-200';
     };
 
-    const getCategoryBadge = (category: string) => {
+    const getCategoryBadge = (lead: Lead) => {
+        // Use dynamic AI status if function provided, else fallback to lead.category
+        const category = getLeadAIStatus ? getLeadAIStatus(lead) : lead.category;
+
+        const baseClasses = "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold transition-all";
+        const clickableClasses = onAIStatusClick ? "cursor-pointer hover:ring-2 hover:ring-offset-1" : "";
+
         switch (category) {
             case 'Genuine':
                 return (
-                    <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                    <span
+                        onClick={() => onAIStatusClick?.(lead, 'Genuine')}
+                        className={`${baseClasses} ${clickableClasses} bg-emerald-100 text-emerald-700 border border-emerald-200 hover:ring-emerald-300`}
+                    >
                         <ShieldCheck size={12} /> Genuine
                     </span>
                 );
             case 'Match':
                 return (
-                    <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                    <span
+                        onClick={() => onAIStatusClick?.(lead, 'Match')}
+                        className={`${baseClasses} ${clickableClasses} bg-red-100 text-red-700 border border-red-200 hover:ring-red-300`}
+                    >
                         <Repeat size={12} /> Match
                     </span>
                 );
             case 'Duplicate':
                 return (
-                    <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 border border-rose-200">
+                    <span
+                        onClick={() => onAIStatusClick?.(lead, 'Duplicate')}
+                        className={`${baseClasses} ${clickableClasses} bg-amber-100 text-amber-700 border border-amber-200 hover:ring-amber-300`}
+                    >
                         <AlertTriangle size={12} /> Duplicate
                     </span>
                 );
             default:
                 return (
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                        {category}
+                        {String(category || 'Unknown')}
                     </span>
                 );
         }
@@ -264,7 +283,7 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                                 </span>
                             </td>
                             <td className="px-4 py-3">
-                                {getCategoryBadge(lead.category)}
+                                {getCategoryBadge(lead)}
                             </td>
                             <td className="px-4 py-3">
                                 {lead.score !== undefined && (

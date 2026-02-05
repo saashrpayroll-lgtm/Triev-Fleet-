@@ -16,6 +16,7 @@ export interface ResponsiveTableProps<T> {
     keyField: keyof T; // Unique key for rows (e.g. 'id')
     isLoading?: boolean;
     emptyMessage?: string;
+    highlightedRowId?: string | null;
 }
 
 function ResponsiveTable<T>({
@@ -25,7 +26,8 @@ function ResponsiveTable<T>({
     actions,
     keyField,
     isLoading = false,
-    emptyMessage = "No data available"
+    emptyMessage = "No data available",
+    highlightedRowId
 }: ResponsiveTableProps<T>) {
 
     if (isLoading) {
@@ -64,7 +66,8 @@ function ResponsiveTable<T>({
                             <tr
                                 key={String(row[keyField])}
                                 onClick={() => onRowClick && onRowClick(row)}
-                                className={`group hover:bg-muted/50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                                className={`group hover:bg-muted/50 transition-colors duration-500 ${onRowClick ? 'cursor-pointer' : ''} ${highlightedRowId === String(row[keyField]) ? 'bg-yellow-100/80 ring-2 ring-yellow-500 ring-inset' : ''
+                                    }`}
                             >
                                 {columns.map((col, idx) => (
                                     <td key={idx} className={`px-6 py-4 ${col.className || ''}`}>

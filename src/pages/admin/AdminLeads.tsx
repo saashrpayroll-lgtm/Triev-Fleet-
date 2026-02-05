@@ -12,11 +12,13 @@ import { mapLeadToDB } from '@/utils/leadUtils';
 import { logActivity } from '@/utils/activityLog';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
-import { useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const AdminLeads: React.FC = () => {
     const { userData: currentUser } = useSupabaseAuth();
     const location = useLocation();
+    const navigate = useNavigate();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [riders, setRiders] = useState<Rider[]>([]); // For matching logic
     const [loading, setLoading] = useState(true);
@@ -280,6 +282,25 @@ const AdminLeads: React.FC = () => {
         return matchesTab && matchesSearch && matchesCity && matchesSource && matchesScore && matchesAI;
     });
 
+    const getLeadAIStatus = (lead: Lead): 'Genuine' | 'Duplicate' | 'Match' => {
+        const mobile = normalizeMobile(lead.mobileNumber || String(lead.leadId));
+        if (riderMobileSet.has(mobile)) return 'Match';
+        if ((leadMobileCounts.get(mobile) || 0) > 1) return 'Duplicate';
+        return 'Genuine';
+    };
+
+    const handleAIStatusClick = (lead: Lead, status: 'Genuine' | 'Duplicate' | 'Match') => {
+        const mobile = normalizeMobile(lead.mobileNumber || String(lead.leadId));
+        if (!mobile) return;
+
+        if (status === 'Match') {
+            navigate(`/admin/riders?highlight=${mobile}`);
+        } else if (status === 'Duplicate') {
+            setSearchTerm(mobile);
+            toast.info(`Showing duplicates for: ${mobile}`);
+        }
+    };
+
     const getTabCount = (tab: typeof activeTab) => {
         if (tab === 'All') return leads.length;
         return leads.filter(l => l.status === tab).length;
@@ -494,6 +515,8 @@ const AdminLeads: React.FC = () => {
                     onEdit={openEditModal}
                     onDelete={handleDelete}
                     onAIRecommend={handleAIRecommend}
+                    getLeadAIStatus={getLeadAIStatus}
+                    onAIStatusClick={handleAIStatusClick}
                 />
             </div>
             {/* Add/Edit Lead Modal */}

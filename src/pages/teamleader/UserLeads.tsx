@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { Lead, Rider } from '@/types';
 import { AILeadStatsCards } from '@/components/AILeadStatsCards';
@@ -192,6 +192,32 @@ const UserLeads: React.FC = () => {
     };
 
 
+    // AI Status Logic
+    const normalizeMobile = (phone: string | null | undefined): string => {
+        if (!phone) return '';
+        const digits = phone.replace(/\D/g, '');
+        return digits.length > 10 ? digits.slice(-10) : digits;
+    };
+
+    const { riderMobileSet, leadMobileCounts } = useMemo(() => {
+        const rSet = new Set(allRiders.map(r => normalizeMobile(r.mobileNumber)));
+        const lCounts = new Map<string, number>();
+        allLeads.forEach(l => {
+            const mobile = normalizeMobile(l.mobileNumber);
+            if (mobile) {
+                lCounts.set(mobile, (lCounts.get(mobile) || 0) + 1);
+            }
+        });
+        return { riderMobileSet: rSet, leadMobileCounts: lCounts };
+    }, [allRiders, allLeads]);
+
+    const getLeadAIStatus = (lead: Lead): 'Genuine' | 'Duplicate' | 'Match' => {
+        const mobile = normalizeMobile(lead.mobileNumber || String(lead.leadId));
+        if (riderMobileSet.has(mobile)) return 'Match';
+        if ((leadMobileCounts.get(mobile) || 0) > 1) return 'Duplicate';
+        return 'Genuine';
+    };
+
     if (!canViewPage) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -271,6 +297,7 @@ const UserLeads: React.FC = () => {
                     selectedIds={selectedLeads}
                     onToggleSelect={handleToggleSelect}
                     onToggleSelectAll={handleToggleSelectAll}
+                    getLeadAIStatus={getLeadAIStatus}
                 />
             </div>
         </div>
