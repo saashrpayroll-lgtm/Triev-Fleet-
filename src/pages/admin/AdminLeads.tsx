@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/config/supabase';
 import { Lead, LeadStatus, Rider } from '@/types';
 import AdminLeadTable from '@/components/AdminLeadTable';
+import { AILeadStatsCards } from '@/components/AILeadStatsCards';
 import LeadDetailModal from '@/components/LeadDetailModal';
 import LeadForm from '@/components/LeadForm';
 import BulkActionsBar from '@/components/BulkActionsBar'; // Import
@@ -24,6 +25,9 @@ const AdminLeads: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'All' | LeadStatus>('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshKey, setRefreshKey] = useState(0);
+
+    // AI Stats Filter
+    const [activeFilter, setActiveFilter] = useState<'genuine' | 'duplicate' | 'match' | null>(null);
 
     // Bulk Selection State
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -223,6 +227,17 @@ const AdminLeads: React.FC = () => {
     const [filterSource, setFilterSource] = useState('All');
     const [filterScore, setFilterScore] = useState('All');
 
+    // Pre-calculate sets for filtering
+    const { riderMobileSet, leadMobileCounts } = React.useMemo(() => {
+        const rSet = new Set(riders.map(r => r.mobileNumber));
+        const lCounts = new Map<string, number>();
+        leads.forEach(l => {
+            const m = l.mobileNumber || l.leadId; // fallback
+            if (m) lCounts.set(String(m), (lCounts.get(String(m)) || 0) + 1);
+        });
+        return { riderMobileSet: rSet, leadMobileCounts: lCounts };
+    }, [riders, leads]);
+
     // Filter Logic
     const filteredLeads = leads.filter(lead => {
         const matchesTab = activeTab === 'All' ? true : lead.status === activeTab;
@@ -242,7 +257,20 @@ const AdminLeads: React.FC = () => {
                 : filterScore === 'Medium' ? (lead.score || 0) >= 50 && (lead.score || 0) < 80
                     : (lead.score || 0) < 50;
 
-        return matchesTab && matchesSearch && matchesCity && matchesSource && matchesScore;
+        // AI Stats Filter
+        let matchesAI = true;
+        if (activeFilter) {
+            const mobile = lead.mobileNumber || String(lead.leadId);
+            const isMatch = riderMobileSet.has(mobile);
+            const isDuplicate = (leadMobileCounts.get(mobile) || 0) > 1;
+
+            if (activeFilter === 'match') matchesAI = isMatch;
+            else if (activeFilter === 'duplicate') matchesAI = isDuplicate && !isMatch; // Priority: Match > Duplicate? Or just specific buckets. Use logic from Card.
+            // Card logic: Match if in rider. Duplicate if not match but count > 1. Genuine if neither.
+            else if (activeFilter === 'genuine') matchesAI = !isMatch && !isDuplicate;
+        }
+
+        return matchesTab && matchesSearch && matchesCity && matchesSource && matchesScore && matchesAI;
     });
 
     const getTabCount = (tab: typeof activeTab) => {
@@ -412,6 +440,18 @@ const AdminLeads: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* AI Stats Cards */}
+            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                <AILeadStatsCards
+                    leads={leads}
+                    allLeads={leads}
+                    allRiders={riders}
+                    onFilterChange={setActiveFilter}
+                    activeFilter={activeFilter}
+                    isAdmin={true}
+                />
+            </div>
 
             {/* Tabs */}
             <div className="border-b border-border/50">

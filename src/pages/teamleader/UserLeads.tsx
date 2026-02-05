@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/config/supabase';
-import { Lead } from '@/types';
+import { Lead, Rider } from '@/types';
+import { AILeadStatsCards } from '@/components/AILeadStatsCards';
 import LeadsTable from '@/components/LeadsTable';
 import LeadForm from '@/components/LeadForm';
 import { Plus } from 'lucide-react';
@@ -16,15 +17,20 @@ const UserLeads: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
 
-    // Bulk Action State
     const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+
+    const [allLeads, setAllLeads] = useState<Lead[]>([]);
+    const [allRiders, setAllRiders] = useState<Rider[]>([]);
+    // Removed unused activeFilter state
 
     useEffect(() => {
         if (!userData?.id) return;
 
         const fetchLeads = async () => {
             setLoading(true);
-            const { data, error } = await supabase
+
+            // 1. Fetch My Leads (Scoped)
+            const { data: myLeadsData, error: myLeadsError } = await supabase
                 .from('leads')
                 .select(`
                     id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
@@ -35,8 +41,22 @@ const UserLeads: React.FC = () => {
                 .eq('created_by', userData.id)
                 .order('created_at', { ascending: false });
 
-            if (data) setLeads(data as Lead[]);
-            if (error) console.error("Error fetching leads:", error);
+            // 2. Fetch ALL Leads (Global - for AI Stats)
+            // optimization: fetching minimal fields for stats
+            const { data: allLeadsData } = await supabase
+                .from('leads')
+                .select('mobile_number, id'); // Minimal fetch for duplicated check
+
+            // 3. Fetch ALL Riders (Global - for AI Stats)
+            const { data: allRidersData } = await supabase
+                .from('rider_master')
+                .select('mobile_number, id');
+
+            if (myLeadsData) setLeads(myLeadsData as Lead[]);
+            if (allLeadsData) setAllLeads(allLeadsData.map((l: any) => ({ ...l, mobileNumber: l.mobile_number })) as Lead[]);
+            if (allRidersData) setAllRiders(allRidersData.map((r: any) => ({ ...r, mobileNumber: r.mobile_number })) as Rider[]);
+
+            if (myLeadsError) console.error("Error fetching leads:", myLeadsError);
             setLoading(false);
         };
 
@@ -223,6 +243,16 @@ const UserLeads: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* AI Stats (View Only for Team Leaders) */}
+            <AILeadStatsCards
+                leads={leads}
+                allLeads={allLeads}
+                allRiders={allRiders}
+                onFilterChange={() => { }}
+                activeFilter={null}
+                isAdmin={false}
+            />
 
             <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
                 <LeadsTable
