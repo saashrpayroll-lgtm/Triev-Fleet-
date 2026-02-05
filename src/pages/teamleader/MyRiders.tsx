@@ -893,20 +893,13 @@ const MyRiders: React.FC = () => {
                                             Rider Name {sortBy === 'riderName' && (sortOrder === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="px-4 py-3 text-left text-sm font-semibold">Mobile Number</th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">Chassis Number</th>
-                                        <th
-                                            onClick={() => handleSort('clientName')}
-                                            className="px-4 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-muted transition-colors"
-                                        >
-                                            Client {sortBy === 'clientName' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                        </th>
+                                        {/* Hidden columns: Chassis, Client, Status as per user request */}
                                         <th
                                             onClick={() => handleSort('walletAmount')}
                                             className="px-4 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-muted transition-colors"
                                         >
                                             Wallet {sortBy === 'walletAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
                                         <th className="px-4 py-3 text-right text-sm font-semibold">Actions</th>
                                     </tr>
                                 </thead>
@@ -955,8 +948,7 @@ const MyRiders: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-sm">{rider.chassisNumber}</td>
-                                            <td className="px-4 py-3 text-sm">{rider.clientName}</td>
+                                            {/* Hidden Cells: Chassis, Client, Status */}
                                             <td className="px-4 py-3 text-sm">
                                                 <span
                                                     className={
@@ -978,18 +970,6 @@ const MyRiders: React.FC = () => {
                                                         <AlertTriangle size={12} />
                                                     </button>
                                                 )}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm">
-                                                <span
-                                                    className={`px-2 py-1 rounded-full text-xs font-medium ${rider.status === 'active'
-                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                                        : rider.status === 'inactive'
-                                                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                                        }`}
-                                                >
-                                                    {rider.status.charAt(0).toUpperCase() + rider.status.slice(1)}
-                                                </span>
                                             </td>
                                             <td className="px-4 py-3 text-sm">
                                                 <div className="flex items-center justify-end">
