@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, ShieldCheck, Copy, UserCheck } from 'lucide-react';
-import { Lead, Rider, LeadStatusStats } from '@/types';
+import { Lead, Rider } from '@/types';
 
 interface AILeadStatsCardsProps {
     leads: Lead[];
@@ -21,7 +21,7 @@ export const AILeadStatsCards: React.FC<AILeadStatsCardsProps> = ({
     isAdmin
 }) => {
 
-    const stats: LeadStatusStats = useMemo(() => {
+    const stats = useMemo(() => {
         let genuine = 0;
         let duplicate = 0;
         let match = 0;
@@ -32,7 +32,7 @@ export const AILeadStatsCards: React.FC<AILeadStatsCardsProps> = ({
         // Count frequencies of mobile numbers in ALL leads
         const leadMobileCounts = new Map<string, number>();
         allLeads.forEach(l => {
-            const mobile = l.mobileNumber || l.phone; // Handle both likely field names
+            const mobile = l.mobileNumber;
             if (mobile) {
                 leadMobileCounts.set(mobile, (leadMobileCounts.get(mobile) || 0) + 1);
             }
@@ -52,7 +52,7 @@ export const AILeadStatsCards: React.FC<AILeadStatsCardsProps> = ({
         // BUT for a Team Leader, do they care about duplicates in OTHER teams? Probably yes, to know if it's a wasted lead.
 
         leadsToAnalyze.forEach(lead => {
-            const mobile = lead.mobileNumber || lead.phone;
+            const mobile = lead.mobileNumber;
             if (!mobile) return;
 
             const isRiderMatch = riderMobileSet.has(mobile);
