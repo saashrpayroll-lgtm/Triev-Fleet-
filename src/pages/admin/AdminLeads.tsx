@@ -1,26 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
-import { Lead, LeadStatus, Rider } from '@/types';
+import { Lead, LeadStatus, Rider, LeadCategory } from '@/types';
 import AdminLeadTable from '@/components/AdminLeadTable';
 import { AILeadStatsCards } from '@/components/AILeadStatsCards';
 import LeadDetailModal from '@/components/LeadDetailModal';
 import LeadForm from '@/components/LeadForm';
-import BulkActionsBar from '@/components/BulkActionsBar'; // Import
+import BulkActionsBar from '@/components/BulkActionsBar';
+import AdvancedFilterModal, { FilterConfig } from '@/components/AdvancedFilterModal';
 import { AIService } from '@/services/AIService';
-import { Plus, Sparkles, Download, Filter, Search, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, Download, Search, Trash2, SlidersHorizontal } from 'lucide-react';
 import { mapLeadToDB } from '@/utils/leadUtils';
 import { logActivity } from '@/utils/activityLog';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 
 const AdminLeads: React.FC = () => {
     const { userData: currentUser } = useSupabaseAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [leads, setLeads] = useState<Lead[]>([]);
-    const [riders, setRiders] = useState<Rider[]>([]); // For matching logic
+    const [riders, setRiders] = useState<Rider[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -28,8 +29,21 @@ const AdminLeads: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // AI Stats Filter
+    // AI Stats Filter (Quick Filter)
     const [activeFilter, setActiveFilter] = useState<'genuine' | 'duplicate' | 'match' | null>(null);
+
+    // Advanced Filters
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string }[]>([]);
+    const [filterConfig, setFilterConfig] = useState<FilterConfig>({
+        dateRange: null,
+        teamLeaderId: null,
+        status: [],
+        category: [],
+        source: [],
+        city: null,
+        drivingLicense: null
+    });
 
     // Bulk Selection State
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -42,7 +56,6 @@ const AdminLeads: React.FC = () => {
         }
     }, [location.search]);
 
-    // ... useEffect for data fetching ... (Keep existing fetch logic)
     useEffect(() => {
         setLoading(true);
 
@@ -53,12 +66,25 @@ const AdminLeads: React.FC = () => {
             `);
             if (riderData) setRiders(riderData as any);
 
-            // 2. Fetch Leads
+            // 2. Fetch Team Leaders (User Profiles with role='teamLeader' or just all for now)
+            // Assuming 'users' table or profile table. Using 'user_profiles' if exists or just fetching distinct names from leads if easier, 
+            // but fetching profiles is safer.
+            const { data: tlData } = await supabase
+                .from('user_profiles')
+                .select('user_id, full_name')
+                .eq('role', 'teamLeader');
+
+            if (tlData) {
+                setTeamLeaders(tlData.map((u: any) => ({ id: u.user_id, name: u.full_name })));
+            }
+
+            // 3. Fetch Leads
             const { data: leadData } = await supabase.from('leads').select(`
                 id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
                 city, status, score, category, source, createdAt:created_at,
                 drivingLicense:driving_license, clientInterested:client_interested,
-                location
+                location, createdBy:created_by, createdByName:created_by_name,
+                remarks
             `).order('id', { ascending: false });
             if (leadData) setLeads(leadData as any);
 
@@ -67,10 +93,10 @@ const AdminLeads: React.FC = () => {
 
         fetchData();
 
-        // Real-time subscription
         const subscription = supabase
             .channel('leads-list-sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+                // Ideally optimistically update or refetch
                 fetchData();
             })
             .subscribe();
@@ -80,6 +106,66 @@ const AdminLeads: React.FC = () => {
         };
     }, [refreshKey]);
 
+    // Apply Filters
+    const filteredLeads = useMemo(() => {
+        return leads.filter(lead => {
+            // 1. Search Term
+            const matchesSearch = searchTerm === '' ||
+                lead.riderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                lead.mobileNumber?.includes(searchTerm) ||
+                lead.city?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            if (!matchesSearch) return false;
+
+            // 2. Quick Tab Status Filter
+            if (activeTab !== 'All' && lead.status !== activeTab) return false;
+
+            // 3. Quick AI Filter (Cards)
+            if (activeFilter) {
+                const cat = (typeof lead.category === 'string' ? lead.category : '').toLowerCase();
+                if (cat !== activeFilter) return false;
+            }
+
+            // 4. Advanced Filters
+            // Date Range
+            if (filterConfig.dateRange?.start && filterConfig.dateRange?.end) {
+                const leadDate = parseISO(lead.createdAt);
+                const start = startOfDay(parseISO(filterConfig.dateRange.start));
+                const end = endOfDay(parseISO(filterConfig.dateRange.end));
+                if (!isWithinInterval(leadDate, { start, end })) return false;
+            }
+
+            // Team Leader
+            if (filterConfig.teamLeaderId && lead.createdBy !== filterConfig.teamLeaderId) return false;
+
+            // Status (Multi-select)
+            if (filterConfig.status.length > 0 && !filterConfig.status.includes(lead.status)) return false;
+
+            // Category
+            if (filterConfig.category.length > 0) {
+                const cat = typeof lead.category === 'string' ? lead.category : 'Genuine';
+                if (!filterConfig.category.includes(cat as LeadCategory)) return false;
+            }
+
+            // Source
+            if (filterConfig.source.length > 0 && !filterConfig.source.includes(lead.source)) return false;
+
+            // City
+            if (filterConfig.city && lead.city !== filterConfig.city) return false;
+
+            // License
+            if (filterConfig.drivingLicense && lead.drivingLicense !== filterConfig.drivingLicense) return false;
+
+            return true;
+        });
+    }, [leads, searchTerm, activeTab, activeFilter, filterConfig]);
+
+    const availableCities = useMemo(() => Array.from(new Set(leads.map(l => l.city).filter(Boolean))), [leads]);
+
+    const getTabCount = (status: 'All' | LeadStatus) => {
+        if (status === 'All') return leads.length;
+        return leads.filter(l => l.status === status).length;
+    };
 
     // Bulk Actions Handlers
     const handleSelectionChange = (ids: string[]) => {
@@ -93,7 +179,6 @@ const AdminLeads: React.FC = () => {
             const { error } = await supabase.from('leads').delete().in('id', selectedIds);
             if (error) throw error;
 
-            // Log activity
             await logActivity({
                 actionType: 'Lead Bulk Delete',
                 targetType: 'lead',
@@ -102,7 +187,6 @@ const AdminLeads: React.FC = () => {
                 performedBy: currentUser?.email
             }).catch(console.error);
 
-            // Optimistic update
             setLeads(prev => prev.filter(l => !selectedIds.includes(l.id)));
             setSelectedIds([]);
             alert("Leads deleted successfully.");
@@ -110,6 +194,19 @@ const AdminLeads: React.FC = () => {
             console.error("Bulk delete failed", error);
             alert("Failed to delete leads.");
         }
+    };
+
+    const handleResetFilters = () => {
+        setFilterConfig({
+            dateRange: null,
+            teamLeaderId: null,
+            status: [],
+            category: [],
+            source: [],
+            city: null,
+            drivingLicense: null
+        });
+        setActiveFilter(null);
     };
 
     // ... handleAIScoreAll (Keep existing) ...
@@ -224,10 +321,8 @@ const AdminLeads: React.FC = () => {
         }
     };
 
-    // Advanced Filter State
-    const [filterCity, setFilterCity] = useState('All');
-    const [filterSource, setFilterSource] = useState('All');
-    const [filterScore, setFilterScore] = useState('All');
+
+
 
     // Helper to normalize mobile numbers
     const normalizeMobile = (phone: string | null | undefined): string => {
@@ -237,7 +332,7 @@ const AdminLeads: React.FC = () => {
     };
 
     // Pre-calculate sets for filtering
-    const { riderMobileSet, leadMobileCounts } = React.useMemo(() => {
+    const { riderMobileSet, leadMobileCounts } = useMemo(() => { // ensure useMemo is imported or React.useMemo
         const rSet = new Set(riders.map(r => normalizeMobile(r.mobileNumber)));
         const lCounts = new Map<string, number>();
         leads.forEach(l => {
@@ -246,41 +341,6 @@ const AdminLeads: React.FC = () => {
         });
         return { riderMobileSet: rSet, leadMobileCounts: lCounts };
     }, [riders, leads]);
-
-    // Filter Logic
-    const filteredLeads = leads.filter(lead => {
-        const matchesTab = activeTab === 'All' ? true : lead.status === activeTab;
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-            (lead.riderName || '').toLowerCase().includes(searchLower) ||
-            (lead.mobileNumber || '').includes(searchTerm) ||
-            (lead.city || '').toLowerCase().includes(searchLower) ||
-            String(lead.leadId || '').includes(searchTerm);
-
-        // Advanced Filters matches
-        const matchesCity = filterCity === 'All' || lead.city === filterCity;
-        const matchesSource = filterSource === 'All' || lead.source === filterSource;
-        const matchesScore = filterScore === 'All'
-            ? true
-            : filterScore === 'High' ? (lead.score || 0) >= 80
-                : filterScore === 'Medium' ? (lead.score || 0) >= 50 && (lead.score || 0) < 80
-                    : (lead.score || 0) < 50;
-
-        // AI Stats Filter
-        let matchesAI = true;
-        if (activeFilter) {
-            const mobile = normalizeMobile(lead.mobileNumber || String(lead.leadId));
-            const isMatch = riderMobileSet.has(mobile);
-            const isDuplicate = (leadMobileCounts.get(mobile) || 0) > 1;
-
-            if (activeFilter === 'match') matchesAI = isMatch;
-            else if (activeFilter === 'duplicate') matchesAI = isDuplicate && !isMatch; // Priority: Match > Duplicate? Or just specific buckets. Use logic from Card.
-            // Card logic: Match if in rider. Duplicate if not match but count > 1. Genuine if neither.
-            else if (activeFilter === 'genuine') matchesAI = !isMatch && !isDuplicate;
-        }
-
-        return matchesTab && matchesSearch && matchesCity && matchesSource && matchesScore && matchesAI;
-    });
 
     const getLeadAIStatus = (lead: Lead): 'Genuine' | 'Duplicate' | 'Match' => {
         const mobile = normalizeMobile(lead.mobileNumber || String(lead.leadId));
@@ -299,11 +359,6 @@ const AdminLeads: React.FC = () => {
             setSearchTerm(mobile);
             toast.info(`Showing duplicates for: ${mobile}`);
         }
-    };
-
-    const getTabCount = (tab: typeof activeTab) => {
-        if (tab === 'All') return leads.length;
-        return leads.filter(l => l.status === tab).length;
     };
 
     // Redoing state management for clear Add vs Edit
@@ -354,9 +409,6 @@ const AdminLeads: React.FC = () => {
         const recommendation = await AIService.getLeadRecommendations(lead);
         alert(`AI Recommendation for ${lead.riderName}:\n\n${recommendation}`);
     };
-
-    // Filter Logic Toggle
-    const [showFilters, setShowFilters] = useState(false);
 
     return (
         <div className="space-y-6 pb-20 relative">
@@ -410,7 +462,7 @@ const AdminLeads: React.FC = () => {
                 </div>
             </div>
 
-            {/* Search Bar */}
+            {/* Search Bar & Filters */}
             <div className="flex gap-4">
                 <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -423,51 +475,15 @@ const AdminLeads: React.FC = () => {
                     />
                 </div>
                 <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-3 border rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${showFilters ? 'bg-primary/10 border-primary text-primary' : 'bg-background hover:bg-accent border-input'}`}
+                    onClick={() => setShowFilterModal(true)}
+                    className={`px-4 py-3 border rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${Object.values(filterConfig).some(v => Array.isArray(v) ? v.length > 0 : v)
+                        ? 'bg-primary/10 border-primary text-primary'
+                        : 'bg-background hover:bg-accent border-input'
+                        }`}
                 >
-                    <Filter size={18} /> Filters
+                    <SlidersHorizontal size={18} /> Filters
                 </button>
             </div>
-
-            {/* Optional Filter Row */}
-            {showFilters && (
-                <div className="p-4 bg-muted/30 border border-border rounded-xl animate-in fade-in slide-in-from-top-2">
-                    <p className="text-sm text-muted-foreground mb-2">Advanced Filters</p>
-                    <div className="flex gap-4">
-                        <select
-                            value={filterCity}
-                            onChange={(e) => setFilterCity(e.target.value)}
-                            className="px-3 py-2 rounded-lg border bg-background text-sm"
-                        >
-                            <option value="All">City: All</option>
-                            <option value="Noida">Noida</option>
-                            <option value="Delhi">Delhi</option>
-                            <option value="Gurgaon">Gurgaon</option>
-                        </select>
-                        <select
-                            value={filterSource}
-                            onChange={(e) => setFilterSource(e.target.value)}
-                            className="px-3 py-2 rounded-lg border bg-background text-sm"
-                        >
-                            <option value="All">Source: All</option>
-                            <option value="Field Survey">Field Survey</option>
-                            <option value="Social Media">Social Media</option>
-                            <option value="Referral">Referral</option>
-                        </select>
-                        <select
-                            value={filterScore}
-                            onChange={(e) => setFilterScore(e.target.value)}
-                            className="px-3 py-2 rounded-lg border bg-background text-sm"
-                        >
-                            <option value="All">Score: All</option>
-                            <option value="High">High ({'>'}80)</option>
-                            <option value="Medium">Medium (50-80)</option>
-                            <option value="Low">Low ({'<'}50)</option>
-                        </select>
-                    </div>
-                </div>
-            )}
 
             {/* AI Stats Cards */}
             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
@@ -545,6 +561,21 @@ const AdminLeads: React.FC = () => {
                     onEdit={openEditModal}
                 />
             )}
+
+            {/* Advanced Filters Modal */}
+            <AdvancedFilterModal
+                isOpen={showFilterModal}
+                onClose={() => setShowFilterModal(false)}
+                onApply={(filters) => {
+                    setFilterConfig(filters);
+                    setShowFilterModal(false);
+                    toast.success("Filters applied");
+                }}
+                onReset={handleResetFilters}
+                initialFilters={filterConfig}
+                teamLeaders={teamLeaders}
+                availableCities={availableCities}
+            />
         </div>
     );
 };
