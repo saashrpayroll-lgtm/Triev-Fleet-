@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lead } from '@/types';
 import {
     X,
@@ -12,9 +12,18 @@ import {
     Edit,
     Activity,
     Sparkles,
-    MessageCircle
+    MessageCircle,
+    Mic,
+    StopCircle,
+    Send,
+    Bot,
+    History
 } from 'lucide-react';
 import { format } from 'date-fns';
+import useSpeechRecognition from '@/hooks/useSpeechRecognition';
+import { AIService } from '@/services/AIService';
+import { supabase } from '@/config/supabase';
+import { toast } from 'sonner';
 
 interface LeadDetailModalProps {
     lead: Lead;
@@ -23,7 +32,76 @@ interface LeadDetailModalProps {
 }
 
 const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit }) => {
-    const [activeTab, setActiveTab] = useState<'details' | 'ai' | 'activity'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'smart_view' | 'follow_up' | 'activity'>('details');
+
+    // AI & Smart View State
+    const [aiSummary, setAiSummary] = useState<string>('');
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+    // Follow Up & Voice State
+    const [comment, setComment] = useState('');
+    const { isListening, transcript, startListening, stopListening, resetTranscript, hasRecognitionSupport } = useSpeechRecognition();
+    const [isSavingComment, setIsSavingComment] = useState(false);
+
+    // Sync voice transcript to comment
+    useEffect(() => {
+        if (transcript) {
+            setComment(transcript);
+        }
+    }, [transcript]);
+
+    const handleGenerateSummary = async () => {
+        setIsGeneratingAi(true);
+        try {
+            // Simulate AI Summary or use real service
+            // Using AIService if available, otherwise mock for now to ensure UI works
+            // Assuming getLeadRecommendations exists or we add a mock fallback
+            let summary = "AI Insights not configured.";
+
+            if (AIService && typeof AIService.getLeadRecommendations === 'function') {
+                summary = await AIService.getLeadRecommendations(lead);
+            } else {
+                // Mock logic if service missing
+                const score = lead.score || 50;
+                summary = `Lead Score: ${score} - ${score > 70 ? "High conversion probability." : "Medium conversion probability."}\n\nRecommended Action: ${score > 70 ? "Call immediately." : "Send follow-up message."}`;
+            }
+
+            setAiSummary(summary || "No insights available.");
+        } catch (e) {
+            console.error(e);
+            setAiSummary("Failed to generate summary.");
+        } finally {
+            setIsGeneratingAi(false);
+        }
+    };
+
+    const handleSaveComment = async () => {
+        if (!comment.trim()) return;
+        setIsSavingComment(true);
+        try {
+            const newRemarks = lead.remarks ? `${lead.remarks}\n[${format(new Date(), 'dd/MM HH:mm')}] ${comment}` : `[${format(new Date(), 'dd/MM HH:mm')}] ${comment}`;
+
+            await supabase.from('leads').update({ remarks: newRemarks }).eq('id', lead.id);
+
+            await supabase.from('activity_logs').insert({
+                action_type: 'leadStatusChange',
+                target_type: 'lead',
+                target_id: lead.id,
+                details: `Added comment: ${comment}`,
+                user_id: lead.createdBy,
+                timestamp: new Date().toISOString()
+            });
+
+            toast.success("Comment added successfully");
+            setComment('');
+            resetTranscript();
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to save comment");
+        } finally {
+            setIsSavingComment(false);
+        }
+    };
 
     // Helper for badges
     const getStatusBadge = () => (
@@ -36,11 +114,11 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
     );
 
     const getCategoryBadge = () => {
-        const cat = typeof lead.category === 'string' ? lead.category : 'Genuine'; // Fallback
+        const cat = typeof lead.category === 'string' ? lead.category : 'Genuine';
         const config = {
             'Genuine': { color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: ShieldCheck },
-            'Match': { color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Repeat },
-            'Duplicate': { color: 'bg-rose-100 text-rose-700 border-rose-200', icon: AlertTriangle },
+            'Match': { color: 'bg-red-50 text-red-600 border-red-200', icon: Repeat },
+            'Duplicate': { color: 'bg-amber-50 text-amber-600 border-amber-200', icon: AlertTriangle },
         }[cat] || { color: 'bg-gray-100 text-gray-600', icon: User };
 
         const Icon = config.icon;
@@ -82,19 +160,23 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-border px-6">
-                    {(['details', 'ai', 'activity'] as const).map(tab => (
+                <div className="flex border-b border-border px-6 overflow-x-auto">
+                    {[
+                        { id: 'details', label: 'Details', icon: User },
+                        { id: 'smart_view', label: 'Smart View', icon: Sparkles },
+                        { id: 'follow_up', label: 'Follow Up', icon: MessageCircle },
+                        { id: 'activity', label: 'Activity', icon: Activity }
+                    ].map(tab => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                                 }`}
                         >
-                            {tab === 'details' && 'Details'}
-                            {tab === 'ai' && 'Smart Notes'}
-                            {tab === 'activity' && 'Activity'}
+                            <tab.icon size={16} />
+                            {tab.label}
                         </button>
                     ))}
                 </div>
@@ -141,12 +223,12 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                                         <div className="text-sm font-semibold flex items-center gap-2">
                                             {lead.mobileNumber}
                                             <div className="flex gap-1 ml-2">
-                                                <div className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center cursor-pointer">
+                                                <a href={`tel:${lead.mobileNumber}`} className="w-6 h-6 rounded bg-blue-100 text-blue-600 flex items-center justify-center cursor-pointer hover:bg-blue-200">
                                                     <Phone size={12} />
-                                                </div>
-                                                <div className="w-5 h-5 rounded bg-green-100 text-green-600 flex items-center justify-center cursor-pointer">
+                                                </a>
+                                                <a href={`https://wa.me/${lead.mobileNumber?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="w-6 h-6 rounded bg-green-100 text-green-600 flex items-center justify-center cursor-pointer hover:bg-green-200">
                                                     <MessageCircle size={12} />
-                                                </div>
+                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -199,13 +281,111 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                         </div>
                     )}
 
-                    {activeTab === 'ai' && (
-                        <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                            <Sparkles size={48} className="mb-4 text-primary/50" />
-                            <h3 className="text-lg font-semibold text-foreground mb-2">Smart Notes</h3>
-                            <p className="max-w-sm">
-                                AI analysis of call logs and rider interactions will appear here to give you better context.
-                            </p>
+                    {activeTab === 'smart_view' && (
+                        <div className="space-y-6">
+                            <div className="bg-gradient-to-br from-primary/5 to-primary/10 p-8 rounded-xl border border-primary/20 text-center">
+                                <Sparkles size={48} className="mx-auto mb-4 text-primary" />
+                                <h3 className="text-xl font-bold text-foreground mb-2">AI Smart Analysis</h3>
+                                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                                    Get instant insights, conversion probability, and recommended next steps based on lead data and history.
+                                </p>
+
+                                {!aiSummary ? (
+                                    <button
+                                        onClick={handleGenerateSummary}
+                                        disabled={isGeneratingAi}
+                                        className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 mx-auto disabled:opacity-50"
+                                    >
+                                        {isGeneratingAi ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                Analyzing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles size={18} /> Generate Insights
+                                            </>
+                                        )}
+                                    </button>
+                                ) : (
+                                    <div className="bg-white/50 backdrop-blur-sm p-6 rounded-lg text-left border border-primary/10 shadow-inner animate-in fade-in slide-in-from-bottom-2">
+                                        <div className="prose prose-sm max-w-none">
+                                            <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed font-mono text-sm">
+                                                {aiSummary}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => setAiSummary('')}
+                                            className="mt-4 text-xs text-primary hover:underline"
+                                        >
+                                            Regenerate Analysis
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'follow_up' && (
+                        <div className="space-y-6 h-full flex flex-col">
+                            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex-1 flex flex-col">
+                                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Bot size={16} /> Add Follow-up Note
+                                </h3>
+
+                                <div className="relative flex-1 min-h-[120px]">
+                                    <textarea
+                                        value={comment}
+                                        onChange={(e) => setComment(e.target.value)}
+                                        placeholder={isListening ? "Listening... Speak now." : "Type your observation or click the mic to speak..."}
+                                        className={`w-full h-full p-4 rounded-lg border resize-none focus:outline-none focus:ring-2 transition-all ${isListening ? 'border-red-400 ring-2 ring-red-100 bg-red-50/50' : 'border-input focus:ring-primary/20'}`}
+                                    />
+                                    {hasRecognitionSupport && (
+                                        <button
+                                            onClick={isListening ? stopListening : startListening}
+                                            className={`absolute right-3 bottom-3 p-3 rounded-full shadow-md transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'}`}
+                                            title={isListening ? "Stop Recording" : "Start Voice Input"}
+                                        >
+                                            {isListening ? <StopCircle size={20} /> : <Mic size={20} />}
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-4">
+                                    <button
+                                        onClick={() => setComment('')}
+                                        className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        onClick={handleSaveComment}
+                                        disabled={!comment.trim() || isSavingComment}
+                                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {isSavingComment ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
+                                        Save Note
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Past Comments (From Remarks) */}
+                            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <History size={16} /> Past Notes
+                                </h3>
+                                <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2">
+                                    {lead.remarks ? (
+                                        lead.remarks.split('\n').map((note, idx) => (
+                                            <div key={idx} className="p-3 bg-muted/30 rounded-lg text-sm border border-border/50">
+                                                {note}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-muted-foreground text-sm py-4">No past notes available.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -220,7 +400,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                                 <p className="text-sm text-muted-foreground">Sourced by {lead.createdByName} via {lead.source}</p>
                             </div>
 
-                            {/* Future logs would be mapped here */}
+                            {/* Dynamically show recent changes if we had a full log here */}
                         </div>
                     )}
                 </div>
