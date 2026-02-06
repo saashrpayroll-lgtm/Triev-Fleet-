@@ -142,11 +142,32 @@ const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                                     key={status}
                                     onClick={() => handleStatusToggle(status)}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${filters.status.includes(status)
-                                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50'
+                                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50'
                                         }`}
                                 >
                                     {status}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Source */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                            <Tag size={16} /> Lead Source
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                            {(['Online', 'Walking', 'Field Sourcing', 'Calling', 'Referral', 'Other'] as LeadSource[]).map(src => (
+                                <button
+                                    key={src}
+                                    onClick={() => handleSourceToggle(src)}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${filters.source.includes(src)
+                                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50'
+                                        }`}
+                                >
+                                    {src}
                                 </button>
                             ))}
                         </div>
@@ -163,10 +184,10 @@ const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                                     key={cat}
                                     onClick={() => handleCategoryToggle(cat)}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${filters.category.includes(cat)
-                                            ? cat === 'Genuine' ? 'bg-emerald-600 text-white border-emerald-600'
-                                                : cat === 'Match' ? 'bg-blue-600 text-white border-blue-600'
-                                                    : 'bg-amber-600 text-white border-amber-600'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                                        ? cat === 'Genuine' ? 'bg-emerald-600 text-white border-emerald-600'
+                                            : cat === 'Match' ? 'bg-blue-600 text-white border-blue-600'
+                                                : 'bg-amber-600 text-white border-amber-600'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     {cat}
@@ -203,8 +224,8 @@ const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
                                     key={type}
                                     onClick={() => setFilters(prev => ({ ...prev, drivingLicense: prev.drivingLicense === type ? null : type }))}
                                     className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${filters.drivingLicense === type
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                                         }`}
                                 >
                                     {type}
