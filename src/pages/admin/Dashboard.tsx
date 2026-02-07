@@ -129,6 +129,11 @@ const Dashboard: React.FC = () => {
                 fetchDashboardData();
                 setLastUpdated(new Date());
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'performance_metrics' }, (payload) => {
+                console.log('Realtime Update [Metrics]:', payload);
+                fetchDashboardData();
+                setLastUpdated(new Date());
+            })
             .subscribe((status) => {
                 console.log('Realtime Subscription Status:', status);
                 if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
@@ -257,6 +262,7 @@ const Dashboard: React.FC = () => {
                         teamLeaders={rawData.teamLeaders}
                         riders={rawData.riders}
                         leads={rawData.leads}
+                        lastUpdated={lastUpdated}
                     />
                 ) : null;
             case 'charts':
@@ -379,8 +385,8 @@ const Dashboard: React.FC = () => {
             {/* Realtime Status Indicator */}
             <div className={`flex justify-end mb-2 transition-opacity duration-500 ${realtimeStatus === 'connected' ? 'opacity-50 hover:opacity-100' : 'opacity-100'}`}>
                 <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium border ${realtimeStatus === 'connected'
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                        : 'bg-red-50 text-red-600 border-red-100'
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                    : 'bg-red-50 text-red-600 border-red-100'
                     }`}>
                     {realtimeStatus === 'connected' ? <Wifi size={10} /> : <WifiOff size={10} />}
                     {realtimeStatus === 'connected' ? 'Live' : 'Disconnected'}

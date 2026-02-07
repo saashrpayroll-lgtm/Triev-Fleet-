@@ -13,6 +13,7 @@ interface TLPerformanceAnalyticsProps {
     teamLeaders: User[];
     riders: Rider[];
     leads: Lead[];
+    lastUpdated?: Date;
 }
 
 type TimeRange = '7d' | '30d' | '3m';
@@ -20,7 +21,7 @@ type ComparisonMetric = 'revenue' | 'leads' | 'active_riders';
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00C49F'];
 
-const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLeaders, riders, leads }) => {
+const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLeaders, riders, leads, lastUpdated }) => {
     const [activeTab, setActiveTab] = useState<'individual' | 'comparison'>('individual');
 
     // -- Individual State --
@@ -53,7 +54,7 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                 });
             }
         }
-    }, [selectedTLId, timeRange, compareMode]);
+    }, [selectedTLId, timeRange, compareMode, lastUpdated]);
 
     // --- Individual Data Processing ---
     const individualData = useMemo(() => {
