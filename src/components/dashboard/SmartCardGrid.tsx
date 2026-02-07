@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Rider, Lead, Request, User } from '@/types';
 import SmartMetricCard from './SmartMetricCard';
-import { Users, Wallet, UserCheck, TrendingUp, Activity, AlertTriangle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
+import { Users, Wallet, UserCheck, TrendingUp, Activity, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
 
 interface SmartCardGridProps {
