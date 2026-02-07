@@ -16,12 +16,7 @@ interface LeaderboardProps {
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], action, disableClick = false }) => {
     // DEBUG: Log incoming data
-    console.log('🎯 LEADERBOARD: Received teamLeaders:', teamLeaders.length);
-    if (teamLeaders[0]) {
-        console.log('🎯 LEADERBOARD: First TL:', JSON.stringify(teamLeaders[0], null, 2));
-        console.log('🎯 LEADERBOARD: fullName:', typeof teamLeaders[0].fullName, teamLeaders[0].fullName);
-        console.log('🎯 LEADERBOARD: email:', typeof teamLeaders[0].email, teamLeaders[0].email);
-    }
+
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -29,11 +24,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
     // AI Scoring Algorithm (Same logic, enhanced display)
     const scoredTLs = useMemo(() => {
-        console.log('🎯 LEADERBOARD useMemo: Starting calculation');
-        console.log('🎯 LEADERBOARD useMemo: teamLeaders.length:', teamLeaders.length);
 
         const result = teamLeaders.map(tl => {
-            console.log('🎯 LEADERBOARD useMemo: Processing TL:', tl.id);
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
             const activeCount = tlRiders.filter(r => r.status === 'active').length;
             const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
@@ -73,11 +65,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                     activity: activityScore
                 }
             };
-            console.log('🎯 LEADERBOARD useMemo: Created tlData:', JSON.stringify(tlData));
             return tlData;
         }).sort((a, b) => b.score - a.score).slice(0, 3);
 
-        console.log('🎯 LEADERBOARD useMemo: Final result:', result.length, 'items');
         return result;
     }, [teamLeaders, riders, leads]);
 

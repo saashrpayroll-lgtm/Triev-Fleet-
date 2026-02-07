@@ -78,7 +78,10 @@ const Dashboard: React.FC = () => {
 
     // --- Data Fetching & Real-time ---
     const fetchDashboardData = React.useCallback(async (isInitial = false) => {
-        if (!userData) return;
+        if (!userData) {
+            if (isInitial) setLoading(false);
+            return;
+        }
         if (isInitial) setLoading(true);
 
         try {
