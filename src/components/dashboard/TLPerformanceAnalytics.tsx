@@ -243,6 +243,7 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
 
                             {/* Compare Mode Toggle */}
                             <label className="flex items-center gap-2 text-sm font-medium text-gray-600 cursor-pointer select-none">
+                                {/* Checkbox for Comparison Mode */}
                                 <input
                                     type="checkbox"
                                     checked={compareMode}
