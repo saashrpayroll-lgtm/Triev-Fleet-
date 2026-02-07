@@ -13,6 +13,7 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [regenerating, setRegenerating] = useState(false);
+    const [language, setLanguage] = useState<'hindi' | 'english'>('hindi');
 
     const generateMessage = async () => {
         setLoading(true);
@@ -21,11 +22,25 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
         const randomTone = tones[Math.floor(Math.random() * tones.length)];
 
         try {
-            const aiMsg = await AIService.generatePaymentReminder(rider, 'hindi', randomTone); // Defaulting to Hindi as per recent context, or we can make it toggleable
-            setMessage(aiMsg);
+            const aiMsg = await AIService.generatePaymentReminder(rider, language, randomTone);
+
+            // Hydrate parameters
+            const amountStr = rider.walletAmount < 0
+                ? `-₹${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
+                : `₹${rider.walletAmount.toLocaleString('en-IN')}`;
+
+            const hydratedMsg = aiMsg
+                .replace(/{name}/g, rider.riderName)
+                .replace(/{amount}/g, amountStr);
+
+            setMessage(hydratedMsg);
         } catch (error) {
             console.error("Error generating message:", error);
-            setMessage(`Hello ${rider.riderName}, please clear your outstanding balance of ₹${Math.abs(rider.walletAmount)}.`);
+            const amountStr = rider.walletAmount < 0
+                ? `-₹${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
+                : `₹${rider.walletAmount.toLocaleString('en-IN')}`;
+
+            setMessage(`Hello ${rider.riderName}, please clear your outstanding balance of ${amountStr}.`);
         } finally {
             setLoading(false);
             setRegenerating(false);
@@ -34,7 +49,7 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
 
     useEffect(() => {
         generateMessage();
-    }, [rider]);
+    }, [rider, language]);
 
     const handleRegenerate = () => {
         setRegenerating(true);
@@ -71,14 +86,31 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
                                 <Sparkles size={18} />
                                 <span>AI Generated Message</span>
                             </div>
-                            <button
-                                onClick={handleRegenerate}
-                                disabled={regenerating || loading}
-                                className={`p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors ${regenerating ? 'animate-spin' : ''}`}
-                                title="Regenerate Message"
-                            >
-                                <RefreshCw size={18} />
-                            </button>
+
+                            <div className="flex items-center gap-2">
+                                <div className="flex bg-gray-100 rounded-lg p-1">
+                                    <button
+                                        onClick={() => setLanguage('english')}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'english' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        English
+                                    </button>
+                                    <button
+                                        onClick={() => setLanguage('hindi')}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'hindi' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        Hindi
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={handleRegenerate}
+                                    disabled={regenerating || loading}
+                                    className={`p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors ${regenerating ? 'animate-spin' : ''}`}
+                                    title="Regenerate Message"
+                                >
+                                    <RefreshCw size={18} />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="relative">

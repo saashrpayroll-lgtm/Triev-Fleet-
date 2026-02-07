@@ -713,9 +713,13 @@ const RiderManagement: React.FC = () => {
         try {
             // Open WhatsApp for each rider
             for (const rider of negativeBalanceRiders) {
+                const amountStr = rider.walletAmount < 0
+                    ? `-${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
+                    : Math.abs(rider.walletAmount).toLocaleString('en-IN');
+
                 const personalizedMessage = message
                     .replace('{name}', rider.riderName)
-                    .replace('{amount}', Math.abs(rider.walletAmount).toLocaleString('en-IN'));
+                    .replace('{amount}', amountStr);
 
                 const encodedMessage = encodeURIComponent(personalizedMessage);
                 const cleanNumber = rider.mobileNumber.replace(/\\D/g, '');
