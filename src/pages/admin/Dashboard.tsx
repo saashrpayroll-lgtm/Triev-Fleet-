@@ -425,8 +425,15 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* 2. TL PERFORMANCE ANALYTICS (NEW SECTION) */}
+            {/* 2. TL PERFORMANCE ANALYTICS (NEW SECTION) */}
+            {console.log('DEBUG: Rendering Analytics Section?', {
+                isVisible: visibleSections.analytics,
+                isIsNotTL: !isTL,
+                tlCount: rawData.teamLeaders.length
+            })}
             {visibleSections.analytics && !isTL && (
-                <div className="animate-in slide-in-from-bottom duration-700 delay-200">
+                <div className="animate-in slide-in-from-bottom duration-700 delay-200 border-2 border-red-500 m-4 relative">
+                    <div className="absolute top-0 right-0 bg-red-500 text-white text-xs px-2">DEBUG MODE</div>
                     <TLPerformanceAnalytics
                         teamLeaders={rawData.teamLeaders}
                         riders={rawData.riders}
