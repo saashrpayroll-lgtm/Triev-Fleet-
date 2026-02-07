@@ -109,33 +109,27 @@ const Dashboard: React.FC = () => {
 
         const channel = supabase
             .channel('dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, (payload) => {
-                console.log('Realtime Update [Riders]:', payload);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
                 fetchDashboardData();
                 setLastUpdated(new Date());
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
-                console.log('Realtime Update [Leads]:', payload);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
                 fetchDashboardData();
                 setLastUpdated(new Date());
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, (payload) => {
-                console.log('Realtime Update [Requests]:', payload);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
                 fetchDashboardData();
                 setLastUpdated(new Date());
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
-                console.log('Realtime Update [Users]:', payload);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
                 fetchDashboardData();
                 setLastUpdated(new Date());
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'performance_metrics' }, (payload) => {
-                console.log('Realtime Update [Metrics]:', payload);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'performance_metrics' }, () => {
                 fetchDashboardData();
                 setLastUpdated(new Date());
             })
             .subscribe((status) => {
-                console.log('Realtime Subscription Status:', status);
                 if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
                 if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setRealtimeStatus('disconnected');
             });

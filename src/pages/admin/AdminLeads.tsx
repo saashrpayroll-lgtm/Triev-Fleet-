@@ -110,8 +110,6 @@ const AdminLeads: React.FC = () => {
 
     // Apply Filters
     const filteredLeads = useMemo(() => {
-        console.log("Filtering Leads with Config:", filterConfig);
-
         return leads.filter(lead => {
             // 1. Search Term
             const matchesSearch = searchTerm === '' ||
@@ -137,20 +135,15 @@ const AdminLeads: React.FC = () => {
                 const start = startOfDay(parseISO(filterConfig.dateRange.start));
                 const end = endOfDay(parseISO(filterConfig.dateRange.end));
                 if (!isWithinInterval(leadDate, { start, end })) {
-                    // console.log("Failed Date:", lead.createdAt, start, end);
                     return false;
                 }
             }
 
-            // Team Leader
             if (filterConfig.teamLeaderId && lead.createdBy !== filterConfig.teamLeaderId) {
-                // console.log("Failed TL:", lead.createdBy, filterConfig.teamLeaderId);
                 return false;
             }
 
-            // Status (Multi-select)
             if (filterConfig.status.length > 0 && !filterConfig.status.includes(lead.status)) {
-                // console.log("Failed Status:", lead.status, filterConfig.status);
                 return false;
             }
 
@@ -161,26 +154,19 @@ const AdminLeads: React.FC = () => {
                 // Case-insensitive check for category
                 const configCats = filterConfig.category.map(normalize);
                 if (!configCats.includes(normalize(cat))) {
-                    // console.log("Failed Category:", cat, filterConfig.category);
                     return false;
                 }
             }
 
-            // Source
             if (filterConfig.source.length > 0 && !filterConfig.source.includes(lead.source)) {
-                // console.log("Failed Source:", lead.source, filterConfig.source);
                 return false;
             }
 
-            // City
             if (filterConfig.city && lead.city !== filterConfig.city) {
-                // console.log("Failed City:", lead.city, filterConfig.city);
                 return false;
             }
 
-            // License
             if (filterConfig.drivingLicense && lead.drivingLicense !== filterConfig.drivingLicense) {
-                // console.log("Failed License:", lead.drivingLicense, filterConfig.drivingLicense);
                 return false;
             }
 
