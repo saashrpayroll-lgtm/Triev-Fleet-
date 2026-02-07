@@ -21,6 +21,7 @@ const SmartCardGrid: React.FC<SmartCardGridProps> = ({
     loading = false,
     onCardClick
 }) => {
+    console.log('SmartCardGrid Props:', { riders: riders.length, leads: leads.length, requests: requests.length, teamLeaders: teamLeaders.length });
 
     const stats = useMemo(() => {
         // --- Riders ---

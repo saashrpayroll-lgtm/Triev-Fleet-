@@ -97,6 +97,12 @@ const Dashboard: React.FC = () => {
                 requests: requestsRes.data as Request[] || [],
                 teamLeaders: sanitizeArray(usersRes.data as User[] || [])
             });
+            console.log('Dashboard Data Fetched:', {
+                riders: ridersRes.data?.length,
+                leads: leadsRes.data?.length,
+                requests: requestsRes.data?.length,
+                teamLeaders: usersRes.data?.length
+            });
         } catch (error) {
             console.error('Data Load Error:', error);
         } finally {
