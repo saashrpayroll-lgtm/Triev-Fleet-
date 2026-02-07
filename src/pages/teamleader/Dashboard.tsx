@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import {
-    Users, UserCheck, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText
+    Users, UserCheck, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText, Wifi, WifiOff
 } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -47,6 +47,8 @@ const Dashboard: React.FC = () => {
         totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
     });
     const [aiInsight, setAiInsight] = useState<string>('');
+    const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     // Leaderboard Data State
     const [leaderboardData, setLeaderboardData] = useState<{ teamLeaders: User[], riders: Rider[], leads: Lead[] }>({
@@ -153,10 +155,26 @@ const Dashboard: React.FC = () => {
         // Realtime Subscription
         const subscription = supabase
             .channel('tl-dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchStats())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchStats())
-            .subscribe();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, (payload) => {
+                console.log('TL Realtime [Riders]:', payload);
+                fetchStats();
+                setLastUpdated(new Date());
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+                console.log('TL Realtime [Users]:', payload);
+                fetchStats();
+                setLastUpdated(new Date());
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+                console.log('TL Realtime [Leads]:', payload);
+                fetchStats();
+                setLastUpdated(new Date());
+            })
+            .subscribe((status) => {
+                console.log('TL Subscription Status:', status);
+                if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
+                if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setRealtimeStatus('disconnected');
+            });
 
         return () => {
             subscription.unsubscribe();
@@ -230,6 +248,7 @@ const Dashboard: React.FC = () => {
     return (
         <div className="space-y-8 pb-20">
             {/* Header Section */}
+            {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">
                 <div>
                     <h1 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
@@ -240,10 +259,22 @@ const Dashboard: React.FC = () => {
                         {format(new Date(), 'EEEE, MMMM do, yyyy')}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end gap-2">
                     <div className="px-4 py-2 bg-card border rounded-full text-sm font-semibold shadow-sm flex items-center gap-2">
                         <Shield size={14} className="text-primary" />
                         Team Leader View
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium border transition-colors ${realtimeStatus === 'connected'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        : 'bg-red-50 text-red-600 border-red-100'
+                        }`}>
+                        {realtimeStatus === 'connected' ? <Wifi size={10} /> : <WifiOff size={10} />}
+                        {realtimeStatus === 'connected' ? 'Live' : 'Disconnected'}
+                        {realtimeStatus === 'connected' && (
+                            <span className="text-emerald-400 ml-1">
+                                • {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -459,7 +490,7 @@ const Dashboard: React.FC = () => {
                     </motion.button>
                 ))}
             </div>
-        </div>
+        </div >
     );
 };
 

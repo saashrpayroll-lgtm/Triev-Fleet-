@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    Sparkles, Filter, Settings
+    Sparkles, Filter, Settings, Wifi, WifiOff
 } from 'lucide-react';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -41,6 +41,8 @@ const Dashboard: React.FC = () => {
     const [dateFilter, setDateFilter] = useState<DateFilter>('month');
     const [loading, setLoading] = useState(true);
     const [aiInsight, setAiInsight] = useState<string>('');
+    const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     // Customization State
     const [showCustomizer, setShowCustomizer] = useState(false);
@@ -107,11 +109,31 @@ const Dashboard: React.FC = () => {
 
         const channel = supabase
             .channel('dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchDashboardData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchDashboardData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => fetchDashboardData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchDashboardData())
-            .subscribe();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, (payload) => {
+                console.log('Realtime Update [Riders]:', payload);
+                fetchDashboardData();
+                setLastUpdated(new Date());
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+                console.log('Realtime Update [Leads]:', payload);
+                fetchDashboardData();
+                setLastUpdated(new Date());
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, (payload) => {
+                console.log('Realtime Update [Requests]:', payload);
+                fetchDashboardData();
+                setLastUpdated(new Date());
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+                console.log('Realtime Update [Users]:', payload);
+                fetchDashboardData();
+                setLastUpdated(new Date());
+            })
+            .subscribe((status) => {
+                console.log('Realtime Subscription Status:', status);
+                if (status === 'SUBSCRIBED') setRealtimeStatus('connected');
+                if (status === 'CLOSED' || status === 'CHANNEL_ERROR') setRealtimeStatus('disconnected');
+            });
 
         return () => {
             supabase.removeChannel(channel);
@@ -353,6 +375,22 @@ const Dashboard: React.FC = () => {
                     )}
                 </div>
             )}
+
+            {/* Realtime Status Indicator */}
+            <div className={`flex justify-end mb-2 transition-opacity duration-500 ${realtimeStatus === 'connected' ? 'opacity-50 hover:opacity-100' : 'opacity-100'}`}>
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium border ${realtimeStatus === 'connected'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        : 'bg-red-50 text-red-600 border-red-100'
+                    }`}>
+                    {realtimeStatus === 'connected' ? <Wifi size={10} /> : <WifiOff size={10} />}
+                    {realtimeStatus === 'connected' ? 'Live' : 'Disconnected'}
+                    {realtimeStatus === 'connected' && (
+                        <span className="text-emerald-400 ml-1">
+                            • {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                    )}
+                </div>
+            </div>
 
             {/* DYNAMIC SECTIONS RENDER */}
             <div className="space-y-8">
