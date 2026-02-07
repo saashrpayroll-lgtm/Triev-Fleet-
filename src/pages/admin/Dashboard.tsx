@@ -212,16 +212,6 @@ const Dashboard: React.FC = () => {
         }
     }, [loading, dateFilter]); // Reduced dependency churn
 
-    // DEBUG: Log visibility conditions for Analytics
-    useEffect(() => {
-        console.log('DEBUG: Admin Dashboard Render Conditions', {
-            isVisibleAnalytics: visibleSections.analytics,
-            isTL: userData?.role === 'teamLeader',
-            tlCount: rawData.teamLeaders.length,
-            showSection: visibleSections.analytics && userData?.role !== 'teamLeader'
-        });
-    }, [visibleSections, userData, rawData.teamLeaders.length]);
-
 
     // --- Render Loading ---
     if (loading) {
@@ -437,8 +427,7 @@ const Dashboard: React.FC = () => {
             {/* 2. TL PERFORMANCE ANALYTICS (NEW SECTION) */}
             {/* 2. TL PERFORMANCE ANALYTICS (NEW SECTION) */}
             {visibleSections.analytics && !isTL && (
-                <div className="animate-in slide-in-from-bottom duration-700 delay-200 border-2 border-red-500 m-4 relative">
-                    <div className="absolute top-0 right-0 bg-red-500 text-white text-xs px-2">DEBUG MODE</div>
+                <div className="animate-in slide-in-from-bottom duration-700 delay-200">
                     <TLPerformanceAnalytics
                         teamLeaders={rawData.teamLeaders}
                         riders={rawData.riders}
