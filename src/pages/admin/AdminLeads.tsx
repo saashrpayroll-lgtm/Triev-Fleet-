@@ -66,16 +66,16 @@ const AdminLeads: React.FC = () => {
             `);
             if (riderData) setRiders(riderData as any);
 
-            // 2. Fetch Team Leaders (User Profiles with role='teamLeader' or just all for now)
-            // Assuming 'users' table or profile table. Using 'user_profiles' if exists or just fetching distinct names from leads if easier, 
-            // but fetching profiles is safer.
+            // 2. Fetch Potential Lead Creators (Team Leaders/Admins/etc)
+            // Fetching all profiles to ensure we catch anyone who created a lead. 
+            // We can optimize this later if user count grows large.
             const { data: tlData } = await supabase
                 .from('user_profiles')
                 .select('user_id, full_name')
-                .eq('role', 'teamLeader');
+                .order('full_name', { ascending: true });
 
             if (tlData) {
-                setTeamLeaders(tlData.map((u: any) => ({ id: u.user_id, name: u.full_name })));
+                setTeamLeaders(tlData.map((u: any) => ({ id: u.user_id, name: u.full_name || 'Unknown' })));
             }
 
             // 3. Fetch Leads
