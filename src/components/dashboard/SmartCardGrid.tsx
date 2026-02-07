@@ -21,7 +21,6 @@ const SmartCardGrid: React.FC<SmartCardGridProps> = ({
     loading = false,
     onCardClick
 }) => {
-    console.log('SmartCardGrid Props:', { riders: riders.length, leads: leads.length, requests: requests.length, teamLeaders: teamLeaders.length });
 
     const stats = useMemo(() => {
         // --- Riders ---
@@ -99,6 +98,7 @@ const SmartCardGrid: React.FC<SmartCardGridProps> = ({
                 color="indigo"
                 subtitle={`${stats.activeRiders} Active • ${stats.inactiveRiders} Inactive`}
                 onClick={() => onCardClick?.('riders')}
+                formatter={(val) => val.toLocaleString()}
             />
 
             {/* 2. Wallet Health */}
@@ -109,6 +109,7 @@ const SmartCardGrid: React.FC<SmartCardGridProps> = ({
                 color={stats.totalWallet >= 0 ? 'emerald' : 'rose'}
                 subtitle={`${stats.positiveCount} Positive / ${stats.negativeCount} Negative`}
                 onClick={() => onCardClick?.('wallet')}
+                formatter={(val) => `₹${val.toLocaleString('en-IN')}`}
             />
 
             {/* 3. Lead Conversion */}

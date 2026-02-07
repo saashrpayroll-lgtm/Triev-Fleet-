@@ -19,7 +19,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
         : 0;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom duration-700 delay-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom duration-700 delay-300" style={{ minHeight: '400px' }}>
 
             {/* 1. Fleet Composition (Vibrant Donut Chart) */}
             <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group">
