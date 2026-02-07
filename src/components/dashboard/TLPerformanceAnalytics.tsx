@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area
 } from 'recharts';
 import { User, Rider, Lead } from '@/types';
 import { format, subDays, isSameDay } from 'date-fns';
-import { Users, BarChart2, TrendingUp } from 'lucide-react';
+import { Users, BarChart2, TrendingUp, Download } from 'lucide-react';
+import { DashboardService, DailyMetric } from '@/services/DashboardService';
 
 interface TLPerformanceAnalyticsProps {
     teamLeaders: User[];
@@ -24,6 +25,8 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
     // -- Individual State --
     const [selectedTLId, setSelectedTLId] = useState<string>(teamLeaders[0]?.id || '');
     const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+    const [historicalData, setHistoricalData] = useState<DailyMetric[]>([]);
+    const [compareMode, setCompareMode] = useState(false);
 
     // -- Comparison State --
     const [selectedTLs, setSelectedTLs] = useState<string[]>(teamLeaders.slice(0, 3).map(u => u.id));
@@ -31,6 +34,35 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
 
     // --- Helpers ---
     const getTLName = (id: string) => teamLeaders.find(u => u.id === id)?.fullName || 'Unknown';
+
+    // --- Fetch Historical Data ---
+    useEffect(() => {
+        if (selectedTLId) {
+            const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+
+            // Fetch Current Period
+            DashboardService.getHistoricalMetrics(selectedTLId, days).then(data => {
+                setHistoricalData(data);
+            });
+
+            // Fetch Previous Period (if Compare Mode is on)
+            if (compareMode) {
+                // We need to fetch data *before* the current window.
+                // DashboardService needs a custom date range or we hack it by fetching 2x days and slicing?
+                // Let's rely on the service to filter, but since getHistoricalMetrics takes 'days' from NOW, 
+                // we need a new method or just fetch a longer range. 
+                // Actually, let's just fetch 2 * days and split it manually? 
+                // Or better, let's keep getHistoricalMetrics simple and just fetch a wider range here?
+                // For simplicity, let's assume we fetch 2x range.
+                // Re-implementation: let's just fetch everything we need.
+                DashboardService.getHistoricalMetrics(selectedTLId, days * 2).then(fullData => {
+                    // Split manually? Or just use logical filtering in useMemo.
+                    // This is cleaner.
+                    setHistoricalData(fullData);
+                });
+            }
+        }
+    }, [selectedTLId, timeRange, compareMode]);
 
     // --- Individual Data Processing ---
     const individualData = useMemo(() => {
@@ -41,33 +73,50 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
         const now = new Date();
 
         for (let i = days - 1; i >= 0; i--) {
+            // Current Period Date
             const date = subDays(now, i);
-            // dayStart removed as it was unused
+            const dateStr = format(date, 'yyyy-MM-dd');
 
-            // Filter riders/leads for this TL up to this day (cumulative or daily?)
-            // Let's do daily snapshots for "Leads Generated" and "Revenue Collected" (approx)
-            // Note: We don't have transaction history in this mocked context, so we'll estimate "Active Riders" history via created_at
+            // Previous Period Date (shifted by 'days')
+            const prevDate = subDays(date, days);
+            const prevDateStr = format(prevDate, 'yyyy-MM-dd');
 
-            const daysLeads = leads.filter(l =>
-                l.createdBy === selectedTLId &&
-                isSameDay(new Date(l.createdAt), date)
-            ).length;
+            // Find Metrics
+            const currentEntry = historicalData.find(d => d.date === dateStr);
+            const prevEntry = compareMode ? historicalData.find(d => d.date === prevDateStr) : null;
 
-            // Approximate "Active Riders" on this day (cumulative)
-            const activeRiders = riders.filter(r =>
-                (r.teamLeaderId === selectedTLId || r.teamLeaderId === selectedTLId) && // Handle both field styles if inconsistent
-                new Date(r.createdAt) <= date &&
-                r.status === 'active'
-            ).length;
+            // Current Values (Fallback to live data if today/recent)
+            let currentLeads = currentEntry ? currentEntry.metrics.leads_generated : 0;
+            let currentActive = currentEntry ? currentEntry.metrics.active_riders : 0;
+
+            if (!currentEntry) {
+                // Fallback calculation for metrics not yet in DB (e.g. Today)
+                currentLeads = leads.filter(l => l.createdBy === selectedTLId && isSameDay(new Date(l.createdAt), date)).length;
+                currentActive = riders.filter(r => (r.teamLeaderId === selectedTLId) && new Date(r.createdAt) <= date && r.status === 'active').length;
+            }
+
+            // Previous Values
+            let prevLeads = prevEntry ? prevEntry.metrics.leads_generated : 0;
+            let prevActive = prevEntry ? prevEntry.metrics.active_riders : 0;
+
+            // Fallback for Previous if missing (simulated for demo if needed, or 0)
+            if (!prevEntry && compareMode) {
+                // Try calculating from raw data if within range?
+                prevLeads = leads.filter(l => l.createdBy === selectedTLId && isSameDay(new Date(l.createdAt), prevDate)).length;
+                prevActive = riders.filter(r => (r.teamLeaderId === selectedTLId) && new Date(r.createdAt) <= prevDate && r.status === 'active').length;
+            }
 
             data.push({
                 date: format(date, 'MMM dd'),
-                leads: daysLeads,
-                activeRiders: activeRiders
+                activeRiders: currentActive,
+                leads: currentLeads,
+                // Previous Data
+                prevActiveRiders: compareMode ? prevActive : undefined,
+                prevLeads: compareMode ? prevLeads : undefined,
             });
         }
         return data;
-    }, [selectedTLId, timeRange, leads, riders]);
+    }, [selectedTLId, timeRange, leads, riders, historicalData, compareMode]);
 
     // --- Comparison Data Processing ---
     const comparisonData = useMemo(() => {
@@ -107,6 +156,20 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
         return data;
     }, [selectedTLs, compMetric, leads, riders, teamLeaders]);
 
+    // --- Export Function ---
+    const handleExport = () => {
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + ["Date", "Active Riders", "Leads"].join(",") + "\n"
+            + individualData.map(e => `${e.date},${e.activeRiders},${e.leads}`).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `performance_export_${selectedTLId}_${timeRange}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -117,25 +180,34 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                     <h3 className="font-bold text-gray-800">Performance Analytics</h3>
                 </div>
 
-                <div className="flex bg-gray-200/50 p-1 rounded-lg">
+                <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setActiveTab('individual')}
-                        className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'individual'
-                            ? 'bg-white text-indigo-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                        onClick={handleExport}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-600 bg-white border rounded-md shadow-sm transition-all"
+                        title="Export CSV"
                     >
-                        Individual Deep Dive
+                        <Download size={14} /> Export
                     </button>
-                    <button
-                        onClick={() => setActiveTab('comparison')}
-                        className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'comparison'
-                            ? 'bg-white text-indigo-600 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Comparison
-                    </button>
+                    <div className="flex bg-gray-200/50 p-1 rounded-lg">
+                        <button
+                            onClick={() => setActiveTab('individual')}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'individual'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Individual Deep Dive
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('comparison')}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${activeTab === 'comparison'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Comparison
+                        </button>
+                    </div>
                 </div>
             </div>
 
