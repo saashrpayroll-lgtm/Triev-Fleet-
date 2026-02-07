@@ -240,6 +240,17 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Compare Mode Toggle */}
+                            <label className="flex items-center gap-2 text-sm font-medium text-gray-600 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={compareMode}
+                                    onChange={(e) => setCompareMode(e.target.checked)}
+                                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                                />
+                                Compare with previous period
+                            </label>
                         </div>
 
                         {/* Charts Grid */}
