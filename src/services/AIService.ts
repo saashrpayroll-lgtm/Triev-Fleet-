@@ -285,25 +285,32 @@ Provide 2-3 concise bullet points about onboarding checklist, expectations, or i
     },
 
     generatePaymentReminder: async (_rider: any, language: 'hindi' | 'english', tone: 'professional' | 'friendly' | 'urgent'): Promise<string> => {
-        const languageInstruction = language === 'hindi' ? 'Write the message in Hindi (Devanagari script)' : 'Write the message in English';
+        const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
         const toneInstruction = tone === 'professional' ? 'professional and respectful' : tone === 'friendly' ? 'friendly and polite' : 'urgent but respectful';
 
         const prompt = `Generate a payment reminder message for a rider with negative wallet balance.
-Rider Name: {name} (use this placeholder in the message)
-Outstanding Amount: ₹{amount} (use this placeholder in the message)
+Rider Name: {name}
+Outstanding Amount: {amount}
 
-${languageInstruction}. The tone should be ${toneInstruction}.
-The message should:
-1. Politely remind about the outstanding payment
-2. Include the placeholders {name} and {amount} so they can be replaced later
-3. Request prompt payment
-4. Be concise (2-3 sentences)
-5. End with a professional closing
+INSTRUCTIONS:
+1. ${languageInstruction}
+2. Tone: ${toneInstruction}
+3. You MUST conserve the placeholders {name} and {amount} exactly as written. Do not translate them.
+4. Keep it concise (2-3 sentences).
+5. Do not include any introductory text, just the message body.
 
-Return ONLY the message text, no explanations.`;
+Return ONLY the message text.`;
 
-        const text = await AIOrchestrator.execute('speed', prompt, "You are a Professional Payment Reminder Specialist.");
-        return text ? cleanText(text) : `Dear {name}, this is a friendly reminder about your outstanding balance of ₹{amount}. Please clear your dues at the earliest. Thank you!`;
+        // Use 'analysis' (Gemini) for better multi-lingual support than Groq
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Professional Payment Reminder Specialist.");
+
+        if (text) return cleanText(text);
+
+        // Fallbacks
+        if (language === 'hindi') {
+            return `नमस्ते {name}, आपके वॉलेट में {amount} की बकाया राशि है। कृपया अपनी सेवाओं को जारी रखने के लिए इसे जल्द से जल्द क्लियर करें। धन्यवाद।`;
+        }
+        return `Dear {name}, this is a friendly reminder about your outstanding balance of {amount}. Please clear your dues at the earliest. Thank you!`;
     },
 
     parseSearchQuery: async (query: string): Promise<{ role?: string; status?: string; location?: string; keyword?: string; }> => {
