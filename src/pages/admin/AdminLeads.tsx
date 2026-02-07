@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
-import { Lead, LeadStatus, Rider, LeadCategory } from '@/types';
+import { Lead, LeadStatus, Rider } from '@/types';
 import AdminLeadTable from '@/components/AdminLeadTable';
 import { AILeadStatsCards } from '@/components/AILeadStatsCards';
 import LeadDetailModal from '@/components/LeadDetailModal';
@@ -66,16 +66,16 @@ const AdminLeads: React.FC = () => {
             `);
             if (riderData) setRiders(riderData as any);
 
-            // 2. Fetch Potential Lead Creators (Team Leaders/Admins/etc)
-            // Fetching all profiles to ensure we catch anyone who created a lead. 
-            // We can optimize this later if user count grows large.
+            // 2. Fetch Team Leaders (User Profiles with role='teamLeader' or just all for now)
+            // Assuming 'users' table or profile table. Using 'user_profiles' if exists or just fetching distinct names from leads if easier, 
+            // but fetching profiles is safer.
             const { data: tlData } = await supabase
                 .from('user_profiles')
                 .select('user_id, full_name')
-                .order('full_name', { ascending: true });
+                .eq('role', 'teamLeader');
 
             if (tlData) {
-                setTeamLeaders(tlData.map((u: any) => ({ id: u.user_id, name: u.full_name || 'Unknown' })));
+                setTeamLeaders(tlData.map((u: any) => ({ id: u.user_id, name: u.full_name })));
             }
 
             // 3. Fetch Leads
@@ -108,6 +108,8 @@ const AdminLeads: React.FC = () => {
 
     // Apply Filters
     const filteredLeads = useMemo(() => {
+        console.log("Filtering Leads with Config:", filterConfig);
+
         return leads.filter(lead => {
             // 1. Search Term
             const matchesSearch = searchTerm === '' ||
@@ -132,29 +134,53 @@ const AdminLeads: React.FC = () => {
                 const leadDate = parseISO(lead.createdAt);
                 const start = startOfDay(parseISO(filterConfig.dateRange.start));
                 const end = endOfDay(parseISO(filterConfig.dateRange.end));
-                if (!isWithinInterval(leadDate, { start, end })) return false;
+                if (!isWithinInterval(leadDate, { start, end })) {
+                    // console.log("Failed Date:", lead.createdAt, start, end);
+                    return false;
+                }
             }
 
             // Team Leader
-            if (filterConfig.teamLeaderId && lead.createdBy !== filterConfig.teamLeaderId) return false;
+            if (filterConfig.teamLeaderId && lead.createdBy !== filterConfig.teamLeaderId) {
+                // console.log("Failed TL:", lead.createdBy, filterConfig.teamLeaderId);
+                return false;
+            }
 
             // Status (Multi-select)
-            if (filterConfig.status.length > 0 && !filterConfig.status.includes(lead.status)) return false;
+            if (filterConfig.status.length > 0 && !filterConfig.status.includes(lead.status)) {
+                // console.log("Failed Status:", lead.status, filterConfig.status);
+                return false;
+            }
 
             // Category
             if (filterConfig.category.length > 0) {
                 const cat = typeof lead.category === 'string' ? lead.category : 'Genuine';
-                if (!filterConfig.category.includes(cat as LeadCategory)) return false;
+                const normalize = (s: string) => s.toLowerCase();
+                // Case-insensitive check for category
+                const configCats = filterConfig.category.map(normalize);
+                if (!configCats.includes(normalize(cat))) {
+                    // console.log("Failed Category:", cat, filterConfig.category);
+                    return false;
+                }
             }
 
             // Source
-            if (filterConfig.source.length > 0 && !filterConfig.source.includes(lead.source)) return false;
+            if (filterConfig.source.length > 0 && !filterConfig.source.includes(lead.source)) {
+                // console.log("Failed Source:", lead.source, filterConfig.source);
+                return false;
+            }
 
             // City
-            if (filterConfig.city && lead.city !== filterConfig.city) return false;
+            if (filterConfig.city && lead.city !== filterConfig.city) {
+                // console.log("Failed City:", lead.city, filterConfig.city);
+                return false;
+            }
 
             // License
-            if (filterConfig.drivingLicense && lead.drivingLicense !== filterConfig.drivingLicense) return false;
+            if (filterConfig.drivingLicense && lead.drivingLicense !== filterConfig.drivingLicense) {
+                // console.log("Failed License:", lead.drivingLicense, filterConfig.drivingLicense);
+                return false;
+            }
 
             return true;
         });
