@@ -238,6 +238,7 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                         <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Name</th>
                         <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Mobile</th>
                         <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">City</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Team Leader</th>
                         <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</th>
                         <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Stats</th>
                         <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">Score</th>
@@ -274,6 +275,9 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                                 </div>
                             </td>
                             <td className="px-4 py-3 text-sm">{lead.city}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                                {lead.createdByName || <span className="text-gray-400 italic">Self/Admin</span>}
+                            </td>
                             <td className="px-4 py-3">
                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${lead.status === 'New' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                     lead.status === 'Convert' ? 'bg-green-50 text-green-700 border-green-200' :

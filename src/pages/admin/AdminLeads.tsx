@@ -66,19 +66,7 @@ const AdminLeads: React.FC = () => {
             `);
             if (riderData) setRiders(riderData as any);
 
-            // 2. Fetch Team Leaders (User Profiles with role='teamLeader' or just all for now)
-            // Assuming 'users' table or profile table. Using 'user_profiles' if exists or just fetching distinct names from leads if easier, 
-            // but fetching profiles is safer.
-            const { data: tlData } = await supabase
-                .from('user_profiles')
-                .select('user_id, full_name')
-                .eq('role', 'teamLeader');
-
-            if (tlData) {
-                setTeamLeaders(tlData.map((u: any) => ({ id: u.user_id, name: u.full_name })));
-            }
-
-            // 3. Fetch Leads
+            // 2. Fetch Leads
             const { data: leadData } = await supabase.from('leads').select(`
                 id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
                 city, status, score, category, source, createdAt:created_at,
@@ -86,7 +74,21 @@ const AdminLeads: React.FC = () => {
                 location, createdBy:created_by, createdByName:created_by_name,
                 remarks
             `).order('id', { ascending: false });
-            if (leadData) setLeads(leadData as any);
+
+            if (leadData) {
+                const leadsData = leadData as any[];
+                setLeads(leadsData);
+
+                // 3. Extract Unique Team Leaders from Leads
+                const uniqueTLs = new Map<string, string>();
+                leadsData.forEach(lead => {
+                    if (lead.createdBy && lead.createdByName) {
+                        uniqueTLs.set(lead.createdBy, lead.createdByName);
+                    }
+                });
+
+                setTeamLeaders(Array.from(uniqueTLs.entries()).map(([id, name]) => ({ id, name })));
+            }
 
             setLoading(false);
         };
