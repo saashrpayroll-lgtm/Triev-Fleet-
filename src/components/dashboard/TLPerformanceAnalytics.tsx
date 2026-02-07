@@ -4,9 +4,10 @@ import {
     AreaChart, Area
 } from 'recharts';
 import { User, Rider, Lead } from '@/types';
-import { format, subDays, isSameDay } from 'date-fns';
-import { Users, BarChart2, TrendingUp, Download } from 'lucide-react';
+import { format, subDays, isSameDay, parseISO } from 'date-fns';
+import { Users, BarChart2, TrendingUp, Download, Grid, Table as TableIcon } from 'lucide-react';
 import { DashboardService, DailyMetric } from '@/services/DashboardService';
+import HeatmapChart from './HeatmapChart';
 
 interface TLPerformanceAnalyticsProps {
     teamLeaders: User[];
@@ -47,17 +48,7 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
 
             // Fetch Previous Period (if Compare Mode is on)
             if (compareMode) {
-                // We need to fetch data *before* the current window.
-                // DashboardService needs a custom date range or we hack it by fetching 2x days and slicing?
-                // Let's rely on the service to filter, but since getHistoricalMetrics takes 'days' from NOW, 
-                // we need a new method or just fetch a longer range. 
-                // Actually, let's just fetch 2 * days and split it manually? 
-                // Or better, let's keep getHistoricalMetrics simple and just fetch a wider range here?
-                // For simplicity, let's assume we fetch 2x range.
-                // Re-implementation: let's just fetch everything we need.
                 DashboardService.getHistoricalMetrics(selectedTLId, days * 2).then(fullData => {
-                    // Split manually? Or just use logical filtering in useMemo.
-                    // This is cleaner.
                     setHistoricalData(fullData);
                 });
             }
@@ -117,6 +108,29 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
         }
         return data;
     }, [selectedTLId, timeRange, leads, riders, historicalData, compareMode]);
+
+    // --- Heatmap Data (Leads Activity) ---
+    const heatmapData = useMemo(() => {
+        if (!selectedTLId) return [];
+        // Filter leads by selected TL
+        const tlLeads = leads.filter(l => l.createdBy === selectedTLId);
+
+        // Aggregate by date (just count for now, ignoring time for simplified daily heatmap)
+        // If we want hourly, we'd need a different chart type or very dense grid
+        const activityMap = new Map<string, number>();
+
+        tlLeads.forEach(l => {
+            const dateStr = format(parseISO(l.createdAt), 'yyyy-MM-dd');
+            activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1);
+        });
+
+        // Convert Map to Array
+        return Array.from(activityMap.entries()).map(([dateStr, count]) => ({
+            date: parseISO(dateStr),
+            value: count
+        }));
+    }, [selectedTLId, leads]);
+
 
     // --- Comparison Data Processing ---
     const comparisonData = useMemo(() => {
@@ -297,6 +311,14 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                                 </ResponsiveContainer>
                             </div>
                         </div>
+
+                        {/* Heatmap Section */}
+                        <div className="border rounded-xl p-4 bg-white">
+                            <h4 className="text-sm font-semibold text-gray-500 mb-4 flex items-center gap-2">
+                                <Grid size={16} /> Activity Heatmap (Leads Generated)
+                            </h4>
+                            <HeatmapChart data={heatmapData} />
+                        </div>
                     </div>
                 )}
 
@@ -339,7 +361,7 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                         </div>
 
                         {/* Comparison Chart */}
-                        <div className="h-[400px] w-full">
+                        <div className="h-[400px] w-full border rounded-xl p-4">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={comparisonData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -362,6 +384,66 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                                     ))}
                                 </LineChart>
                             </ResponsiveContainer>
+                        </div>
+
+                        {/* Comparison Table */}
+                        <div className="border rounded-xl bg-white overflow-hidden">
+                            <div className="px-4 py-3 bg-gray-50 border-b flex items-center gap-2">
+                                <TableIcon size={16} className="text-gray-500" />
+                                <h4 className="text-sm font-bold text-gray-700">Detailed Comparison</h4>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-gray-50/50 text-left border-b">
+                                            <th className="px-4 py-3 font-medium text-gray-500">Metric</th>
+                                            {selectedTLs.map(tlId => (
+                                                <th key={tlId} className="px-4 py-3 font-bold text-gray-800">{getTLName(tlId)}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        <tr>
+                                            <td className="px-4 py-3 font-medium text-gray-600">Total Rides (Active)</td>
+                                            {selectedTLs.map(tlId => (
+                                                <td key={tlId} className="px-4 py-3">
+                                                    {riders.filter(r => r.teamLeaderId === tlId && r.status === 'active').length}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="px-4 py-3 font-medium text-gray-600">Total Leads</td>
+                                            {selectedTLs.map(tlId => (
+                                                <td key={tlId} className="px-4 py-3">
+                                                    {leads.filter(l => l.createdBy === tlId).length}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <td className="px-4 py-3 font-medium text-gray-600">Conversion Rate</td>
+                                            {selectedTLs.map(tlId => {
+                                                const total = leads.filter(l => l.createdBy === tlId).length;
+                                                const converted = leads.filter(l => l.createdBy === tlId && l.status === 'Convert').length;
+                                                const rate = total > 0 ? Math.round((converted / total) * 100) : 0;
+                                                return <td key={tlId} className="px-4 py-3">{rate}%</td>
+                                            })}
+                                        </tr>
+                                        <tr>
+                                            <td className="px-4 py-3 font-medium text-gray-600">Avg Wallet Balance</td>
+                                            {selectedTLs.map(tlId => {
+                                                const tlRiders = riders.filter(r => r.teamLeaderId === tlId);
+                                                const total = tlRiders.reduce((sum, r) => sum + r.walletAmount, 0);
+                                                const avg = tlRiders.length > 0 ? Math.round(total / tlRiders.length) : 0;
+                                                return (
+                                                    <td key={tlId} className={`px-4 py-3 font-mono ${avg < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                        ₹{avg.toLocaleString()}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
