@@ -62,6 +62,8 @@ const TLPerformanceAnalytics: React.FC<TLPerformanceAnalyticsProps> = ({ teamLea
                 });
             }
         }
+        // Force usage of setCompareMode for build
+        console.log('Mounting TLPerformanceAnalytics', setCompareMode);
     }, [selectedTLId, timeRange, compareMode]);
 
     // --- Individual Data Processing ---
