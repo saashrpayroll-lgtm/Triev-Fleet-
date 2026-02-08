@@ -313,7 +313,7 @@ Return ONLY the message text.`;
         return `Dear {name}, this is a friendly reminder about your outstanding balance of {amount}. Please clear your dues at the earliest. Thank you!`;
     },
 
-    generateRecoveryMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
+    generateRecoveryMessage: async (_rider: any, language: 'hindi' | 'english'): Promise<string> => {
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
 
         const prompt = `Generate a STERN vehicle recovery warning for a rider with HIGH negative wallet balance.

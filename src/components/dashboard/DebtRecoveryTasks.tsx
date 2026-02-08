@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Rider } from '@/types';
 import { supabase } from '@/config/supabase';
 import { AIService } from '@/services/AIService';
@@ -127,8 +127,8 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 className={`group p-4 rounded-2xl border transition-all ${selectedRider?.id === rider.id
-                                        ? 'bg-primary/5 border-primary ring-1 ring-primary'
-                                        : 'bg-card border-border hover:border-primary/50'
+                                    ? 'bg-primary/5 border-primary ring-1 ring-primary'
+                                    : 'bg-card border-border hover:border-primary/50'
                                     }`}
                             >
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
