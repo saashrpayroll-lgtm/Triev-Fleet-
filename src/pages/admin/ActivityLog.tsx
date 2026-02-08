@@ -4,6 +4,7 @@ import { supabase } from '@/config/supabase';
 import { Search, Trash2, Calendar, Download, Globe, Clock, User, Activity, Filter, RefreshCw, X } from 'lucide-react';
 import { format, isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { logActivity } from '@/utils/activityLog';
 
 interface ActivityLog {
     id: string;
@@ -35,19 +36,7 @@ const ActivityLog: React.FC = () => {
     const [showFilters, setShowFilters] = useState(false);
 
     // Local Persistence Helper
-    const getLocalDeletedIds = () => {
-        try {
-            return new Set(JSON.parse(localStorage.getItem('deleted_activity_logs') || '[]'));
-        } catch {
-            return new Set();
-        }
-    };
 
-    const saveLocalDeletedId = (id: string) => {
-        const current = getLocalDeletedIds();
-        current.add(id);
-        localStorage.setItem('deleted_activity_logs', JSON.stringify(Array.from(current)));
-    };
 
     const [showMetadata, setShowMetadata] = useState<any | null>(null);
 
@@ -76,10 +65,7 @@ const ActivityLog: React.FC = () => {
             if (error) throw error;
 
             if (data) {
-                const localDeleted = getLocalDeletedIds();
-                const validLogs = (data as ActivityLog[]).filter(l =>
-                    l.isDeleted !== true && !localDeleted.has(l.id)
-                );
+                const validLogs = (data as ActivityLog[]).filter(l => l.isDeleted !== true);
                 setLogs(validLogs);
             }
         } catch (error: any) {
@@ -186,46 +172,42 @@ const ActivityLog: React.FC = () => {
         const idsToDelete = id ? [id] : Array.from(selectedLogs);
         if (idsToDelete.length === 0) return;
 
-        if (!id && !confirm(`Are you sure you want to delete ${idsToDelete.length} logs?`)) return;
+        if (!confirm(`Are you sure you want to PERMANENTLY delete ${idsToDelete.length} logs from the database? This cannot be undone.`)) return;
 
-        // Optimistic UI Update immediately
+        // Optimistic UI Update
         setLogs(prev => prev.filter(l => !idsToDelete.includes(l.id)));
         setSelectedLogs(new Set());
 
         try {
-            // Attempt 1: Server Soft Delete
-            const { error: updateError, data: updateData } = await supabase
-                .from('activity_logs')
-                .update({ is_deleted: true })
-                .in('id', idsToDelete)
-                .select();
-
-            // If success
-            if (!updateError && updateData && updateData.length === idsToDelete.length) {
-                toast.success("Logs deleted from server.");
-                return;
-            }
-
-            // Attempt 2: Server Hard Delete (Fallback)
-            const { error: deleteError, data: deleteData } = await supabase
+            // Server Hard Delete
+            const { error } = await supabase
                 .from('activity_logs')
                 .delete()
-                .in('id', idsToDelete)
-                .select();
+                .in('id', idsToDelete);
 
-            // Check if items were actually deleted
-            if (!deleteError && deleteData && deleteData.length > 0) {
-                toast.success("Logs permanently deleted.");
-                return;
+            if (error) {
+                console.error("Delete failed:", error);
+                throw error;
             }
 
-            throw new Error("Server blocked deletion.");
+            toast.success("Logs permanently deleted from database.");
 
-        } catch (err) {
-            // Attempt 3: Local Storage Fallback (The "Ultimate" Fix)
-            console.warn("Server deletion blocked, forcing local hide.", err);
-            idsToDelete.forEach(saveLocalDeletedId);
-            toast.success("Logs deleted (Local override)");
+            // Also log this deletion action (meta-logging)
+            if (idsToDelete.length > 0) {
+                await logActivity({
+                    actionType: 'Hard Delete',
+                    targetType: 'system',
+                    targetId: 'multiple',
+                    details: `Permanently deleted ${idsToDelete.length} activity logs`,
+                    performedBy: 'Admin'
+                });
+            }
+
+        } catch (err: any) {
+            console.error("Deletion Error:", err);
+            toast.error(`Failed to delete: ${err.message}`);
+            // Re-fetch to restore state if failed
+            fetchLogs();
         }
     };
 
