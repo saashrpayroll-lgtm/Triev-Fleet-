@@ -178,27 +178,44 @@ const ActivityLog: React.FC = () => {
         setLogs(prev => prev.filter(l => !idsToDelete.includes(l.id)));
         setSelectedLogs(new Set());
 
-        try {
-            // Server Hard Delete
-            const { error } = await supabase
-                .from('activity_logs')
-                .delete()
-                .in('id', idsToDelete);
+        let deletedCount = 0;
+        let errorCount = 0;
+        const BATCH_SIZE = 50; // Safe batch size for URL length limits
 
-            if (error) {
-                console.error("Delete failed:", error);
-                throw error;
+        try {
+            // Processing in batches
+            for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+                const batch = idsToDelete.slice(i, i + BATCH_SIZE);
+
+                const { error } = await supabase
+                    .from('activity_logs')
+                    .delete()
+                    .in('id', batch);
+
+                if (error) {
+                    console.error(`Batch delete failed (${i}-${i + batch.length}):`, error);
+                    errorCount += batch.length;
+                    // Revert optimistic update for failed items (optional, complex to track exactly)
+                } else {
+                    deletedCount += batch.length;
+                }
             }
 
-            toast.success("Logs permanently deleted from database.");
+            if (errorCount > 0) {
+                toast.warning(`Deleted ${deletedCount} logs. Failed to delete ${errorCount} logs.`);
+                // Re-fetch to ensure UI consistency if there were errors
+                fetchLogs();
+            } else {
+                toast.success(`Successfully deleted ${deletedCount} logs.`);
+            }
 
             // Also log this deletion action (meta-logging)
-            if (idsToDelete.length > 0) {
+            if (deletedCount > 0) {
                 await logActivity({
                     actionType: 'Hard Delete',
                     targetType: 'system',
                     targetId: 'multiple',
-                    details: `Permanently deleted ${idsToDelete.length} activity logs`,
+                    details: `Permanently deleted ${deletedCount} activity logs`,
                     performedBy: 'Admin'
                 });
             }
