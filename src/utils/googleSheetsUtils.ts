@@ -126,6 +126,7 @@ export const parseGoogleSheetData = (rawData: any[]): any[] => {
     const rows = rawData.slice(1);
 
     console.log("[Google Parse] Detetcted Headers:", headers);
+    console.log("[Google Parse] Total Rows Parsed:", rows.length);
     console.log("[Google Parse] First Row Data:", rows[0]);
 
     return rows.map(row => {

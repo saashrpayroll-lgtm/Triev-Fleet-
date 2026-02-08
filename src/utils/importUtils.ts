@@ -371,6 +371,11 @@ export const processRiderImport = async (
     // Log Import History
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);
 
+    console.log(`[Import Summary] Total: ${fileData.length}, Success: ${summary.success}, Failed: ${summary.failed}`);
+    if (summary.failed > 0) {
+        console.warn("[Import Errors] First 5 errors:", summary.errors.slice(0, 5));
+    }
+
     return summary;
 };
 
