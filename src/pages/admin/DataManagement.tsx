@@ -13,8 +13,8 @@ import { logActivity } from '@/utils/activityLog';
 const DataManagement: React.FC = () => {
     const { userData } = useSupabaseAuth();
     // Persistent Settings
-    const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z1000', apiKey: '', enabled: false });
-    const [walletConfig, setWalletConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C1000', apiKey: '', enabled: false });
+    const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z10000', apiKey: '', enabled: false });
+    const [walletConfig, setWalletConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C10000', apiKey: '', enabled: false });
 
     // Legacy state for UI (optional, or we replace usage)
     const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'gsheets' | 'history' | 'help'>('import');

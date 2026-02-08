@@ -108,13 +108,16 @@ export const processRiderImport = async (
                 teamLeaderMap.set(normalizedFull, userId);
 
                 // Strategy 4: Extract Unique ID (e.g. "KONTI/357")
-                // Regex looks for "KONTI/" followed by digits, possibly with spaces
-                const idMatch = fullNameRaw.match(/KONTI\s*\/?\s*\d+/i);
+                // Regex looks for "KONTI" followed by optional space/slash and digits
+                const idMatch = fullNameRaw.match(/KONTI\s*[\/\-]?\s*\d+/i);
                 if (idMatch) {
-                    // Standardize ID format to "konti/123" (lowercase, no spaces)
-                    const uniqueId = idMatch[0].toLowerCase().replace(/\s+/g, '');
-                    teamLeaderMap.set(uniqueId, userId);
-                    // console.log(`[Mapping Debug] Extracted Unique ID: '${uniqueId}' for '${fullNameRaw}' -> ID: ${userId}`);
+                    // Simpler: Just extract numbers and prefix
+                    const numericPart = idMatch[0].match(/\d+/)?.[0];
+                    if (numericPart) {
+                        const stdId = `konti/${numericPart}`;
+                        teamLeaderMap.set(stdId, userId);
+                        // console.log(`[Mapping] ID '${stdId}' -> User: ${fullNameRaw}`);
+                    }
                 }
 
                 // Strategy 5: Map "Clean" Name (remove content in parens e.g. "Name (ID)" -> "name")
@@ -170,13 +173,13 @@ export const processRiderImport = async (
 
             // Check for 'Team Leader' OR 'Base' column
             const teamLeaderName = getValue(['Team Leader', 'TeamLeader', 'TL', 'Base', 'Hub', 'Team Leader name']);
-            let teamLeaderId = null;
+            let teamLeaderId: string | null = null;
             let assignmentStatus = 'Unassigned';
 
             // -- Logic Enhanced with UUID/Email/Fuzzy Matching --
 
             // Attempt Assignment
-            if (teamLeaderName) {
+            if (teamLeaderName && users) {
                 const normalizedTLName = teamLeaderName.toLowerCase();
                 // Debugging specific row match
                 // console.log(`[Row ${rowNum}] Checking Team Leader: '${teamLeaderName}' (Normalized: '${normalizedTLName}')`);
@@ -193,12 +196,15 @@ export const processRiderImport = async (
                     console.log(`[Row ${rowNum}] Match FOUND via Email!`);
                 }
                 // Strategy 2a: Check Processed Unique ID (KONTI/xxx)
-                const idMatch = teamLeaderName.match(/KONTI\s*\/?\s*\d+/i);
+                const idMatch = teamLeaderName.match(/KONTI\s*[\/\-]?\s*\d+/i);
                 if (idMatch) {
-                    const uniqueId = idMatch[0].toLowerCase().replace(/\s+/g, '');
-                    if (teamLeaderMap.has(uniqueId)) {
-                        teamLeaderId = teamLeaderMap.get(uniqueId);
-                        console.log(`[Row ${rowNum}] Match FOUND via Unique ID ('${uniqueId}')!`);
+                    const numericPart = idMatch[0].match(/\d+/)?.[0];
+                    if (numericPart) {
+                        const stdId = `konti/${numericPart}`;
+                        if (teamLeaderMap.has(stdId)) {
+                            teamLeaderId = teamLeaderMap.get(stdId);
+                            console.log(`[Row ${rowNum}] Match FOUND via Unique ID ('${stdId}')!`);
+                        }
                     }
                 }
 
@@ -252,7 +258,11 @@ export const processRiderImport = async (
                 }
 
                 if (teamLeaderId) {
-                    assignmentStatus = teamLeaderName; // Keep original casing
+                    // Update assignment status to be the DB User's Name if we found a match (Clean Data)
+                    // We need to find the user object again or store it in map.
+                    // Improving efficiency: Map stores ID. Users array has details.
+                    const matchedUser = users?.find((u: any) => u.id === teamLeaderId);
+                    assignmentStatus = matchedUser?.fullName || teamLeaderName;
                 } else {
                     console.warn(`Row ${rowNum}: Team Leader '${teamLeaderName}' NOT FOUND. Search keys checked: '${normalizedTLName}' against map.`);
                     // Add a warning to errors list but continue
