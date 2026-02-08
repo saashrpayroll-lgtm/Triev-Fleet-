@@ -166,10 +166,10 @@ const SmartCardGrid: React.FC<SmartCardGridProps> = ({
             {/* Using 'Total Leads' as a proxy for user activity if no 'users active' metric available */}
             <SmartMetricCard
                 title="Active Users"
-                value={riders.length + teamLeaders.length} // Proxy for now
+                value={teamLeaders.length} // Showing relevant system users (Team Leaders)
                 icon={UserCheck}
                 color="blue"
-                subtitle="Total System Users"
+                subtitle="Team Leaders & Staff"
             />
         </div>
     );

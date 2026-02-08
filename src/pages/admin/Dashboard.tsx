@@ -95,11 +95,44 @@ const Dashboard: React.FC = () => {
 
             if (ridersRes.error) throw ridersRes.error;
 
+            // Map DB snake_case to Frontend camelCase
+            const mappedRiders = (ridersRes.data || []).map((r: any) => ({
+                ...r,
+                riderName: r.rider_name || r.name || r.riderName, // Fallback logic
+                mobileNumber: r.mobile_number || r.mobileNumber,
+                chassisNumber: r.chassis_number || r.chassisNumber,
+                clientName: r.client_name || r.clientName,
+                clientId: r.client_id || r.clientId,
+                walletAmount: r.wallet_amount || r.walletAmount || 0,
+                allotmentDate: r.allotment_date || r.allotmentDate,
+                teamLeaderId: r.team_leader_id || r.teamLeaderId,
+                teamLeaderName: r.team_leader_name || r.teamLeaderName,
+                deletedAt: r.deleted_at || r.deletedAt,
+                // Ensure status is lowercase for consistency
+                status: (r.status || 'inactive').toLowerCase()
+            })) as Rider[];
+
+            const mappedLeads = (leadsRes.data || []).map((l: any) => ({
+                ...l,
+                mobileNumber: l.mobile_number || l.mobileNumber,
+                riderName: l.rider_name || l.riderName, // Lead name
+                teamLeaderId: l.team_leader_id || l.teamLeaderId, // If exists
+                // Ensure status match for "Convert"
+                status: l.status || 'New'
+            })) as Lead[];
+
+            const mappedTeamLeaders = (usersRes.data || []).map((u: any) => ({
+                ...u,
+                fullName: u.full_name || u.fullName,
+                userId: u.user_id || u.userId,
+                // Avoid recursive sanitize if not needed, or apply it after
+            })) as User[];
+
             setRawData({
-                riders: ridersRes.data as Rider[] || [],
-                leads: leadsRes.data as Lead[] || [],
+                riders: mappedRiders,
+                leads: mappedLeads,
                 requests: requestsRes.data as Request[] || [],
-                teamLeaders: sanitizeArray(usersRes.data as User[] || [])
+                teamLeaders: sanitizeArray(mappedTeamLeaders)
             });
         } catch (error) {
             console.error('Data Load Error:', error);
