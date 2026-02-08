@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { User, Rider, Lead } from '@/types';
-import { Trophy, Sparkles, Calendar, Activity } from 'lucide-react';
+import { Trophy, Sparkles, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { safeRender } from '@/utils/safeRender';
@@ -39,6 +39,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
             const totalWallet = tlRiders.reduce((sum, r) => sum + r.walletAmount, 0);
 
+            // Detailed Wallet Stats
+            const positiveWallet = tlRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0);
+            const negativeWallet = tlRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0);
+            const avgWallet = tlRiders.length > 0 ? Math.round(totalWallet / tlRiders.length) : 0;
+
             // Leads
             const tlLeads = leads.filter(l => l.createdBy === tl.id);
             const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
@@ -67,6 +72,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                     activeRiders: activeCount,
                     totalRiders: tlRiders.length,
                     wallet: totalWallet,
+                    positiveWallet,
+                    negativeWallet,
+                    avgWallet,
                     leads: tlLeads.length,
                     converted: convertedLeads,
                     conversionRate: tlLeads.length > 0 ? Math.round((convertedLeads / tlLeads.length) * 100) : 0,
@@ -181,11 +189,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
                             <div
                                 className={`
-                                    relative flex-1 rounded-t-3xl border-x border-t border-b-0 p-4 
+                                    relative flex-1 rounded-t-3xl border-x border-t border-b-0 p-3 
                                     ${styles.bg} ${styles.border} ${styles.shadow} 
                                     backdrop-blur-md hover:shadow-xl transition-all 
                                     ${disableClick ? 'cursor-default' : 'cursor-pointer'} 
-                                    flex flex-col justify-between
+                                    flex flex-col
                                     ${podiumHeightClass}
                                 `}
                                 onClick={() => {
@@ -198,49 +206,82 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 }}
                             >
                                 {/* Rank Badge (Floating) */}
-                                <div className={`self-center -mt-8 w-12 h-12 rounded-full ${styles.badge} text-white flex items-center justify-center font-black text-xl shadow-lg border-4 border-white dark:border-slate-900 z-50`}>
+                                <div className={`self-center -mt-8 w-10 h-10 rounded-full ${styles.badge} text-white flex items-center justify-center font-black text-lg shadow-lg border-4 border-white dark:border-slate-900 z-50`}>
                                     #{actualRank + 1}
                                 </div>
 
                                 {/* User Info */}
-                                <div className="text-center mt-4">
-                                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center text-2xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} mb-2`}>
+                                <div className="text-center mt-2 mb-3">
+                                    <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center text-xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} mb-1`}>
                                         {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
                                     </div>
-                                    <div className="font-extrabold text-lg truncate px-2">
+                                    <div className="font-extrabold text-sm truncate px-1">
                                         {safeRender(tl.fullName || 'Unknown')}
                                     </div>
-                                    <div className="text-xs text-muted-foreground opacity-80 uppercase tracking-wider font-bold">
+                                    <div className="text-[10px] text-muted-foreground opacity-80 uppercase tracking-wider font-bold">
                                         {Math.round(tl.score)} Pts
                                     </div>
                                 </div>
 
-                                {/* Stats Column (Center aligned) */}
-                                <div className="space-y-3 my-4">
-                                    <div className="flex justify-between items-center bg-white/40 dark:bg-black/10 rounded-lg p-2">
-                                        <span className="text-xs font-medium text-muted-foreground">Riders</span>
-                                        <span className="font-bold text-blue-600">{tl.stats.activeRiders}</span>
+                                {/* Detailed Stats Grid */}
+                                <div className="space-y-2 flex-1">
+                                    {/* 1. Riders & Leads */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-white/40 dark:bg-black/10 rounded-lg p-1.5 text-center">
+                                            <div className="text-[9px] uppercase font-bold text-muted-foreground">Riders</div>
+                                            <div className="font-black text-blue-600 text-sm">
+                                                {tl.stats.activeRiders}<span className="text-[10px] text-muted-foreground">/{tl.stats.totalRiders}</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white/40 dark:bg-black/10 rounded-lg p-1.5 text-center">
+                                            <div className="text-[9px] uppercase font-bold text-muted-foreground">Leads</div>
+                                            <div className="font-black text-orange-600 text-sm">
+                                                {tl.stats.leads}<span className="text-[10px] text-muted-foreground"> ({tl.stats.conversionRate}%)</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center bg-white/40 dark:bg-black/10 rounded-lg p-2">
-                                        <span className="text-xs font-medium text-muted-foreground">Wallet</span>
-                                        <span className={`font-bold ${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                            {tl.stats.wallet >= 1000 ? `${(tl.stats.wallet / 1000).toFixed(1)}k` : tl.stats.wallet}
-                                        </span>
+
+                                    {/* 2. Wallet Net */}
+                                    <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 flex justify-between items-center">
+                                        <div className="text-[9px] uppercase font-bold text-muted-foreground text-left leading-tight">
+                                            Net<br />Wallet
+                                        </div>
+                                        <div className="text-sm font-black text-right">
+                                            <span className={`${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                                {tl.stats.wallet >= 1000 || tl.stats.wallet <= -1000
+                                                    ? `${(tl.stats.wallet / 1000).toFixed(1)}k`
+                                                    : tl.stats.wallet}
+                                            </span>
+                                            <div className="text-[9px] font-medium opacity-70 text-foreground">
+                                                Avg: ₹{tl.stats.avgWallet}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center bg-white/40 dark:bg-black/10 rounded-lg p-2">
-                                        <span className="text-xs font-medium text-muted-foreground">Leads</span>
-                                        <span className="font-bold text-orange-600">{tl.stats.leads}</span>
+
+                                    {/* 3. Wallet Split Visual */}
+                                    <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 space-y-1">
+                                        <div className="flex justify-between text-[8px] font-bold uppercase text-muted-foreground">
+                                            <span className="text-emerald-600">Pos: {(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
+                                            <span className="text-red-500">Neg: {(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                                            <div
+                                                className="h-full bg-emerald-500"
+                                                style={{ width: `${(tl.stats.positiveWallet / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
+                                            />
+                                            <div
+                                                className="h-full bg-red-500"
+                                                style={{ width: `${(Math.abs(tl.stats.negativeWallet) / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Footer / Base Decoration */}
-                                <div className="mt-auto border-t border-black/5 dark:border-white/5 pt-3">
-                                    <div className="flex justify-center gap-4 text-[10px] text-muted-foreground font-bold uppercase">
+                                <div className="mt-2 border-t border-black/5 dark:border-white/5 pt-2">
+                                    <div className="flex justify-center text-[9px] text-muted-foreground font-bold uppercase">
                                         <span className="flex items-center gap-1">
-                                            <Activity size={10} /> Act: {tl.stats.activity}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <Calendar size={10} /> Conv: {tl.stats.conversionRate}%
+                                            <Activity size={10} /> Activity Score: {tl.stats.activity}
                                         </span>
                                     </div>
                                 </div>

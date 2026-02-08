@@ -284,22 +284,25 @@ Provide 2-3 concise bullet points about onboarding checklist, expectations, or i
         return text ? cleanText(text) : "- New rider onboarded\n- Verify all documents\n- Schedule orientation";
     },
 
-    generatePaymentReminder: async (_rider: any, language: 'hindi' | 'english', tone: 'professional' | 'friendly' | 'urgent'): Promise<string> => {
+    generatePaymentReminder: async (rider: any, language: 'hindi' | 'english', tone: 'professional' | 'friendly' | 'urgent'): Promise<string> => {
+        const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+        const name = rider.riderName;
+
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
         const toneInstruction = tone === 'professional' ? 'professional and respectful' : tone === 'friendly' ? 'friendly and polite' : 'urgent but respectful';
 
-        const prompt = `Generate a payment reminder message for a rider with negative wallet balance.
-Rider Name: {name}
-Outstanding Amount: {amount}
+        const prompt = `Generate a WhatsApp payment reminder for a rider.
+Rider Name: ${name}
+Outstanding Amount: ${amountStr}
 
 INSTRUCTIONS:
 1. ${languageInstruction}
 2. Tone: ${toneInstruction}
-3. You MUST conserve the placeholders {name} and {amount} exactly as written. Do not translate them.
+3. The message MUST include the Rider Name ("${name}") and the Amount ("${amountStr}") clearly.
 4. Keep it concise (2-3 sentences).
 5. Do not include any introductory text, just the message body.
 
-Return ONLY the message text.`;
+Return ONLY the final message text ready to send.`;
 
         // Use 'analysis' (Gemini) for better multi-lingual support than Groq
         const text = await AIOrchestrator.execute('analysis', prompt, "You are a Professional Payment Reminder Specialist.");
@@ -308,35 +311,39 @@ Return ONLY the message text.`;
 
         // Fallbacks
         if (language === 'hindi') {
-            return `नमस्ते {name}, आपके वॉलेट में {amount} की बकाया राशि है। कृपया अपनी सेवाओं को जारी रखने के लिए इसे जल्द से जल्द क्लियर करें। धन्यवाद।`;
+            return `नमस्ते *${name}*, आपके वॉलेट में *${amountStr}* की बकाया राशि है। कृपया अपनी सेवाओं को जारी रखने के लिए इसे जल्द से जल्द क्लियर करें। धन्यवाद।`;
         }
-        return `Dear {name}, this is a friendly reminder about your outstanding balance of {amount}. Please clear your dues at the earliest. Thank you!`;
+        return `Dear *${name}*, this is a friendly reminder about your outstanding balance of *${amountStr}*. Please clear your dues at the earliest. Thank you!`;
     },
 
-    generateRecoveryMessage: async (_rider: any, language: 'hindi' | 'english'): Promise<string> => {
+    generateRecoveryMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
+        const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+        const name = rider.riderName;
+
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
 
         const prompt = `Generate a STERN vehicle recovery warning for a rider with HIGH negative wallet balance.
-Rider Name: {name}
-Outstanding Amount: {amount}
+Rider Name: ${name}
+Outstanding Amount: ${amountStr}
 
 INSTRUCTIONS:
 1. ${languageInstruction}
-2. Tone: Urgent, Authoritative, but Professional.
-3. Key Message: "Your dues are critical. Pay immediately or return the EV to the hub to avoid legal action/seizure."
-4. You MUST conserve the placeholders {name} and {amount} exactly as written.
-5. Keep it concise (2 sentences max).
+2. Tone: Urgent and Authoritative.
+3. CRITICAL: Do NOT mention "legal action", "police", or "seizure". 
+4. INSTEAD, strictly say that the "**Hard Recovery Team**" (or "**हार्ड रिकवरी टीम**" in Hindi) will be assigned to recover the vehicle if dues are not cleared.
+5. The message MUST include the Rider Name ("${name}") and the Amount ("${amountStr}").
+6. Keep it concise (2 sentences max).
 
-Return ONLY the message text.`;
+Return ONLY the final message text ready to send.`;
 
-        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Legal Compliance Officer.");
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Compliance Officer.");
 
         if (text) return cleanText(text);
 
         if (language === 'hindi') {
-            return `चेतावनी: {name}, आपके वॉलेट में {amount} का गंभीर बकाया है। तुरंत भुगतान करें या कानूनी कार्रवाई से बचने के लिए वाहन हब पर जमा करें।`;
+            return `चेतावनी: *${name}*, आपके वॉलेट में *${amountStr}* का गंभीर बकाया है। तुरंत भुगतान करें अन्यथा वाहन जब्त करने के लिए **हार्ड रिकवरी टीम** को भेजा जाएगा।`;
         }
-        return `URGENT: {name}, your outstanding dues of {amount} are critical. Pay immediately or return the vehicle to the hub to avoid seizure/legal action.`;
+        return `URGENT: *${name}*, your outstanding dues of *${amountStr}* are critical. Pay immediately or the **Hard Recovery Team** will be assigned to recover the vehicle.`;
     },
 
     parseSearchQuery: async (query: string): Promise<{ role?: string; status?: string; location?: string; keyword?: string; }> => {
