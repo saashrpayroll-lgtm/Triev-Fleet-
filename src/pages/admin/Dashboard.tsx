@@ -78,19 +78,26 @@ const Dashboard: React.FC = () => {
 
     // --- Data Fetching & Real-time ---
     const fetchDashboardData = React.useCallback(async (isInitial = false) => {
+        console.log('AdminDashboard: Fetching data... userData:', userData?.id, 'Role:', userData?.role);
+
         if (!userData) {
+            console.warn('AdminDashboard: No userData, aborting fetch.');
             if (isInitial) setLoading(false);
             return;
         }
         if (isInitial) setLoading(true);
 
         try {
+            console.log('AdminDashboard: executing Supabase queries...');
             const [ridersRes, leadsRes, requestsRes, usersRes] = await Promise.all([
-                supabase.from('riders').select('*'), // Select all for full stats (optimized select is better but for now * is safe for MVP)
+                supabase.from('riders').select('*'),
                 supabase.from('leads').select('*'),
                 supabase.from('requests').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader')
             ]);
+
+            console.log('AdminDashboard: Riders DB:', ridersRes.data?.length, 'Error:', ridersRes.error);
+            console.log('AdminDashboard: Leads DB:', leadsRes.data?.length, 'Error:', leadsRes.error);
 
             if (ridersRes.error) throw ridersRes.error;
 
