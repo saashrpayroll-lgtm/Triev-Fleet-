@@ -79,9 +79,9 @@ const LeaderboardPage: React.FC = () => {
         // Realtime Subscription
         const subscription = supabase
             .channel('leaderboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { fetchData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => { fetchData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => { fetchData(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { console.log('Users changed, reloading...'); fetchData(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => { console.log('Riders changed, reloading...'); fetchData(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => { console.log('Leads changed, reloading...'); fetchData(); })
             .subscribe();
 
         return () => {

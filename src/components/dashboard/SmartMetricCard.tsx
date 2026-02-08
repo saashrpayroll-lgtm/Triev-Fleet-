@@ -19,7 +19,6 @@ interface SmartMetricCardProps {
     aiInsight?: string; // New prop for AI insights
     loading?: boolean;
     className?: string; // For additional styling
-    formatter?: (value: number) => string; // Optional custom formatter
 }
 
 const colorMap = {
@@ -66,8 +65,7 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     subtitle,
     aiInsight,
     loading = false,
-    className,
-    formatter
+    className
 }) => {
     return (
         <div
@@ -137,7 +135,7 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                     ) : (
                         <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
                             {typeof value === 'number'
-                                ? (formatter ? formatter(value) : value.toLocaleString('en-IN'))
+                                ? `₹${value.toLocaleString('en-IN')}`
                                 : safeRender(value)}
                         </h3>
                     )}

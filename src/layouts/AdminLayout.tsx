@@ -27,7 +27,12 @@ const AdminLayout: React.FC = () => {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-
+    // DEBUG: Monitor permissions
+    React.useEffect(() => {
+        if (userData) {
+            console.log('AdminLayout Permissions:', userData.permissions);
+        }
+    }, [userData]);
 
     const handleLogout = async () => {
         try {
