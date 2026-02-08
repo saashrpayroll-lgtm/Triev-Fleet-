@@ -45,8 +45,24 @@ const DataManagement: React.FC = () => {
 
                 if (data) {
                     data.forEach(setting => {
-                        if (setting.key === 'rider_import_config') setRiderConfig({ ...riderConfig, ...setting.value });
-                        if (setting.key === 'wallet_update_config') setWalletConfig({ ...walletConfig, ...setting.value });
+                        if (setting.key === 'rider_import_config') {
+                            const val = setting.value;
+                            // Migration: Auto-update limit if it's the old default
+                            if (val?.range === 'Sheet1!A1:Z1000') {
+                                val.range = 'Sheet1!A1:Z10000';
+                                saveSettings('rider', val); // Persist the upgrade
+                            }
+                            setRiderConfig({ ...riderConfig, ...val });
+                        }
+                        if (setting.key === 'wallet_update_config') {
+                            const val = setting.value;
+                            // Migration: Auto-update limit if it's the old default
+                            if (val?.range === 'Sheet1!A1:C1000') {
+                                val.range = 'Sheet1!A1:C10000';
+                                saveSettings('wallet', val); // Persist the upgrade
+                            }
+                            setWalletConfig({ ...walletConfig, ...val });
+                        }
                     });
                 }
             } catch (err) {
