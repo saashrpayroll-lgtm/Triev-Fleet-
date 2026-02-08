@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
-import { AIService } from '@/services/AIService';
+
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
@@ -21,7 +21,7 @@ const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const [dateFilter, setDateFilter] = useState<DateFilter>('month');
     const [loading, setLoading] = useState(true);
-    const [aiInsight, setAiInsight] = useState<string>('');
+
 
     // Raw Data State
     const [rawData, setRawData] = useState({
@@ -223,12 +223,7 @@ const Dashboard: React.FC = () => {
     }, [filteredData, stats]);
 
 
-    // --- AI Insight Generation ---
-    useEffect(() => {
-        if (!loading && rawData.riders.length > 0) {
-            AIService.getDashboardInsights(stats, userData?.role || 'admin').then(setAiInsight);
-        }
-    }, [loading, dateFilter]);
+
 
 
     // --- Render Loading ---
@@ -259,10 +254,7 @@ const Dashboard: React.FC = () => {
                         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-in slide-in-from-left duration-500">
                             {isTL ? "Team Command Center" : "Admin Command Center"}
                         </h1>
-                        <p className="text-muted-foreground font-medium flex items-center gap-2">
-                            <Sparkles size={16} className="text-amber-500" />
-                            {aiInsight || "System operating at peak efficiency..."}
-                        </p>
+
                     </div>
 
                     {/* Date Filters */}
