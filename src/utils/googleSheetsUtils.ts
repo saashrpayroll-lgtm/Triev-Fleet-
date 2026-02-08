@@ -15,37 +15,93 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
         throw new Error("Sheet ID and Range are required");
     }
 
-    // Priority: 1. Config Key, 2. Env Var, 3. Default
+    // Priority: 1. Config Key, 2. Env Var, 3. Empty (Try Public Access)
     const apiKey = config.apiKey || import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${config.range}?key=${apiKey}`;
 
-    console.log(`Fetching Google Sheet: ${config.sheetId}, Range: ${config.range}`);
+    // Strategy 1: Google Sheets API (Preferred if Key exists)
+    if (apiKey) {
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${config.range}?key=${apiKey}`;
+        console.log(`Fetching Google Sheet via API: ${config.sheetId}, Range: ${config.range}`);
+
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                if (!data.values || data.values.length === 0) {
+                    throw new Error("No data found in the spreadsheet or range.");
+                }
+                return data.values;
+            } else {
+                // If 403, it might be Public but API Key is invalid or restricted. Fallback to CSV.
+                console.warn(`API Fetch Failed (${response.status}). Attempting CSV fallback...`);
+            }
+        } catch (error) {
+            console.warn("API Fetch Error. Attempting CSV fallback...", error);
+        }
+    }
+
+    // Strategy 2: CSV Export (Fallback for Public Sheets "Anyone with link")
+    console.log(`Attempting CSV Export fetch for Sheet: ${config.sheetId}`);
+
+    // We'll use a CORS proxy if needed, or try direct if generic. 
+    // Direct fetch to google docs export often has CORS issues in browser unless it's truly public and simple.
+    // However, purely public sheets often allow this.
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv`;
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(csvUrl);
         if (!response.ok) {
-            const error = await response.json();
-            const message = error.error?.message || response.statusText;
-
-            if (response.status === 403) {
-                throw new Error("Access Denied: Ensure your Google Sheet is set to 'Anyone with the link can view' (Public).");
-            } else if (response.status === 400) {
-                throw new Error(`Bad Request: Check your Sheet ID and Range format. (${message})`);
+            if (response.status === 403 || response.status === 401) { // auth error
+                throw new Error("Access Denied: Sheet is private. Share it with 'Anyone with the link' or provide a valid API Key.");
             }
-            throw new Error(`Google Sheets API Error: ${message}`);
-        }
-        const data = await response.json();
-        const values = data.values;
-
-        if (!values || values.length === 0) {
-            throw new Error("No data found in the spreadsheet or range.");
+            throw new Error(`CSV Fetch Failed: ${response.statusText}`);
         }
 
-        return values;
+        const csvText = await response.text();
+        return parseCSV(csvText); // We need a helper to parse CSV to 2D array
+
     } catch (error: any) {
-        console.error("Google Sheets Fetch Error:", error);
-        throw error;
+        console.error("All Fetch Strategies Failed:", error);
+        throw new Error(error.message || "Failed to fetch Sheet data. Ensure it is Public.");
     }
+};
+
+// Simple CSV Parser to match API 'values' format (2D array of strings)
+const parseCSV = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentCell = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+                currentCell += '"';
+                i++; // Skip escaped quote
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            currentRow.push(currentCell);
+            currentCell = '';
+        } else if ((char === '\r' || char === '\n') && !inQuotes) {
+            if (char === '\r' && nextChar === '\n') i++;
+            currentRow.push(currentCell);
+            rows.push(currentRow);
+            currentRow = [];
+            currentCell = '';
+        } else {
+            currentCell += char;
+        }
+    }
+    if (currentRow.length > 0 || currentCell) {
+        currentRow.push(currentCell);
+        rows.push(currentRow);
+    }
+    return rows;
 };
 
 export const parseGoogleSheetData = (rawData: any[]): any[] => {
