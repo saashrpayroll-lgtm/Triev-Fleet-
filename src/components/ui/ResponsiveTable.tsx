@@ -118,7 +118,14 @@ function ResponsiveTable<T>({
                             ))}
                         </div>
 
-                        {onRowClick && (
+                        {/* Actions Row for Mobile */}
+                        {actions && (
+                            <div className="mt-4 pt-3 border-t border-border/50 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                                {actions(row)}
+                            </div>
+                        )}
+
+                        {onRowClick && !actions && (
                             <div className="mt-3 pt-2 text-primary text-xs font-semibold uppercase tracking-wider flex items-center justify-end gap-1">
                                 View Details <ChevronRight size={14} />
                             </div>
