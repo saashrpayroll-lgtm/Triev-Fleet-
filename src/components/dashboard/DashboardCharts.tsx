@@ -18,11 +18,15 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
         ? Math.round((leadData.find(d => d.name === 'Converted')?.value || 0) / totalLeads * 100)
         : 0;
 
+    // Safety check for data to prevent Recharts calculation errors
+    const hasRiderData = riderData.some(d => d.value > 0);
+    const hasWalletData = walletData.some(d => d.value !== 0);
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom duration-700 delay-300" style={{ minHeight: '400px' }}>
 
             {/* 1. Fleet Composition (Vibrant Donut Chart) */}
-            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group">
+            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group flex flex-col">
                 <div className="mb-6 flex justify-between items-center">
                     <div>
                         <h3 className="text-xl font-black tracking-tighter text-foreground flex items-center gap-2">
@@ -32,54 +36,60 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-3.5">Real-time Distribution</p>
                     </div>
                 </div>
-                <div className="h-[320px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <defs>
-                                <filter id="shadow" height="200%">
-                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-                                    <feOffset dx="0" dy="4" result="offsetblur" />
-                                    <feComponentTransfer>
-                                        <feFuncA type="linear" slope="0.3" />
-                                    </feComponentTransfer>
-                                    <feMerge>
-                                        <feMergeNode />
-                                        <feMergeNode in="SourceGraphic" />
-                                    </feMerge>
-                                </filter>
-                            </defs>
-                            <Pie
-                                data={riderData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={70}
-                                outerRadius={100}
-                                paddingAngle={8}
-                                dataKey="value"
-                                stroke="none"
-                                filter="url(#shadow)"
-                            >
-                                {riderData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity cursor-pointer" />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                                itemStyle={{ fontSize: '12px' }}
-                            />
-                            <Legend
-                                verticalAlign="bottom"
-                                height={36}
-                                iconType="circle"
-                                formatter={(value) => <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{value}</span>}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
+                <div className="h-[320px] w-full flex-1 min-h-[300px]">
+                    {hasRiderData ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <defs>
+                                    <filter id="shadow" height="200%">
+                                        <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                                        <feOffset dx="0" dy="4" result="offsetblur" />
+                                        <feComponentTransfer>
+                                            <feFuncA type="linear" slope="0.3" />
+                                        </feComponentTransfer>
+                                        <feMerge>
+                                            <feMergeNode />
+                                            <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                    </filter>
+                                </defs>
+                                <Pie
+                                    data={riderData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={70}
+                                    outerRadius={100}
+                                    paddingAngle={8}
+                                    dataKey="value"
+                                    stroke="none"
+                                    filter="url(#shadow)"
+                                >
+                                    {riderData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity cursor-pointer" />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                    itemStyle={{ fontSize: '12px' }}
+                                />
+                                <Legend
+                                    verticalAlign="bottom"
+                                    height={36}
+                                    iconType="circle"
+                                    formatter={(value) => <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{value}</span>}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground text-sm font-medium">
+                            No fleet data available
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* 2. Financial Overview (Horizontal Bar Chart) */}
-            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group">
+            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group flex flex-col">
                 <div className="mb-6">
                     <h3 className="text-xl font-black tracking-tighter text-foreground flex items-center gap-2">
                         <span className="w-1.5 h-6 bg-emerald-500 rounded-full group-hover:scale-y-125 transition-transform" />
@@ -87,39 +97,45 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                     </h3>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-3.5">Inflow vs Risk Analysis</p>
                 </div>
-                <div className="h-[320px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                            layout="vertical"
-                            data={walletData}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.1} />
-                            <XAxis type="number" hide />
-                            <YAxis
-                                dataKey="name"
-                                type="category"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fontSize: 10, fontWeight: 'black', fill: '#64748b' }}
-                                width={80}
-                            />
-                            <Tooltip
-                                cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
-                                labelFormatter={(label) => safeRender(label)}
-                            />
-                            <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
-                                {walletData.map((entry, index) => (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={entry.name.includes('Collections') ? '#10b981' : '#f43f5e'}
-                                    />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                <div className="h-[320px] w-full flex-1 min-h-[300px]">
+                    {hasWalletData ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                layout="vertical"
+                                data={walletData}
+                                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.1} />
+                                <XAxis type="number" hide />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fontWeight: 'black', fill: '#64748b' }}
+                                    width={80}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                    formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
+                                    labelFormatter={(label) => safeRender(label)}
+                                />
+                                <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
+                                    {walletData.map((entry, index) => (
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.name.includes('Collections') ? '#10b981' : '#f43f5e'}
+                                        />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground text-sm font-medium">
+                            No transaction data available
+                        </div>
+                    )}
                 </div>
             </div>
 
