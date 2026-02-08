@@ -139,10 +139,27 @@ export const processRiderImport = async (
 
         try {
             // 1. Validation & Data Prep
-            const riderName = (row['Rider Name'] || '').trim();
-            const trievId = String(row['Triev ID'] || '').trim();
-            const mobile = String(row['Mobile Number'] || '').replace(/[^0-9]/g, '');
-            const chassis = String(row['Chassis Number'] || '').trim();
+            // Helper to get value from normalized keys
+            const normalizedRow: any = {};
+            Object.keys(row).forEach(key => {
+                normalizedRow[normalizeKey(key)] = row[key];
+            });
+
+            const getValue = (keys: string[]) => {
+                for (const key of keys) {
+                    const val = normalizedRow[normalizeKey(key)];
+                    if (val !== undefined && val !== null && String(val).trim() !== '') {
+                        return String(val).trim();
+                    }
+                }
+                return '';
+            };
+
+            const riderName = getValue(['Rider Name', 'Name', 'RiderName']);
+            const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
+            const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell', 'Contact']);
+            const mobile = mobileRaw.replace(/[^0-9]/g, '');
+            const chassis = getValue(['Chassis Number', 'Chassis', 'ChassisNo']);
 
             if (!trievId && !mobile && !chassis) {
                 throw new Error("Missing Identifier (Triev ID, Mobile, or Chassis required)");
@@ -150,7 +167,7 @@ export const processRiderImport = async (
             if (!riderName) throw new Error("Missing Rider Name");
 
             // Check for 'Team Leader' OR 'Base' column
-            const teamLeaderName = (row['Team Leader'] || row['Base'] || '').trim();
+            const teamLeaderName = getValue(['Team Leader', 'TeamLeader', 'TL', 'Base', 'Hub']);
             let teamLeaderId = null;
             let assignmentStatus = 'Unassigned';
 
@@ -247,12 +264,14 @@ export const processRiderImport = async (
             }
 
             // Handle Client
-            const clientName = isValidClient(row['Client Name']) ? row['Client Name'] : 'Other';
+            const clientRaw = getValue(['Client Name', 'Client', 'Brand']);
+            const clientName = isValidClient(clientRaw) ? clientRaw : 'Other';
 
             // Handle Date
             let allotmentDate = new Date().toISOString();
-            if (row['Allotment Date']) {
-                const d = new Date(row['Allotment Date']);
+            const dateRaw = getValue(['Allotment Date', 'Date', 'Alloted Date', 'Joining Date']);
+            if (dateRaw) {
+                const d = new Date(dateRaw);
                 if (!isNaN(d.getTime())) {
                     allotmentDate = d.toISOString();
                 }
@@ -286,10 +305,10 @@ export const processRiderImport = async (
                 triev_id: trievId,
                 chassis_number: chassis,
                 client_name: clientName,
-                client_id: row['Client ID'] || '',
-                wallet_amount: parseCurrency(row['Wallet Amount'] || 0),
+                client_id: getValue(['Client ID', 'ClientId']),
+                wallet_amount: parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount'])),
                 allotment_date: allotmentDate,
-                remarks: row['Remarks'] || '',
+                remarks: getValue(['Remarks', 'Remark', 'Note', 'Notes']),
                 team_leader_id: teamLeaderId,
                 team_leader_name: assignmentStatus,
                 status: 'active',
@@ -317,7 +336,7 @@ export const processRiderImport = async (
             summary.failed++;
             summary.errors.push({
                 row: rowNum,
-                identifier: row['Rider Name'] || `Row ${rowNum}`,
+                identifier: riderName || (mobile ? `Mobile: ${mobile}` : `Row ${rowNum}`),
                 reason: err.message || "Unknown error",
                 data: row
             });
@@ -361,105 +380,123 @@ export const processWalletUpdate = async (
         const rowNum = i + 2;
 
         try {
-            // Priority: Triev ID -> Mobile
-            const trievId = String(row['Triev ID'] || '').trim();
-            const mobile = String(row['Mobile Number'] || '').replace(/[^0-9]/g, '');
-            const amount = parseCurrency(row['Wallet Amount']);
+            try {
+                // Helper to get value from normalized keys (Duplicate logic but scoped)
+                const normalizedRow: any = {};
+                Object.keys(row).forEach(key => {
+                    normalizedRow[normalizeKey(key)] = row[key];
+                });
 
-            if (!trievId && !mobile) {
-                throw new Error("Missing Identifier: 'Triev ID' or 'Mobile Number' is required column.");
-            }
-            if (isNaN(amount)) throw new Error("Invalid Wallet Amount value.");
+                const getValue = (keys: string[]) => {
+                    for (const key of keys) {
+                        const val = normalizedRow[normalizeKey(key)];
+                        if (val !== undefined && val !== null && String(val).trim() !== '') {
+                            return String(val).trim();
+                        }
+                    }
+                    return '';
+                };
 
-            let matchData = null;
-            let identifierUsed = '';
+                // Priority: Triev ID -> Mobile
+                const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
+                const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone']);
+                const mobile = mobileRaw.replace(/[^0-9]/g, '');
+                const amount = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount']));
 
-            // 1. Try Triev ID first (more precise)
-            if (trievId) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('triev_id', trievId).maybeSingle();
-                if (data) {
-                    matchData = data;
-                    identifierUsed = `Triev ID: ${trievId}`;
+                if (!trievId && !mobile) {
+                    throw new Error("Missing Identifier: 'Triev ID' or 'Mobile Number' is required column.");
                 }
-            }
+                if (isNaN(amount)) throw new Error("Invalid Wallet Amount value.");
 
-            // 2. Try Mobile if Triev ID failed or wasn't provided
-            if (!matchData && mobile) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('mobile_number', mobile).maybeSingle();
-                if (data) {
-                    matchData = data;
-                    identifierUsed = `Mobile: ${mobile}`;
+                let matchData = null;
+                let identifierUsed = '';
+
+                // 1. Try Triev ID first (more precise)
+                if (trievId) {
+                    const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('triev_id', trievId).maybeSingle();
+                    if (data) {
+                        matchData = data;
+                        identifierUsed = `Triev ID: ${trievId}`;
+                    }
                 }
+
+                // 2. Try Mobile if Triev ID failed or wasn't provided
+                if (!matchData && mobile) {
+                    const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('mobile_number', mobile).maybeSingle();
+                    if (data) {
+                        matchData = data;
+                        identifierUsed = `Mobile: ${mobile}`;
+                    }
+                }
+
+                if (!matchData) {
+                    throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
+                }
+
+                // Update
+                const { error } = await supabase.from('riders').update({
+                    wallet_amount: amount,
+                    updated_at: new Date().toISOString()
+                }).eq('id', matchData.id);
+
+                if (error) throw error;
+
+                console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
+
+                // Track for Notification
+                if (matchData.team_leader_id) {
+                    tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
+                }
+
+                summary.success++;
+
+            } catch (err: any) {
+                summary.failed++;
+                summary.errors.push({
+                    row: rowNum,
+                    identifier: row['Triev ID'] || row['Mobile Number'] || `Row ${rowNum}`,
+                    reason: err.message || "Unknown error",
+                    data: row
+                });
             }
-
-            if (!matchData) {
-                throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
-            }
-
-            // Update
-            const { error } = await supabase.from('riders').update({
-                wallet_amount: amount,
-                updated_at: new Date().toISOString()
-            }).eq('id', matchData.id);
-
-            if (error) throw error;
-
-            console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
-
-            // Track for Notification
-            if (matchData.team_leader_id) {
-                tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
-            }
-
-            summary.success++;
-
-        } catch (err: any) {
-            summary.failed++;
-            summary.errors.push({
-                row: rowNum,
-                identifier: row['Triev ID'] || row['Mobile Number'] || `Row ${rowNum}`,
-                reason: err.message || "Unknown error",
-                data: row
-            });
         }
-    }
 
     // --- BATCH NOTIFICATIONS SENDING ---
     try {
-        const notifications = Array.from(tlNotificationCounts.entries()).map(([tlId, count]) => ({
-            user_id: tlId,
-            title: 'Bulk Wallet Update',
-            message: `Admin updated wallet balance for ${count} of your riders.`,
-            type: 'wallet',
-            created_at: new Date().toISOString(),
-            is_read: false
-        }));
+            const notifications = Array.from(tlNotificationCounts.entries()).map(([tlId, count]) => ({
+                user_id: tlId,
+                title: 'Bulk Wallet Update',
+                message: `Admin updated wallet balance for ${count} of your riders.`,
+                type: 'wallet',
+                created_at: new Date().toISOString(),
+                is_read: false
+            }));
 
-        if (notifications.length > 0) {
-            await supabase.from('notifications').insert(notifications);
-            console.log(`Sent ${notifications.length} batched wallet notifications.`);
+            if (notifications.length > 0) {
+                await supabase.from('notifications').insert(notifications);
+                console.log(`Sent ${notifications.length} batched wallet notifications.`);
+            }
+        } catch (e) {
+            console.error("Failed to send batched wallet notifications:", e);
         }
-    } catch (e) {
-        console.error("Failed to send batched wallet notifications:", e);
-    }
 
-    // Log the overall activity to the main Activity page
-    await logActivity({
-        actionType: 'walletUpdated', // Fixed actionType to match schema ('walletUpdated' is better than 'Wallet Bulk Update')
-        targetType: 'system',
-        targetId: 'multiple',
-        details: `Updated wallets for ${summary.success} riders, ${summary.failed} failures.`,
-        metadata: {
-            adminName,
-            success: summary.success,
-            failed: summary.failed
-        }
-    }).catch(console.error);
+        // Log the overall activity to the main Activity page
+        await logActivity({
+            actionType: 'walletUpdated', // Fixed actionType to match schema ('walletUpdated' is better than 'Wallet Bulk Update')
+            targetType: 'system',
+            targetId: 'multiple',
+            details: `Updated wallets for ${summary.success} riders, ${summary.failed} failures.`,
+            metadata: {
+                adminName,
+                success: summary.success,
+                failed: summary.failed
+            }
+        }).catch(console.error);
 
-    // Log Import History
-    await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
+        // Log Import History
+        await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
 
-    return summary;
-};
+        return summary;
+    };
 
 // Auto-assignment features enhanced: ID, Email, Name matching
