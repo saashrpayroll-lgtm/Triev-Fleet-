@@ -192,7 +192,7 @@ export const processRiderImport = async (
                 }
                 // Strategy 2: Check Email
                 else if (teamLeaderEmailMap.has(normalizedTLName)) {
-                    teamLeaderId = teamLeaderEmailMap.get(normalizedTLName);
+                    teamLeaderId = teamLeaderEmailMap.get(normalizedTLName) || null;
                     console.log(`[Row ${rowNum}] Match FOUND via Email!`);
                 }
                 // Strategy 2a: Check Processed Unique ID (KONTI/xxx)
@@ -202,7 +202,7 @@ export const processRiderImport = async (
                     if (numericPart) {
                         const stdId = `konti/${numericPart}`;
                         if (teamLeaderMap.has(stdId)) {
-                            teamLeaderId = teamLeaderMap.get(stdId);
+                            teamLeaderId = teamLeaderMap.get(stdId) || null;
                             console.log(`[Row ${rowNum}] Match FOUND via Unique ID ('${stdId}')!`);
                         }
                     }
@@ -210,14 +210,14 @@ export const processRiderImport = async (
 
                 // Strategy 3: Check Name (Exact)
                 if (!teamLeaderId && teamLeaderMap.has(normalizedTLName)) {
-                    teamLeaderId = teamLeaderMap.get(normalizedTLName);
+                    teamLeaderId = teamLeaderMap.get(normalizedTLName) || null;
                     console.log(`[Row ${rowNum}] Match FOUND via Exact Name! ID: ${teamLeaderId}`);
                 }
                 // Strategy 4: Check "Clean" Input Name (remove parens from Input)
                 else if (!teamLeaderId) {
                     const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
                     if (teamLeaderMap.has(cleanInputName)) {
-                        teamLeaderId = teamLeaderMap.get(cleanInputName);
+                        teamLeaderId = teamLeaderMap.get(cleanInputName) || null;
                         console.log(`[Row ${rowNum}] Match FOUND via Clean Input Name ('${cleanInputName}')! ID: ${teamLeaderId}`);
                     }
                 }
