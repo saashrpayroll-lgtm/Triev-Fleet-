@@ -193,7 +193,7 @@ export const processRiderImport = async (
                 // Strategy 2: Check Email
                 else if (teamLeaderEmailMap.has(normalizedTLName)) {
                     teamLeaderId = teamLeaderEmailMap.get(normalizedTLName) || null;
-                    console.log(`[Row ${rowNum}] Match FOUND via Email!`);
+                    // console.log(`[Row ${rowNum}] Match FOUND via Email!`);
                 }
                 // Strategy 2a: Check Processed Unique ID (KONTI/xxx)
                 const idMatch = teamLeaderName.match(/KONTI\s*[\/\-]?\s*\d+/i);
@@ -203,7 +203,7 @@ export const processRiderImport = async (
                         const stdId = `konti/${numericPart}`;
                         if (teamLeaderMap.has(stdId)) {
                             teamLeaderId = teamLeaderMap.get(stdId) || null;
-                            console.log(`[Row ${rowNum}] Match FOUND via Unique ID ('${stdId}')!`);
+                            // console.log(`[Row ${rowNum}] Match FOUND via Unique ID!`);
                         }
                     }
                 }
@@ -211,14 +211,14 @@ export const processRiderImport = async (
                 // Strategy 3: Check Name (Exact)
                 if (!teamLeaderId && teamLeaderMap.has(normalizedTLName)) {
                     teamLeaderId = teamLeaderMap.get(normalizedTLName) || null;
-                    console.log(`[Row ${rowNum}] Match FOUND via Exact Name! ID: ${teamLeaderId}`);
+                    // console.log(`[Row ${rowNum}] Match FOUND via Exact Name!`);
                 }
                 // Strategy 4: Check "Clean" Input Name (remove parens from Input)
                 else if (!teamLeaderId) {
                     const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
                     if (teamLeaderMap.has(cleanInputName)) {
                         teamLeaderId = teamLeaderMap.get(cleanInputName) || null;
-                        console.log(`[Row ${rowNum}] Match FOUND via Clean Input Name ('${cleanInputName}')! ID: ${teamLeaderId}`);
+                        // console.log(`[Row ${rowNum}] Match FOUND via Clean Input Name!`);
                     }
                 }
 
@@ -253,7 +253,7 @@ export const processRiderImport = async (
 
                     if (fallbackMatch) {
                         teamLeaderId = fallbackMatch.id;
-                        console.log(`[Row ${rowNum}] Match FOUND via Strict Fallback! Mapped '${teamLeaderName}' -> '${fallbackMatch.fullName}'`);
+                        // console.log(`[Row ${rowNum}] Match FOUND via Strict Fallback!`);
                     }
                 }
 
@@ -264,13 +264,13 @@ export const processRiderImport = async (
                     const matchedUser = users?.find((u: any) => u.id === teamLeaderId);
                     assignmentStatus = matchedUser?.fullName || teamLeaderName;
                 } else {
-                    console.warn(`Row ${rowNum}: Team Leader '${teamLeaderName}' NOT FOUND. Search keys checked: '${normalizedTLName}' against map.`);
+                    console.warn(`Row ${rowNum}: Team Leader NOT FOUND.`);
                     // Add a warning to errors list but continue
                     summary.errors.push({
                         row: rowNum,
                         identifier: riderName,
-                        reason: `Warning: Team Leader '${teamLeaderName}' not found. Rider assigned to 'Unassigned'.`,
-                        data: { teamLeaderName, availableUsers: 'Check console' }
+                        reason: `Warning: Team Leader not found. Rider assigned to 'Unassigned'.`,
+                        data: { availableUsers: 'Check DB' }
                     });
                 }
             }
