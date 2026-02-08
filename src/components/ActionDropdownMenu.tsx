@@ -91,7 +91,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
         <div className="relative">
             <button
                 ref={buttonRef}
-                onClick={toggleMenu}
+                onClick={(e) => { e.stopPropagation(); toggleMenu(); }}
                 className="p-2 hover:bg-accent rounded-lg transition-colors"
                 title="Actions"
             >
@@ -106,12 +106,13 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                         top: `${menuPosition.top}px`,
                         right: `${menuPosition.right}px`
                     }}
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <div className="p-1">
                         {/* View Details */}
                         {can('view') && (
                             <button
-                                onClick={() => { onView(); setIsOpen(false); }}
+                                onClick={(e) => { e.stopPropagation(); onView(); setIsOpen(false); }}
                                 className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group"
                             >
                                 <Eye size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
@@ -122,7 +123,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                         {/* Edit Rider - Only for non-deleted */}
                         {!isDeleted && can('edit') && (
                             <button
-                                onClick={() => { onEdit(); setIsOpen(false); }}
+                                onClick={(e) => { e.stopPropagation(); onEdit(); setIsOpen(false); }}
                                 className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group"
                             >
                                 <Edit size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
@@ -140,7 +141,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                                 <div className="grid grid-cols-2 gap-1 px-1">
                                     {rider.status !== 'active' && (
                                         <button
-                                            onClick={() => { onStatusChange('active'); setIsOpen(false); }}
+                                            onClick={(e) => { e.stopPropagation(); onStatusChange('active'); setIsOpen(false); }}
                                             className="px-2 py-2 hover:bg-green-500/10 hover:text-green-600 rounded-md transition-colors flex items-center gap-2 justify-center border border-transparent hover:border-green-200"
                                         >
                                             <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm" />
@@ -150,7 +151,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
 
                                     {rider.status !== 'inactive' && (
                                         <button
-                                            onClick={() => { onStatusChange('inactive'); setIsOpen(false); }}
+                                            onClick={(e) => { e.stopPropagation(); onStatusChange('inactive'); setIsOpen(false); }}
                                             className="px-2 py-2 hover:bg-amber-500/10 hover:text-amber-600 rounded-md transition-colors flex items-center gap-2 justify-center border border-transparent hover:border-amber-200"
                                         >
                                             <div className="w-2 h-2 rounded-full bg-amber-500 shadow-sm" />
@@ -164,7 +165,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                         {/* Re-assign - Only for admin and non-deleted */}
                         {userRole === 'admin' && !isDeleted && onReassign && (
                             <button
-                                onClick={() => { onReassign(); setIsOpen(false); }}
+                                onClick={(e) => { e.stopPropagation(); onReassign(); setIsOpen(false); }}
                                 className="w-full px-3 py-2.5 text-left hover:bg-blue-500/10 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-3 group"
                             >
                                 <Repeat size={16} className="text-muted-foreground group-hover:text-blue-600 transition-colors" />
@@ -178,7 +179,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                         {!isDeleted ? (
                             can('softDelete') && (
                                 <button
-                                    onClick={() => { onDelete(); setIsOpen(false); }}
+                                    onClick={(e) => { e.stopPropagation(); onDelete(); setIsOpen(false); }}
                                     className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3"
                                 >
                                     <Trash2 size={16} />
@@ -190,7 +191,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                                 {/* Restore */}
                                 {onRestore && can('softDelete') && (
                                     <button
-                                        onClick={() => { onRestore(); setIsOpen(false); }}
+                                        onClick={(e) => { e.stopPropagation(); onRestore(); setIsOpen(false); }}
                                         className="w-full px-3 py-2.5 text-left hover:bg-green-500/10 text-green-600 rounded-lg transition-colors flex items-center gap-3"
                                     >
                                         <RotateCcw size={16} />
@@ -201,7 +202,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                                 {/* Permanent Delete */}
                                 {onPermanentDelete && can('hardDelete') && (
                                     <button
-                                        onClick={() => { onPermanentDelete(); setIsOpen(false); }}
+                                        onClick={(e) => { e.stopPropagation(); onPermanentDelete(); setIsOpen(false); }}
                                         className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3"
                                     >
                                         <XCircle size={16} />

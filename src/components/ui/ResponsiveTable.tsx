@@ -98,11 +98,7 @@ function ResponsiveTable<T>({
                             <div className="font-semibold text-lg">
                                 {columns[0].cell ? columns[0].cell(row) : (row[columns[0].accessorKey!] as React.ReactNode)}
                             </div>
-                            {actions && (
-                                <div onClick={(e) => e.stopPropagation()}>
-                                    {actions(row)}
-                                </div>
-                            )}
+
                         </div>
 
                         <div className="space-y-2 text-sm">
