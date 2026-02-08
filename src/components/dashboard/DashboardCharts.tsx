@@ -49,7 +49,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                 </div>
                 <div className="h-[320px] w-full flex-1 min-h-[300px]">
                     {hasRiderData ? (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                                 <defs>
                                     <filter id="shadow" height="200%">
@@ -110,7 +110,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                 </div>
                 <div className="h-[320px] w-full flex-1 min-h-[300px]">
                     {hasWalletData ? (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={300}>
                             <BarChart
                                 layout="vertical"
                                 data={walletData}
