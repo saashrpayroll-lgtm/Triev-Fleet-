@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { User } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import {
-    TrendingUp, TrendingDown, Users, Wallet, ChevronRight,
-    MoreHorizontal, Phone, MessageCircle
+    Users, ChevronRight, MoreHorizontal
 } from 'lucide-react';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
+} from '../ui/dropdown-menu';
 
 export interface TLSnapshot {
     id: string;
