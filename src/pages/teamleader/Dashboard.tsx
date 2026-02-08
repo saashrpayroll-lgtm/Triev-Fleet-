@@ -66,6 +66,7 @@ const Dashboard: React.FC = () => {
                         id,
                         trievId:triev_id,
                         riderName:rider_name,
+                        mobileNumber:mobile_number,
                         status,
                         walletAmount:wallet_amount,
                         teamLeaderId:team_leader_id
@@ -132,6 +133,8 @@ const Dashboard: React.FC = () => {
                 const { data: allRidersData } = await supabase.from('riders').select(`
                     id,
                     status,
+                    riderName:rider_name,
+                    mobileNumber:mobile_number,
                     walletAmount:wallet_amount,
                     teamLeaderId:team_leader_id
                 `);
