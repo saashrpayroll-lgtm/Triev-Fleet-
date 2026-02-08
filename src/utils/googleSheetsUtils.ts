@@ -50,6 +50,8 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
 
     try {
         const response = await fetch(csvUrl);
+        const contentType = response.headers.get('content-type') || '';
+
         if (!response.ok) {
             if (response.status === 403 || response.status === 401) { // auth error
                 throw new Error("Access Denied: Sheet is private. Share it with 'Anyone with the link' or provide a valid API Key.");
@@ -57,7 +59,20 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
             throw new Error(`CSV Fetch Failed: ${response.statusText}`);
         }
 
+        // Prevent HTML Login Page interpretation
+        if (contentType.includes('text/html')) {
+            throw new Error("Access Denied: Google returned an HTML Login Page instead of CSV. Ensure the Sheet is truly Public ('Anyone with the link').");
+        }
+
         const csvText = await response.text();
+
+        // Final sanity check on content
+        if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
+            throw new Error("Invalid CSV: Content appears to be HTML. Check Sheet permissions.");
+        }
+
+        console.log("[CSV Preview] First 100 chars:", csvText.substring(0, 100));
+
         return parseCSV(csvText); // We need a helper to parse CSV to 2D array
 
     } catch (error: any) {
@@ -109,6 +124,9 @@ export const parseGoogleSheetData = (rawData: any[]): any[] => {
 
     const headers = rawData[0];
     const rows = rawData.slice(1);
+
+    console.log("[Google Parse] Detetcted Headers:", headers);
+    console.log("[Google Parse] First Row Data:", rows[0]);
 
     return rows.map(row => {
         const rowData: any = {};
