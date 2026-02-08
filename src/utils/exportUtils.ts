@@ -98,14 +98,14 @@ export const exportToPDF = exportGenericToPDF;
 
 export const downloadRiderTemplate = () => {
     const headers = [{
-        "Rider Name": "",
         "Triev ID": "",
+        "Rider Name": "",
         "Mobile Number": "",
         "Chassis Number": "",
-        "Team Leader": "",
-        "Client Name": "",
-        "Allotment Date": new Date().toISOString().split('T')[0],
         "Wallet Amount": "0",
+        "Team Leader": "",
+        "Allotment Date": new Date().toISOString().split('T')[0],
+        "Client Name": "",
         "Status": "active",
         "Remarks": ""
     }];
