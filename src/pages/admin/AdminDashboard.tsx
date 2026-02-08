@@ -11,6 +11,7 @@ import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
+import TeamLeaderPerformanceTable, { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 
@@ -222,9 +223,42 @@ const Dashboard: React.FC = () => {
         };
     }, [filteredData, stats]);
 
+    // --- TL Performance Stats ---
+    const tlStats: TLSnapshot[] = useMemo(() => {
+        const { teamLeaders, riders, leads } = rawData;
 
+        return teamLeaders.map(tl => {
+            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
+            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
 
+            const activeRiders = tlRiders.filter(r => r.status === 'active').length;
 
+            const wallet = tlRiders.reduce((acc, r) => ({
+                total: acc.total + r.walletAmount,
+                positiveCount: acc.positiveCount + (r.walletAmount > 0 ? 1 : 0),
+                negativeCount: acc.negativeCount + (r.walletAmount < 0 ? 1 : 0),
+                negativeAmount: acc.negativeAmount + (r.walletAmount < 0 ? r.walletAmount : 0)
+            }), { total: 0, positiveCount: 0, negativeCount: 0, negativeAmount: 0 });
+
+            const converted = tlLeads.filter(l => l.status === 'Convert').length;
+            const conversionRate = tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0;
+
+            return {
+                id: tl.id,
+                name: tl.fullName || 'Unknown',
+                email: tl.email,
+                totalRiders: tlRiders.length,
+                activeRiders,
+                wallet,
+                leads: {
+                    total: tlLeads.length,
+                    converted,
+                    conversionRate
+                },
+                status: tl.status
+            };
+        });
+    }, [rawData]);
 
     // --- Render Loading ---
     if (loading) {
@@ -235,7 +269,7 @@ const Dashboard: React.FC = () => {
                         <div className="absolute inset-0 border-4 border-indigo-200 rounded-full animate-ping opacity-25"></div>
                         <div className="absolute inset-0 border-4 border-t-indigo-600 border-r-indigo-600 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
                     </div>
-                    <p className="text-muted-foreground font-medium animate-pulse">Initializing Premium Commmand Center...</p>
+                    <p className="text-muted-foreground font-medium animate-pulse">Initializing Premium Command Center...</p>
                 </div>
             </div>
         );
@@ -419,6 +453,13 @@ const Dashboard: React.FC = () => {
                     <RecentActivity />
                 </div>
             </div>
+
+            {/* TL Performance Table (Admin Only) */}
+            {!isTL && (
+                <div className="animate-in slide-in-from-bottom duration-700 delay-400">
+                    <TeamLeaderPerformanceTable data={tlStats} />
+                </div>
+            )}
 
             {/* Leaderboard Section */}
             <div className="animate-in slide-in-from-bottom duration-700 delay-500">
