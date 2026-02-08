@@ -58,16 +58,16 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-border">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Send Wallet Reminder</h2>
-                        <p className="text-sm text-gray-500 mt-0.5">to {rider.riderName}</p>
+                        <h2 className="text-xl font-bold text-foreground">Send Wallet Reminder</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">to {rider.riderName}</p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors"
                     >
                         <X size={20} />
                     </button>
@@ -75,29 +75,29 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
 
                 {/* Body */}
                 <div className="p-6 space-y-6">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                         AI has generated a personalized reminder message based on the wallet balance of <span className="font-bold text-red-600">{-Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</span>. Review and send it via WhatsApp.
                     </p>
 
                     {/* AI Message Card */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-purple-700 font-semibold">
+                            <div className="flex items-center gap-2 text-primary font-semibold">
                                 <Sparkles size={18} />
                                 <span>AI Generated Message</span>
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <div className="flex bg-gray-100 rounded-lg p-1">
+                                <div className="flex bg-muted rounded-lg p-1">
                                     <button
                                         onClick={() => setLanguage('english')}
-                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'english' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'english' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                                     >
                                         English
                                     </button>
                                     <button
                                         onClick={() => setLanguage('hindi')}
-                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'hindi' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'hindi' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                                     >
                                         Hindi
                                     </button>
@@ -105,7 +105,7 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
                                 <button
                                     onClick={handleRegenerate}
                                     disabled={regenerating || loading}
-                                    className={`p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors ${regenerating ? 'animate-spin' : ''}`}
+                                    className={`p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors ${regenerating ? 'animate-spin' : ''}`}
                                     title="Regenerate Message"
                                 >
                                     <RefreshCw size={18} />
@@ -115,8 +115,8 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
 
                         <div className="relative">
                             {loading ? (
-                                <div className="h-32 w-full bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-center">
-                                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                                <div className="h-32 w-full bg-muted/50 rounded-xl border border-border flex items-center justify-center">
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Sparkles className="animate-pulse" size={24} />
                                         <span className="text-sm">Generating magic...</span>
                                     </div>
@@ -125,29 +125,29 @@ const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onCl
                                 <textarea
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    className="w-full h-32 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all resize-none"
+                                    className="w-full h-32 p-4 bg-background border border-border rounded-xl text-foreground text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none placeholder:text-muted-foreground"
                                 />
                             )}
                         </div>
                     </div>
 
-                    <div className="text-xs text-gray-400 font-medium">
-                        Last reminder: <span className="text-gray-500">None</span>
+                    <div className="text-xs text-muted-foreground font-medium">
+                        Last reminder: <span className="text-foreground">None</span>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <div className="px-6 py-4 bg-muted/40 border-t border-border flex justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                        className="px-5 py-2.5 text-sm font-medium text-foreground bg-background border border-border rounded-xl hover:bg-accent transition-colors"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={() => onSend(message)}
                         disabled={loading || !message}
-                        className="px-5 py-2.5 text-sm font-medium text-white bg-purple-700 hover:bg-purple-800 rounded-xl shadow-lg shadow-purple-900/10 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-5 py-2.5 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <MessageCircle size={18} />
                         Send via WhatsApp

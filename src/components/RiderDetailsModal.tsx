@@ -431,7 +431,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                     <select
                                         value={reminderLang}
                                         onChange={(e) => setReminderLang(e.target.value as any)}
-                                        className="text-sm p-1.5 rounded border"
+                                        className="text-sm p-1.5 rounded border bg-background text-foreground border-input focus:ring-2 focus:ring-primary/20 outline-none"
                                     >
                                         <option value="hindi">Hindi</option>
                                         <option value="english">English</option>
@@ -439,7 +439,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                     <button
                                         onClick={generateAiReminder}
                                         disabled={generating}
-                                        className="text-xs bg-primary text-primary-foreground px-3 py-1 rounded"
+                                        className="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 transition-colors"
                                     >
                                         {generating ? 'Generating...' : 'Generate New'}
                                     </button>
@@ -449,7 +449,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                     onChange={(e) => setAiMessage(e.target.value)}
                                     placeholder="Click generate to create a message..."
                                     rows={3}
-                                    className="w-full text-sm p-2 rounded border mb-2 focus:ring-2 focus:ring-red-500/20 outline-none"
+                                    className="w-full text-sm p-2 rounded border bg-background text-foreground border-input mb-2 focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground"
                                 />
                                 {aiMessage && (
                                     <button
