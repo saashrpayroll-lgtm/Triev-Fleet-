@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2, RefreshCw, Sparkles, Download as DownloadIcon } from 'lucide-react';
+import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2, RefreshCw, Download as DownloadIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import DataImport from '@/components/DataImport';
 import GlassCard from '@/components/GlassCard';
@@ -38,7 +38,7 @@ const DataManagement: React.FC = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const { data, error } = await supabase
+                const { data } = await supabase
                     .from('system_settings')
                     .select('key, value')
                     .in('key', ['rider_import_config', 'wallet_update_config']);
