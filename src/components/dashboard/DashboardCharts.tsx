@@ -18,12 +18,22 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
         ? Math.round((leadData.find(d => d.name === 'Converted')?.value || 0) / totalLeads * 100)
         : 0;
 
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => {
+        // Delay rendering charts slightly to allow layout to stabilize (fixes width(-1) error)
+        const timer = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(timer);
+    }, []);
+
     // Safety check for data to prevent Recharts calculation errors
     const hasRiderData = riderData.some(d => d.value > 0);
     const hasWalletData = walletData.some(d => d.value !== 0);
 
+    if (!mounted) return <div className="min-h-[400px] animate-pulse bg-gray-100/10 rounded-3xl"></div>;
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom duration-700 delay-300" style={{ minHeight: '400px' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ minHeight: '400px' }}>
 
             {/* 1. Fleet Composition (Vibrant Donut Chart) */}
             <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group flex flex-col">
