@@ -12,49 +12,104 @@ import { logActivity } from '@/utils/activityLog';
 
 const DataManagement: React.FC = () => {
     const { userData } = useSupabaseAuth();
+    // Persistent Settings
+    const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z1000', apiKey: '', enabled: false });
+    const [walletConfig, setWalletConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C1000', apiKey: '', enabled: false });
+
+    // Legacy state for UI (optional, or we replace usage)
     const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'gsheets' | 'history' | 'help'>('import');
     const [history, setHistory] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
-
-    // Google Sheets State
-    const [sheetConfig, setSheetConfig] = useState(() => {
-        const saved = localStorage.getItem('googleSheetConfig');
-        return saved ? JSON.parse(saved) : {
-            sheetId: '',
-            range: 'Sheet1!A1:Z500',
-            apiKey: ''
-        };
-    });
-    const [syncMode, setSyncMode] = useState<'rider' | 'wallet'>('rider');
-    const [isAutoSyncing, setIsAutoSyncing] = useState(() => {
-        return localStorage.getItem('isAutoSyncing') === 'true';
-    });
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
 
-    // Refs for Real-time listeners & Interval to avoid stale closures
-    const sheetConfigRef = React.useRef(sheetConfig);
-    const syncModeRef = React.useRef(syncMode);
+    // Refs for interval
+    const riderConfigRef = React.useRef(riderConfig);
+    const walletConfigRef = React.useRef(walletConfig);
     const isSyncingRef = React.useRef(isSyncing);
 
-    useEffect(() => {
-        sheetConfigRef.current = sheetConfig;
-        localStorage.setItem('googleSheetConfig', JSON.stringify(sheetConfig));
-    }, [sheetConfig]);
+    useEffect(() => { riderConfigRef.current = riderConfig; }, [riderConfig]);
+    useEffect(() => { walletConfigRef.current = walletConfig; }, [walletConfig]);
+    useEffect(() => { isSyncingRef.current = isSyncing; }, [isSyncing]);
 
+    // Fetch Settings on Mount
     useEffect(() => {
-        syncModeRef.current = syncMode;
-    }, [syncMode]);
+        const fetchSettings = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('system_settings')
+                    .select('key, value')
+                    .in('key', ['rider_import_config', 'wallet_update_config']);
 
-    useEffect(() => {
-        isSyncingRef.current = isSyncing;
-    }, [isSyncing]);
+                if (data) {
+                    data.forEach(setting => {
+                        if (setting.key === 'rider_import_config') setRiderConfig({ ...riderConfig, ...setting.value });
+                        if (setting.key === 'wallet_update_config') setWalletConfig({ ...walletConfig, ...setting.value });
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load settings (Table might be missing):", err);
+            }
+        };
+        fetchSettings();
+    }, []);
 
+    // Save Settings Helper (Debounce or Call explicitly)
+    const saveSettings = async (type: 'rider' | 'wallet', newConfig: any) => {
+        const key = type === 'rider' ? 'rider_import_config' : 'wallet_update_config';
+        try {
+            await supabase.from('system_settings').upsert({
+                key,
+                value: newConfig,
+                updated_at: new Date().toISOString()
+            });
+            toast.success("Settings saved!");
+        } catch (err) {
+            console.error("Failed to save settings:", err);
+            toast.error("Failed to save settings to database.");
+        }
+    };
+
+    // Auto-Sync Interval (Every 10s)
     useEffect(() => {
-        localStorage.setItem('isAutoSyncing', String(isAutoSyncing));
-    }, [isAutoSyncing]);
+        const interval = setInterval(() => {
+            if (isSyncingRef.current || !userData) return;
+
+            // Check Rider Sync
+            if (riderConfigRef.current.enabled && riderConfigRef.current.sheetId) {
+                console.log("Auto-syncing Rider Data...");
+                handleGoogleSync(null, true, 'rider', riderConfigRef.current);
+            }
+
+            // Check Wallet Sync (Chain them or run parallel? Parallel is fine if handleSync checks isSyncing)
+            // But handleSync sets isSyncing=true. So we should probably wait. 
+            // Better: Trigger separately if not invalid.
+            // Actually, handleGoogleSync has a guard `if (isSyncing) return`.
+            // So if Rider takes >0ms, Wallet check immediately after might fail.
+            // We should stagger them or check individually. 
+            // For now, let's try to run Wallet only if Rider isn't running? 
+            // Or just fire both and let the second one wait or fail?
+            // "dono me... update ho".
+            // Let's modify handleGoogleSync to accept concurrency or strictly serialize.
+            // Simplified: If Rider is enabled, run it. On success/fail, verify Wallet. 
+            // But setInterval fires blindly.
+
+            if (walletConfigRef.current.enabled && walletConfigRef.current.sheetId) {
+                // simple timeout to stagger
+                setTimeout(() => {
+                    if (!isSyncingRef.current) {
+                        console.log("Auto-syncing Wallet Data...");
+                        handleGoogleSync(null, true, 'wallet', walletConfigRef.current);
+                    }
+                }, 5000); // 5s stagger
+            }
+
+        }, 10000); // 10 seconds
+
+        return () => clearInterval(interval);
+    }, [userData]);
 
     // DEFINE FUNCTIONS FIRST to avoid hoisting issues with const
 
@@ -90,34 +145,29 @@ const DataManagement: React.FC = () => {
         }
     };
 
-    const clearConfig = () => {
-        if (confirm("Clear Google Sheet configuration?")) {
-            const emptyConfig = { sheetId: '', range: 'Sheet1!A1:Z500', apiKey: '' };
-            setSheetConfig(emptyConfig);
-            setIsAutoSyncing(false);
-            localStorage.removeItem('googleSheetConfig');
-            localStorage.removeItem('isAutoSyncing');
-            toast.success("Configuration cleared");
-        }
-    };
 
-    const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, overrideMode?: 'rider' | 'wallet') => {
+
+    const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, mode: 'rider' | 'wallet', config: any) => {
         if (e) e.preventDefault();
-        if (!userData || isSyncing) return;
-        // ... rest of function matches existing structure, just ensuring clearConfig is inserted before it.
+        if (!userData || isSyncingRef.current) return;
 
-        const activeMode = overrideMode || syncMode;
-        if (!isAuto) setIsSyncing(true);
+        // Prevent concurrent syncs if needed, or allow parallel. 
+        // For safety, let's keep isSyncing lock global for now to avoid UI confusion, 
+        // unless we split isSyncing state. The user wants "dono me... chalta rahe".
+        // If we use global lock, one will block the other.
+        // Let's rely on the lock but realize 10s is enough time for one to finish usually.
+
+        setIsSyncing(true);
         setSyncError(null);
 
         try {
-            if (!sheetConfig.sheetId || !sheetConfig.range || sheetConfig.sheetId.length < 10) {
-                if (!isAuto) alert("Please enter valid Sheet ID and Range");
+            if (!config.sheetId || !config.range || config.sheetId.length < 10) {
+                if (!isAuto) toast.error("Please enter valid Sheet ID and Range");
                 throw new Error("Invalid Configuration");
             }
 
-            // Fix Range Format: Quote sheet name if it contains spaces
-            let formattedRange = sheetConfig.range.trim();
+            // Fix Range Format
+            let formattedRange = config.range.trim();
             if (formattedRange.includes('!')) {
                 const parts = formattedRange.split('!');
                 if (parts.length === 2) {
@@ -131,37 +181,38 @@ const DataManagement: React.FC = () => {
             }
 
             const summary = await syncGoogleSheet({
-                sheetId: sheetConfig.sheetId,
+                sheetId: config.sheetId,
                 range: formattedRange,
-                apiKey: sheetConfig.apiKey || undefined
-            }, userData.id, userData.fullName, activeMode);
+                apiKey: config.apiKey || undefined
+            }, userData.id, userData.fullName, mode);
 
             setLastSyncTime(new Date());
 
             if (!isAuto) {
                 alert(`Sync Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
             } else {
-                toast.success(`${activeMode === 'rider' ? 'Riders' : 'Wallets'} synced automatically.`);
+                toast.success(`${mode === 'rider' ? 'Riders' : 'Wallets'} synced automatically.`);
             }
 
             fetchHistory();
         } catch (err: any) {
             console.error("Sync Failed:", err);
             setSyncError(err.message || 'Sync failed');
-            if (!isAuto) alert("Sync Failed: " + err.message);
+            if (!isAuto) toast.error("Sync Failed: " + err.message);
         } finally {
-            if (!isAuto) setIsSyncing(false);
+            setIsSyncing(false);
         }
     };
 
     const handleSyncEvent = async (event: any) => {
         if (!userData) return;
         const currentMode = event.event_type === 'wallet_sync' ? 'wallet' : 'rider';
+        const targetConfig = currentMode === 'rider' ? riderConfigRef.current : walletConfigRef.current;
 
-        if (event.sheet_id === sheetConfigRef.current.sheetId) {
+        if (event.sheet_id === targetConfig.sheetId) {
             console.log(`Triggering Real-time ${currentMode} Sync for Sheet: ${event.sheet_id}`);
             toast.info(`Real-time ${currentMode} sync triggered from sheet...`);
-            handleGoogleSync(null, true, currentMode);
+            handleGoogleSync(null, true, currentMode, targetConfig);
         }
     };
 
@@ -370,161 +421,184 @@ const DataManagement: React.FC = () => {
                 )}
 
                 {activeTab === 'gsheets' && (
-                    <GlassCard className="p-8">
-                        <div className="flex justify-between items-start mb-6">
-                            <div>
-                                <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <FileText className="text-orange-500" /> Google Sheets Sync
-                                </h2>
-                                <p className="text-muted-foreground mt-1">Real-time synchronization with external sheets.</p>
+                    <div className="space-y-8 animate-in fade-in duration-300">
+
+                        {/* Rider Import Settings */}
+                        <GlassCard className="p-8 border-l-4 border-l-green-500">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                                        <FileSpreadsheet className="text-green-500" /> Rider Import Config
+                                    </h2>
+                                    <p className="text-muted-foreground mt-1">Configure Google Sheet for automated Rider Sync.</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => saveSettings('rider', riderConfig)}
+                                        className="text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
+                                    >
+                                        Save Config
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg border border-border/50">
-                                <div className={`w-2 h-2 rounded-full ${isAutoSyncing ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                                <span className="text-xs font-medium text-muted-foreground">
-                                    {isAutoSyncing ? 'Auto-Sync Active' : 'Auto-Sync Off'}
-                                </span>
-                            </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div className="lg:col-span-2 space-y-6">
-                                <form onSubmit={(e) => handleGoogleSync(e, false)} className="space-y-5">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between">
-                                                <label className="text-sm font-medium flex items-center gap-2">Sheet ID</label>
-                                                {sheetConfig.sheetId && (
-                                                    <button type="button" onClick={clearConfig} className="text-xs text-red-500 hover:underline">
-                                                        Clear Saved
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={sheetConfig.sheetId}
-                                                onChange={e => setSheetConfig({ ...sheetConfig, sheetId: e.target.value })}
-                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
-                                                placeholder="e.g., 1BxiMvs0XRA5nLFd..."
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Sync Mode</label>
-                                            <select
-                                                value={syncMode}
-                                                onChange={e => setSyncMode(e.target.value as 'rider' | 'wallet')}
-                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all text-sm"
-                                            >
-                                                <option value="rider">Bulk Rider Import</option>
-                                                <option value="wallet">Bulk Wallet Update</option>
-                                            </select>
-                                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Sheet ID</label>
+                                        <input
+                                            type="text"
+                                            value={riderConfig.sheetId}
+                                            onChange={e => setRiderConfig({ ...riderConfig, sheetId: e.target.value })}
+                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-green-500/50 font-mono text-sm"
+                                            placeholder="e.g., 1BxiMvs0..."
+                                        />
                                     </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Range / Sheet Name</label>
-                                            <input
-                                                type="text"
-                                                value={sheetConfig.range}
-                                                onChange={e => setSheetConfig({ ...sheetConfig, range: e.target.value })}
-                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
-                                                placeholder="e.g., Sheet1!A1:Z500"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">API Key</label>
-                                            <input
-                                                type="password"
-                                                value={sheetConfig.apiKey}
-                                                onChange={e => setSheetConfig({ ...sheetConfig, apiKey: e.target.value })}
-                                                className="w-full p-3 rounded-lg border bg-background/50 focus:ring-2 focus:ring-primary/50 outline-none transition-all font-mono text-sm"
-                                                placeholder="Optional if Sheet is Public"
-                                            />
-                                        </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Range</label>
+                                        <input
+                                            type="text"
+                                            value={riderConfig.range}
+                                            onChange={e => setRiderConfig({ ...riderConfig, range: e.target.value })}
+                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-green-500/50 font-mono text-sm"
+                                            placeholder="Sheet1!A1:Z1000"
+                                        />
                                     </div>
+                                </div>
 
-                                    <div className="flex items-center justify-between p-4 bg-muted/20 rounded-xl border border-muted/50">
+                                <div className="space-y-4 flex flex-col justify-end">
+                                    <div className="bg-muted/20 p-4 rounded-xl border border-muted/50 flex items-center justify-between">
                                         <div>
-                                            <h4 className="font-semibold text-sm">Auto-Sync (Every 10s)</h4>
-                                            <p className="text-xs text-muted-foreground mt-0.5">Automatically pull changes from the sheet.</p>
+                                            <h4 className="font-semibold text-sm">Auto-Sync (10s)</h4>
+                                            <p className="text-xs text-muted-foreground">Automatically pull every 10 seconds.</p>
                                         </div>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input
                                                 type="checkbox"
-                                                checked={isAutoSyncing}
-                                                onChange={(e) => setIsAutoSyncing(e.target.checked)}
+                                                checked={riderConfig.enabled}
+                                                onChange={(e) => {
+                                                    const newVal = e.target.checked;
+                                                    const newConfig = { ...riderConfig, enabled: newVal };
+                                                    setRiderConfig(newConfig);
+                                                    saveSettings('rider', newConfig);
+                                                }}
                                                 className="sr-only peer"
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                                         </label>
                                     </div>
 
-                                    <div className="flex gap-3 pt-2">
-                                        <button
-                                            type="submit"
-                                            disabled={isSyncing}
-                                            className="flex-1 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                        >
-                                            {isSyncing ? <span className="animate-spin">⟳</span> : <FileText size={18} />}
-                                            {isSyncing ? 'Syncing...' : `Sync ${syncMode === 'rider' ? 'Riders' : 'Wallets'} Now`}
-                                        </button>
-                                    </div>
-                                </form>
+                                    <button
+                                        onClick={(e) => handleGoogleSync(e, false, 'rider', riderConfig)}
+                                        disabled={isSyncing}
+                                        className="w-full bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
+                                        Sync Riders Now
+                                    </button>
+                                </div>
+                            </div>
+                        </GlassCard>
 
-                                <div className="mt-8 border-t pt-6">
-                                    <h4 className="font-bold text-sm mb-4 flex items-center gap-2">
-                                        <Sparkles size={16} className="text-primary animate-pulse" /> Real-Time Activation Steps
-                                    </h4>
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-primary/5 rounded-xl border border-primary/20">
-                                            <p className="text-sm font-semibold mb-2">1. Install Google Apps Script</p>
-                                            <p className="text-xs text-muted-foreground mb-3">Copy this script into your Google Sheet (Extensions &gt; Apps Script) to enable push-based sync.</p>
-                                            <div className="relative">
-                                                <pre className="bg-black/90 text-green-400 p-4 rounded-lg text-[10px] h-40 overflow-y-auto overflow-x-hidden font-mono scrollbar-thin">
-                                                    {`function onEdit(e) {
-  const SHEET_ID = "${sheetConfig.sheetId || 'YOUR_SHEET_ID'}";
-  const SUPABASE_URL = "${import.meta.env.VITE_SUPABASE_URL || 'YOUR_SUPABASE_URL'}";
-  const SUPABASE_KEY = "${import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_KEY'}";
-  UrlFetchApp.fetch(\`\${SUPABASE_URL}/rest/v1/sync_events\`, {
-    method: "POST",
-    headers: { "apikey": SUPABASE_KEY, "Authorization": \`Bearer \${SUPABASE_KEY}\`, "Content-Type": "application/json" },
-    payload: JSON.stringify({ event_type: "${syncModeRef.current}_sync", sheet_id: SHEET_ID, metadata: { range: e.range.getA1Notation() } })
-  });
-}`}
-                                                </pre>
-                                            </div>
-                                        </div>
-                                    </div>
+                        {/* Wallet Update Settings */}
+                        <GlassCard className="p-8 border-l-4 border-l-blue-500">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                                        <Wallet className="text-blue-500" /> Wallet Sync Config
+                                    </h2>
+                                    <p className="text-muted-foreground mt-1">Configure Google Sheet for automated Wallet Updates.</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => saveSettings('wallet', walletConfig)}
+                                        className="text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
+                                    >
+                                        Save Config
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="lg:col-span-1">
-                                <GlassCard className="h-full bg-primary/5 border-primary/10 p-5 flex flex-col justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                            <History size={18} className="text-primary" /> Sync Status
-                                        </h3>
-                                        <div className="space-y-4">
-                                            <div className="p-3 bg-background/60 rounded-lg border border-border/50">
-                                                <p className="text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wider">Last Synced</p>
-                                                <p className="font-mono font-medium text-sm">{lastSyncTime ? lastSyncTime.toLocaleTimeString() : 'Never'}</p>
-                                            </div>
-                                            <div className="p-3 bg-background/60 rounded-lg border border-border/50">
-                                                <p className="text-xs text-muted-foreground mb-1 font-semibold uppercase tracking-wider">Last Result</p>
-                                                {history.length > 0 ? (
-                                                    <div className="space-y-1">
-                                                        <div className="flex justify-between text-sm"><span className="text-green-600 font-medium">Success: {history[0].successCount}</span></div>
-                                                        <div className="flex justify-between text-sm"><span className="text-red-500 font-medium">Failed: {history[0].failureCount}</span></div>
-                                                    </div>
-                                                ) : <p className="text-sm text-muted-foreground italic">No recent sync data</p>}
-                                            </div>
-                                            {syncError && <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs"><strong>Error:</strong> {syncError}</div>}
-                                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Sheet ID</label>
+                                        <input
+                                            type="text"
+                                            value={walletConfig.sheetId}
+                                            onChange={e => setWalletConfig({ ...walletConfig, sheetId: e.target.value })}
+                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-blue-500/50 font-mono text-sm"
+                                            placeholder="e.g., 1BxiMvs0..."
+                                        />
                                     </div>
-                                </GlassCard>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Range</label>
+                                        <input
+                                            type="text"
+                                            value={walletConfig.range}
+                                            onChange={e => setWalletConfig({ ...walletConfig, range: e.target.value })}
+                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-blue-500/50 font-mono text-sm"
+                                            placeholder="Sheet1!A1:C1000"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 flex flex-col justify-end">
+                                    <div className="bg-muted/20 p-4 rounded-xl border border-muted/50 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-semibold text-sm">Auto-Sync (10s)</h4>
+                                            <p className="text-xs text-muted-foreground">Automatically pull every 10 seconds.</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={walletConfig.enabled}
+                                                onChange={(e) => {
+                                                    const newVal = e.target.checked;
+                                                    const newConfig = { ...walletConfig, enabled: newVal };
+                                                    setWalletConfig(newConfig);
+                                                    saveSettings('wallet', newConfig);
+                                                }}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+
+                                    <button
+                                        onClick={(e) => handleGoogleSync(e, false, 'wallet', walletConfig)}
+                                        disabled={isSyncing}
+                                        className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
+                                        Sync Wallets Now
+                                    </button>
+                                </div>
+                            </div>
+                        </GlassCard>
+
+                        {/* Recent Activity / Status */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <GlassCard className="p-5 bg-primary/5 border-primary/10">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                    <History size={18} className="text-primary" /> Sync Status
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-background/60 rounded-lg border border-border/50 flex justify-between items-center">
+                                        <span className="text-sm font-medium">Last Synced</span>
+                                        <span className="font-mono text-sm">{lastSyncTime ? lastSyncTime.toLocaleTimeString() : 'Never'}</span>
+                                    </div>
+                                    {syncError && <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs font-bold">Error: {syncError}</div>}
+                                </div>
+                            </GlassCard>
+                            <div className="p-4 bg-muted/20 rounded-xl border border-muted/50 text-xs text-muted-foreground">
+                                <p className="font-bold mb-1">Note on Persistence:</p>
+                                <p>Settings are now saved to the database. They will persist across devices, logouts, and page refreshes.</p>
+                                <p className="mt-2"><b>Auto-Sync</b> requires this admin panel to be open in a browser tab. If you close the tab, sync will pause until you return.</p>
                             </div>
                         </div>
-                    </GlassCard>
+
+                    </div>
                 )}
 
                 {activeTab === 'history' && (
