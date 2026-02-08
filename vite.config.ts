@@ -28,6 +28,9 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
+      },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // Increase limit to 5MB
       }
     })
   ],
@@ -37,6 +40,7 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true, // Enable source maps for debugging production errors
+    sourcemap: true,
+    chunkSizeWarningLimit: 4000, // Increase warning limit to 4MB
   },
 })
