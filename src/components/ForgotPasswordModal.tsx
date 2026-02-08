@@ -32,7 +32,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             // Ideally send clean input
             const searchInput = input.replace(/[^a-zA-Z0-9@.+]/g, '');
 
-            console.log('Calling secure lookup for:', searchInput);
+            // console.log('Calling secure lookup for:', searchInput);
 
             // Use the secure RPC function to bypass RLS
             const { data: users, error: userError } = await supabase
@@ -40,7 +40,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
                     p_contact: searchInput
                 });
 
-            console.log('Secure Search result:', { users, userError });
+            // console.log('Secure Search result:', { users, userError });
 
             if (userError) {
                 console.error('Database error:', userError);
