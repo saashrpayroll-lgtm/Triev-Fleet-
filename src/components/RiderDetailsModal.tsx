@@ -218,9 +218,26 @@ ${new Date().toLocaleString('en-IN')}`;
 
     const generateAiReminder = async () => {
         setGenerating(true);
-        const msg = await AIService.generatePaymentReminder(rider, reminderLang, 'professional');
-        setAiMessage(msg);
-        setGenerating(false);
+        try {
+            const rawMsg = await AIService.generatePaymentReminder(rider, reminderLang, 'professional');
+
+            // Format Amount
+            const amountStr = rider.walletAmount < 0
+                ? `-₹${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
+                : `₹${rider.walletAmount.toLocaleString('en-IN')}`;
+
+            // Replace & Bold
+            const hydratedMsg = rawMsg
+                .replace(/{name}/g, `*${rider.riderName}*`)
+                .replace(/{amount}/g, `*${amountStr}*`);
+
+            setAiMessage(hydratedMsg);
+        } catch (error) {
+            console.error("Error generating reminder:", error);
+            setAiMessage(`Hello *${rider.riderName}*, please clear your dues of *₹${rider.walletAmount}*.`);
+        } finally {
+            setGenerating(false);
+        }
     };
 
     return (
@@ -242,10 +259,10 @@ ${new Date().toLocaleString('en-IN')}`;
                                 <span className="mx-2 text-border">|</span>
                                 <span
                                     className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${rider.status === 'active'
-                                            ? 'bg-green-100 text-green-700'
-                                            : rider.status === 'inactive'
-                                                ? 'bg-yellow-100 text-yellow-700'
-                                                : 'bg-red-100 text-red-700'
+                                        ? 'bg-green-100 text-green-700'
+                                        : rider.status === 'inactive'
+                                            ? 'bg-yellow-100 text-yellow-700'
+                                            : 'bg-red-100 text-red-700'
                                         }`}
                                 >
                                     {rider.status}
