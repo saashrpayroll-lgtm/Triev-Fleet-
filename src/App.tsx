@@ -23,7 +23,7 @@ import UserLeads from '@/pages/teamleader/UserLeads';
 
 // Admin Pages
 import AdminLayout from '@/layouts/AdminLayout';
-import AdminDashboard from '@/pages/admin/Dashboard';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
 import Analytics from '@/pages/admin/Analytics';
 import RiderManagement from '@/pages/admin/RiderManagement';
 import UserManagement from '@/pages/admin/users';
