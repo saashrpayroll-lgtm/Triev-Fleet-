@@ -16,7 +16,7 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
     }
 
     // Priority: 1. Config Key, 2. Env Var, 3. Default
-    const apiKey = config.apiKey || import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || 'AIzaSyDvUJI4Eg0e4G3PHdu12QKnfyR-MYyjIoc';
+    const apiKey = config.apiKey || import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '';
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${config.range}?key=${apiKey}`;
 
     console.log(`Fetching Google Sheet: ${config.sheetId}, Range: ${config.range}`);

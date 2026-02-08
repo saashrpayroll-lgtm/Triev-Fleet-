@@ -96,23 +96,23 @@ const Dashboard: React.FC = () => {
         const channel = supabase
             .channel('dashboard-updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
-                console.log('Rider update detected');
+                // console.log('Rider update detected');
                 fetchDashboardData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-                console.log('Lead update detected');
+                // console.log('Lead update detected');
                 fetchDashboardData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
-                console.log('Request update detected');
+                // console.log('Request update detected');
                 fetchDashboardData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-                console.log('User update detected');
+                // console.log('User update detected');
                 fetchDashboardData();
             })
-            .subscribe((status) => {
-                console.log('Dashboard Realtime Status:', status);
+            .subscribe((_status) => {
+                // console.log('Dashboard Realtime Status:', status);
             });
 
         return () => {

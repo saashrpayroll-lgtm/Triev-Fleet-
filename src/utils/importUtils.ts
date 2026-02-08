@@ -78,7 +78,7 @@ export const processRiderImport = async (
     let users: any[] | null = null;
 
     try {
-        console.log("Fetching users for Team Leader assignment...");
+        // console.log("Fetching users for Team Leader assignment...");
         const { data: fetchedUsers, error } = await supabase
             .from('users')
             .select('id, fullName:full_name, email, role')
@@ -87,7 +87,7 @@ export const processRiderImport = async (
 
         if (error) throw error;
         users = fetchedUsers || [];
-        console.log(`[Import] Loaded ${users.length} potential Team Leaders.`);
+        // console.log(`[Import] Loaded ${users.length} potential Team Leaders.`);
 
         if (error) throw error;
 
@@ -114,7 +114,7 @@ export const processRiderImport = async (
                     // Standardize ID format to "konti/123" (lowercase, no spaces)
                     const uniqueId = idMatch[0].toLowerCase().replace(/\s+/g, '');
                     teamLeaderMap.set(uniqueId, userId);
-                    console.log(`[Mapping Debug] Extracted Unique ID: '${uniqueId}' for '${fullNameRaw}' -> ID: ${userId}`);
+                    // console.log(`[Mapping Debug] Extracted Unique ID: '${uniqueId}' for '${fullNameRaw}' -> ID: ${userId}`);
                 }
 
                 // Strategy 5: Map "Clean" Name (remove content in parens e.g. "Name (ID)" -> "name")
@@ -125,8 +125,8 @@ export const processRiderImport = async (
                 }
             }
         });
-        console.log(`Loaded ${users?.length} users. Identifiers mapped: ${teamLeaderMap.size} Names/Aliases, ${teamLeaderEmailMap.size} Emails.`);
-        console.log("[Debug] Loaded Team Leaders:", Array.from(teamLeaderMap.keys()));
+        // console.log(`Loaded ${users?.length} users. Identifiers mapped: ${teamLeaderMap.size} Names/Aliases, ${teamLeaderEmailMap.size} Emails.`);
+        // console.log("[Debug] Loaded Team Leaders:", Array.from(teamLeaderMap.keys()));
     } catch (error) {
         console.error("Error fetching users for validation:", error);
     }
@@ -160,13 +160,13 @@ export const processRiderImport = async (
             if (teamLeaderName) {
                 const normalizedTLName = teamLeaderName.toLowerCase();
                 // Debugging specific row match
-                console.log(`[Row ${rowNum}] Checking Team Leader: '${teamLeaderName}' (Normalized: '${normalizedTLName}')`);
+                // console.log(`[Row ${rowNum}] Checking Team Leader: '${teamLeaderName}' (Normalized: '${normalizedTLName}')`);
 
                 // Strategy 1: Check if input is a valid UUID
                 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
                 if (uuidRegex.test(teamLeaderName) && teamLeaderIdMap.has(teamLeaderName)) {
                     teamLeaderId = teamLeaderName;
-                    console.log(`[Row ${rowNum}] Match FOUND via UUID!`);
+                    // console.log(`[Row ${rowNum}] Match FOUND via UUID!`);
                 }
                 // Strategy 2: Check Email
                 else if (teamLeaderEmailMap.has(normalizedTLName)) {

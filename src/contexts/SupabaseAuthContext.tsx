@@ -60,7 +60,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         let subscription: any = null;
 
         const setupSubscription = async (userId: string) => {
-            console.log(`Setting up real-time subscription for user ${userId}`);
+            // console.log(`Setting up real-time subscription for user ${userId}`);
             subscription = supabase
                 .channel(`public:users:id=eq.${userId}`)
                 .on(

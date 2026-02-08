@@ -14,16 +14,16 @@ const TeamLeaderLayout: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // DEBUG: Monitor permissions
-    React.useEffect(() => {
-        if (userData) {
-            console.group('TeamLeaderLayout Permission Check');
-            console.log('User ID:', userData.id);
-            console.log('Role:', userData.role);
-            console.log('Raw Permissions:', userData.permissions);
-            console.log('Modules Access:', userData.permissions?.modules);
-            console.groupEnd();
-        }
-    }, [userData]);
+    // React.useEffect(() => {
+    //     if (userData) {
+    //         // console.group('TeamLeaderLayout Permission Check');
+    //         // console.log('User ID:', userData.id);
+    //         // console.log('Role:', userData.role);
+    //         // console.log('Raw Permissions:', userData.permissions);
+    //         // console.log('Modules Access:', userData.permissions?.modules);
+    //         // console.groupEnd();
+    //     }
+    // }, [userData]);
 
     const handleLogout = async () => {
         try {

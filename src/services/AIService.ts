@@ -98,7 +98,7 @@ class AIOrchestrator {
         const primaryProvider = this.selectProvider(task);
         const startTime = Date.now();
 
-        console.log(`[AI Orchestrator] Task: ${task} | Selected Primary: ${primaryProvider}`);
+        // console.log(`[AI Orchestrator] Task: ${task} | Selected Primary: ${primaryProvider}`);
 
         // Try Primary
         let result = await this.callProvider(primaryProvider, prompt, systemContext);
