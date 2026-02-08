@@ -1,5 +1,5 @@
 import { supabase } from '@/config/supabase';
-import { startOfMonth, format, subMonths, eachMonthOfInterval, startOfYear, endOfMonth } from 'date-fns';
+import { format, subMonths, eachMonthOfInterval } from 'date-fns';
 
 export interface AnalyticsData {
     riderGrowth: { name: string; riders: number }[];

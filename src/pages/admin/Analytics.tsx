@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-    LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { BadgeDollarSign, TrendingUp, Users, Filter, Wallet, RefreshCw } from 'lucide-react';
+import { TrendingUp, Users, Filter, Wallet, RefreshCw } from 'lucide-react';
 import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
 import { toast } from 'sonner';
 
@@ -172,7 +172,7 @@ const Analytics: React.FC = () => {
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {data.clientDistribution.map((entry, index) => (
+                                    {data.clientDistribution.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
