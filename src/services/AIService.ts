@@ -313,6 +313,32 @@ Return ONLY the message text.`;
         return `Dear {name}, this is a friendly reminder about your outstanding balance of {amount}. Please clear your dues at the earliest. Thank you!`;
     },
 
+    generateRecoveryMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
+        const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
+
+        const prompt = `Generate a STERN vehicle recovery warning for a rider with HIGH negative wallet balance.
+Rider Name: {name}
+Outstanding Amount: {amount}
+
+INSTRUCTIONS:
+1. ${languageInstruction}
+2. Tone: Urgent, Authoritative, but Professional.
+3. Key Message: "Your dues are critical. Pay immediately or return the EV to the hub to avoid legal action/seizure."
+4. You MUST conserve the placeholders {name} and {amount} exactly as written.
+5. Keep it concise (2 sentences max).
+
+Return ONLY the message text.`;
+
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Legal Compliance Officer.");
+
+        if (text) return cleanText(text);
+
+        if (language === 'hindi') {
+            return `चेतावनी: {name}, आपके वॉलेट में {amount} का गंभीर बकाया है। तुरंत भुगतान करें या कानूनी कार्रवाई से बचने के लिए वाहन हब पर जमा करें।`;
+        }
+        return `URGENT: {name}, your outstanding dues of {amount} are critical. Pay immediately or return the vehicle to the hub to avoid seizure/legal action.`;
+    },
+
     parseSearchQuery: async (query: string): Promise<{ role?: string; status?: string; location?: string; keyword?: string; }> => {
         const prompt = `Extract filter parameters from query: "${query}". Return JSON with keys: role, status, location, keyword.`;
         const text = await AIOrchestrator.execute('speed', prompt, "You are a Search Parser. Output JSON only."); // Groq

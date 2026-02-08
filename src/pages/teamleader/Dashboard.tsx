@@ -15,6 +15,7 @@ import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
+import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
 
 interface DashboardStats {
     // Riders
@@ -334,6 +335,33 @@ const Dashboard: React.FC = () => {
                     />
                 )}
 
+            </div>
+
+            {/* RECOVERY TASKS SECTION (New) */}
+            <div className="animate-in slide-in-from-bottom duration-700 delay-200">
+                <ComponentErrorBoundary name="Debt Recovery Tasks">
+                    {/* We pass the 'myRiders' derived from leaderboardData (which is actually all riders, wait - 
+                         the stats logic fetches 'myRiders' but leaderboardData fetches 'allRiders'. 
+                         We need 'myRiders' for this component. 
+                         Looking at the fetchStats logic:
+                         The 'myRiders' data isn't stored in a state variable accessible here directly except inside 'stats'.
+                         Wait, 'leaderboardData' has 'riders' which IS 'allRiders'. 
+                         Ideally this component should take 'myRiders'. 
+                         I see 'leaderboardData' state variable. 
+                         Let's see where 'myRiders' went.
+                         It was used to calculate stats but not stored in state.
+                         
+                         CORRECTION: I need to store 'myRiders' in state to pass it to this component.
+                         Or, I can filter 'leaderboardData.riders' if it contains everyone and I know my ID.
+                         But 'leaderboardData.riders' is ALL riders.
+                         'userData.id' is available.
+                         So I can filter: leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)
+                     */}
+                    <DebtRecoveryTasks
+                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                        currentUserId={userData.id}
+                    />
+                </ComponentErrorBoundary>
             </div>
 
             {/* AI Coaching Segment */}

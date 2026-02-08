@@ -209,7 +209,8 @@ export type ActionType =
     | 'sent_reminder'
     | 'payment_reminder'
     | 'leadCreated'
-    | 'leadStatusChange';
+    | 'leadStatusChange'
+    | 'sent_recovery_warning';
 
 export type TargetType = 'rider' | 'user' | 'report' | 'system' | 'lead' | 'request';
 
