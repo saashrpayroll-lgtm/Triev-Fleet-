@@ -331,7 +331,6 @@ const Dashboard: React.FC = () => {
                      */}
                     <DebtRecoveryTasks
                         riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
-                        currentUser={userData}
                     />
                 </ComponentErrorBoundary>
             </div>

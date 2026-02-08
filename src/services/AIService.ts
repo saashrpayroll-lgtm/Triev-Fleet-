@@ -291,7 +291,17 @@ Provide 2-3 concise bullet points about onboarding checklist, expectations, or i
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
         const toneInstruction = tone === 'professional' ? 'professional and respectful' : tone === 'friendly' ? 'friendly and polite' : 'urgent but respectful';
 
-        const prompt = `Generate a WhatsApp payment reminder for a rider.
+        // Add randomness factor
+        const variations = [
+            "Focus on immediate payment to avoid service interruption.",
+            "Focus on maintaining a good relationship.",
+            "Focus on the outstanding balance size.",
+            "Short and direct.",
+            "Slightly detailed explanation."
+        ];
+        const randomFocus = variations[Math.floor(Math.random() * variations.length)];
+
+        const prompt = `Generate a UNIQUE WhatsApp payment reminder for a rider.
 Rider Name: ${name}
 Outstanding Amount: ${amountStr}
 
@@ -299,8 +309,9 @@ INSTRUCTIONS:
 1. ${languageInstruction}
 2. Tone: ${toneInstruction}
 3. The message MUST include the Rider Name ("${name}") and the Amount ("${amountStr}") clearly.
-4. Keep it concise (2-3 sentences).
-5. Do not include any introductory text, just the message body.
+4. VARIATION INSTRUCTION: ${randomFocus}
+5. Keep it concise (2-3 sentences).
+6. Do not include any introductory text, just the message body.
 
 Return ONLY the final message text ready to send.`;
 
@@ -322,6 +333,16 @@ Return ONLY the final message text ready to send.`;
 
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
 
+        // Add randomness factor for recovery
+        const variations = [
+            "Emphasize the immediate assignment of the team.",
+            "Emphasize the consequences of non-payment.",
+            "Be extremely short and stern.",
+            "Frame it as a 'Final Notice'.",
+            "Focus on the 'Vehicle Seizure' risk."
+        ];
+        const randomFocus = variations[Math.floor(Math.random() * variations.length)];
+
         const prompt = `Generate a STERN vehicle recovery warning for a rider with HIGH negative wallet balance.
 Rider Name: ${name}
 Outstanding Amount: ${amountStr}
@@ -332,7 +353,8 @@ INSTRUCTIONS:
 3. CRITICAL: Do NOT mention "legal action", "police", or "seizure". 
 4. INSTEAD, strictly say that the "**Hard Recovery Team**" (or "**हार्ड रिकवरी टीम**" in Hindi) will be assigned to recover the vehicle if dues are not cleared.
 5. The message MUST include the Rider Name ("${name}") and the Amount ("${amountStr}").
-6. Keep it concise (2 sentences max).
+6. VARIATION INSTRUCTION: ${randomFocus} (Ensure the message feels fresh/unique).
+7. Keep it concise (2 sentences max).
 
 Return ONLY the final message text ready to send.`;
 

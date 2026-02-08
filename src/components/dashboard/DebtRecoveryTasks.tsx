@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
-import { Rider, User } from '@/types';
-import { supabase } from '@/config/supabase';
+import { Rider } from '@/types';
 import { AIService } from '@/services/AIService';
-import { AlertTriangle, MessageCircle, RefreshCw, Wallet, CheckCircle2, Send, X, Copy } from 'lucide-react';
+import { logActivity } from '@/utils/activityLog';
+import { AlertTriangle, RefreshCw, Wallet, CheckCircle2, Send, X, Copy, Zap, Languages } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 interface DebtRecoveryTasksProps {
     riders: Rider[];
-    currentUser: User;
 }
 
 const CRITICAL_THRESHOLD = -300;
 
-const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUser }) => {
+const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
     const [activeTab, setActiveTab] = useState<'critical' | 'warning'>('critical');
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [recoveryMessage, setRecoveryMessage] = useState<string>('');
     const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
+    const [language, setLanguage] = useState<'hindi' | 'english'>('hindi');
 
     // Filter Riders
     const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD).sort((a, b) => a.walletAmount - b.walletAmount); // Ascending (more negative first)
@@ -25,25 +25,40 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
 
     const activeList = activeTab === 'critical' ? criticalRiders : warningRiders;
 
+    const generateMsg = async (rider: Rider, lang: 'hindi' | 'english') => {
+        try {
+            let msg = '';
+            if (rider.walletAmount <= CRITICAL_THRESHOLD) {
+                msg = await AIService.generateRecoveryMessage(rider, lang);
+            } else {
+                msg = await AIService.generatePaymentReminder(rider, lang, 'urgent');
+            }
+            setRecoveryMessage(msg);
+        } catch (error) {
+            console.error("Error generating message:", error);
+            toast.error("Failed to generate AI message.");
+        }
+    };
+
     const handleAction = async (rider: Rider) => {
         setSelectedRider(rider);
         setProcessingId(rider.id);
-        try {
-            // Generate Message based on severity
-            let msg = '';
-            if (rider.walletAmount <= CRITICAL_THRESHOLD) {
-                // Modified prompt in AIService now handles name/amount injection directly
-                msg = await AIService.generateRecoveryMessage(rider, 'hindi');
-            } else {
-                msg = await AIService.generatePaymentReminder(rider, 'hindi', 'urgent');
-            }
+        await generateMsg(rider, language);
+    };
 
-            setRecoveryMessage(msg);
-        } catch (error) {
-            console.error("Error generating recovery message:", error);
-            toast.error("Failed to generate AI message.");
-            setProcessingId(null);
-            setSelectedRider(null);
+    const handleRegenerate = async () => {
+        if (!selectedRider) return;
+        setProcessingId(selectedRider.id); // Show spinner if needed, though usually fast
+        await generateMsg(selectedRider, language);
+        setProcessingId(null);
+        toast.success("Message regenerated!");
+    };
+
+    const handleLanguageToggle = async () => {
+        const newLang = language === 'hindi' ? 'english' : 'hindi';
+        setLanguage(newLang);
+        if (selectedRider) {
+            await generateMsg(selectedRider, newLang);
         }
     };
 
@@ -57,35 +72,24 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
             const url = `https://wa.me/${phone}?text=${encodedMsg}`;
             window.open(url, '_blank');
 
-            // 2. Log Activity
-            // Ensure we match the ActivityLog interface in types/index.ts
-            const logEntry = {
-                user_id: currentUser.id,
-                user_name: currentUser.fullName || currentUser.username || 'Unknown',
-                user_role: currentUser.role,
-                action_type: selectedRider.walletAmount <= CRITICAL_THRESHOLD ? 'sent_recovery_warning' : 'payment_reminder',
-                target_type: 'rider',
-                target_id: selectedRider.id,
-                details: `Sent ${selectedRider.walletAmount <= CRITICAL_THRESHOLD ? 'EV Recovery Warning' : 'Payment Reminder'} to ${selectedRider.riderName} (₹${selectedRider.walletAmount})`,
+            // 2. Log Activity using the Utility Function
+            await logActivity({
+                actionType: selectedRider.walletAmount <= CRITICAL_THRESHOLD ? 'sent_recovery_warning' : 'payment_reminder',
+                targetType: 'rider',
+                targetId: selectedRider.id,
+                details: `Sent ${selectedRider.walletAmount <= CRITICAL_THRESHOLD ? 'EV Recovery Warning' : 'Payment Reminder'} to ${selectedRider.riderName}`,
                 metadata: {
-                    message_preview: recoveryMessage.substring(0, 50) + '...',
                     rider_name: selectedRider.riderName,
-                    amount: selectedRider.walletAmount
-                },
-                timestamp: new Date().toISOString()
-            };
-
-            const { error } = await supabase.from('activity_logs').insert(logEntry);
-
-            if (error) {
-                console.error("Supabase Log Error:", error);
-                throw error;
-            }
+                    amount: selectedRider.walletAmount,
+                    message_preview: recoveryMessage.substring(0, 50) + '...',
+                    language: language
+                }
+            });
 
             toast.success("Action logged & WhatsApp opened!");
         } catch (error) {
             console.error("Error logging action:", error);
-            toast.error("Message sent but failed to log action in system.");
+            toast.error("Message sent but logic failed. Check console.");
         } finally {
             setProcessingId(null);
             setSelectedRider(null);
@@ -169,20 +173,18 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
                                     <div className="flex flex-col md:flex-row gap-5">
 
                                         {/* Rider Profile Section */}
-                                        <div className="flex items-start gap-4 min-w-[200px]">
-                                            <div className={`mt-1 w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${rider.walletAmount <= CRITICAL_THRESHOLD ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'}`}>
-                                                <Wallet size={24} strokeWidth={2.5} />
+                                        <div className="flex items-start gap-4 min-w-[200px] md:w-1/3">
+                                            <div className={`mt-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${rider.walletAmount <= CRITICAL_THRESHOLD ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'}`}>
+                                                <Wallet size={28} strokeWidth={2.5} />
                                             </div>
                                             <div>
-                                                <h4 className="font-black text-lg text-foreground leading-tight">{rider.riderName}</h4>
-                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-1 flex items-center gap-2">
-                                                    ID: {rider.trievId}
-                                                    <span className="w-1 h-1 rounded-full bg-border" />
+                                                <h4 className="font-black text-xl text-foreground leading-tight tracking-tight">{rider.riderName}</h4>
+                                                <p className="text-sm font-bold text-muted-foreground/80 flex items-center gap-2 mt-1">
                                                     {rider.mobileNumber}
                                                 </p>
-                                                <div className="mt-3 inline-flex flex-col items-start bg-muted/50 rounded-lg px-3 py-1.5 border border-border/50">
-                                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">Outstanding</span>
-                                                    <span className={`text-xl font-black ${rider.walletAmount <= CRITICAL_THRESHOLD ? 'text-red-500' : 'text-orange-500'}`}>
+                                                <div className="mt-3 inline-flex flex-col items-start bg-muted/50 rounded-lg px-3 py-1.5 border border-border/50 w-full">
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Outstanding Dues</span>
+                                                    <span className={`text-2xl font-black ${rider.walletAmount <= CRITICAL_THRESHOLD ? 'text-red-500' : 'text-orange-500'}`}>
                                                         {rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                                                     </span>
                                                 </div>
@@ -190,20 +192,34 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
                                         </div>
 
                                         {/* Action / Context Section */}
-                                        <div className="flex-1 w-full relative">
+                                        <div className="flex-1 w-full relative border-t md:border-t-0 md:border-l border-border/50 pt-4 md:pt-0 md:pl-5">
                                             {selectedRider?.id === rider.id ? (
                                                 <motion.div
                                                     initial={{ opacity: 0, x: 20 }}
                                                     animate={{ opacity: 1, x: 0 }}
                                                     className="bg-muted/30 rounded-2xl border p-4 h-full flex flex-col"
                                                 >
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-xs font-bold text-primary flex items-center gap-1.5 uppercase tracking-wider">
-                                                            <MessageCircle size={12} className="fill-primary" />
-                                                            AI Draft Message
-                                                        </span>
-                                                        <button onClick={copyToClipboard} className="text-xs text-muted-foreground hover:text-primary transition-colors" title="Copy text">
-                                                            <Copy size={12} />
+                                                    {/* Controls */}
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={handleLanguageToggle}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-black/20 rounded-lg text-xs font-bold border hover:bg-muted transition-colors"
+                                                            >
+                                                                <Languages size={14} />
+                                                                {language === 'hindi' ? 'Hindi' : 'English'}
+                                                            </button>
+                                                            <button
+                                                                onClick={handleRegenerate}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-black/20 rounded-lg text-xs font-bold border hover:bg-muted transition-colors text-primary"
+                                                                title="Get a refreshing new message"
+                                                            >
+                                                                <Zap size={14} className={processingId === rider.id ? "animate-spin" : "fill-current"} />
+                                                                Regenerate
+                                                            </button>
+                                                        </div>
+                                                        <button onClick={copyToClipboard} className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1" title="Copy text">
+                                                            <Copy size={12} /> Copy
                                                         </button>
                                                     </div>
 
@@ -213,7 +229,7 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
                                                             value={recoveryMessage}
                                                             onChange={(e) => setRecoveryMessage(e.target.value)}
                                                             className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 resize-none font-medium leading-relaxed text-foreground min-h-[80px]"
-                                                            placeholder="Generating message..."
+                                                            placeholder="Generating AI message..."
                                                         />
                                                     </div>
 
@@ -235,15 +251,17 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, currentUs
                                                     </div>
                                                 </motion.div>
                                             ) : (
-                                                <div className="h-full flex flex-col justify-center items-end md:items-start space-y-3 pl-0 md:pl-4 border-l-0 md:border-l border-border/50">
-                                                    <div className="hidden md:block">
+                                                <div className="h-full flex flex-col justify-center items-end md:items-start space-y-3">
+                                                    <div className="">
                                                         {activeTab === 'critical' ? (
-                                                            <p className="text-xs font-medium text-red-600/80 max-w-sm">
-                                                                High risk of default. Send mandatory recovery warning regarding <b>"Hard Recovery Team"</b> action.
+                                                            <p className="text-sm font-medium text-red-600/90 leading-snug">
+                                                                ⚠ <b>Action Required:</b> Send mandatory "Hard Recovery" warning.<br />
+                                                                <span className="text-xs opacity-75 font-normal">Message warns about vehicle seizure.</span>
                                                             </p>
                                                         ) : (
-                                                            <p className="text-xs font-medium text-orange-600/80 max-w-sm">
-                                                                Payment overdue. Send a polite but firm reminder to avoid escalation.
+                                                            <p className="text-sm font-medium text-orange-600/90 leading-snug">
+                                                                ⚠ <b>Payment Overdue:</b> Send payment reminder.<br />
+                                                                <span className="text-xs opacity-75 font-normal">Polite but firm request to clear dues.</span>
                                                             </p>
                                                         )}
                                                     </div>
