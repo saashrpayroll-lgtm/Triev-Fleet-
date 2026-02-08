@@ -1018,258 +1018,259 @@ const RiderManagement: React.FC = () => {
                         </button>
                     )}
                 </div>
+            </div>
 
-                {/* Tabs */}
-                <div className="border-b border-border/60 overflow-x-auto scrollbar-hide">
-                    <div className="flex gap-8 min-w-max px-2">
-                        {['all', 'active', 'inactive', 'deleted'].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => handleTabChange(tab as TabType)}
-                                className={`pb-4 px-2 font-medium transition-all relative capitalize text-sm tracking-wide ${activeTab === tab
-                                    ? 'text-primary font-bold'
-                                    : 'text-muted-foreground hover:text-foreground'
-                                    }`}
-                            >
-                                {tab} Riders
-                                {activeTab === tab && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full shadow-[0_-2px_6px_rgba(var(--primary),0.2)]"></div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Filters & Toolbar */}
-                <div className="bg-card border border-border/50 rounded-xl p-4 shadow-sm space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                        {/* Search */}
-                        <div className="relative flex-1 w-full md:max-w-xl">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Search by name, ID, mobile, chassis, or Team Leader..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-background/50 hover:bg-background"
-                            />
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-3 w-full md:w-auto">
-                            <button
-                                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                                className={`px-4 py-2.5 border rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm flex-1 md:flex-none justify-center ${showAdvancedFilters ? 'bg-primary/5 border-primary text-primary shadow-sm' : 'border-input bg-background'}`}
-                            >
-                                {showAdvancedFilters ? <SlidersHorizontal size={18} /> : <Filter size={18} />}
-                                {showAdvancedFilters ? 'Hide Filters' : 'Filters'}
-                            </button>
-                            <button
-                                onClick={() => setShowExportModal(true)}
-                                className="px-4 py-2.5 border border-input bg-background rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm flex-1 md:flex-none justify-center group"
-                            >
-                                <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                Export
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Advanced Filters Panel */}
-                    {showAdvancedFilters && (
-                        <div className="pt-4 border-t border-border/50 grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Team Leader</label>
-                                <select
-                                    value={advancedFilters.teamLeader}
-                                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, teamLeader: e.target.value })}
-                                    className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                >
-                                    <option value="all">All Team Leaders</option>
-                                    {teamLeaders.map(tl => (
-                                        <option key={tl.id} value={tl.id}>{tl.fullName}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Client</label>
-                                <select
-                                    value={advancedFilters.client}
-                                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as ClientName | 'all' })}
-                                    className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                >
-                                    <option value="all">All Clients</option>
-                                    {['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'].map(c => (
-                                        <option key={c} value={c}>{c}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Wallet Status</label>
-                                <select
-                                    value={advancedFilters.walletRange}
-                                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
-                                    className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                >
-                                    <option value="all">All</option>
-                                    <option value="positive">Positive Balance (+)</option>
-                                    <option value="negative">Negative Balance (-)</option>
-                                    <option value="zero">Zero Balance</option>
-                                </select>
-                            </div>
-                            <div className="flex items-end">
-                                <button
-                                    onClick={() => setAdvancedFilters({ teamLeader: 'all', client: 'all', walletRange: 'all' })}
-                                    className="w-full px-4 py-2 border border-dashed border-input rounded-lg hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-2"
-                                >
-                                    <RefreshCw size={14} /> Reset Filters
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Bulk Actions */}
-                {selectedRiders.size > 0 && (
-                    <BulkActionsBar
-                        selectedCount={selectedRiders.size}
-                        totalCount={filteredRiders.length}
-                        onSelectAll={() => setSelectedRiders(new Set(filteredRiders.map(r => r.id)))}
-                        onDeselectAll={() => setSelectedRiders(new Set())}
-                        actions={getBulkActions() as any}
-                    />
-                )}
-
-                {/* Desktop and Mobile Table */}
-                <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-                    <ResponsiveTable
-                        columns={columns}
-                        data={paginatedRiders}
-                        keyField="id"
-                        isLoading={loading}
-                        emptyMessage="No riders found matching your criteria."
-                        highlightedRowId={highlightedRiderId}
-                        onRowClick={(rider) => setViewingRider(rider)}
-                        actions={(rider) => (
-                            <ActionDropdownMenu
-                                rider={rider}
-                                onView={() => setViewingRider(rider)}
-                                onEdit={() => setEditingRider(rider)}
-                                onStatusChange={(s) => handleStatusChange(rider, s)}
-                                onDelete={() => handleDeleteRider(rider)}
-                                onRestore={() => handleRestoreRider(rider)}
-                                onPermanentDelete={() => handlePermanentDelete(rider)}
-                                onReassign={() => setReassigningRider(rider)}
-                                userRole="admin"
-                            />
-                        )}
-                    />
-                </div>
-
-                {/* Modals */}
-                <TLMappingModal
-                    isOpen={!!reassigningRider || showBulkAssignTL}
-                    onClose={() => {
-                        setReassigningRider(null);
-                        setShowBulkAssignTL(false);
-                    }}
-                    onSave={showBulkAssignTL ? handleBulkAssignTL : handleReassignRider}
-                    currentTLId={reassigningRider?.teamLeaderId}
-                    teamLeaders={teamLeaders}
-                    riderName={reassigningRider?.riderName}
-                    count={showBulkAssignTL ? selectedRiders.size : undefined}
-                />
-
-                {/* Pagination Footer */}
-                <div className="border-t border-border px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Rows per page:</span>
-                        <select
-                            value={pageSize}
-                            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                            className="px-2 py-1 border border-input rounded bg-background text-sm"
+            {/* Tabs */}
+            <div className="border-b border-border/60 overflow-x-auto scrollbar-hide">
+                <div className="flex gap-8 min-w-max px-2">
+                    {['all', 'active', 'inactive', 'deleted'].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => handleTabChange(tab as TabType)}
+                            className={`pb-4 px-2 font-medium transition-all relative capitalize text-sm tracking-wide ${activeTab === tab
+                                ? 'text-primary font-bold'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
                         >
-                            <option value={10}>10</option>
-                            <option value={25}>25</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                        </select>
-                        <span className="text-sm text-muted-foreground ml-4">
-                            Showing {startIndex + 1}-{Math.min(startIndex + pageSize, filteredRiders.length)} of {filteredRiders.length}
-                        </span>
+                            {tab} Riders
+                            {activeTab === tab && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full shadow-[0_-2px_6px_rgba(var(--primary),0.2)]"></div>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Filters & Toolbar */}
+            <div className="bg-card border border-border/50 rounded-xl p-4 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    {/* Search */}
+                    <div className="relative flex-1 w-full md:max-w-xl">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search by name, ID, mobile, chassis, or Team Leader..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-background/50 hover:bg-background"
+                        />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setCurrentPage(c => Math.max(1, c - 1))} disabled={currentPage === 1} className="p-2 border rounded hover:bg-accent"><ChevronLeft size={16} /></button>
-                        <span className="text-sm">Page {currentPage} of {totalPages || 1}</span>
-                        <button onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))} disabled={currentPage === totalPages} className="p-2 border rounded hover:bg-accent"><ChevronRight size={16} /></button>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <button
+                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                            className={`px-4 py-2.5 border rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm flex-1 md:flex-none justify-center ${showAdvancedFilters ? 'bg-primary/5 border-primary text-primary shadow-sm' : 'border-input bg-background'}`}
+                        >
+                            {showAdvancedFilters ? <SlidersHorizontal size={18} /> : <Filter size={18} />}
+                            {showAdvancedFilters ? 'Hide Filters' : 'Filters'}
+                        </button>
+                        <button
+                            onClick={() => setShowExportModal(true)}
+                            className="px-4 py-2.5 border border-input bg-background rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm flex-1 md:flex-none justify-center group"
+                        >
+                            <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                            Export
+                        </button>
                     </div>
                 </div>
 
+                {/* Advanced Filters Panel */}
+                {showAdvancedFilters && (
+                    <div className="pt-4 border-t border-border/50 grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+                        <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Team Leader</label>
+                            <select
+                                value={advancedFilters.teamLeader}
+                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, teamLeader: e.target.value })}
+                                className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            >
+                                <option value="all">All Team Leaders</option>
+                                {teamLeaders.map(tl => (
+                                    <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Client</label>
+                            <select
+                                value={advancedFilters.client}
+                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as ClientName | 'all' })}
+                                className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            >
+                                <option value="all">All Clients</option>
+                                {['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'].map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Wallet Status</label>
+                            <select
+                                value={advancedFilters.walletRange}
+                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
+                                className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            >
+                                <option value="all">All</option>
+                                <option value="positive">Positive Balance (+)</option>
+                                <option value="negative">Negative Balance (-)</option>
+                                <option value="zero">Zero Balance</option>
+                            </select>
+                        </div>
+                        <div className="flex items-end">
+                            <button
+                                onClick={() => setAdvancedFilters({ teamLeader: 'all', client: 'all', walletRange: 'all' })}
+                                className="w-full px-4 py-2 border border-dashed border-input rounded-lg hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-2"
+                            >
+                                <RefreshCw size={14} /> Reset Filters
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
 
-                {/* Modals */}
-                {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} teamLeaders={teamLeaders} userRole={currentUser?.role} />}
-                {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider} isEdit teamLeaders={teamLeaders} userRole={currentUser?.role} />}
-                {
-                    viewingRider && (
-                        <RiderDetailsModal
-                            rider={viewingRider}
-                            onClose={() => setViewingRider(null)}
+            {/* Bulk Actions */}
+            {selectedRiders.size > 0 && (
+                <BulkActionsBar
+                    selectedCount={selectedRiders.size}
+                    totalCount={filteredRiders.length}
+                    onSelectAll={() => setSelectedRiders(new Set(filteredRiders.map(r => r.id)))}
+                    onDeselectAll={() => setSelectedRiders(new Set())}
+                    actions={getBulkActions() as any}
+                />
+            )}
+
+            {/* Desktop and Mobile Table */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+                <ResponsiveTable
+                    columns={columns}
+                    data={paginatedRiders}
+                    keyField="id"
+                    isLoading={loading}
+                    emptyMessage="No riders found matching your criteria."
+                    highlightedRowId={highlightedRiderId}
+                    onRowClick={(rider) => setViewingRider(rider)}
+                    actions={(rider) => (
+                        <ActionDropdownMenu
+                            rider={rider}
+                            onView={() => setViewingRider(rider)}
+                            onEdit={() => setEditingRider(rider)}
+                            onStatusChange={(s) => handleStatusChange(rider, s)}
+                            onDelete={() => handleDeleteRider(rider)}
+                            onRestore={() => handleRestoreRider(rider)}
+                            onPermanentDelete={() => handlePermanentDelete(rider)}
+                            onReassign={() => setReassigningRider(rider)}
+                            userRole="admin"
                         />
-                    )
-                }
-                {
-                    showExportModal && (
-                        <ExportModal
-                            isOpen={showExportModal}
-                            onClose={() => setShowExportModal(false)}
-                            onExport={handleExport}
-                            availableColumns={[
-                                { key: 'trievId', label: 'Triev ID' },
-                                { key: 'riderName', label: 'Rider Name' },
-                                { key: 'mobileNumber', label: 'Mobile Number' },
-                                { key: 'chassisNumber', label: 'Chassis Number' },
-                                { key: 'clientName', label: 'Client Name' },
-                                { key: 'clientId', label: 'Client ID' },
-                                { key: 'walletAmount', label: 'Wallet Amount' },
-                                { key: 'status', label: 'Status' },
-                                { key: 'teamLeaderName', label: 'Team Leader' },
-                                { key: 'allotmentDate', label: 'Allotment Date' },
-                                { key: 'remarks', label: 'Remarks' },
-                            ]}
-                        />
-                    )
-                }
-                {
-                    reassigningRider && (
-                        <TLMappingModal
-                            isOpen={!!reassigningRider}
-                            onClose={() => setReassigningRider(null)}
-                            onSave={handleReassignRider}
-                            currentTLId={reassigningRider.teamLeaderId}
-                            teamLeaders={teamLeaders}
-                            riderName={reassigningRider.riderName}
-                        />
-                    )
-                }
-                {
-                    reminderRider && (
-                        <PaymentReminderModal
-                            rider={reminderRider}
-                            onClose={() => setReminderRider(null)}
-                            onSend={handleSendReminder}
-                        />
-                    )
-                }
-                {
-                    showBulkReminderModal && (
-                        <BulkReminderModal
-                            riders={riders.filter(r => selectedRiders.has(r.id))}
-                            onClose={() => setShowBulkReminderModal(false)}
-                            onSend={handleBulkSendReminders}
-                        />
-                    )
-                }
-            </div >
-            );
+                    )}
+                />
+            </div>
+
+            {/* Modals */}
+            <TLMappingModal
+                isOpen={!!reassigningRider || showBulkAssignTL}
+                onClose={() => {
+                    setReassigningRider(null);
+                    setShowBulkAssignTL(false);
+                }}
+                onSave={showBulkAssignTL ? handleBulkAssignTL : handleReassignRider}
+                currentTLId={reassigningRider?.teamLeaderId}
+                teamLeaders={teamLeaders}
+                riderName={reassigningRider?.riderName}
+                count={showBulkAssignTL ? selectedRiders.size : undefined}
+            />
+
+            {/* Pagination Footer */}
+            <div className="border-t border-border px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <select
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        className="px-2 py-1 border border-input rounded bg-background text-sm"
+                    >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                    </select>
+                    <span className="text-sm text-muted-foreground ml-4">
+                        Showing {startIndex + 1}-{Math.min(startIndex + pageSize, filteredRiders.length)} of {filteredRiders.length}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setCurrentPage(c => Math.max(1, c - 1))} disabled={currentPage === 1} className="p-2 border rounded hover:bg-accent"><ChevronLeft size={16} /></button>
+                    <span className="text-sm">Page {currentPage} of {totalPages || 1}</span>
+                    <button onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))} disabled={currentPage === totalPages} className="p-2 border rounded hover:bg-accent"><ChevronRight size={16} /></button>
+                </div>
+            </div>
+
+
+            {/* Modals */}
+            {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} teamLeaders={teamLeaders} userRole={currentUser?.role} />}
+            {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider} isEdit teamLeaders={teamLeaders} userRole={currentUser?.role} />}
+            {
+                viewingRider && (
+                    <RiderDetailsModal
+                        rider={viewingRider}
+                        onClose={() => setViewingRider(null)}
+                    />
+                )
+            }
+            {
+                showExportModal && (
+                    <ExportModal
+                        isOpen={showExportModal}
+                        onClose={() => setShowExportModal(false)}
+                        onExport={handleExport}
+                        availableColumns={[
+                            { key: 'trievId', label: 'Triev ID' },
+                            { key: 'riderName', label: 'Rider Name' },
+                            { key: 'mobileNumber', label: 'Mobile Number' },
+                            { key: 'chassisNumber', label: 'Chassis Number' },
+                            { key: 'clientName', label: 'Client Name' },
+                            { key: 'clientId', label: 'Client ID' },
+                            { key: 'walletAmount', label: 'Wallet Amount' },
+                            { key: 'status', label: 'Status' },
+                            { key: 'teamLeaderName', label: 'Team Leader' },
+                            { key: 'allotmentDate', label: 'Allotment Date' },
+                            { key: 'remarks', label: 'Remarks' },
+                        ]}
+                    />
+                )
+            }
+            {
+                reassigningRider && (
+                    <TLMappingModal
+                        isOpen={!!reassigningRider}
+                        onClose={() => setReassigningRider(null)}
+                        onSave={handleReassignRider}
+                        currentTLId={reassigningRider.teamLeaderId}
+                        teamLeaders={teamLeaders}
+                        riderName={reassigningRider.riderName}
+                    />
+                )
+            }
+            {
+                reminderRider && (
+                    <PaymentReminderModal
+                        rider={reminderRider}
+                        onClose={() => setReminderRider(null)}
+                        onSend={handleSendReminder}
+                    />
+                )
+            }
+            {
+                showBulkReminderModal && (
+                    <BulkReminderModal
+                        riders={riders.filter(r => selectedRiders.has(r.id))}
+                        onClose={() => setShowBulkReminderModal(false)}
+                        onSend={handleBulkSendReminders}
+                    />
+                )
+            }
+        </div >
+    );
 };
 
-            export default RiderManagement;
+export default RiderManagement;
