@@ -253,35 +253,7 @@ const Dashboard: React.FC = () => {
 
 
 
-            {/* Top Horizontal Leaderboard */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-card/50 backdrop-blur-sm border rounded-3xl p-6 shadow-lg relative overflow-hidden"
-            >
-                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                    <Star size={200} />
-                </div>
-                <div className="mb-2 relative z-10">
-                    {/* Header removed as requested */}
-                </div>
-                <div className="relative z-10">
-                    {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
-                        <ComponentErrorBoundary name="Leaderboard">
-                            <Leaderboard
-                                teamLeaders={leaderboardData.teamLeaders}
-                                riders={leaderboardData.riders}
-                                leads={leaderboardData.leads}
-                                disableClick={true}
-                            />
-                        </ComponentErrorBoundary>
-                    ) : (
-                        <div className="p-10 text-center text-muted-foreground border border-dashed rounded-2xl">
-                            Leaderboard is restricted
-                        </div>
-                    )}
-                </div>
-            </motion.div>
+
 
             {/* BENTO GRID: Premium Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
@@ -487,6 +459,37 @@ const Dashboard: React.FC = () => {
                     </motion.button>
                 ))}
             </div>
+
+            {/* Top Performers Leaderboard (Moved to Bottom) */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="bg-card/50 backdrop-blur-sm border rounded-3xl p-6 shadow-lg relative overflow-hidden"
+            >
+                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                    <Star size={200} />
+                </div>
+                <div className="mb-2 relative z-10">
+                    {/* Header removed as requested */}
+                </div>
+                <div className="relative z-10">
+                    {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
+                        <ComponentErrorBoundary name="Leaderboard">
+                            <Leaderboard
+                                teamLeaders={leaderboardData.teamLeaders}
+                                riders={leaderboardData.riders}
+                                leads={leaderboardData.leads}
+                                disableClick={true}
+                            />
+                        </ComponentErrorBoundary>
+                    ) : (
+                        <div className="p-10 text-center text-muted-foreground border border-dashed rounded-2xl">
+                            Leaderboard is restricted
+                        </div>
+                    )}
+                </div>
+            </motion.div>
         </div>
     );
 };

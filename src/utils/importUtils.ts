@@ -353,6 +353,9 @@ export const processWalletUpdate = async (
 
     summary.total = fileData.length;
 
+    // Notification Accumulator: TL ID -> Count
+    const tlNotificationCounts = new Map<string, number>();
+
     for (let i = 0; i < fileData.length; i++) {
         const row = fileData[i];
         const rowNum = i + 2;
@@ -373,7 +376,7 @@ export const processWalletUpdate = async (
 
             // 1. Try Triev ID first (more precise)
             if (trievId) {
-                const { data } = await supabase.from('riders').select('id, rider_name').eq('triev_id', trievId).maybeSingle();
+                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('triev_id', trievId).maybeSingle();
                 if (data) {
                     matchData = data;
                     identifierUsed = `Triev ID: ${trievId}`;
@@ -382,7 +385,7 @@ export const processWalletUpdate = async (
 
             // 2. Try Mobile if Triev ID failed or wasn't provided
             if (!matchData && mobile) {
-                const { data } = await supabase.from('riders').select('id, rider_name').eq('mobile_number', mobile).maybeSingle();
+                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('mobile_number', mobile).maybeSingle();
                 if (data) {
                     matchData = data;
                     identifierUsed = `Mobile: ${mobile}`;
@@ -402,6 +405,12 @@ export const processWalletUpdate = async (
             if (error) throw error;
 
             console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
+
+            // Track for Notification
+            if (matchData.team_leader_id) {
+                tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
+            }
+
             summary.success++;
 
         } catch (err: any) {
@@ -415,9 +424,28 @@ export const processWalletUpdate = async (
         }
     }
 
+    // --- BATCH NOTIFICATIONS SENDING ---
+    try {
+        const notifications = Array.from(tlNotificationCounts.entries()).map(([tlId, count]) => ({
+            user_id: tlId,
+            title: 'Bulk Wallet Update',
+            message: `Admin updated wallet balance for ${count} of your riders.`,
+            type: 'wallet',
+            created_at: new Date().toISOString(),
+            is_read: false
+        }));
+
+        if (notifications.length > 0) {
+            await supabase.from('notifications').insert(notifications);
+            console.log(`Sent ${notifications.length} batched wallet notifications.`);
+        }
+    } catch (e) {
+        console.error("Failed to send batched wallet notifications:", e);
+    }
+
     // Log the overall activity to the main Activity page
     await logActivity({
-        actionType: 'Wallet Bulk Update',
+        actionType: 'walletUpdated', // Fixed actionType to match schema ('walletUpdated' is better than 'Wallet Bulk Update')
         targetType: 'system',
         targetId: 'multiple',
         details: `Updated wallets for ${summary.success} riders, ${summary.failed} failures.`,

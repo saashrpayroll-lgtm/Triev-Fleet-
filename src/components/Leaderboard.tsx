@@ -134,101 +134,123 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                 {action}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Podium Layout */}
+            <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-8 h-auto md:h-[450px] pt-10">
                 {podiumOrder.map((tl, idx) => {
                     // Determine actual rank based on sorted list
                     const actualRank = scoredTLs.indexOf(tl);
                     const isFirst = actualRank === 0;
+                    const isSecond = actualRank === 1;
+
+
                     const styles = getRankStyles(actualRank);
+
+                    // Podium Visual Height adjustments
+                    let podiumHeightClass = '';
+                    let orderClass = '';
+                    let scaleClass = '';
+
+                    if (isFirst) {
+                        orderClass = 'order-1 md:order-2'; // Center on desktop
+                        podiumHeightClass = 'min-h-[380px]';
+                        scaleClass = 'md:scale-110 z-20';
+                    } else if (isSecond) {
+                        orderClass = 'order-2 md:order-1'; // Left on desktop
+                        podiumHeightClass = 'min-h-[320px]';
+                        scaleClass = 'z-10 mt-8';
+                    } else { // Third
+                        orderClass = 'order-3 md:order-3'; // Right on desktop
+                        podiumHeightClass = 'min-h-[290px]';
+                        scaleClass = 'z-0 mt-16';
+                    }
 
                     return (
                         <motion.div
                             key={tl.id}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3, delay: idx * 0.1 }}
-                            className={`relative rounded-xl border p-3 ${styles.bg} ${styles.border} ${styles.shadow} backdrop-blur-sm hover:shadow-md transition-all ${disableClick ? 'cursor-default' : 'cursor-pointer'} ${isFirst ? 'ring-2 ring-yellow-500/30 ring-offset-2 dark:ring-offset-black' : ''}`}
-                            onClick={() => {
-                                if (disableClick) return;
-                                if (isDashboard) {
-                                    navigate('/portal/leaderboard');
-                                } else {
-                                    navigate(`/portal/users?highlightUserId=${tl.id}`);
-                                }
-                            }}
+                            initial={{ opacity: 0, y: 50 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: idx * 0.1 }}
+                            className={`w-full md:w-1/3 relative flex flex-col ${orderClass} ${scaleClass}`}
                         >
-                            {/* Rank & User Info Row */}
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className={`relative w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold bg-white dark:bg-black/20 shadow-sm ${styles.text}`}>
-                                    {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
-                                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${styles.badge} text-[10px] text-white flex items-center justify-center shadow-sm`}>
-                                        #{actualRank + 1}
+                            {/* Crown for 1st Place */}
+                            {isFirst && (
+                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-yellow-500 animate-bounce">
+                                    <Trophy size={48} className="drop-shadow-lg fill-yellow-400" />
+                                </div>
+                            )}
+
+                            <div
+                                className={`
+                                    relative flex-1 rounded-t-3xl border-x border-t border-b-0 p-4 
+                                    ${styles.bg} ${styles.border} ${styles.shadow} 
+                                    backdrop-blur-md hover:shadow-xl transition-all 
+                                    ${disableClick ? 'cursor-default' : 'cursor-pointer'} 
+                                    flex flex-col justify-between
+                                    ${podiumHeightClass}
+                                `}
+                                onClick={() => {
+                                    if (disableClick) return;
+                                    if (isDashboard) {
+                                        navigate('/portal/leaderboard');
+                                    } else {
+                                        navigate(`/portal/users?highlightUserId=${tl.id}`);
+                                    }
+                                }}
+                            >
+                                {/* Rank Badge (Floating) */}
+                                <div className={`self-center -mt-8 w-12 h-12 rounded-full ${styles.badge} text-white flex items-center justify-center font-black text-xl shadow-lg border-4 border-white dark:border-slate-900 z-50`}>
+                                    #{actualRank + 1}
+                                </div>
+
+                                {/* User Info */}
+                                <div className="text-center mt-4">
+                                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center text-2xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} mb-2`}>
+                                        {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="font-extrabold text-lg truncate px-2">
+                                        {safeRender(tl.fullName || 'Unknown')}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground opacity-80 uppercase tracking-wider font-bold">
+                                        {Math.round(tl.score)} Pts
                                     </div>
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between">
-                                        <div className="font-bold text-sm truncate pr-2">
-                                            {safeRender(tl.fullName || 'Unknown')}
-                                        </div>
-                                        <div className="flex items-center gap-1 text-yellow-600 font-bold text-xs bg-white/50 dark:bg-black/10 px-1.5 py-0.5 rounded">
-                                            <Sparkles size={8} className="fill-current" />
-                                            {Math.round(tl.score)}
-                                        </div>
+
+                                {/* Stats Column (Center aligned) */}
+                                <div className="space-y-3 my-4">
+                                    <div className="flex justify-between items-center bg-white/40 dark:bg-black/10 rounded-lg p-2">
+                                        <span className="text-xs font-medium text-muted-foreground">Riders</span>
+                                        <span className="font-bold text-blue-600">{tl.stats.activeRiders}</span>
                                     </div>
-                                    <div className="flex items-center justify-between mt-0.5">
-                                        <p className="text-[10px] text-muted-foreground truncate opacity-80">
-                                            {safeRender(tl.role)}
-                                        </p>
-                                        <span className="text-[9px] font-mono text-muted-foreground bg-black/5 dark:bg-white/5 px-1 rounded">
-                                            ID: {safeRender(tl.id).slice(0, 4)}
+                                    <div className="flex justify-between items-center bg-white/40 dark:bg-black/10 rounded-lg p-2">
+                                        <span className="text-xs font-medium text-muted-foreground">Wallet</span>
+                                        <span className={`font-bold ${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                            {tl.stats.wallet >= 1000 ? `${(tl.stats.wallet / 1000).toFixed(1)}k` : tl.stats.wallet}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white/40 dark:bg-black/10 rounded-lg p-2">
+                                        <span className="text-xs font-medium text-muted-foreground">Leads</span>
+                                        <span className="font-bold text-orange-600">{tl.stats.leads}</span>
+                                    </div>
+                                </div>
+
+                                {/* Footer / Base Decoration */}
+                                <div className="mt-auto border-t border-black/5 dark:border-white/5 pt-3">
+                                    <div className="flex justify-center gap-4 text-[10px] text-muted-foreground font-bold uppercase">
+                                        <span className="flex items-center gap-1">
+                                            <Activity size={10} /> Act: {tl.stats.activity}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <Calendar size={10} /> Conv: {tl.stats.conversionRate}%
                                         </span>
                                     </div>
                                 </div>
+
+                                {/* Shine Effect */}
+                                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-3xl" />
                             </div>
 
-                            {/* Score Progress */}
-                            <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden mb-3">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${Math.min(tl.score, 100)}%` }}
-                                    className={`h-full rounded-full ${styles.badge}`}
-                                />
-                            </div>
-
-                            {/* Dense Stats Grid */}
-                            <div className="grid grid-cols-4 gap-1 mb-2">
-                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
-                                    <div className="text-[9px] text-muted-foreground">Riders</div>
-                                    <div className="text-xs font-bold text-blue-600">{tl.stats.activeRiders}</div>
-                                </div>
-                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
-                                    <div className="text-[9px] text-muted-foreground">Conv.</div>
-                                    <div className="text-xs font-bold text-green-600">{tl.stats.conversionRate}%</div>
-                                </div>
-                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
-                                    <div className="text-[9px] text-muted-foreground">Wallet</div>
-                                    <div className={`text-xs font-bold ${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                        {tl.stats.wallet >= 1000 ? `${(tl.stats.wallet / 1000).toFixed(1)}k` : tl.stats.wallet}
-                                    </div>
-                                </div>
-                                <div className="bg-white/40 dark:bg-black/5 rounded p-1 text-center">
-                                    <div className="text-[9px] text-muted-foreground">Leads</div>
-                                    <div className="text-xs font-bold text-orange-600">{tl.stats.leads}</div>
-                                </div>
-                            </div>
-
-                            {/* Footer Metrics */}
-                            <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
-                                <span className="flex items-center gap-1">
-                                    <Activity size={10} /> Act: {tl.stats.activity}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                    <Calendar size={10} /> Total: {tl.stats.totalRiders}
-                                </span>
-                            </div>
-
-                            {/* Shine Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000 pointer-events-none rounded-xl" />
+                            {/* Podium Base (Visual grounding) */}
+                            <div className={`h-4 w-[90%] mx-auto rounded-b-xl ${styles.badge} opacity-50 blur-sm`} />
                         </motion.div>
                     );
                 })}

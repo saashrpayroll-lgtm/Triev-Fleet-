@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, AlertCircle, AlertTriangle, CheckCircle, Info, X, Wallet, Flag, Zap, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/config/supabase';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -107,24 +108,27 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
     };
 
     const handleMarkAllRead = async () => {
-        const unread = notifications.filter(n => !n.isRead);
-        if (unread.length === 0) return;
-
-        const ids = unread.map(n => n.id);
+        if (unreadCount === 0) return;
 
         try {
+            // Update ALL unread notifications for this user in DB
             const { error } = await supabase
                 .from('notifications')
-                .update({ is_read: true, read_at: new Date().toISOString() }) // FIXED: snake_case
-                .in('id', ids);
+                .update({ is_read: true, read_at: new Date().toISOString() })
+                .eq('user_id', userId)
+                .eq('is_read', false);
 
             if (error) throw error;
 
-            // Optimistic update
+            // Optimistic update for local state
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
+            toast.success("All notifications marked as read");
 
-        } catch (error) { console.error('Error marking all read:', error); }
+        } catch (error) {
+            console.error('Error marking all read:', error);
+            toast.error("Failed to mark all as read");
+        }
     };
 
     const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
