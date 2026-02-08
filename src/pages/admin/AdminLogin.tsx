@@ -21,20 +21,23 @@ const AdminLogin: React.FC = () => {
             let emailToLogin = loginInput;
 
             // 1. Resolve Login Identifier (Email / Mobile / UserID)
-            const input = loginInput.trim();
-            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+            const rawInput = loginInput.trim();
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawInput);
 
             if (!isEmail) {
+                // Remove spaces, dashes, parentheses to clean potential phone formatting
+                const cleanedInput = rawInput.replace(/[\s\-()]/g, '');
+
                 // If not standard email, try to resolve it
-                const isMobile = /^\d+$/.test(input);
+                const isMobile = /^(\+)?\d+$/.test(cleanedInput);
 
                 if (isMobile) {
-                    const { data, error } = await supabase.rpc('get_email_by_mobile', { mobile_input: input });
+                    const { data, error } = await supabase.rpc('get_email_by_mobile', { mobile_input: cleanedInput });
                     if (error || !data) throw new Error("Mobile number not found or not registered.");
                     emailToLogin = data;
                 } else {
                     // Assume Username / User ID
-                    const { data, error } = await supabase.rpc('get_email_by_username', { username_input: input });
+                    const { data, error } = await supabase.rpc('get_email_by_username', { username_input: rawInput });
                     if (error || !data) throw new Error("User ID / Username not found.");
                     emailToLogin = data;
                 }

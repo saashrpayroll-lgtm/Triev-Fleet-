@@ -140,7 +140,7 @@ export const useUsers = () => {
         const subscription = supabase
             .channel('users-list-sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload: any) => {
-                console.log('Real-time sync payload:', payload);
+                // console.log('Real-time sync payload:', payload); // Removed for security
                 const { eventType, new: next, old } = payload;
 
                 setUsers(prev => {
@@ -316,7 +316,7 @@ export const useUsers = () => {
 
     // Update User
     const updateUser = useCallback(async (userId: string, data: Partial<User>) => {
-        console.log('updateUser called:', userId, data);
+        // console.log('updateUser called:', userId, data);
         const userToUpdate = users.find(u => u.id === userId);
         if (userToUpdate && isImmune(userToUpdate)) {
             toast.error("Action Denied: This is a Super Admin account.");
@@ -368,7 +368,7 @@ export const useUsers = () => {
 
     // Toggle User Status
     const toggleUserStatus = useCallback(async (user: User) => {
-        console.log('toggleUserStatus called:', user);
+        // console.log('toggleUserStatus called:', user);
         if (isImmune(user)) {
             toast.error("Action Denied: This is a Super Admin account.");
             return;
@@ -417,7 +417,7 @@ export const useUsers = () => {
 
     // Suspend User
     const suspendUser = useCallback(async (user: User, durationMinutes: number) => {
-        console.log('suspendUser called:', user.id, durationMinutes);
+        // console.log('suspendUser called:', user.id, durationMinutes);
         try {
             let suspendedUntil = null;
             if (durationMinutes > 0) {
@@ -470,7 +470,7 @@ export const useUsers = () => {
 
     // Soft Delete User
     const deleteUser = useCallback(async (user: User) => {
-        console.log('deleteUser called:', user.id);
+        // console.log('deleteUser called:', user.id);
         if (!confirm(`Are you sure you want to delete ${user.fullName}? (Soft Delete)`)) return;
 
         try {

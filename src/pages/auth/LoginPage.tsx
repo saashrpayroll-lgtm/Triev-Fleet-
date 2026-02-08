@@ -28,12 +28,15 @@ const LoginPage: React.FC = () => {
             let emailToLogin = loginInput;
 
             // Check if input looks like an email
-            const cleanedInput = loginInput.trim();
-            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedInput);
+            const rawInput = loginInput.trim();
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawInput);
 
             if (!isEmail) {
-                // If not email, it could be a username or a mobile number
-                const isMobile = /^\d+$/.test(cleanedInput); // Simple check for digits
+                // Remove spaces, dashes, parentheses to clean potential phone formatting
+                const cleanedInput = rawInput.replace(/[\s\-()]/g, '');
+
+                // Check if it's a mobile number (digits, optionally starting with +)
+                const isMobile = /^(\+)?\d+$/.test(cleanedInput);
 
                 if (isMobile) {
                     // Lookup email by mobile
@@ -41,7 +44,7 @@ const LoginPage: React.FC = () => {
                         .rpc('get_email_by_mobile', { mobile_input: cleanedInput });
 
                     if (error || !data) {
-                        console.error("Mobile lookup failed:", error);
+                        // console.error("Mobile lookup failed:", error); // Security: Don't log detailed error
                         throw new Error('Mobile number not registered or incorrect.');
                     }
                     emailToLogin = data;
@@ -51,13 +54,13 @@ const LoginPage: React.FC = () => {
                         .rpc('get_email_by_username', { username_input: cleanedInput });
 
                     if (error || !data) {
-                        console.error("Username lookup failed:", error);
+                        // console.error("Username lookup failed:", error);
                         throw new Error('Username not found');
                     }
                     emailToLogin = data;
                 }
             } else {
-                emailToLogin = cleanedInput;
+                emailToLogin = rawInput;
             }
 
             await login(emailToLogin, password);
@@ -79,7 +82,7 @@ const LoginPage: React.FC = () => {
 
             // Navigation is handled by App.tsx redirect based on auth state
         } catch (err: unknown) {
-            console.error('Login error:', err);
+            // console.error('Login error:', err);
 
             if (err instanceof Error) {
                 setError(err.message || 'Failed to login. Please check your credentials.');

@@ -121,14 +121,8 @@ const Dashboard: React.FC = () => {
                 `).eq('role', 'teamLeader');
                 const allTls = sanitizeArray((tlsData || []) as User[]);
 
-                // DEBUG: Log team leaders data structure
-                console.log('🔍 DEBUG: Team Leaders Data (SANITIZED):', JSON.stringify(allTls[0], null, 2));
-                console.log('🔍 DEBUG: Team Leaders Count:', allTls.length);
-                if (allTls[0]) {
-                    console.log('🔍 DEBUG: First TL fullName type:', typeof allTls[0].fullName, allTls[0].fullName);
-                    console.log('🔍 DEBUG: First TL email type:', typeof allTls[0].email, allTls[0].email);
-                    console.log('🔍 DEBUG: First TL role type:', typeof allTls[0].role, allTls[0].role);
-                }
+                // DEBUG: Log team leaders data structure - REMOVED FOR SECURITY
+                // console.log('🔍 DEBUG: Team Leaders Data (SANITIZED)');
 
                 const { data: allRidersData } = await supabase.from('riders').select(`
                     id,

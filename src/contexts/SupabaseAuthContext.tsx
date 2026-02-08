@@ -72,18 +72,13 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                         filter: `id=eq.${userId}`,
                     },
                     (payload) => {
-                        console.log('Real-time user update received:', payload.new);
-                        if (payload.new.permissions) {
-                            console.log('New Permissions received:', typeof payload.new.permissions, payload.new.permissions);
-                        }
+                        // console.log('Real-time user update received:', payload.new);
                         const newData = formatUserData(payload.new);
                         // Force update state
                         setUserData(prev => ({ ...prev, ...newData }));
                     }
                 )
-                .subscribe((status) => {
-                    console.log(`Subscription status for ${userId}:`, status);
-                });
+                .subscribe();
         };
 
         // Get initial session
