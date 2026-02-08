@@ -139,8 +139,8 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
     ];
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-0 md:p-4 animate-in fade-in duration-200">
-            <div className="bg-card md:rounded-lg max-w-3xl w-full flex flex-col h-full md:h-auto md:max-h-[85vh] shadow-xl overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4 animate-in fade-in duration-200">
+            <div className="bg-card rounded-t-2xl md:rounded-xl max-w-3xl w-full flex flex-col h-[100dvh] md:h-auto md:max-h-[85vh] shadow-xl overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
                     <h2 className="text-2xl font-bold">
@@ -361,7 +361,7 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
                 </div>
 
                 {/* Footer - Fixed */}
-                <div className="flex items-center justify-end gap-4 p-6 border-t border-border flex-shrink-0 bg-card rounded-b-lg">
+                <div className="flex items-center justify-end gap-4 p-6 pb-8 md:pb-6 border-t border-border flex-shrink-0 bg-card rounded-b-lg">
                     <button
                         type="button"
                         onClick={onClose}

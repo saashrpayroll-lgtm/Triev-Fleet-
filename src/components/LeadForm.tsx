@@ -308,7 +308,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
     const iconClasses = "absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 group-hover:text-primary transition-colors duration-300";
 
     return (
-        <div className="flex flex-col w-full max-w-2xl mx-auto bg-card/30 backdrop-blur-xl border border-white/10 md:rounded-3xl shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-300 h-full md:h-auto md:max-h-[85dvh]">
+        <div className="flex flex-col w-full max-w-2xl mx-auto bg-card/30 backdrop-blur-xl border border-white/10 md:rounded-3xl shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-300 h-[100dvh] md:h-auto md:max-h-[85dvh]">
             {/* Vibrant Gradients */}
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
             <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />
@@ -530,7 +530,7 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
             </div>
 
             {/* Footer */}
-            <div className="p-6 pt-4 border-t border-white/5 bg-white/5 backdrop-blur-md flex gap-4">
+            <div className="p-6 pt-4 pb-8 md:pb-6 border-t border-white/5 bg-white/5 backdrop-blur-md flex gap-4">
                 <button
                     type="button"
                     onClick={onCancel}
