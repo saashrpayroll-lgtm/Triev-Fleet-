@@ -46,22 +46,21 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+            // Core vendor: React + UI libs (often inter-dependent)
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom') || id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@radix-ui') || id.includes('clsx') || id.includes('tailwind-merge')) {
               return 'vendor';
+            }
+            // Heavy independent libs
+            if (id.includes('xlsx') || id.includes('jspdf')) {
+              return 'heavy';
             }
             if (id.includes('@supabase')) {
               return 'supabase';
             }
-            if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@radix-ui') || id.includes('class-variance-authority') || id.includes('clsx') || id.includes('tailwind-merge')) {
-              return 'ui';
-            }
             if (id.includes('recharts')) {
               return 'charts';
             }
-            if (id.includes('date-fns') || id.includes('sonner')) {
-              return 'utils';
-            }
-            // Return undefined to let Rollup handle other node_modules
+            // Rest goes to default vendor or index
           }
         }
       }
