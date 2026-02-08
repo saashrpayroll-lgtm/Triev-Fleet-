@@ -157,11 +157,11 @@ export const processRiderImport = async (
                 return '';
             };
 
-            riderName = getValue(['Rider Name', 'Name', 'RiderName']);
-            const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
+            riderName = getValue(['Rider Name', 'Name', 'RiderName', 'Full Name', 'FullName']);
+            const trievId = getValue(['Triev ID', 'TrievId', 'ID', 'Rider id', 'RiderId']);
             const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell', 'Contact']);
             mobile = mobileRaw.replace(/[^0-9]/g, '');
-            const chassis = getValue(['Chassis Number', 'Chassis', 'ChassisNo']);
+            const chassis = getValue(['Chassis Number', 'Chassis', 'ChassisNo', 'Chasiss number', 'Chasiss Number']);
 
             if (!trievId && !mobile && !chassis) {
                 throw new Error("Missing Identifier (Triev ID, Mobile, or Chassis required)");
@@ -169,7 +169,7 @@ export const processRiderImport = async (
             if (!riderName) throw new Error("Missing Rider Name");
 
             // Check for 'Team Leader' OR 'Base' column
-            const teamLeaderName = getValue(['Team Leader', 'TeamLeader', 'TL', 'Base', 'Hub']);
+            const teamLeaderName = getValue(['Team Leader', 'TeamLeader', 'TL', 'Base', 'Hub', 'Team Leader name']);
             let teamLeaderId = null;
             let assignmentStatus = 'Unassigned';
 
@@ -266,12 +266,12 @@ export const processRiderImport = async (
             }
 
             // Handle Client
-            const clientRaw = getValue(['Client Name', 'Client', 'Brand']);
+            const clientRaw = getValue(['Client Name', 'Client', 'Brand', 'Company', 'Clientname']);
             const clientName = isValidClient(clientRaw) ? clientRaw : 'Other';
 
             // Handle Date
             let allotmentDate = new Date().toISOString();
-            const dateRaw = getValue(['Allotment Date', 'Date', 'Alloted Date', 'Joining Date']);
+            const dateRaw = getValue(['Allotment Date', 'Date', 'Alloted Date', 'Joining Date', 'Allotment', 'Allotment date']);
             if (dateRaw) {
                 const d = new Date(dateRaw);
                 if (!isNaN(d.getTime())) {
@@ -308,7 +308,7 @@ export const processRiderImport = async (
                 chassis_number: chassis,
                 client_name: clientName,
                 client_id: getValue(['Client ID', 'ClientId']),
-                wallet_amount: parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount'])),
+                wallet_amount: parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance'])),
                 allotment_date: allotmentDate,
                 remarks: getValue(['Remarks', 'Remark', 'Note', 'Notes']),
                 team_leader_id: teamLeaderId,
@@ -402,7 +402,7 @@ export const processWalletUpdate = async (
             const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
             const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone']);
             const mobile = mobileRaw.replace(/[^0-9]/g, '');
-            const amount = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount']));
+            const amount = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance']));
 
             if (!trievId && !mobile) {
                 throw new Error("Missing Identifier: 'Triev ID' or 'Mobile Number' is required column.");
