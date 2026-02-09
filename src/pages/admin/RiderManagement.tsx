@@ -1141,7 +1141,7 @@ const RiderManagement: React.FC = () => {
             )}
 
             {/* Desktop and Mobile Table */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-card border border-border rounded-lg overflow-x-auto shadow-sm">
                 <ResponsiveTable
                     columns={columns}
                     data={paginatedRiders}

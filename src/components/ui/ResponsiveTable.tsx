@@ -49,7 +49,7 @@ function ResponsiveTable<T>({
     return (
         <div className="w-full">
             {/* Desktop Table View */}
-            <div className="hidden md:block overflow-hidden rounded-xl border border-border/50 shadow-sm bg-card">
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-border/50 shadow-sm bg-card">
                 <table className="w-full text-sm text-left">
                     <thead className="bg-muted/50 text-muted-foreground uppercase text-xs font-semibold">
                         <tr>

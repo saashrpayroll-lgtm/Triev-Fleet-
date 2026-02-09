@@ -140,7 +140,7 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4 animate-in fade-in duration-200">
-            <div className="bg-card rounded-t-2xl md:rounded-xl max-w-3xl w-full flex flex-col h-[100dvh] md:h-auto md:max-h-[85vh] shadow-xl overflow-hidden">
+            <div className="bg-card rounded-t-2xl md:rounded-xl max-w-3xl w-full flex flex-col h-auto max-h-[85vh] md:max-h-[85vh] shadow-xl overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
                     <h2 className="text-2xl font-bold">
@@ -155,7 +155,7 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
                 </div>
 
                 {/* Form - Scrollable Content */}
-                <div className="overflow-y-auto p-6 flex-grow pb-32 md:pb-6">
+                <div className="overflow-y-auto p-4 md:p-6 flex-grow pb-6">
                     <form id="rider-form" onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Triev ID */}

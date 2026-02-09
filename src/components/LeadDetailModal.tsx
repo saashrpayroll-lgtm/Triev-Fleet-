@@ -131,8 +131,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
     };
 
     return (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-card w-full max-w-3xl rounded-xl shadow-2xl border border-border overflow-hidden h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in duration-200">
+            <div className="bg-card w-full max-w-3xl rounded-t-xl md:rounded-xl shadow-2xl border border-border overflow-hidden h-auto max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="p-6 border-b border-border flex justify-between items-start bg-muted/20">
                     <div className="flex gap-4 items-center">
