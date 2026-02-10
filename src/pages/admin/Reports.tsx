@@ -450,16 +450,6 @@ const Reports: React.FC = () => {
                                                     const val = e.target.value;
                                                     if (val === 'all') setSelectedTLs([]);
                                                     else {
-                                                        // Toggle selection (simplified as single added, but UI shows multi behavior via state)
-                                                        // Actually a standard multi-select dropdown is hard with native select.
-                                                        // Let's make it a simple "All" or "Specific One" for now, OR a custom dropdown.
-                                                        // Improving: Simple native select that adds to list? 
-                                                        // For MVP: Let's use a standard select that allows picking 'All' or one specific. 
-                                                        // Multi-select with native UI is ugly.
-                                                        // Let's stick to: "All" or single select for now, OR customized dropdown.
-                                                        // Re-reading requirements: "Multi-select Filter". 
-                                                        // I'll implement a simple distinct visual for selected items if I can, or just use a multi-select box.
-                                                        // Let's use a simple Select for now that behaves as "Add to filter".
                                                         if (!selectedTLs.includes(val)) setSelectedTLs([...selectedTLs, val]);
                                                     }
                                                 }}
@@ -471,9 +461,10 @@ const Reports: React.FC = () => {
                                                     <option key={tl.id} value={tl.id}>{tl.fullName}</option>
                                                 ))}
                                             </select>
+
                                             {selectedTLs.length > 0 && (
-                                                <div className="absolute top-full left-0 mt-2 p-2 bg-card border rounded-lg shadow-xl z-20 w-64 max-h-48 overflow-y-auto">
-                                                    <div className="flex justify-between items-center mb-2">
+                                                <div className="mt-2 p-2 bg-card border rounded-lg shadow-sm w-full max-h-48 overflow-y-auto">
+                                                    <div className="flex justify-between items-center mb-2 sticky top-0 bg-card pb-1 border-b">
                                                         <span className="text-xs font-bold text-muted-foreground">Selected ({selectedTLs.length})</span>
                                                         <button onClick={() => setSelectedTLs([])} className="text-xs text-red-500 hover:underline">Clear</button>
                                                     </div>
@@ -481,9 +472,9 @@ const Reports: React.FC = () => {
                                                         {selectedTLs.map(id => {
                                                             const tl = teamLeaders.find(u => u.id === id);
                                                             return (
-                                                                <div key={id} className="flex justify-between items-center text-sm bg-muted/50 p-1.5 rounded">
+                                                                <div key={id} className="flex justify-between items-center text-sm bg-muted/50 p-1.5 rounded hover:bg-muted">
                                                                     <span>{tl?.fullName || 'Unknown'}</span>
-                                                                    <button onClick={() => setSelectedTLs(selectedTLs.filter(x => x !== id))}><ArrowDownRight className="rotate-45" size={14} /></button>
+                                                                    <button onClick={() => setSelectedTLs(selectedTLs.filter(x => x !== id))} className="text-muted-foreground hover:text-red-500"><ArrowDownRight className="rotate-45" size={14} /></button>
                                                                 </div>
                                                             )
                                                         })}

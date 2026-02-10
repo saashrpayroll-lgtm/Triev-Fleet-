@@ -506,7 +506,12 @@ export const generateTLDailyCollectionReport = (
     const end = new Date(endDate);
 
     while (currentDate <= end) {
-        const dateStr = currentDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+        // Change to dd/MM/yyyy
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const year = currentDate.getFullYear();
+        const dateStr = `${day}/${month}/${year}`;
+
         dateKeys.push(dateStr);
         dateMap.set(dateStr, 0);
         currentDate.setDate(currentDate.getDate() + 1);
@@ -558,7 +563,12 @@ export const generateTLDailyCollectionReport = (
             }
         }
 
-        const logDate = new Date(log.timestamp).toLocaleDateString('en-CA');
+        const validDate = new Date(log.timestamp);
+        const day = String(validDate.getDate()).padStart(2, '0');
+        const month = String(validDate.getMonth() + 1).padStart(2, '0');
+        const year = validDate.getFullYear();
+        const logDate = `${day}/${month}/${year}`;
+
         const amount = Number(log.metadata.amount) || 0;
 
         const row = tlMap.get(tlId);
