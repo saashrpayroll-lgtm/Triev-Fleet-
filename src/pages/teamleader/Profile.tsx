@@ -29,10 +29,10 @@ const Profile: React.FC = () => {
             const filePath = `${fileName}`;
 
             setLoading(true);
-            console.log('Starting avatar upload...', { fileName, filePath });
+            // console.log('Starting avatar upload...', { fileName, filePath });
 
             // 1. Upload
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from('avatars')
                 .upload(filePath, file, {
                     cacheControl: '3600',
@@ -43,14 +43,14 @@ const Profile: React.FC = () => {
                 console.error('Supabase Storage Upload Error:', uploadError);
                 throw uploadError;
             }
-            console.log('Upload successful:', uploadData);
+            // console.log('Upload successful:', uploadData);
 
             // 2. Get Public URL
             const { data: { publicUrl } } = supabase.storage
                 .from('avatars')
                 .getPublicUrl(filePath);
 
-            console.log('Public URL generated:', publicUrl);
+            // console.log('Public URL generated:', publicUrl);
 
             // 3. Update User Record
             const { error: updateError } = await supabase

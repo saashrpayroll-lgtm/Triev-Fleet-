@@ -110,7 +110,7 @@ const AdminLeads: React.FC = () => {
 
     // Apply Filters
     const filteredLeads = useMemo(() => {
-        console.log("Filtering Leads with Config:", filterConfig);
+        // console.log("Filtering Leads with Config:", filterConfig);
 
         return leads.filter(lead => {
             // 1. Search Term

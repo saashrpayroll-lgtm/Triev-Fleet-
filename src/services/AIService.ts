@@ -157,8 +157,7 @@ class AIOrchestrator {
             });
 
             if (!res.ok) {
-                const err = await res.text();
-                console.error(`[Groq Error] ${res.status}:`, err);
+                console.error(`[Groq Error] ${res.status}`);
                 return { success: false, content: null };
             }
 
@@ -193,8 +192,7 @@ class AIOrchestrator {
             });
 
             if (!res.ok) {
-                const err = await res.text();
-                console.warn(`[Gemini ${model} Error] ${res.status}:`, err);
+                console.warn(`[Gemini ${model} Error] ${res.status}`);
                 return { success: false, content: null };
             }
 
@@ -221,7 +219,7 @@ class AIOrchestrator {
                 })
             });
             if (!res.ok) {
-                console.error(`[OpenAI Error] ${res.status}:`, await res.text());
+                console.error(`[OpenAI Error] ${res.status}`);
                 return { success: false, content: null };
             }
             const data = await res.json();

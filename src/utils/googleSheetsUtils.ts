@@ -21,7 +21,7 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
     // Strategy 1: Google Sheets API (Preferred if Key exists)
     if (apiKey) {
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${config.range}?key=${apiKey}`;
-        console.log(`Fetching Google Sheet via API: ${config.sheetId}, Range: ${config.range}`);
+        // console.log(`Fetching Google Sheet via API: ${config.sheetId}, Range: ${config.range}`);
 
         try {
             const response = await fetch(url);
@@ -41,7 +41,7 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
     }
 
     // Strategy 2: CSV Export (Fallback for Public Sheets "Anyone with link")
-    console.log(`Attempting CSV Export fetch for Sheet: ${config.sheetId}`);
+    // console.log(`Attempting CSV Export fetch for Sheet: ${config.sheetId}`);
 
     // We'll use a CORS proxy if needed, or try direct if generic. 
     // Direct fetch to google docs export often has CORS issues in browser unless it's truly public and simple.
@@ -71,7 +71,7 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
             throw new Error("Invalid CSV: Content appears to be HTML. Check Sheet permissions.");
         }
 
-        console.log("[CSV Preview] First 100 chars:", csvText.substring(0, 100));
+        // console.log("[CSV Preview] First 100 chars:", csvText.substring(0, 100));
 
         return parseCSV(csvText); // We need a helper to parse CSV to 2D array
 
@@ -125,8 +125,8 @@ export const parseGoogleSheetData = (rawData: any[]): any[] => {
     const headers = rawData[0];
     const rows = rawData.slice(1);
 
-    console.log("[Google Parse] Detetcted Headers:", headers);
-    console.log("[Google Parse] Total Rows Parsed:", rows.length);
+    // console.log("[Google Parse] Detetcted Headers:", headers);
+    // console.log("[Google Parse] Total Rows Parsed:", rows.length);
 
     return rows.map(row => {
         const rowData: any = {};

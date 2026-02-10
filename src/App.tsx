@@ -364,7 +364,7 @@ import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 
 function App() {
-  console.log('App component rendering (Supabase)');
+  // console.log('App component rendering (Supabase)');
   return (
     <GlobalErrorBoundary>
       <SupabaseAuthProvider>

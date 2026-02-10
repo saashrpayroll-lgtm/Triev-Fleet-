@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
 
-console.log('Main.tsx executing');
+// console.log('Main.tsx executing');
 
 try {
   const rootElement = document.getElementById('root');

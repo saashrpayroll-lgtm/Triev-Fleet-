@@ -229,7 +229,7 @@ export const processRiderImport = async (
                 // Strategy 5: Smart Linear Fallback (Partial Match) - STRICTER NOW
                 if (!teamLeaderId) {
                     const cleanInputName = normalizedTLName.replace(/\s*\(.*?\)\s*/g, '').trim();
-                    console.log(`[Row ${rowNum}] Exact/ID/Clean match failed for '${cleanInputName}'. Trying Strict Fallback...`);
+                    // console.log(`[Row ${rowNum}] Exact/ID/Clean match failed for '${cleanInputName}'. Trying Strict Fallback...`);
 
                     const fallbackMatch = users?.find((u: any) => {
                         const dbName = (u.fullName || '').toLowerCase();
@@ -371,7 +371,7 @@ export const processRiderImport = async (
     // Log Import History
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);
 
-    console.log(`[Import Summary] Total: ${fileData.length}, Success: ${summary.success}, Failed: ${summary.failed}`);
+    // console.log(`[Import Summary] Total: ${fileData.length}, Success: ${summary.success}, Failed: ${summary.failed}`);
     if (summary.failed > 0) {
         console.warn("[Import Errors] First 5 errors:", summary.errors.slice(0, 5));
     }
@@ -425,14 +425,14 @@ export const processWalletUpdate = async (
             if (isNaN(amount)) throw new Error("Invalid Wallet Amount value.");
 
             let matchData = null;
-            let identifierUsed = '';
+            // let identifierUsed = '';
 
             // 1. Try Triev ID first (more precise)
             if (trievId) {
                 const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount').eq('triev_id', trievId).maybeSingle();
                 if (data) {
                     matchData = data;
-                    identifierUsed = `Triev ID: ${trievId}`;
+                    // identifierUsed = `Triev ID: ${trievId}`;
                 }
             }
 
@@ -441,7 +441,7 @@ export const processWalletUpdate = async (
                 const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount').eq('mobile_number', mobile).maybeSingle();
                 if (data) {
                     matchData = data;
-                    identifierUsed = `Mobile: ${mobile}`;
+                    // identifierUsed = `Mobile: ${mobile}`;
                 }
             }
 
@@ -487,7 +487,7 @@ export const processWalletUpdate = async (
                 }).catch(console.error);
             }
 
-            console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
+            // console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
 
             // Track for Notification
             if (matchData.team_leader_id) {
@@ -520,7 +520,7 @@ export const processWalletUpdate = async (
 
         if (notifications.length > 0) {
             await supabase.from('notifications').insert(notifications);
-            console.log(`Sent ${notifications.length} batched wallet notifications.`);
+            // console.log(`Sent ${notifications.length} batched wallet notifications.`);
         }
     } catch (e) {
         console.error("Failed to send batched wallet notifications:", e);
