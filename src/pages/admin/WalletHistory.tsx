@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare, Download } from 'lucide-react';
 import { format, subDays, endOfDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
@@ -25,6 +25,8 @@ interface WalletTransaction {
     timestamp: string;
 }
 
+import { exportToCSV } from '@/utils/exportUtils';
+
 const WalletHistory: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -44,8 +46,10 @@ const WalletHistory: React.FC = () => {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
     // Bulk Actions
+    // Bulk Actions
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     // Initial Data Load (TLs)
     useEffect(() => {
@@ -167,6 +171,76 @@ const WalletHistory: React.FC = () => {
             toast.error('Failed to delete records');
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    // Export Functionality
+    const handleExport = async () => {
+        setIsExporting(true);
+        const loadingToast = toast.loading('Preparing export...');
+        try {
+            // Replicate query logic for FULL dataset (no pagination)
+            let query = supabase
+                .from('activity_logs')
+                .select('*')
+                .eq('action_type', 'wallet_transaction');
+
+            // Apply Filters
+            if (filterType !== 'all') {
+                query = query.contains('metadata', { type: filterType });
+            }
+            if (searchTerm) {
+                query = query.or(`details.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
+            }
+            if (dateRange.start) {
+                query = query.gte('timestamp', new Date(dateRange.start).toISOString());
+            }
+            if (dateRange.end) {
+                const endDate = new Date(dateRange.end);
+                endDate.setHours(23, 59, 59, 999);
+                query = query.lte('timestamp', endDate.toISOString());
+            }
+
+            // RBAC
+            if (userData?.role === 'teamLeader') {
+                query = query.filter('metadata->>teamLeaderId', 'eq', userData.id);
+            } else if (filterTL !== 'all') {
+                query = query.filter('metadata->>teamLeaderId', 'eq', filterTL);
+            }
+
+            const { data, error } = await query.order('timestamp', { ascending: false });
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                toast.info('No data to export');
+                toast.dismiss(loadingToast);
+                setIsExporting(false);
+                return;
+            }
+
+            // Flatten Data for CSV
+            const csvData = data.map((item: any) => ({
+                Date: format(parseISO(item.timestamp), 'yyyy-MM-dd HH:mm:ss'),
+                Rider: item.metadata?.riderName || 'N/A',
+                'Team Leader': teamLeaders.find(u => u.id === item.metadata?.teamLeaderId)?.fullName || 'N/A',
+                Type: item.metadata?.type || 'N/A',
+                Amount: item.metadata?.amount || 0,
+                Details: item.details,
+                Source: item.metadata?.source || 'Manual',
+                'Performed By': item.performed_by
+            }));
+
+            // Export
+            exportToCSV(csvData, `Wallet_History_Export_${format(new Date(), 'yyyyMMdd_HHmm')}`);
+            toast.success('Export successful');
+            toast.dismiss(loadingToast);
+
+        } catch (error) {
+            console.error('Export failed:', error);
+            toast.error('Failed to export data');
+            toast.dismiss(loadingToast);
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -306,6 +380,14 @@ const WalletHistory: React.FC = () => {
                     <button onClick={() => fetchTransactions()} className="p-2 hover:bg-muted rounded-full transition-colors" title="Refresh">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                     </button>
+                    <button
+                        onClick={handleExport}
+                        disabled={isExporting || loading}
+                        className="p-2 hover:bg-muted rounded-full transition-colors text-primary"
+                        title="Export Data"
+                    >
+                        <Download size={20} className={isExporting ? 'animate-bounce' : ''} />
+                    </button>
                 </div>
             </div>
 
@@ -363,7 +445,7 @@ const WalletHistory: React.FC = () => {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                                className={`px-4 py-2.5 border rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm ${showAdvancedFilters ? 'bg-primary/5 border-primary text-primary shadow-sm' : 'border-input bg-background/50'}`}
+                                className={`px-4 py-2.5 border rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm ${showAdvancedFilters ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'border-input bg-card text-foreground'}`}
                             >
                                 <Filter size={18} /> Filters
                             </button>
@@ -387,7 +469,7 @@ const WalletHistory: React.FC = () => {
                                 <select
                                     value={filterType}
                                     onChange={(e) => setFilterType(e.target.value as any)}
-                                    className="w-full px-3 py-2 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-primary/20"
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
                                 >
                                     <option value="all">All Types</option>
                                     <option value="credit">Credits Only</option>
@@ -402,7 +484,7 @@ const WalletHistory: React.FC = () => {
                                     <select
                                         value={filterTL}
                                         onChange={(e) => setFilterTL(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-primary/20"
+                                        className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
                                     >
                                         <option value="all">All Team Leaders</option>
                                         {teamLeaders.map(tl => (
@@ -417,14 +499,14 @@ const WalletHistory: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="date"
-                                        className="flex-1 px-3 py-2 rounded-lg border bg-background/50 outline-none text-sm"
+                                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none text-sm focus:ring-2 focus:ring-primary/20"
                                         value={dateRange.start}
                                         onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
                                     />
-                                    <span className="text-muted-foreground">-</span>
+                                    <span className="text-muted-foreground font-bold">-</span>
                                     <input
                                         type="date"
-                                        className="flex-1 px-3 py-2 rounded-lg border bg-background/50 outline-none text-sm"
+                                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none text-sm focus:ring-2 focus:ring-primary/20"
                                         value={dateRange.end}
                                         onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
                                     />
