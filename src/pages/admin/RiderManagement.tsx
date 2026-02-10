@@ -1253,8 +1253,8 @@ const RiderManagement: React.FC = () => {
 
 
             {/* Modals */}
-            {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} teamLeaders={teamLeaders} userRole={currentUser?.role} />}
-            {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider} isEdit teamLeaders={teamLeaders} userRole={currentUser?.role} />}
+            {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} teamLeaders={teamLeaders} userRole="admin" />}
+            {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider} isEdit teamLeaders={teamLeaders} userRole="admin" />}
             {
                 viewingRider && (
                     <RiderDetailsModal

@@ -266,14 +266,16 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
                             <div>
                                 <label className="block text-sm font-medium mb-2">
                                     Wallet Amount (₹) <span className="text-destructive">*</span>
+                                    {userRole !== 'admin' && <span className="text-xs text-muted-foreground ml-2">(Admin Only)</span>}
                                 </label>
                                 <input
                                     {...register('walletAmount', { valueAsNumber: true })}
                                     type="number"
                                     step="0.01"
                                     placeholder="0.00"
+                                    disabled={userRole !== 'admin'}
                                     className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background ${errors.walletAmount ? 'border-destructive' : 'border-input'
-                                        }`}
+                                        } ${userRole !== 'admin' ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 />
                                 {errors.walletAmount && (
                                     <p className="text-destructive text-sm mt-1">{errors.walletAmount.message as string}</p>
