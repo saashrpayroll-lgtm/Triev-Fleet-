@@ -247,6 +247,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             icon: Wallet,
             permissions: [
                 { id: 'wallet_view', label: 'View Wallets', description: 'See rider wallet balances', risk: 'medium', path: 'wallet.view' },
+                { id: 'wallet_history', label: 'View Wallet History', description: 'Access transaction history (TL restricted)', risk: 'medium', path: 'wallet.viewHistory' },
                 { id: 'wallet_add', label: 'Add Funds', description: 'Credit amounts to rider wallets', risk: 'high', path: 'wallet.addFunds' },
                 { id: 'wallet_deduct', label: 'Deduct Funds', description: 'Debit amounts from rider wallets', risk: 'high', path: 'wallet.deductFunds' },
                 { id: 'wallet_bulk', label: 'Bulk Update', description: 'Bulk wallet operations', risk: 'high', path: 'wallet.bulkUpdate' },

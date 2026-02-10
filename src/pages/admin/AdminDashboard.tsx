@@ -42,7 +42,7 @@ const Dashboard: React.FC = () => {
         if (isInitial) setLoading(true);
 
         try {
-            const [ridersRes, leadsRes, requestsRes, usersRes, logsRes] = await Promise.all([
+            const [ridersRes, leadsRes, requestsRes, usersRes, logsRes, dailyRes] = await Promise.all([
                 supabase.from('riders').select(`
                     id,
                     trievId:triev_id,
@@ -78,7 +78,8 @@ const Dashboard: React.FC = () => {
                 `).eq('role', 'teamLeader'),
                 supabase.from('activity_logs')
                     .select('metadata')
-                    .eq('action_type', 'wallet_transaction')
+                    .eq('action_type', 'wallet_transaction'),
+                supabase.from('daily_collections').select('team_leader_id, total_collection')
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -86,9 +87,18 @@ const Dashboard: React.FC = () => {
 
             // Process Collections
             const collections: Record<string, number> = {};
+
+            // 1. Add Historical Data
+            const dailyData = dailyRes.data || [];
+            dailyData.forEach((d: any) => {
+                const tlId = d.team_leader_id;
+                const amt = Number(d.total_collection) || 0;
+                collections[tlId] = (collections[tlId] || 0) + amt;
+            });
+
+            // 2. Add Recent Logs
             // actually logsRes is at index 4
             const rawLogs = logsRes.data || [];
-
             rawLogs.forEach((log: any) => {
                 if (log.metadata && log.metadata.type === 'credit' && log.metadata.teamLeaderId) {
                     const amt = Number(log.metadata.amount) || 0;

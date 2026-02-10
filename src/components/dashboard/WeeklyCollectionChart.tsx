@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { format, subDays, startOfDay, isSameDay, parseISO } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { Calendar } from 'lucide-react';
 
 const WeeklyCollectionChart: React.FC = () => {
@@ -15,14 +15,26 @@ const WeeklyCollectionChart: React.FC = () => {
             const startDate = subDays(endDate, 6); // Last 7 days including today
             startDate.setHours(0, 0, 0, 0);
 
-            // Fetch logs for wallet transactions in the last 7 days
-            const { data: logs, error } = await supabase
+            // Fetch logs for wallet transactions in the last 7 days (Active/Recent)
+            const logsPromise = supabase
                 .from('activity_logs')
                 .select('timestamp, metadata')
                 .eq('action_type', 'wallet_transaction')
                 .gte('timestamp', startDate.toISOString());
 
-            if (error) throw error;
+            // Fetch daily_collections for the same period (Archived)
+            const dailyPromise = supabase
+                .from('daily_collections')
+                .select('date, total_collection')
+                .gte('date', format(startDate, 'yyyy-MM-dd'));
+
+            const [logsRes, dailyRes] = await Promise.all([logsPromise, dailyPromise]);
+
+            if (logsRes.error) throw logsRes.error;
+            if (dailyRes.error) throw dailyRes.error;
+
+            const logs = logsRes.data || [];
+            const dailyData = dailyRes.data || [];
 
             // Initialize last 7 days structure
             const chartData = [];
@@ -31,22 +43,30 @@ const WeeklyCollectionChart: React.FC = () => {
             for (let i = 6; i >= 0; i--) {
                 const d = subDays(new Date(), i);
                 const dayStr = format(d, 'EEE'); // "Mon", "Tue"
-                const fullDate = startOfDay(d);
+                const dateStr = format(d, 'yyyy-MM-dd');
 
-                const dayLogs = logs?.filter(log => isSameDay(parseISO(log.timestamp), fullDate));
-
-                let dayTotal = 0;
-                dayLogs?.forEach((log: any) => {
+                // 1. Sum from Activity Logs (Recent)
+                const dayLogs = logs.filter((log: any) => format(parseISO(log.timestamp), 'yyyy-MM-dd') === dateStr);
+                let logsTotal = 0;
+                dayLogs.forEach((log: any) => {
                     if (log.metadata && log.metadata.type === 'credit' && typeof log.metadata.amount === 'number') {
-                        dayTotal += log.metadata.amount;
+                        logsTotal += log.metadata.amount;
                     }
                 });
 
-                weeklySum += dayTotal;
+                // 2. Sum from Daily Collections (Archived)
+                // Note: daily_collections rows are per TL per day. So we sum all rows for this date.
+                const dayDaily = dailyData.filter((row: any) => row.date === dateStr);
+                const dailyTotal = dayDaily.reduce((acc: number, curr: any) => acc + (Number(curr.total_collection) || 0), 0);
+
+                // Total
+                const total = logsTotal + dailyTotal;
+
+                weeklySum += total;
                 chartData.push({
                     name: dayStr,
                     fullDate: format(d, 'MMM dd'),
-                    amount: dayTotal
+                    amount: total
                 });
             }
 
