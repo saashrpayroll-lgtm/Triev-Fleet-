@@ -33,6 +33,7 @@ const Dashboard: React.FC = () => {
         requests: [] as Request[],
         teamLeaders: [] as User[]
     });
+    const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
 
     // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
@@ -41,7 +42,7 @@ const Dashboard: React.FC = () => {
         if (isInitial) setLoading(true);
 
         try {
-            const [ridersRes, leadsRes, requestsRes, usersRes] = await Promise.all([
+            const [ridersRes, leadsRes, requestsRes, usersRes, logsRes] = await Promise.all([
                 supabase.from('riders').select(`
                     id,
                     trievId:triev_id,
@@ -74,10 +75,28 @@ const Dashboard: React.FC = () => {
                     email,
                     status,
                     role
-                `).eq('role', 'teamLeader')
+                `).eq('role', 'teamLeader'),
+                supabase.from('activity_logs')
+                    .select('metadata')
+                    .eq('action_type', 'wallet_transaction')
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
+            // if (logsRes.error) console.error('Logs fetch error', logsRes.error); // Optional log
+
+            // Process Collections
+            const collections: Record<string, number> = {};
+            // actually logsRes is at index 4
+            const rawLogs = logsRes.data || [];
+
+            rawLogs.forEach((log: any) => {
+                if (log.metadata && log.metadata.type === 'credit' && log.metadata.teamLeaderId) {
+                    const amt = Number(log.metadata.amount) || 0;
+                    const tlId = log.metadata.teamLeaderId;
+                    collections[tlId] = (collections[tlId] || 0) + amt;
+                }
+            });
+            setTlCollections(collections);
 
             setRawData({
                 riders: ridersRes.data as Rider[] || [],
@@ -257,10 +276,11 @@ const Dashboard: React.FC = () => {
                     converted,
                     conversionRate
                 },
-                status: tl.status
+                status: tl.status,
+                totalCollection: tlCollections[tl.id] || 0
             };
         });
-    }, [rawData]);
+    }, [rawData, tlCollections]);
 
     // --- Render Loading ---
     if (loading) {
@@ -476,6 +496,7 @@ const Dashboard: React.FC = () => {
                     teamLeaders={rawData.teamLeaders}
                     riders={rawData.riders}
                     leads={rawData.leads}
+                    collections={tlCollections}
                     action={
                         <button
                             onClick={() => navigate('/portal/leaderboard')}

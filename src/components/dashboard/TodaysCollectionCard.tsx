@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { Wallet, TrendingUp, History } from 'lucide-react';
 
-const TodaysCollectionCard: React.FC = () => {
+interface TodaysCollectionCardProps {
+    teamLeaderId?: string;
+}
+
+const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderId }) => {
     const [amount, setAmount] = useState<number>(0);
-    const [loading, setLoading] = useState<boolean>(true);
     const [transactionCount, setTransactionCount] = useState<number>(0);
 
     const fetchTodaysCollection = async () => {
@@ -14,20 +17,23 @@ const TodaysCollectionCard: React.FC = () => {
             const todayIso = today.toISOString();
 
             // Fetch logs for wallet transactions created today
-            const { data, error } = await supabase
+            let query = supabase
                 .from('activity_logs')
                 .select('metadata')
                 .eq('action_type', 'wallet_transaction')
                 .gte('timestamp', todayIso);
 
+            if (teamLeaderId) {
+                // Filter by teamLeaderId in metadata is done in memory below for simplicity/performance 
+                // unless we add a specific index. 
+            }
 
+            const { data, error } = await query;
 
             if (error) {
                 console.error('FTD Fetch Error:', error);
                 throw error;
             }
-
-            console.log('FTD Raw Logs:', data); // Debug log
 
             let total = 0;
             let count = 0;
@@ -35,6 +41,9 @@ const TodaysCollectionCard: React.FC = () => {
             data?.forEach((log: any) => {
                 // Filter for 'credit' transactions (money coming IN)
                 if (log.metadata && log.metadata.type === 'credit') {
+                    // Filter by TL if prop provided
+                    if (teamLeaderId && log.metadata.teamLeaderId !== teamLeaderId) return;
+
                     const amt = Number(log.metadata.amount);
                     if (!isNaN(amt)) {
                         total += amt;
@@ -47,8 +56,6 @@ const TodaysCollectionCard: React.FC = () => {
             setTransactionCount(count);
         } catch (error) {
             console.error('Error fetching collection:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -76,6 +83,9 @@ const TodaysCollectionCard: React.FC = () => {
                         logDate.getFullYear() === today.getFullYear();
 
                     if (isToday && newLog.metadata && newLog.metadata.type === 'credit') {
+                        // Filter for TL if prop is present
+                        if (teamLeaderId && newLog.metadata.teamLeaderId !== teamLeaderId) return;
+
                         const amt = Number(newLog.metadata.amount);
                         if (!isNaN(amt)) {
                             setAmount(prev => prev + amt);
@@ -89,7 +99,7 @@ const TodaysCollectionCard: React.FC = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [teamLeaderId]);
 
     return (
         <div className="bg-card rounded-xl border border-border/50 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300">
@@ -98,34 +108,26 @@ const TodaysCollectionCard: React.FC = () => {
 
             <div>
                 <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <p className="text-sm font-medium text-muted-foreground">Today's Collection {teamLeaderId ? '(My Team)' : '(Total)'}</p>
+                        <h3 className="text-3xl font-bold mt-1">₹{amount.toLocaleString()}</h3>
+                    </div>
                     <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
                         <Wallet size={24} />
                     </div>
-                    {/* Badge */}
-                    <div className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-xs font-bold rounded-full border border-green-200 dark:border-green-800">
-                        <TrendingUp size={12} />
-                        <span>Today (FTD)</span>
-                    </div>
                 </div>
 
-                <h3 className="text-muted-foreground font-medium text-sm uppercase tracking-wide">
-                    Today's Collection
-                </h3>
-
-                <div className="mt-2 flex items-baseline gap-2">
-                    {loading ? (
-                        <div className="h-9 w-32 bg-muted animate-pulse rounded" />
-                    ) : (
-                        <span className="text-3xl font-bold text-foreground">
-                            ₹{amount.toLocaleString('en-IN')}
-                        </span>
-                    )}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <TrendingUp size={14} className="text-green-500" />
+                    <span className="font-medium text-green-600">Live Updates</span>
+                    <span>• {transactionCount} transactions today</span>
                 </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground border-t border-border/50 pt-3">
-                <History size={12} />
-                <span>{transactionCount} transactions today</span>
+            <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                    <History size={12} /> Resets at midnight
+                </span>
             </div>
         </div>
     );

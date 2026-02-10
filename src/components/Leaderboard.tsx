@@ -10,11 +10,12 @@ interface LeaderboardProps {
     teamLeaders: User[];
     riders: Rider[];
     leads?: Lead[];
+    collections?: Record<string, number>; // Map of TL ID -> Collection Amount
     action?: React.ReactNode;
     disableClick?: boolean;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], action, disableClick = false }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], collections = {}, action, disableClick = false }) => {
     // DEBUG: Log incoming data - REMOVED for Security
     // console.log('🎯 LEADERBOARD: Received teamLeaders:', teamLeaders.length);
 
@@ -43,6 +44,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
             // Activity (Mock calculation based on recent timeline events or just sum of actions)
             // Ideally this would come from an Activity Log, but we used derived stats for now
+            const collectionAmount = collections[tl.id] || 0;
             const activityScore = activeCount + convertedLeads + (tlLeads.length > 0 ? 1 : 0);
 
             // Scoring Logic
@@ -52,6 +54,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             score += (totalWallet > 0 ? Math.floor(totalWallet / 1000) : 0);
             score += (totalWallet < 0 ? Math.floor(totalWallet / 1000) * 2 : 0);
             score += convertedLeads * 20;
+            score += Math.floor(collectionAmount / 1000) * 5; // 5 points per 1k collected
 
             // CRITICAL FIX: Only include primitive fields, not the entire object
             // This prevents any JSONB or object fields from causing React Error #310
@@ -71,14 +74,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                     leads: tlLeads.length,
                     converted: convertedLeads,
                     conversionRate: tlLeads.length > 0 ? Math.round((convertedLeads / tlLeads.length) * 100) : 0,
-                    activity: activityScore
+                    activity: activityScore,
+                    collection: collectionAmount
                 }
             };
             return tlData;
         }).sort((a, b) => b.score - a.score).slice(0, 3);
 
         return result;
-    }, [teamLeaders, riders, leads]);
+    }, [teamLeaders, riders, leads, collections]);
 
     const getRankStyles = (index: number) => {
         switch (index) {
@@ -232,57 +236,62 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                         </div>
                                     </div>
 
-                                    {/* 2. Wallet Net */}
-                                    <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 flex justify-between items-center">
-                                        <div className="text-[9px] uppercase font-bold text-muted-foreground text-left leading-tight">
-                                            Net<br />Wallet
-                                        </div>
-                                        <div className="text-sm font-black text-right">
-                                            <span className={`${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                                {tl.stats.wallet >= 1000 || tl.stats.wallet <= -1000
-                                                    ? `${(tl.stats.wallet / 1000).toFixed(1)}k`
-                                                    : tl.stats.wallet}
-                                            </span>
-                                            <div className="text-[9px] font-medium opacity-70 text-foreground">
-                                                Avg: ₹{tl.stats.avgWallet}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 3. Wallet Split Visual */}
-                                    <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 space-y-1">
-                                        <div className="flex justify-between text-[8px] font-bold uppercase text-muted-foreground">
-                                            <span className="text-emerald-600">Pos: {(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
-                                            <span className="text-red-500">Neg: {(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
-                                        </div>
-                                        <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                                            <div
-                                                className="h-full bg-emerald-500"
-                                                style={{ width: `${(tl.stats.positiveWallet / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
-                                            />
-                                            <div
-                                                className="h-full bg-red-500"
-                                                style={{ width: `${(Math.abs(tl.stats.negativeWallet) / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
-                                            />
+                                    {/* Collection Badge */}
+                                    <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-1.5 text-center border border-green-100 dark:border-green-900/20">
+                                        <div className="text-[9px] uppercase font-bold text-green-700 dark:text-green-400">Collection</div>
+                                        <div className="font-black text-green-600 text-sm">
+                                            ₹{(tl.stats.collection || 0).toLocaleString()}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Footer / Base Decoration */}
-                                <div className="mt-2 border-t border-black/5 dark:border-white/5 pt-2">
-                                    <div className="flex justify-center text-[9px] text-muted-foreground font-bold uppercase">
-                                        <span className="flex items-center gap-1">
-                                            <Activity size={10} /> Activity Score: {tl.stats.activity}
+                                {/* 2. Wallet Net */}
+                                <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 flex justify-between items-center">
+                                    <div className="text-[9px] uppercase font-bold text-muted-foreground text-left leading-tight">
+                                        Net<br />Wallet
+                                    </div>
+                                    <div className="text-sm font-black text-right">
+                                        <span className={`${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                            {tl.stats.wallet >= 1000 || tl.stats.wallet <= -1000
+                                                ? `${(tl.stats.wallet / 1000).toFixed(1)}k`
+                                                : tl.stats.wallet}
                                         </span>
+                                        <div className="text-[9px] font-medium opacity-70 text-foreground">
+                                            Avg: ₹{tl.stats.avgWallet}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Shine Effect */}
-                                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-3xl" />
+                                {/* 3. Wallet Split Visual */}
+                                <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 space-y-1">
+                                    <div className="flex justify-between text-[8px] font-bold uppercase text-muted-foreground">
+                                        <span className="text-emerald-600">Pos: {(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
+                                        <span className="text-red-500">Neg: {(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                                        <div
+                                            className="h-full bg-emerald-500"
+                                            style={{ width: `${(tl.stats.positiveWallet / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
+                                        />
+                                        <div
+                                            className="h-full bg-red-500"
+                                            style={{ width: `${(Math.abs(tl.stats.negativeWallet) / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Podium Base (Visual grounding) */}
-                            <div className={`h-4 w-[90%] mx-auto rounded-b-xl ${styles.badge} opacity-50 blur-sm`} />
+                            {/* Footer / Base Decoration */}
+                            <div className="mt-2 border-t border-black/5 dark:border-white/5 pt-2">
+                                <div className="flex justify-center text-[9px] text-muted-foreground font-bold uppercase">
+                                    <span className="flex items-center gap-1">
+                                        <Activity size={10} /> Activity Score: {tl.stats.activity}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Shine Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-3xl" />
                         </motion.div>
                     );
                 })}

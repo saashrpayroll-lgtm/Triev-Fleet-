@@ -480,6 +480,7 @@ export const processWalletUpdate = async (
                         oldBalance: oldBalance,
                         newBalance: newBalance,
                         riderName: matchData.rider_name,
+                        teamLeaderId: matchData.team_leader_id,
                         source: 'bulk_import'
                     },
                     performedBy: adminName // or adminId, logActivity expects email/name usually

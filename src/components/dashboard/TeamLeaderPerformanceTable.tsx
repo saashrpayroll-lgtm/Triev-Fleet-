@@ -25,6 +25,7 @@ export interface TLSnapshot {
         conversionRate: number;
     };
     status: string;
+    totalCollection: number; // New field
 }
 
 interface TeamLeaderPerformanceTableProps {
@@ -33,7 +34,7 @@ interface TeamLeaderPerformanceTableProps {
 
 const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({ data }) => {
     const navigate = useNavigate();
-    const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff', direction: 'asc' | 'desc' } | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff' | 'totalCollection', direction: 'asc' | 'desc' } | null>(null);
 
     const sortedData = React.useMemo(() => {
         let sortable = [...data];
@@ -45,6 +46,9 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 if (sortConfig.key === 'walletDiff' as any) {
                     aValue = a.wallet.total;
                     bValue = b.wallet.total;
+                } else if (sortConfig.key === 'totalCollection' as any) {
+                    aValue = a.totalCollection;
+                    bValue = b.totalCollection;
                 }
 
                 if (aValue < bValue) {
@@ -99,6 +103,9 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                             <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('walletDiff')}>
                                 Wallet Health
                             </th>
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('totalCollection')}>
+                                Collection
+                            </th>
                             <th className="p-4 font-medium text-muted-foreground">
                                 Lead Conversion
                             </th>
@@ -141,6 +148,12 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                         <div className="text-xs font-medium text-muted-foreground">
                                             Risk: <span className="text-rose-500">₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
                                         </div>
+                                    </div>
+                                </td>
+
+                                <td className="p-4">
+                                    <div className="font-bold text-green-600">
+                                        ₹{tl.totalCollection.toLocaleString()}
                                     </div>
                                 </td>
 

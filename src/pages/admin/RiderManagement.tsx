@@ -323,7 +323,8 @@ const RiderManagement: React.FC = () => {
                         type: 'credit', // In (Collection)
                         oldBalance: 0,
                         newBalance: walletAmount,
-                        riderName: dbPayload.rider_name
+                        riderName: dbPayload.rider_name,
+                        teamLeaderId: dbPayload.team_leader_id
                     },
                     performedBy: currentUser?.email
                 });
@@ -395,7 +396,8 @@ const RiderManagement: React.FC = () => {
                         type: isCredit ? 'credit' : 'debit',
                         oldBalance: oldBalance,
                         newBalance: newBalance,
-                        riderName: formData.riderName || editingRider.riderName
+                        riderName: formData.riderName || editingRider.riderName,
+                        teamLeaderId: formData.teamLeaderId || editingRider.teamLeaderId // Ensure we capture TL ID
                     },
                     performedBy: currentUser?.email
                 });
