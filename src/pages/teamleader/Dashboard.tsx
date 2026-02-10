@@ -8,6 +8,7 @@ import {
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
+import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -279,6 +280,8 @@ const Dashboard: React.FC = () => {
                         onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
                     />
                 )}
+
+                <TodaysCollectionCard />
 
                 {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
                     <SmartMetricCard

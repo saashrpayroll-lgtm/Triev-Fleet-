@@ -310,6 +310,24 @@ const RiderManagement: React.FC = () => {
                 performedBy: currentUser?.email
             });
 
+            // Log Wallet Transaction if initial amount > 0
+            if (dbPayload.wallet_amount > 0) {
+                await logActivity({
+                    actionType: 'wallet_transaction',
+                    targetType: 'rider',
+                    targetId: newItemId,
+                    details: `Initial wallet deposit: ₹${dbPayload.wallet_amount}`,
+                    metadata: {
+                        amount: dbPayload.wallet_amount,
+                        type: 'credit', // In (Collection)
+                        oldBalance: 0,
+                        newBalance: dbPayload.wallet_amount,
+                        riderName: dbPayload.rider_name
+                    },
+                    performedBy: currentUser?.email
+                });
+            }
+
             // Notify System & TL
             await notifyTeamLeader(dbPayload.team_leader_id, 'create', dbPayload.rider_name, newItemId);
 
@@ -356,6 +374,29 @@ const RiderManagement: React.FC = () => {
                 details: `Updated rider: ${formData.rider_name}`,
                 performedBy: currentUser?.email
             });
+
+            // Calculate Wallet Difference and Log Transaction
+            const oldBalance = editingRider.walletAmount || 0;
+            const newBalance = formData.walletAmount || 0;
+            const diff = newBalance - oldBalance;
+
+            if (diff !== 0) {
+                const isCredit = diff > 0;
+                await logActivity({
+                    actionType: 'wallet_transaction',
+                    targetType: 'rider',
+                    targetId: editingRider.id,
+                    details: `Wallet ${isCredit ? 'Credit' : 'Debit'}: ₹${Math.abs(diff)}`,
+                    metadata: {
+                        amount: Math.abs(diff),
+                        type: isCredit ? 'credit' : 'debit',
+                        oldBalance: oldBalance,
+                        newBalance: newBalance,
+                        riderName: formData.rider_name
+                    },
+                    performedBy: currentUser?.email
+                });
+            }
 
             // Notify TL
             await notifyTeamLeader(editingRider.teamLeaderId, 'update', formData.rider_name, editingRider.id);

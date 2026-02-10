@@ -11,6 +11,8 @@ import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
+import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
+import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
 import TeamLeaderPerformanceTable, { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
@@ -339,6 +341,8 @@ const Dashboard: React.FC = () => {
                     onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
                 />
 
+                <TodaysCollectionCard />
+
                 <SmartMetricCard
                     title="Outstanding Risk"
                     value={stats.outstandingDues}
@@ -449,8 +453,13 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Activity Feed (1/3 width) */}
-                <div className="lg:col-span-1 h-[650px]">
-                    <RecentActivity />
+                <div className="lg:col-span-1 h-[650px] flex flex-col gap-6">
+                    <div className="h-[300px]">
+                        <WeeklyCollectionChart />
+                    </div>
+                    <div className="flex-grow">
+                        <RecentActivity />
+                    </div>
                 </div>
             </div>
 
