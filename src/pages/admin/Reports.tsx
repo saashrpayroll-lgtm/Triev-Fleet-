@@ -21,6 +21,7 @@ import {
     generateRequestReport,
     generateActivityReport,
     generateSystemHealthReport,
+    generateTLDailyCollectionReport,
     getInactiveRiders,
     getNegativeWalletRiders,
     transformRiderData,
@@ -49,6 +50,7 @@ const Reports: React.FC = () => {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [teamLeaders, setTeamLeaders] = useState<User[]>([]);
     const [requests, setRequests] = useState<Request[]>([]);
+    const [selectedTLs, setSelectedTLs] = useState<string[]>([]); // New State for Multi-select
     const [filters, setFilters] = useState<ReportFilters>({
         status: 'all',
         client: 'all',
@@ -206,6 +208,15 @@ const Reports: React.FC = () => {
                 case 'system_health':
                     data = generateSystemHealthReport(riders, teamLeaders, requests);
                     break;
+                case 'tl_daily_collection':
+                    // Fetch logs for the specific date range
+                    // Note: We need wallet_transaction specifically. 
+                    // To avoid fetching too much data, we should probably filter by action_type in the query if possible,
+                    // but our fetchActivityLogs is generic. 
+                    // Let's pass a specific flag or just fetch them.
+                    const walletLogs = await fetchActivityLogs(startDate, endDate, 'wallet_transaction');
+                    data = generateTLDailyCollectionReport(walletLogs, teamLeaders, startDate, endDate, selectedTLs);
+                    break;
                 default:
                     data = riders.map(transformRiderData);
             }
@@ -220,8 +231,8 @@ const Reports: React.FC = () => {
         }
     };
 
-    const fetchActivityLogs = async () => {
-        const { data } = await supabase.from('activity_logs').select(`
+    const fetchActivityLogs = async (start?: Date, end?: Date, actionType?: string) => {
+        let query = supabase.from('activity_logs').select(`
             id,
             action:action_type,
             entityType:target_type,
@@ -231,7 +242,13 @@ const Reports: React.FC = () => {
             performedBy:user_name,
             isDeleted:is_deleted,
             metadata
-        `).order('timestamp', { ascending: false }).limit(2000);
+        `);
+
+        if (start) query = query.gte('timestamp', start.toISOString());
+        if (end) query = query.lte('timestamp', end.toISOString());
+        if (actionType) query = query.eq('action_type', actionType);
+
+        const { data } = await query.order('timestamp', { ascending: false }).limit(actionType ? 5000 : 2000);
         return (data || []) as ActivityLogEntry[];
     };
 
@@ -412,7 +429,7 @@ const Reports: React.FC = () => {
                             <h2 className="font-bold text-xl mb-4">{REPORT_TEMPLATES.find(t => t.id === selectedTemplate)?.name}</h2>
 
                             {/* Generator Filters */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                                 <div className="space-y-1">
                                     <label className="text-xs uppercase font-bold text-muted-foreground">Start Date</label>
                                     <input type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} className="w-full bg-background border px-3 py-2 rounded-lg" />
@@ -421,6 +438,62 @@ const Reports: React.FC = () => {
                                     <label className="text-xs uppercase font-bold text-muted-foreground">End Date</label>
                                     <input type="date" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} className="w-full bg-background border px-3 py-2 rounded-lg" />
                                 </div>
+
+                                {/* Dynamic Filters based on Template */}
+                                {selectedTemplate === 'tl_daily_collection' && (
+                                    <div className="space-y-1">
+                                        <label className="text-xs uppercase font-bold text-muted-foreground">Team Leaders</label>
+                                        <div className="relative">
+                                            <select
+                                                className="w-full bg-background border px-3 py-2 rounded-lg"
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === 'all') setSelectedTLs([]);
+                                                    else {
+                                                        // Toggle selection (simplified as single added, but UI shows multi behavior via state)
+                                                        // Actually a standard multi-select dropdown is hard with native select.
+                                                        // Let's make it a simple "All" or "Specific One" for now, OR a custom dropdown.
+                                                        // Improving: Simple native select that adds to list? 
+                                                        // For MVP: Let's use a standard select that allows picking 'All' or one specific. 
+                                                        // Multi-select with native UI is ugly.
+                                                        // Let's stick to: "All" or single select for now, OR customized dropdown.
+                                                        // Re-reading requirements: "Multi-select Filter". 
+                                                        // I'll implement a simple distinct visual for selected items if I can, or just use a multi-select box.
+                                                        // Let's use a simple Select for now that behaves as "Add to filter".
+                                                        if (!selectedTLs.includes(val)) setSelectedTLs([...selectedTLs, val]);
+                                                    }
+                                                }}
+                                                value="Select..." // Always reset
+                                            >
+                                                <option disabled>Select...</option>
+                                                <option value="all">All Team Leaders</option>
+                                                {teamLeaders.map(tl => (
+                                                    <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                                                ))}
+                                            </select>
+                                            {selectedTLs.length > 0 && (
+                                                <div className="absolute top-full left-0 mt-2 p-2 bg-card border rounded-lg shadow-xl z-20 w-64 max-h-48 overflow-y-auto">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs font-bold text-muted-foreground">Selected ({selectedTLs.length})</span>
+                                                        <button onClick={() => setSelectedTLs([])} className="text-xs text-red-500 hover:underline">Clear</button>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        {selectedTLs.map(id => {
+                                                            const tl = teamLeaders.find(u => u.id === id);
+                                                            return (
+                                                                <div key={id} className="flex justify-between items-center text-sm bg-muted/50 p-1.5 rounded">
+                                                                    <span>{tl?.fullName || 'Unknown'}</span>
+                                                                    <button onClick={() => setSelectedTLs(selectedTLs.filter(x => x !== id))}><ArrowDownRight className="rotate-45" size={14} /></button>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-end">
                                     <button
                                         onClick={handleGenerateReport}

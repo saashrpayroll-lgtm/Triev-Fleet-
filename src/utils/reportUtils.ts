@@ -137,6 +137,12 @@ export interface TeamLeaderPerformance {
  */
 export const REPORT_TEMPLATES: ReportTemplate[] = [
     {
+        id: 'tl_daily_collection',
+        name: 'TL Daily Collection',
+        description: 'Matrix of daily collections per Team Leader',
+        parameters: ['dateRange', 'teamLeaderSelect'],
+    },
+    {
         id: 'active_riders',
         name: 'Active Riders Report',
         description: 'List of all currently active riders',
@@ -484,6 +490,117 @@ export const generateSystemHealthReport = (riders: Rider[], users: User[], reque
 };
 
 /**
+ * Generate TL Daily Collection Matrix Report
+ */
+export const generateTLDailyCollectionReport = (
+    logs: ActivityLogEntry[],
+    teamLeaders: User[],
+    startDate: Date,
+    endDate: Date,
+    selectedTLIds: string[] = [] // Empty = All
+): any[] => {
+    // 1. Setup Date Map (Columns)
+    const dateMap = new Map<string, number>();
+    const dateKeys: string[] = [];
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (currentDate <= end) {
+        const dateStr = currentDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+        dateKeys.push(dateStr);
+        dateMap.set(dateStr, 0);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // 2. Initialize TL Map (Rows)
+    const tlMap = new Map<string, any>();
+    teamLeaders.forEach(tl => {
+        if (selectedTLIds.length > 0 && !selectedTLIds.includes(tl.id)) return;
+
+        const row: any = {
+            'Team Leader': tl.fullName,
+            'Total': 0
+        };
+        dateKeys.forEach(date => {
+            row[date] = 0;
+        });
+        tlMap.set(tl.id, row);
+    });
+
+    // Handle "Unassigned" or "System" TLs if they exist in logs but not in user list?
+    // For now, strict mapping to existing TLs.
+
+    // 3. Process Logs
+    logs.forEach(log => {
+        if (log.action !== 'wallet_transaction' || !log.metadata) return;
+
+        // Only count 'credit' (Collections)
+        if (log.metadata.type !== 'credit') return;
+
+        const tlId = log.metadata.teamLeaderId;
+        if (!tlId) return; // Skip if no TL attribution
+
+        // Check if TL is in our map (filtered or existing)
+        if (!tlMap.has(tlId)) {
+            // If we are showing ALL, and this TL is not in map (maybe deleted?), should we add them?
+            // Let's stick to active/known TLs passed in `teamLeaders` for now to avoid mess.
+            // OR: If selectedTLIds is empty, we act on all.
+            if (selectedTLIds.length === 0) {
+                // Try to find name from log if possible, or generic
+                const row: any = {
+                    'Team Leader': `Unknown (${tlId.substring(0, 4)}...)`,
+                    'Total': 0
+                };
+                dateKeys.forEach(date => { row[date] = 0; });
+                tlMap.set(tlId, row);
+            } else {
+                return; // Filtered out
+            }
+        }
+
+        const logDate = new Date(log.timestamp).toLocaleDateString('en-CA');
+        const amount = Number(log.metadata.amount) || 0;
+
+        const row = tlMap.get(tlId);
+        if (row && dateKeys.includes(logDate)) {
+            row[logDate] += amount;
+            row['Total'] += amount;
+        }
+    });
+
+    // 4. Flatten to Array and Format
+    const result = Array.from(tlMap.values()).map(row => {
+        const formattedRow: any = { 'Team Leader': row['Team Leader'] };
+
+        dateKeys.forEach(date => {
+            // Format date header to be friendlier? e.g. "Oct 01"
+            // For CSV raw YYYY-MM-DD is better. Let's keep YYYY-MM-DD key for data, 
+            // but we might want to format values to currency string?
+            // Reports usually expect raw numbers for Excel math.
+            formattedRow[date] = row[date];
+        });
+        formattedRow['Total'] = row['Total'];
+        return formattedRow;
+    });
+
+    // Add Grand Total Row?
+    // Often useful.
+    if (result.length > 0) {
+        const totalRow: any = { 'Team Leader': 'GRAND TOTAL' };
+        let grandTotal = 0;
+        dateKeys.forEach(date => {
+            const sum = result.reduce((acc, r) => acc + (r[date] || 0), 0);
+            totalRow[date] = sum;
+            grandTotal += sum;
+        });
+        totalRow['Total'] = grandTotal;
+        result.push(totalRow);
+    }
+
+    return result;
+};
+
+/**
  * Format report data for export
  */
 export const formatReportForExport = (reportType: string, data: any[]): any[] => {
@@ -514,6 +631,18 @@ export const formatReportForExport = (reportType: string, data: any[]): any[] =>
                 'Total Wallet': `₹${item.totalWallet.toLocaleString('en-IN')}`,
                 'Average Wallet': `₹${item.averageWallet.toFixed(2)}`,
             }));
+
+        case 'tl_daily_collection':
+            // Format currency for all number fields
+            return data.map(row => {
+                const newRow: any = { ...row };
+                Object.keys(newRow).forEach(key => {
+                    if (typeof newRow[key] === 'number') {
+                        newRow[key] = `₹${newRow[key].toLocaleString('en-IN')}`;
+                    }
+                });
+                return newRow;
+            });
 
         // Use raw data for these as they are already formatted in generators or are flat
         case 'request_history':
