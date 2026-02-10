@@ -281,7 +281,7 @@ const Dashboard: React.FC = () => {
                     />
                 )}
 
-                <TodaysCollectionCard />
+                <TodaysCollectionCard teamLeaderId={userData.id} />
 
                 {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
                     <SmartMetricCard
