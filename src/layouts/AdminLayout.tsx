@@ -55,6 +55,7 @@ const AdminLayout: React.FC = () => {
         { path: '/portal/data', icon: Database, label: 'Data Management', visible: userData?.permissions?.modules?.dataManagement ?? true },
         { path: '/portal/reports', icon: FileText, label: 'Reports Management', visible: userData?.permissions?.modules?.reports ?? true },
         { path: '/portal/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
+        { path: '/portal/wallet-history', icon: Database, label: 'Wallet History', visible: userData?.permissions?.modules?.riders ?? true },
         { path: '/portal/profile', icon: User, label: 'Profile', visible: userData?.permissions?.modules?.profile ?? true },
     ].filter(item => item.visible);
 

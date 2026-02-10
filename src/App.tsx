@@ -33,6 +33,7 @@ import AdminReports from '@/pages/admin/Reports';
 import AdminProfile from '@/pages/admin/Profile';
 import NotificationManagement from '@/pages/admin/NotificationManagement';
 import AdminChat from '@/pages/admin/AdminChat';
+import WalletHistory from '@/pages/admin/WalletHistory';
 
 import RequestManagement from '@/pages/admin/RequestManagement';
 import LeaderboardPage from '@/pages/admin/LeaderboardPage';
@@ -290,6 +291,7 @@ function AppRoutes() {
           <Route path="chat" element={<AdminChat />} />
           <Route path="requests" element={<RequestManagement />} />
           <Route path="data" element={<DataManagement />} />
+          <Route path="wallet-history" element={<WalletHistory />} />
           <Route path="activity-log" element={<AdminActivityLog />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="profile" element={<AdminProfile />} />

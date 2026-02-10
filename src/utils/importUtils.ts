@@ -429,7 +429,7 @@ export const processWalletUpdate = async (
 
             // 1. Try Triev ID first (more precise)
             if (trievId) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('triev_id', trievId).maybeSingle();
+                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount').eq('triev_id', trievId).maybeSingle();
                 if (data) {
                     matchData = data;
                     identifierUsed = `Triev ID: ${trievId}`;
@@ -438,7 +438,7 @@ export const processWalletUpdate = async (
 
             // 2. Try Mobile if Triev ID failed or wasn't provided
             if (!matchData && mobile) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id').eq('mobile_number', mobile).maybeSingle();
+                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount').eq('mobile_number', mobile).maybeSingle();
                 if (data) {
                     matchData = data;
                     identifierUsed = `Mobile: ${mobile}`;
@@ -456,6 +456,35 @@ export const processWalletUpdate = async (
             }).eq('id', matchData.id);
 
             if (error) throw error;
+
+            // Log Transaction Logic
+            const oldBalance = Number(matchData.wallet_amount) || 0;
+            const newBalance = amount; // 'amount' is the value from the sheet (target balance)
+
+            // Wait, is the sheet providing the NEW BALANCE or the AMOUNT TO ADD?
+            // "Update wallet balance" usually means "Set new balance to X".
+            // The previous logic was `.update({ wallet_amount: amount })`, so it is SETTING the balance.
+
+            const diff = newBalance - oldBalance;
+
+            if (diff !== 0) {
+                const isCredit = diff > 0;
+                await logActivity({
+                    actionType: 'wallet_transaction',
+                    targetType: 'rider',
+                    targetId: matchData.id,
+                    details: `Bulk Wallet Update: ₹${Math.abs(diff)} (${isCredit ? 'Credit' : 'Debit'})`,
+                    metadata: {
+                        amount: Math.abs(diff),
+                        type: isCredit ? 'credit' : 'debit',
+                        oldBalance: oldBalance,
+                        newBalance: newBalance,
+                        riderName: matchData.rider_name,
+                        source: 'bulk_import'
+                    },
+                    performedBy: adminName // or adminId, logActivity expects email/name usually
+                }).catch(console.error);
+            }
 
             console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
 
