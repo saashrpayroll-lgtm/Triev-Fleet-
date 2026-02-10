@@ -20,16 +20,26 @@ const TodaysCollectionCard: React.FC = () => {
                 .eq('action_type', 'wallet_transaction')
                 .gte('timestamp', todayIso);
 
-            if (error) throw error;
+
+
+            if (error) {
+                console.error('FTD Fetch Error:', error);
+                throw error;
+            }
+
+            console.log('FTD Raw Logs:', data); // Debug log
 
             let total = 0;
             let count = 0;
 
             data?.forEach((log: any) => {
                 // Filter for 'credit' transactions (money coming IN)
-                if (log.metadata && log.metadata.type === 'credit' && typeof log.metadata.amount === 'number') {
-                    total += log.metadata.amount;
-                    count++;
+                if (log.metadata && log.metadata.type === 'credit') {
+                    const amt = Number(log.metadata.amount);
+                    if (!isNaN(amt)) {
+                        total += amt;
+                        count++;
+                    }
                 }
             });
 
@@ -65,9 +75,12 @@ const TodaysCollectionCard: React.FC = () => {
                         logDate.getMonth() === today.getMonth() &&
                         logDate.getFullYear() === today.getFullYear();
 
-                    if (isToday && newLog.metadata && newLog.metadata.type === 'credit' && typeof newLog.metadata.amount === 'number') {
-                        setAmount(prev => prev + newLog.metadata.amount);
-                        setTransactionCount(prev => prev + 1);
+                    if (isToday && newLog.metadata && newLog.metadata.type === 'credit') {
+                        const amt = Number(newLog.metadata.amount);
+                        if (!isNaN(amt)) {
+                            setAmount(prev => prev + amt);
+                            setTransactionCount(prev => prev + 1);
+                        }
                     }
                 }
             )

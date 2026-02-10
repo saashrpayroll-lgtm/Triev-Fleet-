@@ -301,6 +301,7 @@ const RiderManagement: React.FC = () => {
             const { data, error } = await supabase.from('riders').insert(dbPayload).select().single();
             if (error) throw error;
             const newItemId = data.id;
+            const walletAmount = Number(dbPayload.wallet_amount) || 0;
 
             await logActivity({
                 actionType: 'riderAdded',
@@ -311,17 +312,17 @@ const RiderManagement: React.FC = () => {
             });
 
             // Log Wallet Transaction if initial amount > 0
-            if (dbPayload.wallet_amount > 0) {
+            if (walletAmount > 0) {
                 await logActivity({
                     actionType: 'wallet_transaction',
                     targetType: 'rider',
                     targetId: newItemId,
-                    details: `Initial wallet deposit: ₹${dbPayload.wallet_amount}`,
+                    details: `Initial wallet deposit: ₹${walletAmount}`,
                     metadata: {
-                        amount: dbPayload.wallet_amount,
+                        amount: walletAmount,
                         type: 'credit', // In (Collection)
                         oldBalance: 0,
-                        newBalance: dbPayload.wallet_amount,
+                        newBalance: walletAmount,
                         riderName: dbPayload.rider_name
                     },
                     performedBy: currentUser?.email
@@ -376,9 +377,11 @@ const RiderManagement: React.FC = () => {
             });
 
             // Calculate Wallet Difference and Log Transaction
-            const oldBalance = editingRider.walletAmount || 0;
-            const newBalance = formData.walletAmount || 0;
+            const oldBalance = Number(editingRider.walletAmount) || 0;
+            const newBalance = Number(formData.walletAmount) || 0;
             const diff = newBalance - oldBalance;
+
+            console.log('Wallet Update Debug:', { oldBalance, newBalance, diff });
 
             if (diff !== 0) {
                 const isCredit = diff > 0;
@@ -392,7 +395,7 @@ const RiderManagement: React.FC = () => {
                         type: isCredit ? 'credit' : 'debit',
                         oldBalance: oldBalance,
                         newBalance: newBalance,
-                        riderName: formData.rider_name
+                        riderName: formData.riderName || editingRider.riderName
                     },
                     performedBy: currentUser?.email
                 });
