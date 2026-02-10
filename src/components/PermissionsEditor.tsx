@@ -89,6 +89,10 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         return mergePermissions(currentPermissions, defaultPermissions);
     });
 
+    // Auto-fix on mount: If a user has a feature enabled but module disabled, fix it visually
+    // (Optional, maybe too aggressive if they intentionally hid the module?)
+    // Let's stick to handleToggle for now.
+
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [searchQuery, setSearchQuery] = useState('');
@@ -111,7 +115,33 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
     };
 
     const handleToggle = async (path: string, currentValue: boolean) => {
-        const newPermissions = setNestedValue(permissions, path, !currentValue);
+        const newValue = !currentValue;
+        let newPermissions = setNestedValue(permissions, path, newValue);
+
+        // Auto-Enable Logic: If enabling a feature, ensure the parent module is also enabled
+        if (newValue) {
+            const moduleMapping: Record<string, string> = {
+                'riders.': 'modules.riders',
+                'leads.': 'modules.leads',
+                'users.': 'modules.users',
+                'reports.': 'modules.reports',
+                'requests.': 'modules.requests',
+                'wallet.': 'modules.dataManagement',
+                'notifications.': 'modules.notifications',
+            };
+
+            for (const [prefix, modulePath] of Object.entries(moduleMapping)) {
+                if (path.startsWith(prefix)) {
+                    // Check if module is already enabled
+                    const isModuleEnabled = getNestedValue(newPermissions, modulePath);
+                    if (!isModuleEnabled) {
+                        newPermissions = setNestedValue(newPermissions, modulePath, true);
+                    }
+                    break;
+                }
+            }
+        }
+
         setPermissions(newPermissions);
 
         // Auto-save immediately
@@ -138,6 +168,31 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         permsToToggle.forEach(perm => {
             newPermissions = setNestedValue(newPermissions, perm.path, targetValue);
         });
+
+        // Auto-Enable Modules for Bulk Actions (Only if enabling)
+        if (targetValue) {
+            const moduleMapping: Record<string, string> = {
+                'riders.': 'modules.riders',
+                'leads.': 'modules.leads',
+                'users.': 'modules.users',
+                'reports.': 'modules.reports',
+                'requests.': 'modules.requests',
+                'wallet.': 'modules.dataManagement',
+                'notifications.': 'modules.notifications',
+            };
+
+            // Check if any of the modified paths trigger a module enable
+            const pathsTouched = permsToToggle.map(p => p.path);
+            for (const [prefix, modulePath] of Object.entries(moduleMapping)) {
+                if (pathsTouched.some(p => p.startsWith(prefix))) {
+                    const isModuleEnabled = getNestedValue(newPermissions, modulePath);
+                    if (!isModuleEnabled) {
+                        newPermissions = setNestedValue(newPermissions, modulePath, true);
+                    }
+                }
+            }
+        }
+
         setPermissions(newPermissions);
 
         // Auto-save Bulk
