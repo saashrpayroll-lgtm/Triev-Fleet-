@@ -6,6 +6,7 @@ interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
     className?: string;
     onClick?: () => void;
     hoverEffect?: boolean;
+    overflowVisible?: boolean;
 }
 
 const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
@@ -15,7 +16,7 @@ const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
                 ref={ref}
                 onClick={onClick}
                 className={`
-                    relative overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg
+                    relative ${props.overflowVisible ? 'overflow-visible' : 'overflow-hidden'} rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg
                     ${hoverEffect ? 'hover:bg-white/10 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer' : ''}
                     ${className || ''}
                 `}
