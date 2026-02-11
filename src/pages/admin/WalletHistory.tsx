@@ -447,7 +447,7 @@ const WalletHistory: React.FC = () => {
                                 <select
                                     value={filterType}
                                     onChange={(e) => setFilterType(e.target.value as any)}
-                                    className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
                                 >
                                     <option value="all">All Types</option>
                                     <option value="credit">Credits Only</option>
@@ -462,11 +462,11 @@ const WalletHistory: React.FC = () => {
                                     <select
                                         value={filterTL}
                                         onChange={(e) => setFilterTL(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        className="w-full px-3 py-2 rounded-lg border border-input bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
                                     >
                                         <option value="all">All Team Leaders</option>
                                         {teamLeaders.map(tl => (
-                                            <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                                            <option key={tl.id} value={tl.id} className="text-slate-900 dark:text-slate-100">{tl.fullName}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -507,7 +507,7 @@ const WalletHistory: React.FC = () => {
                             <select
                                 value={pageSize}
                                 onChange={(e) => setPageSize(Number(e.target.value))}
-                                className="bg-transparent border border-input rounded px-2 py-1 text-xs outline-none"
+                                className="bg-white dark:bg-slate-950 border border-input rounded px-2 py-1 text-xs outline-none text-slate-900 dark:text-slate-100"
                             >
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
