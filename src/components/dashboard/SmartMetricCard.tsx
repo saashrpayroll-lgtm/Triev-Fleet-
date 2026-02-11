@@ -19,6 +19,7 @@ interface SmartMetricCardProps {
     aiInsight?: string; // New prop for AI insights
     loading?: boolean;
     className?: string; // For additional styling
+    compact?: boolean;
 }
 
 const colorMap = {

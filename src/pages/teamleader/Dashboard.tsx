@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import {
-    Users, UserCheck, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText
+    Users, Activity, Zap, Star, Shield, Sparkles, FileText
 } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
-import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
-import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
+
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';

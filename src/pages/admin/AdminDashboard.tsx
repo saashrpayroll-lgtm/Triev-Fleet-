@@ -2,8 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { format } from 'date-fns';
 import {
-    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone
+    Inbox, UserPlus, Smartphone, UserCheck
 } from 'lucide-react';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -35,7 +36,6 @@ const Dashboard: React.FC = () => {
     });
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
 
-    // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
     const fetchDashboardData = React.useCallback(async (isInitial = false) => {
         if (!userData) return;
@@ -356,7 +356,7 @@ const Dashboard: React.FC = () => {
                     title="Active Riders"
                     value={stats.activeRiders}
                     icon={Smartphone}
-                    trend={{ value: 5, label: 'vs last month', trend: 'up' }}
+                    trend={{ value: 5, label: 'vs last month', direction: 'up' }}
                     color="blue"
                     onClick={() => navigate('/admin/riders', { state: { status: 'active' } })}
                     compact
@@ -365,18 +365,20 @@ const Dashboard: React.FC = () => {
                     title="Total Leads"
                     value={stats.totalLeads}
                     icon={UserPlus}
-                    trend={{ value: stats.conversionRate, label: 'conv. rate', trend: 'up' }}
+                    trend={{ value: stats.conversionRate, label: 'conv. rate', direction: 'up' }}
                     color="purple"
                     onClick={() => navigate('/admin/leads')}
                     compact
                 />
-                <TodaysCollectionCard />
+                <TodaysCollectionCard compact />
                 <SmartMetricCard
                     title="Pending Requests"
                     value={stats.pendingRequests}
                     icon={Inbox}
-                    trend={stats.criticalRequests > 0 ? { value: stats.criticalRequests, label: 'critical', trend: 'down' } : undefined}
+                    trend={stats.criticalRequests > 0 ? { value: stats.criticalRequests, label: 'critical', direction: 'down' } : undefined}
                     color="orange"
+                    compact
+                />
                 <SmartMetricCard
                     title="Churn Monitor"
                     value={stats.inactiveRiders}
@@ -384,6 +386,7 @@ const Dashboard: React.FC = () => {
                     color="slate"
                     subtitle={`${stats.deletedRiders} Permanently Deleted`}
                     onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                    compact
                 />
 
             </div>
