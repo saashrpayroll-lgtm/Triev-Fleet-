@@ -19,7 +19,6 @@ interface SmartMetricCardProps {
     aiInsight?: string; // New prop for AI insights
     loading?: boolean;
     className?: string; // For additional styling
-    compact?: boolean;
 }
 
 const colorMap = {
@@ -66,17 +65,16 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     subtitle,
     aiInsight,
     loading = false,
-    className,
-    compact = false
+    className
 }) => {
     return (
         <div
             onClick={onClick}
             className={`
-                relative overflow-hidden rounded-xl border ${compact ? 'p-3' : 'p-5'}
-                transition-all duration-300 hover:scale-[1.02] cursor-pointer
+                relative overflow-hidden rounded-2xl border p-5 
+                transition-all duration-500 hover:scale-[1.03] hover:-translate-y-2 cursor-pointer
                 backdrop-blur-md bg-white/40 dark:bg-black/20
-                hover:shadow-md active:scale-95
+                hover:shadow-xl active:scale-95
                 ${colorMap[color]}
                 bg-gradient-to-br from-white/60 to-white/10 dark:from-white/5 dark:to-transparent
                 shadow-sm
@@ -88,33 +86,32 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[200%] group-hover:animate-shine z-0 pointer-events-none" />
 
             {/* Background Icon Decoration */}
-            <div className={`absolute -right-4 -bottom-4 opacity-[0.08] transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 ${iconColorMap[color]}`}>
-                <Icon size={compact ? 80 : 120} />
+            <div className={`absolute -right-6 -bottom-6 opacity-[0.08] transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 ${iconColorMap[color]}`}>
+                <Icon size={120} />
             </div>
 
             <div className="relative z-10 flex flex-col justify-between h-full">
                 {/* Header */}
-                <div className={`flex justify-between items-start ${compact ? 'mb-2' : 'mb-4'}`}>
+                <div className="flex justify-between items-start mb-4">
                     <div className={`
-                        ${compact ? 'p-2 rounded-lg' : 'p-3 rounded-2xl'} 
-                        bg-gradient-to-br from-white/80 to-white/20 dark:from-white/10 dark:to-transparent
+                        p-3 rounded-2xl bg-gradient-to-br from-white/80 to-white/20 dark:from-white/10 dark:to-transparent
                         backdrop-blur-xl border border-white/20 shadow-inner
                         ${iconColorMap[color]}
                     `}>
-                        <Icon size={compact ? 18 : 24} strokeWidth={2.5} />
+                        <Icon size={24} strokeWidth={2.5} />
                     </div>
 
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-2">
                         {trend && (
                             <div className={`
-                                flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm
+                                flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm
                                 ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''}
                                 ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : ''}
                                 ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' : ''}
                             `}>
-                                {trend.direction === 'up' && <TrendingUp size={10} />}
-                                {trend.direction === 'down' && <TrendingDown size={10} />}
-                                {trend.direction === 'neutral' && <Minus size={10} />}
+                                {trend.direction === 'up' && <TrendingUp size={12} />}
+                                {trend.direction === 'down' && <TrendingDown size={12} />}
+                                {trend.direction === 'neutral' && <Minus size={12} />}
                                 {Math.abs(trend.value)}%
                             </div>
                         )}
@@ -130,20 +127,20 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
 
                 {/* Content */}
                 <div>
-                    <p className={`text-[${compact ? '9px' : '10px'}] font-bold uppercase tracking-[0.2em] text-muted-foreground/80 mb-0.5`}>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80 mb-1">
                         {title}
                     </p>
                     {loading ? (
-                        <div className="h-8 w-24 bg-current/10 animate-pulse rounded-lg" />
+                        <div className="h-10 w-32 bg-current/10 animate-pulse rounded-lg" />
                     ) : (
-                        <h3 className={`${compact ? 'text-2xl' : 'text-3xl'} font-black tracking-tighter flex items-center gap-1 text-foreground drop-shadow-sm`}>
+                        <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
                             {typeof value === 'number'
                                 ? `₹${value.toLocaleString('en-IN')}`
                                 : safeRender(value)}
                         </h3>
                     )}
 
-                    {!compact && aiInsight && safeRender(aiInsight) ? (
+                    {aiInsight && safeRender(aiInsight) ? (
                         <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
                             <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
                                 "{safeRender(aiInsight)}"
@@ -151,8 +148,9 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                         </div>
                     ) : (
                         subtitle && (
-                            <div className="flex items-center gap-1 mt-1">
-                                <p className="text-[10px] font-bold opacity-70 truncate max-w-[150px]">
+                            <div className="flex items-center gap-1 mt-2">
+                                <div className={`w-1 h-1 rounded-full ${trend?.direction === 'up' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                                <p className="text-[10px] font-bold opacity-70 truncate max-w-[180px]">
                                     {subtitle}
                                 </p>
                             </div>
