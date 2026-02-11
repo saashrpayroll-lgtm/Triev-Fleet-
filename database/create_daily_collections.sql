@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.daily_collections (
 ALTER TABLE public.daily_collections ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Admins can do everything on daily_collections" ON public.daily_collections;
 CREATE POLICY "Admins can do everything on daily_collections"
     ON public.daily_collections
     FOR ALL
@@ -26,6 +27,7 @@ CREATE POLICY "Admins can do everything on daily_collections"
         )
     );
 
+DROP POLICY IF EXISTS "Team Leaders can view their own collections" ON public.daily_collections;
 CREATE POLICY "Team Leaders can view their own collections"
     ON public.daily_collections
     FOR SELECT

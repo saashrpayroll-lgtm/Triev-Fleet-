@@ -18,9 +18,9 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
             // Fetch logs for wallet transactions created today
             let query = supabase
-                .from('activity_logs')
-                .select('metadata')
-                .eq('action_type', 'wallet_transaction')
+                .from('wallet_transactions')
+                .select('*')
+                .eq('type', 'credit')
                 .gte('timestamp', todayIso);
 
             if (teamLeaderId) {
@@ -38,17 +38,15 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             let total = 0;
             let count = 0;
 
-            data?.forEach((log: any) => {
-                // Filter for 'credit' transactions (money coming IN)
-                if (log.metadata && log.metadata.type === 'credit') {
-                    // Filter by TL if prop provided
-                    if (teamLeaderId && log.metadata.teamLeaderId !== teamLeaderId) return;
+            data?.forEach((txn: any) => {
+                // Filter for 'credit' transactions (money coming IN) - ALREADY FILTERED IN QUERY
+                // Filter by TL if prop provided
+                if (teamLeaderId && txn.team_leader_id !== teamLeaderId) return;
 
-                    const amt = Number(log.metadata.amount);
-                    if (!isNaN(amt)) {
-                        total += amt;
-                        count++;
-                    }
+                const amt = Number(txn.amount);
+                if (!isNaN(amt)) {
+                    total += amt;
+                    count++;
                 }
             });
 
@@ -70,8 +68,8 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 {
                     event: 'INSERT',
                     schema: 'public',
-                    table: 'activity_logs',
-                    filter: 'action_type=eq.wallet_transaction'
+                    table: 'wallet_transactions',
+                    filter: 'type=eq.credit'
                 },
                 (payload) => {
                     const newLog = payload.new as any;
@@ -82,11 +80,11 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                         logDate.getMonth() === today.getMonth() &&
                         logDate.getFullYear() === today.getFullYear();
 
-                    if (isToday && newLog.metadata && newLog.metadata.type === 'credit') {
+                    if (isToday) {
                         // Filter for TL if prop is present
-                        if (teamLeaderId && newLog.metadata.teamLeaderId !== teamLeaderId) return;
+                        if (teamLeaderId && newLog.team_leader_id !== teamLeaderId) return;
 
-                        const amt = Number(newLog.metadata.amount);
+                        const amt = Number(newLog.amount);
                         if (!isNaN(amt)) {
                             setAmount(prev => prev + amt);
                             setTransactionCount(prev => prev + 1);

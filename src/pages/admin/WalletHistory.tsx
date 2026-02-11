@@ -3,26 +3,22 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare, Download } from 'lucide-react';
-import { format, subDays, endOfDay, parseISO } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
 
 interface WalletTransaction {
     id: string;
-    action_type: string;
-    details: string;
-    metadata: {
-        amount?: number;
-        type?: 'credit' | 'debit';
-        oldBalance?: number;
-        newBalance?: number;
-        riderName?: string;
-        teamLeaderId?: string;
-        source?: string;
-        [key: string]: any;
-    };
+    rider_id: string;
+    team_leader_id: string;
+    amount: number;
+    type: 'credit' | 'debit';
+    description: string;
+    metadata: any;
     performed_by: string;
     timestamp: string;
+    riders?: { rider_name: string };
+    users?: { full_name: string };
 }
 
 import { exportToCSV } from '@/utils/exportUtils';
@@ -78,20 +74,21 @@ const WalletHistory: React.FC = () => {
             }
 
             let query = supabase
-                .from('activity_logs')
-                .select('*', { count: 'exact' })
-                .eq('action_type', 'wallet_transaction');
+                .from('wallet_transactions')
+                .select(`
+                    *,
+                    riders (rider_name),
+                    users (full_name)
+                `, { count: 'exact' });
 
             // Apply Filters
             if (filterType !== 'all') {
-                // JSONB Filtering
-                query = query.contains('metadata', { type: filterType });
+                query = query.eq('type', filterType);
             }
 
             if (searchTerm) {
-                // Approximate search (Supabase text search is limited on JSONB without extra setup)
-                // We'll search 'details' or 'performed_by'
-                query = query.or(`details.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
+                // Approximate search
+                query = query.or(`description.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
             }
 
             if (dateRange.start) {
@@ -105,12 +102,9 @@ const WalletHistory: React.FC = () => {
 
             // Role-Based Access Control
             if (userData?.role === 'teamLeader') {
-                // FORCE Filter by TL ID
-                // Note: This relies on 'teamLeaderId' being present in metadata
-                query = query.filter('metadata->>teamLeaderId', 'eq', userData.id);
+                query = query.eq('team_leader_id', userData.id);
             } else if (filterTL !== 'all') {
-                // Admin Filter
-                query = query.filter('metadata->>teamLeaderId', 'eq', filterTL);
+                query = query.eq('team_leader_id', filterTL);
             }
 
             // Pagination
@@ -181,16 +175,15 @@ const WalletHistory: React.FC = () => {
         try {
             // Replicate query logic for FULL dataset (no pagination)
             let query = supabase
-                .from('activity_logs')
-                .select('*')
-                .eq('action_type', 'wallet_transaction');
+                .from('wallet_transactions')
+                .select(`*, riders(rider_name), users(full_name)`);
 
             // Apply Filters
             if (filterType !== 'all') {
-                query = query.contains('metadata', { type: filterType });
+                query = query.eq('type', filterType);
             }
             if (searchTerm) {
-                query = query.or(`details.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
+                query = query.or(`description.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
             }
             if (dateRange.start) {
                 query = query.gte('timestamp', new Date(dateRange.start).toISOString());
@@ -203,9 +196,9 @@ const WalletHistory: React.FC = () => {
 
             // RBAC
             if (userData?.role === 'teamLeader') {
-                query = query.filter('metadata->>teamLeaderId', 'eq', userData.id);
+                query = query.eq('team_leader_id', userData.id);
             } else if (filterTL !== 'all') {
-                query = query.filter('metadata->>teamLeaderId', 'eq', filterTL);
+                query = query.eq('team_leader_id', filterTL);
             }
 
             const { data, error } = await query.order('timestamp', { ascending: false });
@@ -221,11 +214,11 @@ const WalletHistory: React.FC = () => {
             // Flatten Data for CSV
             const csvData = data.map((item: any) => ({
                 Date: format(parseISO(item.timestamp), 'yyyy-MM-dd HH:mm:ss'),
-                Rider: item.metadata?.riderName || 'N/A',
-                'Team Leader': teamLeaders.find(u => u.id === item.metadata?.teamLeaderId)?.fullName || 'N/A',
-                Type: item.metadata?.type || 'N/A',
-                Amount: item.metadata?.amount || 0,
-                Details: item.details,
+                Rider: item.riders?.rider_name || 'N/A',
+                'Team Leader': item.users?.full_name || 'N/A',
+                Type: item.type || 'N/A',
+                Amount: item.amount || 0,
+                Details: item.description,
                 Source: item.metadata?.source || 'Manual',
                 'Performed By': item.performed_by
             }));
@@ -244,93 +237,78 @@ const WalletHistory: React.FC = () => {
         }
     };
 
-    // Auto-Cleanup / Persistence Logic
+    // Safe Archive & Delete
     const handleCleanHistory = async () => {
         if (userData?.role !== 'admin') return;
-        if (!confirm("This will aggregate transactions older than 3 days into 'Daily Collections' and DELETE the detailed logs. Continue?")) return;
+        if (!confirm('This will ARCHIVE transactions older than 3 days to Daily Collections and then delete them from this list. Continue?')) return;
 
-        const loadingToast = toast.loading('Cleaning old history...');
+        const loadingToast = toast.loading('Archiving & Cleaning...');
         try {
             const threeDaysAgo = subDays(new Date(), 3);
-            const cutoffDate = endOfDay(threeDaysAgo).toISOString();
+            const cutoffDate = threeDaysAgo.toISOString();
 
-            // 1. Fetch Old Logs (Batching might be needed for huge datasets, simple here)
-            // We fetch ALL matching logs to aggregate. 
-            // Warning: Limit to 1000 for safety in this version.
-            const { data: oldLogs, error: fetchError } = await supabase
-                .from('activity_logs')
+            // Step 1: Fetch transactions to be archived
+            const { data: oldData, error: fetchError } = await supabase
+                .from('wallet_transactions')
                 .select('*')
-                .eq('action_type', 'wallet_transaction')
-                .lte('timestamp', cutoffDate)
-                .limit(1000);
+                .lt('timestamp', cutoffDate)
+                .eq('type', 'credit'); // Only aggregate credits for collection
 
             if (fetchError) throw fetchError;
-            if (!oldLogs || oldLogs.length === 0) {
+
+            if (!oldData || oldData.length === 0) {
                 toast.dismiss(loadingToast);
                 toast.info('No old records to clean.');
                 return;
             }
 
-            // 2. Aggregate Data
-            const aggregation = new Map<string, number>(); // Key: "TL_ID|DATE" -> Total Amount
+            // Step 2: Aggregate by Date and Team Leader
+            const aggregator: Record<string, number> = {}; // "TL_ID|DATE" -> Total
 
-            oldLogs.forEach((log: any) => {
-                const tlId = log.metadata?.teamLeaderId;
-                if (!tlId) return; // Skip logs without TL (System actions?)
+            oldData.forEach(tx => {
+                const date = tx.timestamp.split('T')[0];
+                const tlId = tx.team_leader_id;
+                if (!tlId) return;
 
-                const dateStr = format(parseISO(log.timestamp), 'yyyy-MM-dd');
-                const key = `${tlId}|${dateStr}`;
-
-                const amount = Number(log.metadata?.amount) || 0;
-                const type = log.metadata?.type;
-
-                // Credit = Positive, Debit = Negative? 
-                // Or "Collection" usually means Credits. 
-                // Let's assume Daily Collection = Sum of Credits. Debits are separate?
-                // Request says "Collection history". Usually implies Money In.
-                if (type === 'credit') {
-                    aggregation.set(key, (aggregation.get(key) || 0) + amount);
-                }
+                const key = `${tlId}|${date}`;
+                aggregator[key] = (aggregator[key] || 0) + Number(tx.amount);
             });
 
-            // 3. Insert into daily_collections
-            for (const [key, total] of aggregation.entries()) {
+            // Step 3: Update Daily Collections (Upsert)
+            const upsertPromises = Object.entries(aggregator).map(async ([key, total]) => {
                 const [tlId, date] = key.split('|');
 
-                // Upsert logic (Atomic ideally, loop acceptable for Admin tool)
-                // Check existing
                 const { data: existing } = await supabase
                     .from('daily_collections')
-                    .select('total_collection, id')
+                    .select('total_collection')
                     .eq('team_leader_id', tlId)
                     .eq('date', date)
                     .single();
 
-                if (existing) {
-                    await supabase.from('daily_collections').update({
-                        total_collection: existing.total_collection + total,
-                        updated_at: new Date().toISOString()
-                    }).eq('id', existing.id);
-                } else {
-                    await supabase.from('daily_collections').insert({
+                const newTotal = (existing?.total_collection || 0) + total;
+
+                return supabase
+                    .from('daily_collections')
+                    .upsert({
                         team_leader_id: tlId,
                         date: date,
-                        total_collection: total
-                    });
-                }
-            }
+                        total_collection: newTotal,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'team_leader_id,date' });
+            });
 
-            // 4. Delete Logs
-            const idsToDelete = oldLogs.map((l: any) => l.id);
+            await Promise.all(upsertPromises);
+
+            // Step 4: Delete from wallet_transactions
             const { error: delError } = await supabase
-                .from('activity_logs')
+                .from('wallet_transactions')
                 .delete()
-                .in('id', idsToDelete);
+                .lt('timestamp', cutoffDate);
 
             if (delError) throw delError;
 
             toast.dismiss(loadingToast);
-            toast.success(`Archived & Deleted ${idsToDelete.length} records.`);
+            toast.success(`Archived & Cleaned successfully.`);
             fetchTransactions();
 
         } catch (error) {
@@ -341,8 +319,8 @@ const WalletHistory: React.FC = () => {
     };
 
     // Calculate totals for displayed data
-    const totalCredit = transactions.reduce((acc, t) => t.metadata?.type === 'credit' ? acc + (Number(t.metadata.amount) || 0) : acc, 0);
-    const totalDebit = transactions.reduce((acc, t) => t.metadata?.type === 'debit' ? acc + (Number(t.metadata.amount) || 0) : acc, 0);
+    const totalCredit = transactions.reduce((acc, t) => t.type === 'credit' ? acc + (Number(t.amount) || 0) : acc, 0);
+    const totalDebit = transactions.reduce((acc, t) => t.type === 'debit' ? acc + (Number(t.amount) || 0) : acc, 0);
 
     // Permission Guard Return
     if (userData?.role === 'teamLeader' && !userData?.permissions?.wallet?.viewHistory) {
@@ -572,12 +550,12 @@ const WalletHistory: React.FC = () => {
                                 </tr>
                             ) : (
                                 transactions.map((t) => {
-                                    const amount = Number(t.metadata?.amount) || 0;
-                                    const isCredit = t.metadata?.type === 'credit';
-                                    const riderName = t.metadata?.riderName || 'Unknown';
-                                    const tlId = t.metadata?.teamLeaderId;
-                                    // Map TL ID to Name if possible, else show ID or 'N/A'
-                                    const tlName = teamLeaders.find(u => u.id === tlId)?.fullName || (userData?.role === 'teamLeader' ? userData.fullName : 'N/A');
+                                    const amount = Number(t.amount) || 0;
+                                    const isCredit = t.type === 'credit';
+                                    const riderName = t.riders?.rider_name || 'Unknown';
+
+                                    // Use joined data from query
+                                    const tlName = t.users?.full_name || 'N/A';
 
                                     const isSelected = selectedIds.includes(t.id);
 
@@ -606,14 +584,14 @@ const WalletHistory: React.FC = () => {
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold capitalize ${isCredit ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                                     }`}>
                                                     {isCredit ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
-                                                    {t.metadata?.type || 'Update'}
+                                                    {t.type}
                                                 </span>
                                             </td>
                                             <td className={`px-6 py-4 text-right font-bold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
                                                 {isCredit ? '+' : '-'}₹{amount.toLocaleString()}
                                             </td>
-                                            <td className="px-6 py-4 text-muted-foreground max-w-xs truncate" title={t.details}>
-                                                {t.details}
+                                            <td className="px-6 py-4 text-muted-foreground max-w-xs truncate" title={t.description}>
+                                                {t.description}
                                                 {t.metadata?.source === 'bulk_import' && (
                                                     <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-semibold border border-blue-200">BULK</span>
                                                 )}

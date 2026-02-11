@@ -312,20 +312,34 @@ const RiderManagement: React.FC = () => {
             });
 
             // Log Wallet Transaction if initial amount > 0
+            // Log Wallet Transaction (NEW TABLE)
             if (walletAmount > 0) {
+                const { error: walletError } = await supabase.from('wallet_transactions').insert({
+                    rider_id: newItemId,
+                    team_leader_id: dbPayload.team_leader_id,
+                    amount: walletAmount,
+                    type: 'credit',
+                    description: `Initial wallet deposit`,
+                    metadata: {
+                        source: 'manual_entry',
+                        oldBalance: 0,
+                        newBalance: walletAmount,
+                        riderName: dbPayload.rider_name
+                    },
+                    performed_by: currentUser?.email
+                });
+
+                if (walletError) {
+                    console.error('Failed to log wallet transaction:', walletError);
+                    toast.error('Rider added but wallet log failed.');
+                }
+
+                // Keep Activity Log for Audit Trail
                 await logActivity({
                     actionType: 'wallet_transaction',
                     targetType: 'rider',
                     targetId: newItemId,
                     details: `Initial wallet deposit: ₹${walletAmount}`,
-                    metadata: {
-                        amount: walletAmount,
-                        type: 'credit', // In (Collection)
-                        oldBalance: 0,
-                        newBalance: walletAmount,
-                        riderName: dbPayload.rider_name,
-                        teamLeaderId: dbPayload.team_leader_id
-                    },
                     performedBy: currentUser?.email
                 });
             }
@@ -386,20 +400,38 @@ const RiderManagement: React.FC = () => {
 
             if (diff !== 0) {
                 const isCredit = diff > 0;
+
+                // Insert into wallet_transactions
+                const { error: walletError } = await supabase.from('wallet_transactions').insert({
+                    rider_id: editingRider.id,
+                    team_leader_id: formData.teamLeaderId || editingRider.teamLeaderId,
+                    amount: Math.abs(diff),
+                    type: isCredit ? 'credit' : 'debit',
+                    description: `Wallet update via Admin Panel`,
+                    metadata: {
+                        source: 'manual_update',
+                        oldBalance: oldBalance,
+                        newBalance: newBalance,
+                        riderName: formData.riderName || editingRider.riderName
+                    },
+                    performed_by: currentUser?.email
+                });
+
+                if (walletError) {
+                    console.error('Failed to log wallet transaction:', walletError);
+                }
+
+                // Audit Log
                 await logActivity({
                     actionType: 'wallet_transaction',
                     targetType: 'rider',
                     targetId: editingRider.id,
                     details: `Wallet ${isCredit ? 'Credit' : 'Debit'}: ₹${Math.abs(diff)}`,
+                    performedBy: currentUser?.email,
                     metadata: {
                         amount: Math.abs(diff),
-                        type: isCredit ? 'credit' : 'debit',
-                        oldBalance: oldBalance,
-                        newBalance: newBalance,
-                        riderName: formData.riderName || editingRider.riderName,
-                        teamLeaderId: formData.teamLeaderId || editingRider.teamLeaderId // Ensure we capture TL ID
-                    },
-                    performedBy: currentUser?.email
+                        type: isCredit ? 'credit' : 'debit'
+                    }
                 });
             }
 
