@@ -55,6 +55,9 @@ const Dashboard: React.FC = () => {
         teamLeaders: [], riders: [], leads: []
     });
 
+    // Collections State for Leaderboard
+    const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
+
     useEffect(() => {
         const fetchStats = async () => {
             if (!userData) return;
@@ -112,8 +115,7 @@ const Dashboard: React.FC = () => {
 
                 setStats(newStats);
 
-                // 3. Global Leaderboard Data (Fetch all TLs and Riders for Leaderboard Algo)
-                // Leaderboard shows everyone to encourage competition.
+                // 3. Global Leaderboard Data
                 const { data: tlsData } = await supabase.from('users').select(`
                     id,
                     fullName:full_name,
@@ -121,9 +123,6 @@ const Dashboard: React.FC = () => {
                     role
                 `).eq('role', 'teamLeader');
                 const allTls = sanitizeArray((tlsData || []) as User[]);
-
-                // DEBUG: Log team leaders data structure - REMOVED FOR SECURITY
-                // console.log('🔍 DEBUG: Team Leaders Data (SANITIZED)');
 
                 const { data: allRidersData } = await supabase.from('riders').select(`
                     id,
@@ -140,6 +139,35 @@ const Dashboard: React.FC = () => {
 
                 setLeaderboardData({ teamLeaders: allTls, riders: allRiders, leads: allLeads });
 
+                // 4. Fetch Collections for Leaderboard (History + Today)
+                const [dailyRes, todayRes] = await Promise.all([
+                    supabase.from('daily_collections').select('team_leader_id, total_collection'),
+                    supabase.from('wallet_transactions')
+                        .select('amount, team_leader_id')
+                        .eq('type', 'credit')
+                        .gte('timestamp', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+                ]);
+
+                const collections: Record<string, number> = {};
+
+                // Add Historical
+                (dailyRes.data || []).forEach((d: any) => {
+                    const tlId = d.team_leader_id;
+                    const amt = Number(d.total_collection) || 0;
+                    collections[tlId] = (collections[tlId] || 0) + amt;
+                });
+
+                // Add Today
+                (todayRes.data || []).forEach((txn: any) => {
+                    const tlId = txn.team_leader_id;
+                    const amt = Number(txn.amount) || 0;
+                    if (tlId) {
+                        collections[tlId] = (collections[tlId] || 0) + amt;
+                    }
+                });
+
+                setTlCollections(collections);
+
             } catch (error) {
                 console.error('Error fetching dashboard stats:', error);
             } finally {
@@ -154,25 +182,25 @@ const Dashboard: React.FC = () => {
             .channel('tl-dashboard-updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchStats())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchStats())
-            // Add wallet transaction listener if we want stats to update instantly
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_transactions' }, () => fetchStats())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
+            // Real-time Collections Update
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
+                (payload) => {
+                    const newTxn = payload.new as any;
+                    if (newTxn.team_leader_id) {
+                        setTlCollections(prev => ({
+                            ...prev,
+                            [newTxn.team_leader_id]: (prev[newTxn.team_leader_id] || 0) + Number(newTxn.amount)
+                        }));
+                    }
+                }
+            )
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
-        };
-
-
-        // Realtime Subscription
-        const subscription = supabase
-            .channel('tl-dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchStats())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchStats())
-            .subscribe();
-
-        return () => {
-            subscription.unsubscribe();
         };
     }, [userData]);
 
@@ -493,6 +521,7 @@ const Dashboard: React.FC = () => {
                                 teamLeaders={leaderboardData.teamLeaders}
                                 riders={leaderboardData.riders}
                                 leads={leaderboardData.leads}
+                                collections={tlCollections}
                                 disableClick={true}
                             />
                         </ComponentErrorBoundary>
