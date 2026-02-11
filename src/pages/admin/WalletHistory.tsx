@@ -413,7 +413,7 @@ const WalletHistory: React.FC = () => {
             </div>
 
             {/* Filters Bar */}
-            <GlassCard className="p-4" overflowVisible>
+            <GlassCard className="p-4 relative z-30" overflowVisible>
                 <div className="space-y-4">
                     <div className="flex flex-col md:flex-row gap-4 justify-between">
                         {/* Search */}
