@@ -153,9 +153,7 @@ const Dashboard: React.FC = () => {
                     }
                 }
             )
-            .subscribe((status) => {
-                // console.log('Dashboard Realtime Status:', status);
-            });
+            .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
