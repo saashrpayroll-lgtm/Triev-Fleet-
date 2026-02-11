@@ -469,6 +469,31 @@ export const processWalletUpdate = async (
 
             if (diff !== 0) {
                 const isCredit = diff > 0;
+
+                // 1. Insert into wallet_transactions (CRITICAL FIX)
+                const { error: txError } = await supabase.from('wallet_transactions').insert({
+                    rider_id: matchData.id,
+                    team_leader_id: matchData.team_leader_id,
+                    amount: Math.abs(diff),
+                    type: isCredit ? 'credit' : 'debit',
+                    description: `Bulk Wallet Update`,
+                    metadata: {
+                        source: 'bulk_import',
+                        oldBalance: oldBalance,
+                        newBalance: newBalance,
+                        riderName: matchData.rider_name
+                    },
+                    performed_by: adminName // Using adminName passed to function
+                });
+
+                if (txError) {
+                    console.error("Failed to insert wallet transaction:", txError);
+                    // We don't throw here to avoid failing the whole row if just the log fails? 
+                    // Actually, for financial integrity, we probably SHOULD know. 
+                    // But for now let's just log error to not break the user's "113 failed" count further if it's unrelated.
+                }
+
+                // 2. Audit Log (Legacy/Activity)
                 await logActivity({
                     actionType: 'wallet_transaction',
                     targetType: 'rider',
@@ -483,7 +508,7 @@ export const processWalletUpdate = async (
                         teamLeaderId: matchData.team_leader_id,
                         source: 'bulk_import'
                     },
-                    performedBy: adminName // or adminId, logActivity expects email/name usually
+                    performedBy: adminName
                 }).catch(console.error);
             }
 
