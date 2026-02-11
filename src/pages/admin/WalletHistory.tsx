@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare, Download } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -444,35 +445,32 @@ const WalletHistory: React.FC = () => {
                         <div className="pt-4 border-t border-border/50 grid grid-cols-1 md:grid-cols-4 gap-4 animate-in slide-in-from-top-2">
                             <div>
                                 <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Type</label>
-                                <select
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'All Types' },
+                                        { value: 'credit', label: 'Credits Only' },
+                                        { value: 'debit', label: 'Debits Only' }
+                                    ]}
                                     value={filterType}
-                                    onChange={(e) => setFilterType(e.target.value as any)}
-                                    className="w-full px-3 py-2 rounded-lg border border-input bg-white text-black dark:bg-slate-950 dark:text-white shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                    style={{ colorScheme: 'light dark' }}
-                                >
-                                    <option value="all" className="bg-white text-black dark:bg-slate-950 dark:text-white">All Types</option>
-                                    <option value="credit" className="bg-white text-black dark:bg-slate-950 dark:text-white">Credits Only</option>
-                                    <option value="debit" className="bg-white text-black dark:bg-slate-950 dark:text-white">Debits Only</option>
-                                </select>
+                                    onChange={(val) => setFilterType(val as any)}
+                                    placeholder="Select Type"
+                                />
                             </div>
 
                             {/* TL Filter (Admin Only) */}
                             {userData?.role === 'admin' && (
                                 <div>
                                     <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Team Leader</label>
-                                    <select
+                                    <SearchableSelect
+                                        options={[
+                                            { value: 'all', label: 'All Team Leaders' },
+                                            ...teamLeaders.map(tl => ({ value: tl.id, label: tl.fullName }))
+                                        ]}
                                         value={filterTL}
-                                        onChange={(e) => setFilterTL(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border border-input bg-white text-black dark:bg-slate-950 dark:text-white shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                        style={{ colorScheme: 'light dark' }}
-                                    >
-                                        <option value="all" className="bg-white text-black dark:bg-slate-950 dark:text-white">All Team Leaders</option>
-                                        {teamLeaders.map(tl => (
-                                            <option key={tl.id} value={tl.id} className="bg-white text-black dark:bg-slate-950 dark:text-white">
-                                                {tl.fullName}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(val) => setFilterTL(val)}
+                                        placeholder="Select Team Leader"
+                                        searchPlaceholder="Search Team Leader..."
+                                    />
                                 </div>
                             )}
 
