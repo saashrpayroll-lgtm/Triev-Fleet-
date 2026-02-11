@@ -447,11 +447,12 @@ const WalletHistory: React.FC = () => {
                                 <select
                                     value={filterType}
                                     onChange={(e) => setFilterType(e.target.value as any)}
-                                    className="w-full px-3 py-2 rounded-lg border border-input bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                    className="w-full px-3 py-2 rounded-lg border border-input bg-white text-black dark:bg-slate-950 dark:text-white shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                    style={{ colorScheme: 'light dark' }}
                                 >
-                                    <option value="all">All Types</option>
-                                    <option value="credit">Credits Only</option>
-                                    <option value="debit">Debits Only</option>
+                                    <option value="all" className="bg-white text-black dark:bg-slate-950 dark:text-white">All Types</option>
+                                    <option value="credit" className="bg-white text-black dark:bg-slate-950 dark:text-white">Credits Only</option>
+                                    <option value="debit" className="bg-white text-black dark:bg-slate-950 dark:text-white">Debits Only</option>
                                 </select>
                             </div>
 
@@ -462,11 +463,14 @@ const WalletHistory: React.FC = () => {
                                     <select
                                         value={filterTL}
                                         onChange={(e) => setFilterTL(e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border border-input bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        className="w-full px-3 py-2 rounded-lg border border-input bg-white text-black dark:bg-slate-950 dark:text-white shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                        style={{ colorScheme: 'light dark' }}
                                     >
-                                        <option value="all">All Team Leaders</option>
+                                        <option value="all" className="bg-white text-black dark:bg-slate-950 dark:text-white">All Team Leaders</option>
                                         {teamLeaders.map(tl => (
-                                            <option key={tl.id} value={tl.id} className="text-slate-900 dark:text-slate-100">{tl.fullName}</option>
+                                            <option key={tl.id} value={tl.id} className="bg-white text-black dark:bg-slate-950 dark:text-white">
+                                                {tl.fullName}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -477,14 +481,16 @@ const WalletHistory: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="date"
-                                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-white text-black dark:bg-slate-950 dark:text-white shadow-sm outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                                        style={{ colorScheme: 'light dark' }}
                                         value={dateRange.start}
                                         onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
                                     />
                                     <span className="text-muted-foreground font-bold">-</span>
                                     <input
                                         type="date"
-                                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-card text-foreground shadow-sm outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                                        className="flex-1 px-3 py-2 rounded-lg border border-input bg-white text-black dark:bg-slate-950 dark:text-white shadow-sm outline-none text-sm focus:ring-2 focus:ring-primary/20"
+                                        style={{ colorScheme: 'light dark' }}
                                         value={dateRange.end}
                                         onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
                                     />
