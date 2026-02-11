@@ -211,11 +211,14 @@ const Reports: React.FC = () => {
                 case 'tl_daily_collection':
                     // Fetch logs for the specific date range
                     // Note: We need wallet_transaction specifically. 
-                    // To avoid fetching too much data, we should probably filter by action_type in the query if possible,
-                    // but our fetchActivityLogs is generic. 
-                    // Let's pass a specific flag or just fetch them.
-                    const walletLogs = await fetchActivityLogs(startDate, endDate, 'wallet_transaction');
-                    data = generateTLDailyCollectionReport(walletLogs, teamLeaders, startDate, endDate, selectedTLs);
+                    const { data: walletTxns } = await supabase
+                        .from('wallet_transactions')
+                        .select('amount, type, team_leader_id, timestamp')
+                        .gte('timestamp', startDate.toISOString())
+                        .lte('timestamp', endDate.toISOString())
+                        .eq('type', 'credit'); // Optimization: Only fetch credits
+
+                    data = generateTLDailyCollectionReport((walletTxns || []) as any[], teamLeaders, startDate, endDate, selectedTLs);
                     break;
                 default:
                     data = riders.map(transformRiderData);

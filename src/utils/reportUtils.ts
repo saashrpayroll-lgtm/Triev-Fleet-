@@ -535,14 +535,37 @@ export const generateTLDailyCollectionReport = (
     // Handle "Unassigned" or "System" TLs if they exist in logs but not in user list?
     // For now, strict mapping to existing TLs.
 
-    // 3. Process Logs
+    // 3. Process Logs (Now accepting wallet_transactions)
     logs.forEach(log => {
-        if (log.action !== 'wallet_transaction' || !log.metadata) return;
+        // Adapt for both ActivityLog (legacy) and WalletTransaction (new)
+        // New Schema: amount, type, team_leader_id, timestamp
+        // Old Schema: metadata { amount, type, teamLeaderId }, timestamp
+
+        let amount = 0;
+        let type = '';
+        let tlId = '';
+        let timestamp = '';
+
+        if ('amount' in log && 'team_leader_id' in log) {
+            // New WalletTransaction Shape
+            amount = Number(log.amount);
+            type = log.type;
+            tlId = log.team_leader_id;
+            timestamp = log.timestamp;
+        } else if (log.metadata) {
+            // Legacy ActivityLog Shape
+            if (log.action !== 'wallet_transaction') return;
+            amount = Number(log.metadata.amount);
+            type = log.metadata.type;
+            tlId = log.metadata.teamLeaderId;
+            timestamp = log.timestamp;
+        } else {
+            return;
+        }
 
         // Only count 'credit' (Collections)
-        if (log.metadata.type !== 'credit') return;
+        if (type !== 'credit') return;
 
-        const tlId = log.metadata.teamLeaderId;
         if (!tlId) return; // Skip if no TL attribution
 
         // Check if TL is in our map (filtered or existing)
@@ -563,13 +586,12 @@ export const generateTLDailyCollectionReport = (
             }
         }
 
-        const validDate = new Date(log.timestamp);
+        const validDate = new Date(timestamp);
         const day = String(validDate.getDate()).padStart(2, '0');
         const month = String(validDate.getMonth() + 1).padStart(2, '0');
         const year = validDate.getFullYear();
         const logDate = `${day}/${month}/${year}`;
 
-        const amount = Number(log.metadata.amount) || 0;
 
         const row = tlMap.get(tlId);
         if (row && dateKeys.includes(logDate)) {
