@@ -4,9 +4,10 @@ import { Wallet, TrendingUp, History } from 'lucide-react';
 
 interface TodaysCollectionCardProps {
     teamLeaderId?: string;
+    compact?: boolean;
 }
 
-const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderId }) => {
+const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderId, compact = false }) => {
     const [amount, setAmount] = useState<number>(0);
     const [transactionCount, setTransactionCount] = useState<number>(0);
 
@@ -19,77 +20,39 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             // Fetch logs for wallet transactions created today
             let query = supabase
                 .from('wallet_transactions')
-                .select('*')
+                .select('amount')
                 .eq('type', 'credit')
                 .gte('timestamp', todayIso);
 
             if (teamLeaderId) {
-                // Filter by teamLeaderId in metadata is done in memory below for simplicity/performance 
-                // unless we add a specific index. 
+                query = query.eq('team_leader_id', teamLeaderId);
             }
 
             const { data, error } = await query;
 
-            if (error) {
-                console.error('FTD Fetch Error:', error);
-                throw error;
+            if (error) throw error;
+
+            if (data) {
+                const total = data.reduce((sum, txn) => sum + (Number(txn.amount) || 0), 0);
+                setAmount(total);
+                setTransactionCount(data.length);
             }
-
-            let total = 0;
-            let count = 0;
-
-            data?.forEach((txn: any) => {
-                // Filter for 'credit' transactions (money coming IN) - ALREADY FILTERED IN QUERY
-                // Filter by TL if prop provided
-                if (teamLeaderId && txn.team_leader_id !== teamLeaderId) return;
-
-                const amt = Number(txn.amount);
-                if (!isNaN(amt)) {
-                    total += amt;
-                    count++;
-                }
-            });
-
-            setAmount(total);
-            setTransactionCount(count);
-        } catch (error) {
-            console.error('Error fetching collection:', error);
+        } catch (err) {
+            console.error('Error fetching today collection:', err);
         }
     };
 
     useEffect(() => {
         fetchTodaysCollection();
 
-        // Real-time subscription
+        // Setup real-time listener
         const channel = supabase
-            .channel('public:activity_logs_ftd')
+            .channel('today-collection-updates')
             .on(
                 'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'wallet_transactions',
-                    filter: 'type=eq.credit'
-                },
-                (payload) => {
-                    const newLog = payload.new as any;
-                    // Check timestamp to ensure it's from today (simulating fresh start if app stays open across midnight)
-                    const logDate = new Date(newLog.timestamp);
-                    const today = new Date();
-                    const isToday = logDate.getDate() === today.getDate() &&
-                        logDate.getMonth() === today.getMonth() &&
-                        logDate.getFullYear() === today.getFullYear();
-
-                    if (isToday) {
-                        // Filter for TL if prop is present
-                        if (teamLeaderId && newLog.team_leader_id !== teamLeaderId) return;
-
-                        const amt = Number(newLog.amount);
-                        if (!isNaN(amt)) {
-                            setAmount(prev => prev + amt);
-                            setTransactionCount(prev => prev + 1);
-                        }
-                    }
+                { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
+                () => {
+                    fetchTodaysCollection();
                 }
             )
             .subscribe();
@@ -100,35 +63,88 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
     }, [teamLeaderId]);
 
     return (
-        <div className="bg-card rounded-xl border border-border/50 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300">
-            {/* Background Decoration */}
-            <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-green-500/20" />
-
-            <div>
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">Today's Collection {teamLeaderId ? '(My Team)' : '(Total)'}</p>
-                        <h3 className="text-3xl font-bold mt-1">₹{amount.toLocaleString()}</h3>
-                    </div>
-                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
-                        <Wallet size={24} />
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <TrendingUp size={14} className="text-green-500" />
-                    <span className="font-medium text-green-600">Live Updates</span>
-                    <span>• {transactionCount} transactions today</span>
-                </div>
+        <div className={`
+            relative overflow-hidden rounded-xl border ${compact ? 'p-3' : 'p-5'}
+            bg-gradient-to-br from-indigo-600 to-violet-700
+            text-white shadow-lg shadow-indigo-500/20
+            transition-all duration-300 hover:scale-[1.02]
+            group cursor-pointer
+        `}>
+            {/* Background Decor */}
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+                <History size={compact ? 60 : 100} />
             </div>
 
-            <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                    <History size={12} /> Resets at midnight
-                </span>
+            <div className="relative z-10 flex flex-col justify-between h-full">
+                <div className={`flex justify-between items-start ${compact ? 'mb-2' : 'mb-4'}`}>
+                    <div className={`
+                        ${compact ? 'p-2 rounded-lg' : 'p-3 rounded-2xl'} 
+                        bg-white/10 backdrop-blur-md border border-white/20
+                    `}>
+                        <Wallet size={compact ? 18 : 24} className="text-white" />
+                    </div>
+                    <div className={`
+                        flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full 
+                        bg-white/20 backdrop-blur-sm border border-white/10 text-white
+                    `}>
+                        <TrendingUp size={10} />
+                        Today
+                    </div>
+                </div>
+
+                <div>
+                    <p className={`text-[${compact ? '9px' : '10px'}] font-bold uppercase tracking-wider text-indigo-100 mb-0.5`}>
+                        Today's Collection
+                    </p>
+                    <h3 className={`${compact ? 'text-2xl' : 'text-3xl'} font-black tracking-tighter text-white drop-shadow-sm`}>
+                        ₹{amount.toLocaleString('en-IN')}
+                    </h3>
+                    {!compact && (
+                        <p className="text-[10px] text-indigo-200 font-medium mt-1">
+                            {transactionCount} transactions today
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );
+};            .subscribe();
+
+return () => {
+    supabase.removeChannel(channel);
+};
+    }, [teamLeaderId]);
+
+return (
+    <div className="bg-card rounded-xl border border-border/50 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        {/* Background Decoration */}
+        <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-green-500/20" />
+
+        <div>
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <p className="text-sm font-medium text-muted-foreground">Today's Collection {teamLeaderId ? '(My Team)' : '(Total)'}</p>
+                    <h3 className="text-3xl font-bold mt-1">₹{amount.toLocaleString()}</h3>
+                </div>
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                    <Wallet size={24} />
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <TrendingUp size={14} className="text-green-500" />
+                <span className="font-medium text-green-600">Live Updates</span>
+                <span>• {transactionCount} transactions today</span>
+            </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+                <History size={12} /> Resets at midnight
+            </span>
+        </div>
+    </div>
+);
 };
 
 export default TodaysCollectionCard;

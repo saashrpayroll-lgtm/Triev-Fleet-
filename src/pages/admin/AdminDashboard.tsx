@@ -320,155 +320,63 @@ const Dashboard: React.FC = () => {
 
     return (
         <div className="space-y-8 pb-10">
-            {/* Header Section */}
-            <div className="space-y-6">
 
-
-                <div className="flex flex-col md:flex-row gap-6 justify-between items-end">
-                    <div>
-                        <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-in slide-in-from-left duration-500">
-                            {isTL ? "Team Command Center" : "Admin Command Center"}
-                        </h1>
-
-                    </div>
-
-                    {/* Date Filters */}
-                    <div className="flex items-center gap-2 bg-muted/40 p-1.5 rounded-lg border">
-                        <Filter size={16} className="text-muted-foreground ml-2" />
-                        <span className="w-px h-4 bg-border mx-1"></span>
-                        {(['all', 'month', 'week'] as DateFilter[]).map((filter) => (
-                            <button
-                                key={filter}
-                                onClick={() => setDateFilter(filter)}
-                                className={`
-                                    px-3 py-1.5 rounded-md text-xs font-semibold transition-all
-                                    ${dateFilter === filter
-                                        ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-indigo-400'
-                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                    }
-                                `}
-                            >
-                                {filter === 'all' ? 'All Time' : filter === 'month' ? 'This Month' : 'This Week'}
-                            </button>
-                        ))}
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-2 border-b border-border/40">
+                <div>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
+                        Admin Dashboard
+                    </h1>
+                    <p className="text-muted-foreground text-sm mt-1 font-medium flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        {format(new Date(), 'EEEE, MMMM do, yyyy')}
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    {/* Date Filters - Compact */}
+                    <div className="flex bg-muted/50 p-1 rounded-lg">
+                        <button
+                            onClick={() => setDateFilter('week')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${dateFilter === 'week' ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            This Week
+                        </button>
+                        <button
+                            onClick={() => setDateFilter('month')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${dateFilter === 'month' ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            This Month
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* BENTO GRID: 12+ Smart Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
-
-                {/* --- ROW 1: MISSION CRITICAL --- */}
+            {/* Metric Cards Grid - Compact Gap */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <SmartMetricCard
-                    title="System Health"
-                    value={`${stats.activeRiders}/${stats.totalRiders}`}
-                    icon={Activity}
-                    color="emerald"
-                    trend={{ value: 94, label: 'uptime', direction: 'up' }}
-                    subtitle="Active Riders Ratio"
-                    className="shadow-emerald-500/10"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
-                />
-
-                <SmartMetricCard
-                    title="Total Collections"
-                    value={stats.totalCollection}
-                    icon={Wallet}
-                    color="indigo"
-                    trend={{ value: 12, label: 'revenue', direction: 'up' }}
-                    subtitle={`${stats.positiveWalletCount} Positive Wallets`}
-                    onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
-                />
-
-                <TodaysCollectionCard />
-
-                <SmartMetricCard
-                    title="Outstanding Risk"
-                    value={stats.outstandingDues}
-                    icon={AlertTriangle}
-                    color="rose"
-                    aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
-                    subtitle={`${stats.negativeWalletCount} Negative Wallets`}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                />
-
-                <SmartMetricCard
-                    title="Growth Engine"
-                    value={`${stats.conversionRate}%`}
-                    icon={UserPlus}
-                    color="fuchsia"
-                    trend={{ value: 5, label: 'velocity', direction: 'up' }}
-                    subtitle={`${stats.newLeadsToday} New Leads Today`}
-                    onClick={() => navigate('/portal/leads')}
-                />
-
-                {/* --- ROW 2: WALLET GRANULARITY --- */}
-                <SmartMetricCard
-                    title="Zero Balance"
-                    value={stats.zeroWalletCount}
-                    icon={Coins}
-                    color="amber"
-                    subtitle="Dormant Wallets"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
-                />
-
-                <SmartMetricCard
-                    title="Highly Indebted"
-                    value={stats.highDebtCount}
-                    icon={TrendingDown}
-                    color="red"
-                    className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
-                    subtitle="Debt > ₹3000"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
-                />
-
-                <SmartMetricCard
-                    title="Avg Wallet"
-                    value={stats.avgBalance}
-                    icon={TrendingUp}
-                    color="cyan"
-                    subtitle="Mean Fleet Balance"
-                    onClick={() => navigate('/portal/riders')}
-                />
-
-                <SmartMetricCard
-                    title="Net Liquidity"
-                    value={stats.netBalance}
+                    title="Active Riders"
+                    value={stats.activeRiders}
                     icon={Smartphone}
-                    color="violet"
-                    subtitle="Total System Value"
-                    onClick={() => navigate('/portal/riders')}
+                    trend={{ value: 5, label: 'vs last month', trend: 'up' }}
+                    color="blue"
+                    onClick={() => navigate('/admin/riders', { state: { status: 'active' } })}
+                    compact
                 />
-
-                {/* --- ROW 3: OPS & TEAM --- */}
                 <SmartMetricCard
-                    title="Pending Ops"
+                    title="Total Leads"
+                    value={stats.totalLeads}
+                    icon={UserPlus}
+                    trend={{ value: stats.conversionRate, label: 'conv. rate', trend: 'up' }}
+                    color="purple"
+                    onClick={() => navigate('/admin/leads')}
+                    compact
+                />
+                <TodaysCollectionCard />
+                <SmartMetricCard
+                    title="Pending Requests"
                     value={stats.pendingRequests}
                     icon={Inbox}
-                    color="blue"
-                    aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
-                    subtitle={`${stats.criticalRequests} High Priority`}
-                    onClick={() => navigate('/portal/requests')}
-                />
-
-                <SmartMetricCard
-                    title="Team Strength"
-                    value={stats.totalTLs}
-                    icon={Users}
+                    trend={stats.criticalRequests > 0 ? { value: stats.criticalRequests, label: 'critical', trend: 'down' } : undefined}
                     color="orange"
-                    subtitle={`${stats.activeTLs} Active Leaders`}
-                    onClick={() => navigate('/portal/users', { state: { filter: 'teamLeader' } })}
-                />
-
-                <SmartMetricCard
-                    title="Conversion"
-                    value={stats.convertedLeads}
-                    icon={Sparkles}
-                    color="lime"
-                    subtitle="Last 30 Days"
-                    onClick={() => navigate('/portal/leads', { state: { filter: 'Convert' } })}
-                />
-
                 <SmartMetricCard
                     title="Churn Monitor"
                     value={stats.inactiveRiders}

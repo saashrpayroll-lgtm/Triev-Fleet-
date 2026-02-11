@@ -269,113 +269,31 @@ const Dashboard: React.FC = () => {
 
 
     return (
-        <div className="space-y-8 pb-20">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+        <div className="space-y-5 pb-20">
+            {/* Header Section - Compact */}
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4 pb-2 border-b border-border/40">
                 <div>
-                    <h1 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
-                        Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}!
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
+                        Dashboard
                     </h1>
-                    <p className="text-muted-foreground text-lg mt-1 font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <p className="text-muted-foreground text-sm mt-1 font-medium flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                         {format(new Date(), 'EEEE, MMMM do, yyyy')}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 bg-card border rounded-full text-sm font-semibold shadow-sm flex items-center gap-2">
-                        <Shield size={14} className="text-primary" />
+                    <div className="px-3 py-1 bg-card border rounded-full text-xs font-semibold shadow-sm flex items-center gap-2">
+                        <Shield size={12} className="text-primary" />
                         Team Leader View
                     </div>
                 </div>
             </div>
 
-
-
-
-
-
-
-            {/* BENTO GRID: Premium Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
-
-                {/* Rider Stats */}
-                {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
-                    <SmartMetricCard
-                        title="Fleet Strength"
-                        value={stats.activeRiders}
-                        icon={UserCheck}
-                        color="emerald"
-                        trend={{ value: 98, label: 'health', direction: 'up' }}
-                        subtitle={`${stats.totalRiders} Total Assigned`}
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
-                    />
-                )}
-
-                {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
-                    <SmartMetricCard
-                        title="Revenue Collected"
-                        value={stats.totalPositiveAmount}
-                        icon={Wallet}
-                        color="indigo"
-                        trend={{ value: 24, label: 'growth', direction: 'up' }}
-                        subtitle={`${stats.positiveWallet} Riders Positive`}
-                        onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
-                    />
-                )}
-
-                <TodaysCollectionCard teamLeaderId={userData.id} />
-
-                {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
-                    <SmartMetricCard
-                        title="Payment Dues"
-                        value={Math.abs(stats.totalNegativeAmount)}
-                        icon={AlertTriangle}
-                        color="rose"
-                        aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}
-                        subtitle={`${stats.negativeWallet} Riders in Debt`}
-                        onClick={() => handleNavigate('/team-leader/reports', { template: 'negative_wallet' })}
-                    />
-                )}
-
-                {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
-                    <SmartMetricCard
-                        title="Lead Pipeline"
-                        value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}%`}
-                        icon={Sparkles}
-                        color="fuchsia"
-                        trend={{ value: 12, label: 'velocity', direction: 'up' }}
-                        subtitle={`${stats.convertedLeads} Successful Converts`}
-                        onClick={() => handleNavigate('/team-leader/leads')}
-                    />
-                )}
-
-            </div>
-
-            {/* RECOVERY TASKS SECTION (New) */}
-            <div className="animate-in slide-in-from-bottom duration-700 delay-200">
-                <ComponentErrorBoundary name="Debt Recovery Tasks">
-                    {/* We pass the 'myRiders' derived from leaderboardData (which is actually all riders, wait - 
-                         the stats logic fetches 'myRiders' but leaderboardData fetches 'allRiders'. 
-                         We need 'myRiders' for this component. 
-                         Looking at the fetchStats logic:
-                         The 'myRiders' data isn't stored in a state variable accessible here directly except inside 'stats'.
-                         Wait, 'leaderboardData' has 'riders' which IS 'allRiders'. 
-                         Ideally this component should take 'myRiders'. 
-                         I see 'leaderboardData' state variable. 
-                         Let's see where 'myRiders' went.
-                         It was used to calculate stats but not stored in state.
-                         
-                         CORRECTION: I need to store 'myRiders' in state to pass it to this component.
-                         Or, I can filter 'leaderboardData.riders' if it contains everyone and I know my ID.
-                         But 'leaderboardData.riders' is ALL riders.
-                         'userData.id' is available.
-                         So I can filter: leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)
-                     */}
-                    <DebtRecoveryTasks
-                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
-                    />
-                </ComponentErrorBoundary>
-            </div>
+            <ComponentErrorBoundary name="Debt Recovery Tasks">
+                <DebtRecoveryTasks
+                    riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                />
+            </ComponentErrorBoundary>
 
             {/* AI Coaching Segment */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
