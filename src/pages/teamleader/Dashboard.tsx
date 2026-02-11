@@ -149,6 +149,20 @@ const Dashboard: React.FC = () => {
 
         fetchStats();
 
+        // Real-time Subscriptions
+        const channel = supabase
+            .channel('tl-dashboard-updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchStats())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchStats())
+            // Add wallet transaction listener if we want stats to update instantly
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_transactions' }, () => fetchStats())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+
+
         // Realtime Subscription
         const subscription = supabase
             .channel('tl-dashboard-updates')

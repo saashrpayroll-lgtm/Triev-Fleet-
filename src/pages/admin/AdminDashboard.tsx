@@ -76,14 +76,14 @@ const Dashboard: React.FC = () => {
                     status,
                     role
                 `).eq('role', 'teamLeader'),
-                supabase.from('activity_logs')
-                    .select('metadata')
-                    .eq('action_type', 'wallet_transaction'),
+                supabase.from('wallet_transactions')
+                    .select('amount, team_leader_id')
+                    .eq('type', 'credit')
+                    .gte('timestamp', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()), // Fetch TODAY's transactions
                 supabase.from('daily_collections').select('team_leader_id, total_collection')
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
-            // if (logsRes.error) console.error('Logs fetch error', logsRes.error); // Optional log
 
             // Process Collections
             const collections: Record<string, number> = {};
@@ -96,13 +96,12 @@ const Dashboard: React.FC = () => {
                 collections[tlId] = (collections[tlId] || 0) + amt;
             });
 
-            // 2. Add Recent Logs
-            // actually logsRes is at index 4
-            const rawLogs = logsRes.data || [];
-            rawLogs.forEach((log: any) => {
-                if (log.metadata && log.metadata.type === 'credit' && log.metadata.teamLeaderId) {
-                    const amt = Number(log.metadata.amount) || 0;
-                    const tlId = log.metadata.teamLeaderId;
+            // 2. Add Recent Transactions (Today)
+            const todayTxns = logsRes.data || [];
+            todayTxns.forEach((txn: any) => {
+                const tlId = txn.team_leader_id;
+                const amt = Number(txn.amount) || 0;
+                if (tlId) {
                     collections[tlId] = (collections[tlId] || 0) + amt;
                 }
             });
@@ -127,22 +126,34 @@ const Dashboard: React.FC = () => {
         const channel = supabase
             .channel('dashboard-updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
-                // console.log('Rider update detected');
                 fetchDashboardData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-                // console.log('Lead update detected');
                 fetchDashboardData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
-                // console.log('Request update detected');
                 fetchDashboardData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-                // console.log('User update detected');
                 fetchDashboardData();
             })
-            .subscribe((_status) => {
+            // Real-time Collections Update
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
+                (payload) => {
+                    const newTxn = payload.new as any;
+                    // Check if it's today's transaction (though INSERT implies new)
+                    // Update state optimistically
+                    if (newTxn.team_leader_id) {
+                        setTlCollections(prev => ({
+                            ...prev,
+                            [newTxn.team_leader_id]: (prev[newTxn.team_leader_id] || 0) + Number(newTxn.amount)
+                        }));
+                    }
+                }
+            )
+            .subscribe((status) => {
                 // console.log('Dashboard Realtime Status:', status);
             });
 
