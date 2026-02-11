@@ -56,7 +56,16 @@ const WalletHistory: React.FC = () => {
                     .from('users')
                     .select('*')
                     .eq('role', 'teamLeader');
-                if (data) setTeamLeaders(data as UserType[]);
+                if (data) {
+                    // Map DB snake_case to CamelCase for UserType
+                    const mappedData = data.map((u: any) => ({
+                        ...u,
+                        fullName: u.full_name || u.fullName,
+                        userId: u.user_id || u.userId,
+                        // Add other mappings if needed, but fullName is critical for the dropdown
+                    }));
+                    setTeamLeaders(mappedData as UserType[]);
+                }
             }
         };
         fetchTeamLeaders();
