@@ -571,3 +571,147 @@ export const processWalletUpdate = async (
 };
 
 // Auto-assignment features enhanced: ID, Email, Name matching
+// Rent Collection Import Logic
+export const REQUIRED_RENT_COLLECTION_COLUMNS = [
+    'Triev ID',
+    'Rider Name',
+    'Mobile Number',
+    'Type',
+    'Amount'
+];
+
+export const processRentCollectionImport = async (
+    fileData: any[],
+    adminId: string,
+    adminName: string
+): Promise<ImportSummary> => {
+    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
+
+    try {
+        summary.total = fileData.length;
+
+        for (let i = 0; i < fileData.length; i++) {
+            const row = fileData[i];
+            const rowNum = i + 2; // +1 for header, +1 for 0-index
+
+            try {
+                // normalize keys
+                const normalizedRow: any = {};
+                Object.keys(row).forEach(key => {
+                    normalizedRow[normalizeKey(key)] = row[key];
+                });
+
+                const getValue = (keys: string[]) => {
+                    for (const key of keys) {
+                        const val = normalizedRow[normalizeKey(key)];
+                        if (val !== undefined && val !== null && String(val).trim() !== '') {
+                            return String(val).trim();
+                        }
+                    }
+                    return '';
+                };
+
+                const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
+                const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell']);
+                const mobile = mobileRaw.replace(/[^0-9]/g, '');
+                const amountRaw = getValue(['Amount', 'Amt', 'Collection']);
+
+                if (!trievId && !mobile) {
+                    throw new Error("Row skipped: Missing Triev ID or Mobile Number");
+                }
+                if (!amountRaw) {
+                    throw new Error("Row skipped: Missing Amount");
+                }
+
+                // Amount logic: "Collection" means ADD to wallet (Credit).
+                // User said: "currunt wallet positive me he to ... plus ho jayega"
+                // "currunt wallet status Nagetive me he to ... less hoge positive ki taraf badega" (+,-)
+                // This essentially means: New Balance = Old Balance + Collected Amount.
+                // We treat the input amount as absolute positive value usually, but let's parse it safely.
+                let amount = parseCurrency(amountRaw);
+                if (amount < 0) amount = Math.abs(amount); // Assume collection is always positive inflow
+
+                // 1. Find Rider
+                let riderId = null;
+                let currentBalance = 0;
+
+                // Try by Triev ID first
+                if (trievId) {
+                    const { data: riders } = await supabase
+                        .from('riders')
+                        .select('id, wallet_balance')
+                        .eq('triev_id', trievId)
+                        .limit(1);
+
+                    if (riders && riders.length > 0) {
+                        riderId = riders[0].id;
+                        currentBalance = riders[0].wallet_balance || 0;
+                    }
+                }
+
+                // Try by Mobile if not found
+                if (!riderId && mobile) {
+                    const { data: riders } = await supabase
+                        .from('riders')
+                        .select('id, wallet_balance')
+                        .eq('mobile_number', mobile)
+                        .limit(1);
+
+                    if (riders && riders.length > 0) {
+                        riderId = riders[0].id;
+                        currentBalance = riders[0].wallet_balance || 0;
+                    }
+                }
+
+                if (!riderId) {
+                    throw new Error(`Rider not found (Triev ID: ${trievId}, Mobile: ${mobile})`);
+                }
+
+                // 2. Calculate New Balance
+                // Logic: Always ADD the collection amount.
+                // -500 + 200 = -300 (Correct)
+                // 100 + 200 = 300 (Correct)
+                const newBalance = currentBalance + amount;
+
+                // 3. Update Wallet & Log Transaction
+                const { error: updateError } = await supabase
+                    .from('riders')
+                    .update({ wallet_balance: newBalance })
+                    .eq('id', riderId);
+
+                if (updateError) throw updateError;
+
+                // Log Transaction
+                const { error: logError } = await supabase
+                    .from('wallet_transactions')
+                    .insert({
+                        rider_id: riderId,
+                        amount: amount,
+                        type: 'credit', // Collection is always a credit to the wallet
+                        description: `Rent Collection Import (Ref: ${trievId || mobile})`,
+                        metadata: {
+                            source: 'import',
+                            imported_by: adminName,
+                            admin_id: adminId,
+                            original_row: row
+                        }
+                    });
+
+                if (logError) console.warn("Transaction log failed but wallet updated", logError);
+
+                summary.success++;
+
+            } catch (err: any) {
+                summary.failed++;
+                summary.errors.push(`Row ${rowNum}: ${err.message}`);
+            }
+        }
+
+        await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length); // Use 'wallet' type or new 'rent_collection' if DB supports
+
+    } catch (err: any) {
+        summary.errors.push(`Fatal Error: ${err.message}`);
+    }
+
+    return summary;
+};

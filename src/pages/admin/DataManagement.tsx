@@ -3,7 +3,7 @@ import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, 
 import { toast } from 'sonner';
 import DataImport from '@/components/DataImport';
 import GlassCard from '@/components/GlassCard';
-import { processRiderImport, processWalletUpdate } from '@/utils/importUtils';
+import { processRiderImport, processWalletUpdate, processRentCollectionImport } from '@/utils/importUtils';
 import { syncGoogleSheet } from '@/utils/googleSheetsUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
@@ -17,7 +17,7 @@ const DataManagement: React.FC = () => {
     const [walletConfig, setWalletConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C10000', apiKey: '', enabled: false });
 
     // Legacy state for UI (optional, or we replace usage)
-    const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'gsheets' | 'history' | 'help'>('import');
+    const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'rent_collection' | 'gsheets' | 'history' | 'help'>('import');
     const [history, setHistory] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
@@ -256,6 +256,18 @@ const DataManagement: React.FC = () => {
         }
     };
 
+    const handleRentCollectionImport = async (data: any[]) => {
+        if (!userData) return;
+        try {
+            const summary = await processRentCollectionImport(data, userData.id, userData.fullName);
+            alert(`Rent Collection Import Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
+            setActiveTab('history');
+        } catch (error) {
+            console.error(error);
+            alert("Import Failed. Check console for details.");
+        }
+    };
+
     const handleDeleteHistory = async (id: string) => {
         if (!confirm("Are you sure you want to delete this import record?")) return;
         try {
@@ -373,6 +385,13 @@ const DataManagement: React.FC = () => {
                     <span>Wallet Update</span>
                 </button>
                 <button
+                    onClick={() => setActiveTab('rent_collection')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'rent_collection' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
+                >
+                    <RefreshCw size={18} />
+                    <span>Rent Collection Import</span>
+                </button>
+                <button
                     onClick={() => setActiveTab('gsheets')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'gsheets' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
                 >
@@ -433,6 +452,47 @@ const DataManagement: React.FC = () => {
                             </button>
                         </div>
                         <DataImport onImport={handleWalletImport} mode="wallet" />
+                    </GlassCard>
+                )}
+
+                {activeTab === 'rent_collection' && (
+                    <GlassCard className="p-8">
+                        <div className="mb-8 flex justify-between items-start">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold flex items-center gap-2">
+                                    <RefreshCw className="text-purple-500" /> Rent Collection Import
+                                </h2>
+                                <p className="text-muted-foreground">Process daily collections via CSV/Excel.</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    // Mock Template Download for Rent Collection
+                                    const headers = ['Triev ID', 'Rider Name', 'Mobile Number', 'Type', 'Amount'];
+                                    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
+                                    const encodedUri = encodeURI(csvContent);
+                                    const link = document.createElement("a");
+                                    link.setAttribute("href", encodedUri);
+                                    link.setAttribute("download", "rent_collection_template.csv");
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg flex gap-2 items-center transition-colors"
+                            >
+                                <DownloadIcon size={16} /> Download Template
+                            </button>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 p-4 rounded-lg mb-4">
+                            <h3 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2">
+                                <Wallet size={18} /> Rent Collection Process
+                            </h3>
+                            <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                                Upload a "Wallet Recharge" file. The amount will be <strong>ADDED</strong> to the rider's current wallet balance (Credit).
+                                <br />
+                                <em>Example: If Rider has -500 and you collect 200, New Balance = -300.</em>
+                            </p>
+                        </div>
+                        <DataImport onImport={handleRentCollectionImport} mode="rent_collection" />
                     </GlassCard>
                 )}
 

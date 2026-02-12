@@ -2,11 +2,11 @@ import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, ArrowRight, Settings2 } from 'lucide-react';
-import { REQUIRED_RIDER_COLUMNS } from '@/utils/importUtils';
+import { REQUIRED_RIDER_COLUMNS, REQUIRED_RENT_COLLECTION_COLUMNS } from '@/utils/importUtils';
 
 interface DataImportProps {
     onImport: (data: any[]) => Promise<void>;
-    mode?: 'rider' | 'wallet';
+    mode?: 'rider' | 'wallet' | 'rent_collection';
 }
 
 const REQUIRED_WALLET_COLUMNS = ['Triev ID', 'Mobile Number', 'Wallet Amount'];
@@ -22,7 +22,11 @@ const DataImport: React.FC<DataImportProps> = ({ onImport, mode = 'rider' }) => 
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const requiredColumns = mode === 'wallet' ? REQUIRED_WALLET_COLUMNS : REQUIRED_RIDER_COLUMNS;
+    const requiredColumns = mode === 'wallet'
+        ? REQUIRED_WALLET_COLUMNS
+        : mode === 'rent_collection'
+            ? REQUIRED_RENT_COLLECTION_COLUMNS
+            : REQUIRED_RIDER_COLUMNS;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -144,7 +148,9 @@ const DataImport: React.FC<DataImportProps> = ({ onImport, mode = 'rider' }) => 
                             <Upload size={32} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-semibold">Upload {mode === 'rider' ? 'Rider' : 'Wallet'} Data</h3>
+                            <h3 className="text-lg font-semibold">
+                                Upload {mode === 'rider' ? 'Rider' : mode === 'rent_collection' ? 'Rent Collection' : 'Wallet'} Data
+                            </h3>
                             <p className="text-muted-foreground mt-1">Drag and drop or click to upload CSV/Excel</p>
                         </div>
                         <button
