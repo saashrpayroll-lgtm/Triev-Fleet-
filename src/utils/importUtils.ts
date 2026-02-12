@@ -594,6 +594,10 @@ export const processRentCollectionImport = async (
             const row = fileData[i];
             const rowNum = i + 2; // +1 for header, +1 for 0-index
 
+            let trievId = '';
+            let mobile = '';
+            // let riderName = ''; // Optional if needed for error report
+
             try {
                 // normalize keys
                 const normalizedRow: any = {};
@@ -611,9 +615,9 @@ export const processRentCollectionImport = async (
                     return '';
                 };
 
-                const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
+                trievId = getValue(['Triev ID', 'TrievId', 'ID']);
                 const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell']);
-                const mobile = mobileRaw.replace(/[^0-9]/g, '');
+                mobile = mobileRaw.replace(/[^0-9]/g, '');
                 const amountRaw = getValue(['Amount', 'Amt', 'Collection']);
 
                 if (!trievId && !mobile) {
