@@ -649,48 +649,61 @@ export const processRentCollectionImport = async (
                     return data && data.length > 0 ? data[0] : null;
                 };
 
-                // Try Triev ID variations
+                // Strategy A: Triev ID Matching
+                // User requirement: Input is always numeric (e.g., "23933", "27443")
+                // DB might have "23933" OR "TRIEV23933"
                 if (trievId) {
-                    // 1. Exact match
-                    let rider = await findRider('triev_id', trievId);
+                    const numericId = trievId.replace(/[^0-9]/g, ''); // Ensure pure numeric
 
-                    // 2. Try with 'TRIEV' prefix if missing
-                    if (!rider && /^\d+$/.test(trievId)) {
-                        rider = await findRider('triev_id', `TRIEV${trievId}`);
-                    }
+                    if (numericId) {
+                        // 1. Try Exact Numeric (matches "23933" in DB)
+                        let rider = await findRider('triev_id', numericId);
 
-                    // 3. Try without 'TRIEV' prefix if present
-                    if (!rider && /^TRIEV/i.test(trievId)) {
-                        const numericPart = trievId.replace(/TRIEV/i, '');
-                        rider = await findRider('triev_id', numericPart);
-                    }
+                        // 2. Try with TRIEV prefix (matches "TRIEV23933" in DB)
+                        if (!rider) {
+                            rider = await findRider('triev_id', `TRIEV${numericId}`);
+                        }
 
-                    if (rider) {
-                        riderId = rider.id;
-                        currentBalance = rider.wallet_balance || 0;
+                        if (rider) {
+                            riderId = rider.id;
+                            currentBalance = rider.wallet_balance || 0;
+                        }
                     }
                 }
 
-                // Try Mobile if not found
+                // Strategy B: Mobile Matching
+                // User requirement: Inputs like "8929829059", "+918929829059", "918929829059"
+                // Logic: Extract last 10 digits. Check DB for 10-digit, 91+10-digit, +91+10-digit.
                 if (!riderId && mobile) {
-                    // 1. Exact match (10 digits)
-                    let rider = await findRider('mobile_number', mobile);
+                    let cleanMobile = mobile.replace(/[^0-9]/g, ''); // Remove non-digits
 
-                    // 2. Try with +91
-                    if (!rider) {
-                        rider = await findRider('mobile_number', `+91${mobile}`);
+                    // Extract last 10 digits if longer (handles 91/0 prefix)
+                    if (cleanMobile.length > 10) {
+                        cleanMobile = cleanMobile.slice(-10);
                     }
 
-                    // 3. Try with 91 (no plus)
-                    if (!rider) {
-                        rider = await findRider('mobile_number', `91${mobile}`);
-                    }
+                    if (cleanMobile.length === 10) {
+                        // 1. Try exact 10 digits (e.g., "8929829059")
+                        let rider = await findRider('mobile_number', cleanMobile);
 
-                    if (rider) {
-                        riderId = rider.id;
-                        currentBalance = rider.wallet_balance || 0;
+                        // 2. Try with +91 (e.g., "+918929829059")
+                        if (!rider) {
+                            rider = await findRider('mobile_number', `+91${cleanMobile}`);
+                        }
+
+                        // 3. Try with 91 (e.g., "918929829059")
+                        if (!rider) {
+                            rider = await findRider('mobile_number', `91${cleanMobile}`);
+                        }
+
+                        if (rider) {
+                            riderId = rider.id;
+                            currentBalance = rider.wallet_balance || 0;
+                        }
                     }
                 }
+
+
 
                 if (!riderId) {
                     throw new Error(`Rider not found (Triev ID: ${trievId}, Mobile: ${mobile})`);
