@@ -179,11 +179,13 @@ const Dashboard: React.FC = () => {
         fetchStats();
 
         // Real-time Subscriptions
+        // Real-time Subscriptions
         const channel = supabase
+            .channel('tl-dashboard-realtime')
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
-                (payload) => {
+                (payload: any) => {
                     const newTxn = payload.new as any;
                     if (newTxn.team_leader_id) {
                         setTlCollections(prev => ({
