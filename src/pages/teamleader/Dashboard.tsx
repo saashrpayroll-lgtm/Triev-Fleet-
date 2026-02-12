@@ -58,132 +58,128 @@ const Dashboard: React.FC = () => {
     // Collections State for Leaderboard
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            if (!userData) return;
+    // --- Data Fetching & Real-time ---
+    const fetchStats = React.useCallback(async () => {
+        if (!userData) return;
 
-            try {
-                // 1. Fetch My Riders
-                const { data: myRidersData, error: myRidersError } = await supabase
-                    .from('riders')
-                    .select(`
-                        id,
-                        trievId:triev_id,
-                        riderName:rider_name,
-                        mobileNumber:mobile_number,
-                        status,
-                        walletAmount:wallet_amount,
-                        teamLeaderId:team_leader_id
-                    `)
-                    .eq('team_leader_id', userData.id);
-
-                if (myRidersError) throw myRidersError;
-
-                const myRiders = (myRidersData || []) as Rider[];
-
-                // 2. Fetch My Leads
-                const { data: myLeadsData, error: myLeadsError } = await supabase
-                    .from('leads')
-                    .select('*')
-                    .eq('created_by', userData.id);
-
-                if (myLeadsError) throw myLeadsError;
-
-                const myLeads = ((myLeadsData || [])).map(mapLeadFromDB);
-
-                // Calculate Stats
-                const newStats: DashboardStats = {
-                    // Rider Stats
-                    totalRiders: myRiders.length,
-                    activeRiders: myRiders.filter(r => r.status === 'active').length,
-                    inactiveRiders: myRiders.filter(r => r.status === 'inactive').length,
-                    deletedRiders: myRiders.filter(r => r.status === 'deleted').length,
-
-                    // Wallet Stats
-                    positiveWallet: myRiders.filter(r => r.walletAmount > 0).length,
-                    negativeWallet: myRiders.filter(r => r.walletAmount < 0).length,
-                    zeroWallet: myRiders.filter(r => r.walletAmount === 0).length,
-                    totalPositiveAmount: myRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0),
-                    totalNegativeAmount: myRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0),
-
-                    // Lead Stats
-                    totalLeads: myLeads.length,
-                    newLeads: myLeads.filter(l => l.status === 'New').length,
-                    convertedLeads: myLeads.filter(l => l.status === 'Convert').length,
-                    notConvertedLeads: myLeads.filter(l => l.status === 'Not Convert').length,
-                };
-
-                setStats(newStats);
-
-                // 3. Global Leaderboard Data
-                const { data: tlsData } = await supabase.from('users').select(`
+        try {
+            // 1. Fetch My Riders
+            const { data: myRidersData, error: myRidersError } = await supabase
+                .from('riders')
+                .select(`
                     id,
-                    fullName:full_name,
-                    email,
-                    role
-                `).eq('role', 'teamLeader');
-                const allTls = sanitizeArray((tlsData || []) as User[]);
-
-                const { data: allRidersData } = await supabase.from('riders').select(`
-                    id,
-                    status,
+                    trievId:triev_id,
                     riderName:rider_name,
                     mobileNumber:mobile_number,
+                    status,
                     walletAmount:wallet_amount,
                     teamLeaderId:team_leader_id
-                `);
-                const allRiders = (allRidersData || []) as Rider[];
+                `)
+                .eq('team_leader_id', userData.id);
 
-                const { data: allLeadsData } = await supabase.from('leads').select('*');
-                const allLeads = ((allLeadsData || [])).map(mapLeadFromDB);
+            if (myRidersError) throw myRidersError;
 
-                setLeaderboardData({ teamLeaders: allTls, riders: allRiders, leads: allLeads });
+            const myRiders = (myRidersData || []) as Rider[];
 
-                // 4. Fetch Collections for Leaderboard (History + Today)
-                const [dailyRes, todayRes] = await Promise.all([
-                    supabase.from('daily_collections').select('team_leader_id, total_collection'),
-                    supabase.from('wallet_transactions')
-                        .select('amount, team_leader_id')
-                        .eq('type', 'credit')
-                        .gte('timestamp', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
-                ]);
+            // 2. Fetch My Leads
+            const { data: myLeadsData, error: myLeadsError } = await supabase
+                .from('leads')
+                .select('*')
+                .eq('created_by', userData.id);
 
-                const collections: Record<string, number> = {};
+            if (myLeadsError) throw myLeadsError;
 
-                // Add Historical
-                (dailyRes.data || []).forEach((d: any) => {
-                    const tlId = d.team_leader_id;
-                    const amt = Number(d.total_collection) || 0;
+            const myLeads = ((myLeadsData || [])).map(mapLeadFromDB);
+
+            // Calculate Stats
+            const newStats: DashboardStats = {
+                // Rider Stats
+                totalRiders: myRiders.length,
+                activeRiders: myRiders.filter(r => r.status === 'active').length,
+                inactiveRiders: myRiders.filter(r => r.status === 'inactive').length,
+                deletedRiders: myRiders.filter(r => r.status === 'deleted').length,
+
+                // Wallet Stats
+                positiveWallet: myRiders.filter(r => r.walletAmount > 0).length,
+                negativeWallet: myRiders.filter(r => r.walletAmount < 0).length,
+                zeroWallet: myRiders.filter(r => r.walletAmount === 0).length,
+                totalPositiveAmount: myRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0),
+                totalNegativeAmount: myRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0),
+
+                // Lead Stats
+                totalLeads: myLeads.length,
+                newLeads: myLeads.filter(l => l.status === 'New').length,
+                convertedLeads: myLeads.filter(l => l.status === 'Convert').length,
+                notConvertedLeads: myLeads.filter(l => l.status === 'Not Convert').length,
+            };
+
+            setStats(newStats);
+
+            // 3. Global Leaderboard Data
+            const { data: tlsData } = await supabase.from('users').select(`
+                id,
+                fullName:full_name,
+                email,
+                role
+            `).eq('role', 'teamLeader');
+            const allTls = sanitizeArray((tlsData || []) as User[]);
+
+            const { data: allRidersData } = await supabase.from('riders').select(`
+                id,
+                status,
+                riderName:rider_name,
+                mobileNumber:mobile_number,
+                walletAmount:wallet_amount,
+                teamLeaderId:team_leader_id
+            `);
+            const allRiders = (allRidersData || []) as Rider[];
+
+            const { data: allLeadsData } = await supabase.from('leads').select('*');
+            const allLeads = ((allLeadsData || [])).map(mapLeadFromDB);
+
+            setLeaderboardData({ teamLeaders: allTls, riders: allRiders, leads: allLeads });
+
+            // 4. Fetch Collections for Leaderboard (History + Today)
+            const [dailyRes, todayRes] = await Promise.all([
+                supabase.from('daily_collections').select('team_leader_id, total_collection'),
+                supabase.from('wallet_transactions')
+                    .select('amount, team_leader_id')
+                    .eq('type', 'credit')
+                    .gte('timestamp', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+            ]);
+
+            const collections: Record<string, number> = {};
+
+            // Add Historical
+            (dailyRes.data || []).forEach((d: any) => {
+                const tlId = d.team_leader_id;
+                const amt = Number(d.total_collection) || 0;
+                collections[tlId] = (collections[tlId] || 0) + amt;
+            });
+
+            // Add Today
+            (todayRes.data || []).forEach((txn: any) => {
+                const tlId = txn.team_leader_id;
+                const amt = Number(txn.amount) || 0;
+                if (tlId) {
                     collections[tlId] = (collections[tlId] || 0) + amt;
-                });
+                }
+            });
 
-                // Add Today
-                (todayRes.data || []).forEach((txn: any) => {
-                    const tlId = txn.team_leader_id;
-                    const amt = Number(txn.amount) || 0;
-                    if (tlId) {
-                        collections[tlId] = (collections[tlId] || 0) + amt;
-                    }
-                });
+            setTlCollections(collections);
 
-                setTlCollections(collections);
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [userData]);
 
-            } catch (error) {
-                console.error('Error fetching dashboard stats:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
+    useEffect(() => {
         fetchStats();
 
         // Real-time Subscriptions
         const channel = supabase
-            .channel('tl-dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchStats())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchStats())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
-            // Real-time Collections Update
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
