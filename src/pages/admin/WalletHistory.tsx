@@ -87,7 +87,10 @@ const WalletHistory: React.FC = () => {
                 .from('wallet_transactions')
                 .select(`
                     *,
-                    riders (rider_name),
+                    riders (
+                        rider_name,
+                        users (full_name)
+                    ),
                     users (full_name)
                 `, { count: 'exact' });
 
@@ -567,8 +570,8 @@ const WalletHistory: React.FC = () => {
                                     const isCredit = t.type === 'credit';
                                     const riderName = t.riders?.rider_name || 'Unknown';
 
-                                    // Use joined data from query
-                                    const tlName = t.users?.full_name || 'N/A';
+                                    // Use joined data from query (Direct TL or via Rider)
+                                    const tlName = t.users?.full_name || t.riders?.users?.full_name || 'N/A';
 
                                     const isSelected = selectedIds.includes(t.id);
 
