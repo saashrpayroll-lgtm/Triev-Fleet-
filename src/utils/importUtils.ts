@@ -639,12 +639,24 @@ export const processRentCollectionImport = async (
                 let riderId = null;
                 let currentBalance = 0;
 
-                // Helper to search rider by exact field
+                // Helper to search rider by exact field with SAFE CASTING
+                // This prevents 400 Bad Request if querying Text against Integer column
                 const findRider = async (field: string, value: string) => {
+                    // We cast to text to avoid type mismatch errors (e.g. searching 'TRIEV123' in integer column)
                     const { data } = await supabase
                         .from('riders')
-                        .select('id, wallet_balance')
-                        .eq(field, value)
+                        .select('id, wallet_balance, triev_id, mobile_number')
+                        .filter(`${field}::text`, 'eq', value) // Force text comparison
+                        .limit(1);
+                    return data && data.length > 0 ? data[0] : null;
+                };
+
+                // Helper for fuzzy search
+                const findRiderFuzzy = async (field: string, value: string) => {
+                    const { data } = await supabase
+                        .from('riders')
+                        .select('id, wallet_balance, triev_id, mobile_number')
+                        .filter(`${field}::text`, 'ilike', `%${value}%`) // Force text comparison
                         .limit(1);
                     return data && data.length > 0 ? data[0] : null;
                 };
@@ -662,6 +674,11 @@ export const processRentCollectionImport = async (
                         // 2. Try with TRIEV prefix (matches "TRIEV23933" in DB)
                         if (!rider) {
                             rider = await findRider('triev_id', `TRIEV${numericId}`);
+                        }
+
+                        // 3. Fuzzy ID Search (Deep Search) - e.g. "239" in "23933"
+                        if (!rider && numericId.length >= 3) {
+                            rider = await findRiderFuzzy('triev_id', numericId);
                         }
 
                         if (rider) {
@@ -694,6 +711,11 @@ export const processRentCollectionImport = async (
                         // 3. Try with 91 (e.g., "918929829059")
                         if (!rider) {
                             rider = await findRider('mobile_number', `91${cleanMobile}`);
+                        }
+
+                        // 4. Fuzzy Mobile Search (Deep Search) - finds "987..." inside "+91 987..."
+                        if (!rider) {
+                            rider = await findRiderFuzzy('mobile_number', cleanMobile);
                         }
 
                         if (rider) {
