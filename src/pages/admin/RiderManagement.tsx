@@ -551,6 +551,19 @@ const RiderManagement: React.FC = () => {
         if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system. This action CANNOT be undone. Are you absolutely sure?`)) return;
 
         try {
+            // 1. Delete dependent data (Manual Cascade)
+            // Wallet Transactions (Known FK blocker)
+            const { error: wtError } = await supabase.from('wallet_transactions').delete().eq('rider_id', rider.id);
+            if (wtError) {
+                console.error('Error deleting wallet transactions:', wtError);
+                // Optionally continue or throw. Usually safe to throw as data integrity is key.
+                throw new Error('Failed to clean up wallet transactions. Deletion aborted.');
+            }
+
+            // Leads (If linked by ID - optional safety check if schema changed)
+            // await supabase.from('leads').delete().eq('rider_id', rider.id);
+
+            // 2. Delete Rider
             const { error } = await supabase.from('riders').delete().eq('id', rider.id);
             if (error) throw error;
 
@@ -564,9 +577,9 @@ const RiderManagement: React.FC = () => {
 
             toast.success('Rider permanently deleted');
             await fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error permanently deleting rider:', error);
-            toast.error('Failed to permanently delete rider');
+            toast.error(`Failed to permanently delete rider: ${error.message || 'Unknown error'}`);
         }
     };
 
@@ -924,7 +937,22 @@ const RiderManagement: React.FC = () => {
         if (!confirm(`PERMANENTLY DELETE ${selectedRiders.size} riders? This cannot be undone.`)) return;
 
         try {
-            const { error } = await supabase.from('riders').delete().in('id', Array.from(selectedRiders));
+            const idsToDelete = Array.from(selectedRiders);
+
+            // 1. Delete dependent data (Manual Cascade)
+            // Wallet Transactions
+            const { error: wtError } = await supabase
+                .from('wallet_transactions')
+                .delete()
+                .in('rider_id', idsToDelete);
+
+            if (wtError) {
+                console.error('Error deleting wallet transactions (bulk):', wtError);
+                throw new Error('Failed to clean up wallet transactions. Bulk deletion aborted.');
+            }
+
+            // 2. Delete Riders
+            const { error } = await supabase.from('riders').delete().in('id', idsToDelete);
             if (error) throw error;
 
             await logActivity({
@@ -938,9 +966,9 @@ const RiderManagement: React.FC = () => {
             toast.success('Riders permanently deleted');
             setSelectedRiders(new Set());
             await fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error in bulk permanent delete:', error);
-            toast.error('Failed to permanently delete riders');
+            toast.error(`Failed to permanently delete riders: ${error.message || 'Unknown error'}`);
         }
     };
 
