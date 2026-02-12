@@ -639,24 +639,42 @@ export const processRentCollectionImport = async (
                 let riderId = null;
                 let currentBalance = 0;
 
+                // DEBUG: Probe schema to confirm column names
+                if (rowNum === 1) {
+                    const { data: probeData, error: probeError } = await supabase.from('riders').select('*').limit(1);
+                    console.log("[DEBUG] Schema Probe:", { data: probeData, error: probeError });
+                    if (probeData && probeData.length > 0) {
+                        console.log("[DEBUG] Rider Columns:", Object.keys(probeData[0]));
+                    }
+                }
+
                 // Helper to search rider by exact field
                 // Tries both String and Number to handle DB type differences
                 const findRider = async (field: string, value: string) => {
                     // 1. Try as String
-                    let { data } = await supabase
+                    let { data, error } = await supabase
                         .from('riders')
                         .select('id, wallet_balance, triev_id, mobile_number')
                         .eq(field, value)
                         .limit(1);
 
+                    if (error) {
+                        console.error(`[DEBUG] String Search Error (${field}=${value}):`, error);
+                    }
+
                     // 2. If valid number, Try as Number (for Integer/BigInt columns)
                     if ((!data || data.length === 0) && !isNaN(Number(value))) {
                         const numVal = Number(value);
-                        const { data: numData } = await supabase
+                        const { data: numData, error: numError } = await supabase
                             .from('riders')
                             .select('id, wallet_balance, triev_id, mobile_number')
                             .eq(field, numVal)
                             .limit(1);
+
+                        if (numError) {
+                            console.error(`[DEBUG] Number Search Error (${field}=${numVal}):`, numError);
+                        }
+
                         if (numData && numData.length > 0) data = numData;
                     }
 
