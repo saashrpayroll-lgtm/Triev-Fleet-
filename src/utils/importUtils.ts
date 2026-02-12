@@ -637,6 +637,7 @@ export const processRentCollectionImport = async (
 
                 // 1. Find Rider (Robust Search)
                 let riderId = null;
+                let teamLeaderId = null;
                 let currentBalance = 0;
 
 
@@ -647,7 +648,7 @@ export const processRentCollectionImport = async (
                     // 1. Try as String
                     let { data } = await supabase
                         .from('riders')
-                        .select('id, wallet_amount, triev_id, mobile_number')
+                        .select('id, wallet_amount, triev_id, mobile_number, team_leader_id')
                         .eq(field, value)
                         .limit(1);
 
@@ -656,7 +657,7 @@ export const processRentCollectionImport = async (
                         const numVal = Number(value);
                         const { data: numData } = await supabase
                             .from('riders')
-                            .select('id, wallet_amount, triev_id, mobile_number')
+                            .select('id, wallet_amount, triev_id, mobile_number, team_leader_id')
                             .eq(field, numVal)
                             .limit(1);
                         if (numData && numData.length > 0) data = numData;
@@ -685,6 +686,7 @@ export const processRentCollectionImport = async (
 
                         if (rider) {
                             riderId = rider.id;
+                            teamLeaderId = rider.team_leader_id;
                             currentBalance = rider.wallet_amount || 0;
                         }
                     }
@@ -717,6 +719,7 @@ export const processRentCollectionImport = async (
 
                         if (rider) {
                             riderId = rider.id;
+                            teamLeaderId = rider.team_leader_id;
                             currentBalance = rider.wallet_amount || 0;
                         }
                     }
@@ -747,6 +750,7 @@ export const processRentCollectionImport = async (
                     .from('wallet_transactions')
                     .insert({
                         rider_id: riderId,
+                        team_leader_id: teamLeaderId,
                         amount: amount,
                         type: 'credit', // Collection is always a credit to the wallet
                         description: `Rent Collection Import (Ref: ${trievId || mobile})`,
