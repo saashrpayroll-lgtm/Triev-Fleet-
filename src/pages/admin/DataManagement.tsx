@@ -7,7 +7,7 @@ import { processRiderImport, processWalletUpdate, processRentCollectionImport } 
 import { syncGoogleSheet } from '@/utils/googleSheetsUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { downloadRiderTemplate, downloadWalletTemplate } from '@/utils/exportUtils';
+import { downloadRiderTemplate, downloadWalletTemplate, downloadRentCollectionTemplate } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
 
 const DataManagement: React.FC = () => {
@@ -465,18 +465,7 @@ const DataManagement: React.FC = () => {
                                 <p className="text-muted-foreground">Process daily collections via CSV/Excel.</p>
                             </div>
                             <button
-                                onClick={() => {
-                                    // Mock Template Download for Rent Collection
-                                    const headers = ['Triev ID', 'Rider Name', 'Mobile Number', 'Type', 'Amount'];
-                                    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
-                                    const encodedUri = encodeURI(csvContent);
-                                    const link = document.createElement("a");
-                                    link.setAttribute("href", encodedUri);
-                                    link.setAttribute("download", "rent_collection_template.csv");
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                }}
+                                onClick={() => downloadRentCollectionTemplate()}
                                 className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg flex gap-2 items-center transition-colors"
                             >
                                 <DownloadIcon size={16} /> Download Template

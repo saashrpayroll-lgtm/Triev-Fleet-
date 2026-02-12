@@ -120,3 +120,14 @@ export const downloadWalletTemplate = () => {
     }];
     exportRidersToCSV(headers, "Wallet_Update_Template");
 };
+
+export const downloadRentCollectionTemplate = () => {
+    const headers = [{
+        "Triev ID": "",
+        "Rider Name": "",
+        "Mobile Number": "",
+        "Type": "Rent",
+        "Amount": "0"
+    }];
+    exportRidersToCSV(headers, "Rent_Collection_Template");
+};
