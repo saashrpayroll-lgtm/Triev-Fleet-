@@ -703,14 +703,23 @@ export const processRentCollectionImport = async (
 
             } catch (err: any) {
                 summary.failed++;
-                summary.errors.push(`Row ${rowNum}: ${err.message}`);
+                summary.errors.push({
+                    row: rowNum,
+                    identifier: trievId || mobile || 'Unknown',
+                    reason: err.message,
+                    data: row
+                });
             }
         }
 
         await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length); // Use 'wallet' type or new 'rent_collection' if DB supports
 
     } catch (err: any) {
-        summary.errors.push(`Fatal Error: ${err.message}`);
+        summary.errors.push({
+            row: 0,
+            identifier: 'FILE',
+            reason: `Fatal Error: ${err.message}`
+        });
     }
 
     return summary;
