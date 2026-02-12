@@ -635,35 +635,60 @@ export const processRentCollectionImport = async (
                 let amount = parseCurrency(amountRaw);
                 if (amount < 0) amount = Math.abs(amount); // Assume collection is always positive inflow
 
-                // 1. Find Rider
+                // 1. Find Rider (Robust Search)
                 let riderId = null;
                 let currentBalance = 0;
 
-                // Try by Triev ID first
-                if (trievId) {
-                    const { data: riders } = await supabase
+                // Helper to search rider by exact field
+                const findRider = async (field: string, value: string) => {
+                    const { data } = await supabase
                         .from('riders')
                         .select('id, wallet_balance')
-                        .eq('triev_id', trievId)
+                        .eq(field, value)
                         .limit(1);
+                    return data && data.length > 0 ? data[0] : null;
+                };
 
-                    if (riders && riders.length > 0) {
-                        riderId = riders[0].id;
-                        currentBalance = riders[0].wallet_balance || 0;
+                // Try Triev ID variations
+                if (trievId) {
+                    // 1. Exact match
+                    let rider = await findRider('triev_id', trievId);
+
+                    // 2. Try with 'TRIEV' prefix if missing
+                    if (!rider && /^\d+$/.test(trievId)) {
+                        rider = await findRider('triev_id', `TRIEV${trievId}`);
+                    }
+
+                    // 3. Try without 'TRIEV' prefix if present
+                    if (!rider && /^TRIEV/i.test(trievId)) {
+                        const numericPart = trievId.replace(/TRIEV/i, '');
+                        rider = await findRider('triev_id', numericPart);
+                    }
+
+                    if (rider) {
+                        riderId = rider.id;
+                        currentBalance = rider.wallet_balance || 0;
                     }
                 }
 
-                // Try by Mobile if not found
+                // Try Mobile if not found
                 if (!riderId && mobile) {
-                    const { data: riders } = await supabase
-                        .from('riders')
-                        .select('id, wallet_balance')
-                        .eq('mobile_number', mobile)
-                        .limit(1);
+                    // 1. Exact match (10 digits)
+                    let rider = await findRider('mobile_number', mobile);
 
-                    if (riders && riders.length > 0) {
-                        riderId = riders[0].id;
-                        currentBalance = riders[0].wallet_balance || 0;
+                    // 2. Try with +91
+                    if (!rider) {
+                        rider = await findRider('mobile_number', `+91${mobile}`);
+                    }
+
+                    // 3. Try with 91 (no plus)
+                    if (!rider) {
+                        rider = await findRider('mobile_number', `91${mobile}`);
+                    }
+
+                    if (rider) {
+                        riderId = rider.id;
+                        currentBalance = rider.wallet_balance || 0;
                     }
                 }
 
