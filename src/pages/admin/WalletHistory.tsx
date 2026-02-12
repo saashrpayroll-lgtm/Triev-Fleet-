@@ -18,7 +18,10 @@ interface WalletTransaction {
     metadata: any;
     performed_by: string;
     timestamp: string;
-    riders?: { rider_name: string };
+    riders?: {
+        rider_name: string;
+        users?: { full_name: string };
+    };
     users?: { full_name: string };
 }
 
