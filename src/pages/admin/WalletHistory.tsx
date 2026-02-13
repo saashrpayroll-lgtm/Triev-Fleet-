@@ -3,7 +3,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare, Download } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare, Download, Calendar } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
@@ -50,6 +50,32 @@ const WalletHistory: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isEditDateModalOpen, setIsEditDateModalOpen] = useState(false);
+    const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null); // For single row edit
+
+    const handleUpdateDate = async (newDateIso: string) => {
+        const idsToUpdate = editingTransactionId ? [editingTransactionId] : selectedIds;
+
+        if (idsToUpdate.length === 0) return;
+
+        try {
+            const { error } = await supabase
+                .from('wallet_transactions')
+                .update({ timestamp: newDateIso })
+                .in('id', idsToUpdate);
+
+            if (error) throw error;
+
+            toast.success(`Updated date for ${idsToUpdate.length} transaction(s)`);
+            setIsEditDateModalOpen(false);
+            setEditingTransactionId(null);
+            setSelectedIds([]); // Clear selection after bulk update
+            fetchTransactions(); // Refresh
+        } catch (err: any) {
+            console.error("Failed to update date:", err);
+            toast.error("Failed to update date");
+        }
+    };
 
     // Initial Data Load (TLs)
     useEffect(() => {
@@ -615,6 +641,23 @@ const WalletHistory: React.FC = () => {
                                                     <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-semibold border border-blue-200">BULK</span>
                                                 )}
                                             </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingTransactionId(t.id);
+                                                            setIsEditDateModalOpen(true);
+                                                        }}
+                                                        className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-primary transition-colors"
+                                                        title="Edit Date"
+                                                    >
+                                                        <Calendar size={14} />
+                                                    </button>
+                                                    <button className="text-primary hover:underline text-xs" onClick={() => toast.info(JSON.stringify(t.metadata, null, 2))}>
+                                                        View Data
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
                                 })
@@ -646,7 +689,79 @@ const WalletHistory: React.FC = () => {
                     </button>
                 </div>
             </GlassCard>
-        </div>
+
+            {/* Bulk Actions Bar */}
+            {
+                selectedIds.length > 0 && (
+                    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-full shadow-xl flex items-center gap-4 z-50 animate-in slide-in-from-bottom duration-300">
+                        <span className="font-semibold text-sm">{selectedIds.length} selected</span>
+                        <div className="h-4 w-[1px] bg-background/20" />
+                        <button
+                            onClick={() => setIsEditDateModalOpen(true)}
+                            className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                        >
+                            <Calendar size={16} /> Edit Date
+                        </button>
+                        {isDeleting ? (
+                            <span className="flex items-center gap-2 text-sm text-red-400">
+                                <RefreshCw size={16} className="animate-spin" /> Deleting...
+                            </span>
+                        ) : (
+                            <button onClick={handleBulkDelete} className="flex items-center gap-2 text-sm hover:text-red-400 transition-colors">
+                                <Trash2 size={16} /> Delete
+                            </button>
+                        )}
+                        <button onClick={() => setSelectedIds([])} className="ml-2 text-xs opacity-70 hover:opacity-100">
+                            Cancel
+                        </button>
+                    </div>
+                )
+            }
+
+            {/* Edit Date Modal */}
+            {
+                isEditDateModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-border">
+                            <div className="p-6">
+                                <h3 className="text-lg font-bold mb-2">Update Transaction Date</h3>
+                                <p className="text-sm text-muted-foreground mb-6">
+                                    Select a new date for {selectedIds.length > 0 ? `${selectedIds.length} transactions` : 'this transaction'}.
+                                </p>
+
+                                <div className="space-y-4">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-semibold uppercase text-muted-foreground">New Date</label>
+                                        <input
+                                            type="datetime-local"
+                                            className="w-full px-3 py-2 rounded-lg border border-input bg-transparent shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                            style={{ colorScheme: 'light dark' }}
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    handleUpdateDate(new Date(e.target.value).toISOString());
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-8">
+                                    <button
+                                        onClick={() => {
+                                            setIsEditDateModalOpen(false);
+                                            setEditingTransactionId(null);
+                                        }}
+                                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 

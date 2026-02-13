@@ -579,6 +579,7 @@ export const REQUIRED_RENT_COLLECTION_COLUMNS = [
     'Mobile Number',
     'Type',
     'Amount',
+    'Date', // Optional: For backdated entries
     'Transaction ID' // Added for duplicate prevention
 ];
 
@@ -754,7 +755,32 @@ export const processRentCollectionImport = async (
                 // 100 + 200 = 300 (Correct)
                 const newBalance = currentBalance + amount;
 
+                // 3.5 Parse Date (if provided)
+                let transactionDate = new Date().toISOString(); // Default to NOW
+                const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
+                if (dateRaw) {
+                    // Try parsing various formats
+                    const d = new Date(dateRaw);
+                    if (!isNaN(d.getTime())) {
+                        transactionDate = d.toISOString();
+                    } else {
+                        // Handle DD-MM-YYYY or DD/MM/YYYY manually if needed, or rely on distinct formats
+                        // For now assuming standard parsable strings or ISO
+                        // simple DD/MM/YYYY regex fallback
+                        const parts = dateRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+                        if (parts) {
+                            const day = parseInt(parts[1], 10);
+                            const month = parseInt(parts[2], 10) - 1;
+                            const year = parseInt(parts[3], 10);
+                            transactionDate = new Date(year, month, day).toISOString();
+                        }
+                    }
+                }
+
                 // 4. Update Wallet & Log Transaction
+                // Note: We do NOT use the backdate for the `updated_at` of the rider wallet itself, 
+                // because the wallet balance is the CURRENT state. 
+                // However, the transaction log acts as the ledger with the backdate.
                 const { error: updateError } = await supabase
                     .from('riders')
                     .update({ wallet_amount: newBalance })
@@ -771,6 +797,7 @@ export const processRentCollectionImport = async (
                         amount: amount,
                         type: 'credit', // Collection is always a credit to the wallet
                         description: `Rent Collection Import (Ref: ${transactionId || trievId || mobile})`,
+                        timestamp: transactionDate, // Use the backdated date
                         metadata: {
                             source: 'import',
                             imported_by: adminName,
