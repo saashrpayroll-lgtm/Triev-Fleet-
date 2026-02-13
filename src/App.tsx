@@ -270,6 +270,7 @@ function AppRoutes() {
           <Route path="reports" element={<TLReports />} />
           <Route path="profile" element={<TLProfile />} />
           <Route path="requests" element={<TLRequests />} />
+          <Route path="wallet-history" element={<WalletHistory />} />
         </Route>
 
         {/* Admin Portal Routes */}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { LayoutDashboard, Users, FileText, Activity, User, LogOut, Menu, X, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Activity, User, LogOut, Menu, X, HelpCircle, Wallet } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
@@ -41,6 +41,7 @@ const TeamLeaderLayout: React.FC = () => {
         { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
         { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
         { path: '/team-leader/requests', icon: HelpCircle, label: 'My Requests', visible: userData?.permissions?.modules?.requests ?? true },
+        { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet History', visible: userData?.permissions?.wallet?.viewHistory ?? true },
         { path: '/team-leader/profile', icon: User, label: 'Profile', visible: true }, // Profile should always be accessible
     ].filter(item => {
         // Double check against pure undefined if keys missing
