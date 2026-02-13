@@ -786,9 +786,14 @@ export const processRentCollectionImport = async (
                 // If skipped due to duplicate, count as 'skipped' or 'failed'? 
                 // Usually failed with a specific reason is better for the report.
                 summary.failed++;
+                // Re-extract transactionId if needed for error report as it might be undefined in catch block if error occurred before declaration?
+                // Actually we should declare it outside try block or extract again. 
+                // Extracting again for safety in catch block scope if variable hoisting isn't relied upon.
+                const txnIdForError = row['Transaction ID'] || row['transaction_id'] || '';
+
                 summary.errors.push({
                     row: rowNum,
-                    identifier: transactionId || trievId || mobile || 'Unknown',
+                    identifier: txnIdForError || trievId || mobile || 'Unknown',
                     reason: err.message,
                     data: row
                 });
