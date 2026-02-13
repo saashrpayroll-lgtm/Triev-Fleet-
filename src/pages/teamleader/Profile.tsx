@@ -320,7 +320,8 @@ const Profile: React.FC = () => {
                             disabled={loading}
                             className="px-8 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-500/30 transition-all flex items-center gap-2"
                         >
-                            {loading && <Loader2 className="animate-spin" size={16} />} Save Changes
+                            {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                            Save Changes
                         </button>
                     </div>
                 </div>
