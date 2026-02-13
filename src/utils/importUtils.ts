@@ -299,7 +299,7 @@ export const processRiderImport = async (
             if (orConditions.length > 0) {
                 const { data, error } = await supabase
                     .from('riders')
-                    .select('id')
+                    .select('id, triev_id, mobile_number')
                     .or(orConditions.join(','))
                     .maybeSingle();
 
@@ -310,7 +310,20 @@ export const processRiderImport = async (
                 }
             }
 
-            // 3. Prepare Payload
+            // 3. SKIP if Duplicate Found
+            if (matchData) {
+                // console.log(`[Import] Skipping duplicate rider. TrievID: ${trievId}, Mobile: ${mobile}`);
+                summary.skipped = (summary.skipped || 0) + 1;
+                summary.errors.push({
+                    row: rowNum,
+                    identifier: riderName,
+                    reason: "Skipped: Rider already exists (Duplicate Triev ID/Mobile/Chassis)",
+                    data: { trievId, mobile, existingId: matchData.id }
+                });
+                continue; // <--- This SKIP is the key change
+            }
+
+            // 4. Prepare Payload (Only for NEW riders)
             const riderData: any = {
                 rider_name: riderName,
                 mobile_number: mobile,
@@ -324,23 +337,13 @@ export const processRiderImport = async (
                 team_leader_id: teamLeaderId,
                 team_leader_name: assignmentStatus,
                 status: 'active',
+                created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             };
 
-            // 4. Upsert
-            if (matchData) {
-                const { error } = await supabase
-                    .from('riders')
-                    .update(riderData)
-                    .eq('id', matchData.id);
-                if (error) throw error;
-            } else {
-                const { error } = await supabase.from('riders').insert({
-                    ...riderData,
-                    created_at: new Date().toISOString()
-                });
-                if (error) throw error;
-            }
+            // 5. Insert New Rider
+            const { error } = await supabase.from('riders').insert(riderData);
+            if (error) throw error;
 
             summary.success++;
 
@@ -357,13 +360,14 @@ export const processRiderImport = async (
 
     // Log the overall activity to the main Activity page
     await logActivity({
-        actionType: 'bulkImport', // Fixed actionType to match schema
+        actionType: 'bulkImport',
         targetType: 'system',
         targetId: 'multiple',
-        details: `Imported ${summary.success} riders, ${summary.failed} failures.`,
+        details: `Imported ${summary.success} riders, ${summary.skipped || 0} skipped, ${summary.failed} failures.`,
         metadata: {
             adminName,
             success: summary.success,
+            skipped: summary.skipped || 0,
             failed: summary.failed
         }
     }).catch(console.error);
@@ -371,10 +375,8 @@ export const processRiderImport = async (
     // Log Import History
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);
 
-    // console.log(`[Import Summary] Total: ${fileData.length}, Success: ${summary.success}, Failed: ${summary.failed}`);
-    if (summary.failed > 0) {
-        // console.warn("[Import Errors] First 5 errors:", summary.errors.slice(0, 5));
-        console.warn(`[Import] ${summary.failed} rows failed.`);
+    if (summary.failed > 0 || (summary.skipped || 0) > 0) {
+        console.warn(`[Import] ${summary.failed} failed, ${summary.skipped} skipped.`);
     }
 
     return summary;

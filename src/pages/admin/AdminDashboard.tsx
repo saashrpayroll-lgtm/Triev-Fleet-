@@ -356,7 +356,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* BENTO GRID: 12+ Smart Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
                 {/* --- ROW 1: MISSION CRITICAL --- */}
                 <SmartMetricCard
@@ -481,7 +481,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Charts & Activity Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 animate-in slide-in-from-bottom duration-700 delay-300">
                 {/* Charts Area (2/3 width) */}
                 <div className="lg:col-span-2">
                     <DashboardCharts
@@ -492,7 +492,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Activity Feed (1/3 width) */}
-                <div className="lg:col-span-1 h-[650px] flex flex-col gap-3">
+                <div className="lg:col-span-1 h-[650px] flex flex-col gap-2">
                     <div className="h-[300px]">
                         <WeeklyCollectionChart />
                     </div>

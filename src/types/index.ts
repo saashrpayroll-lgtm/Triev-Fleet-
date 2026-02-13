@@ -355,6 +355,7 @@ export interface ImportSummary {
     total: number;
     success: number;
     failed: number;
+    skipped?: number; // Added for duplicate checks
     errors: ImportError[];
 }
 
