@@ -560,10 +560,19 @@ const RiderManagement: React.FC = () => {
                 throw new Error('Failed to clean up wallet transactions. Deletion aborted.');
             }
 
-            // Leads (If linked by ID - optional safety check if schema changed)
-            // await supabase.from('leads').delete().eq('rider_id', rider.id);
+            // 2. Requests (Manual Cascade)
+            const { error: reqError } = await supabase
+                .from('requests')
+                .delete()
+                .eq('related_entity_id', rider.id)
+                .eq('related_entity_type', 'rider');
 
-            // 2. Delete Rider
+            if (reqError) {
+                console.error('Error deleting requests:', reqError);
+                // Log but continue, as requests might not be strict FK
+            }
+
+            // 3. Delete Rider
             const { error } = await supabase.from('riders').delete().eq('id', rider.id);
             if (error) throw error;
 
@@ -949,6 +958,17 @@ const RiderManagement: React.FC = () => {
             if (wtError) {
                 console.error('Error deleting wallet transactions (bulk):', wtError);
                 throw new Error('Failed to clean up wallet transactions. Bulk deletion aborted.');
+            }
+
+            // Requests (Manual Cascade)
+            const { error: reqError } = await supabase
+                .from('requests')
+                .delete()
+                .in('related_entity_id', idsToDelete)
+                .eq('related_entity_type', 'rider');
+
+            if (reqError) {
+                console.error('Error deleting requests (bulk):', reqError);
             }
 
             // 2. Delete Riders
