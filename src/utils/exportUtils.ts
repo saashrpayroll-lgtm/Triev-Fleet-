@@ -127,7 +127,8 @@ export const downloadRentCollectionTemplate = () => {
         "Rider Name": "",
         "Mobile Number": "",
         "Type": "Rent",
-        "Amount": "0"
+        "Amount": "0",
+        "Transaction ID": "" // Added for duplicate check
     }];
     exportRidersToCSV(headers, "Rent_Collection_Template");
 };

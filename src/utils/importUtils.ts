@@ -731,13 +731,28 @@ export const processRentCollectionImport = async (
                     throw new Error(`Rider not found (Triev ID: ${trievId}, Mobile: ${mobile})`);
                 }
 
-                // 2. Calculate New Balance
+                const transactionId = row['Transaction ID'] || row['transaction_id'] || '';
+
+                // 2. Duplicate Check
+                if (transactionId) {
+                    const { data: existingTxn } = await supabase
+                        .from('wallet_transactions')
+                        .select('id')
+                        .eq('metadata->>transaction_id', transactionId) // JSONB query
+                        .limit(1);
+
+                    if (existingTxn && existingTxn.length > 0) {
+                        throw new Error(`Duplicate Transaction ID: ${transactionId}. Entry skipped.`);
+                    }
+                }
+
+                // 3. Calculate New Balance
                 // Logic: Always ADD the collection amount.
                 // -500 + 200 = -300 (Correct)
                 // 100 + 200 = 300 (Correct)
                 const newBalance = currentBalance + amount;
 
-                // 3. Update Wallet & Log Transaction
+                // 4. Update Wallet & Log Transaction
                 const { error: updateError } = await supabase
                     .from('riders')
                     .update({ wallet_amount: newBalance })
@@ -753,12 +768,13 @@ export const processRentCollectionImport = async (
                         team_leader_id: teamLeaderId,
                         amount: amount,
                         type: 'credit', // Collection is always a credit to the wallet
-                        description: `Rent Collection Import (Ref: ${trievId || mobile})`,
+                        description: `Rent Collection Import (Ref: ${transactionId || trievId || mobile})`,
                         metadata: {
                             source: 'import',
                             imported_by: adminName,
                             admin_id: adminId,
-                            original_row: row
+                            original_row: row,
+                            transaction_id: transactionId // Store for duplicate checks
                         }
                     });
 
@@ -767,17 +783,19 @@ export const processRentCollectionImport = async (
                 summary.success++;
 
             } catch (err: any) {
+                // If skipped due to duplicate, count as 'skipped' or 'failed'? 
+                // Usually failed with a specific reason is better for the report.
                 summary.failed++;
                 summary.errors.push({
                     row: rowNum,
-                    identifier: trievId || mobile || 'Unknown',
+                    identifier: transactionId || trievId || mobile || 'Unknown',
                     reason: err.message,
                     data: row
                 });
             }
         }
 
-        await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length); // Use 'wallet' type or new 'rent_collection' if DB supports
+        await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
 
     } catch (err: any) {
         summary.errors.push({
