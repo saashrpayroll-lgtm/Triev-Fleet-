@@ -77,7 +77,11 @@ const Profile: React.FC = () => {
 
         } catch (err: any) {
             console.error('Avatar Upload Flow Failed:', err);
-            error(err.message || "Failed to upload avatar");
+            if (err.message && (err.message.includes('Bucket not found') || err.message.includes('The resource was not found'))) {
+                error("Storage bucket 'avatars' missing. Please create it in Supabase Dashboard.");
+            } else {
+                error(err.message || "Failed to upload avatar");
+            }
         } finally {
             setLoading(false);
         }
@@ -144,227 +148,201 @@ const Profile: React.FC = () => {
     return (
         <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {/* Hero Header */}
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-slate-900 border border-slate-800">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-20">
-                    <div className="absolute inset-0 bg-[radial-gradient(#ec4899_1px,transparent_1px)] [background-size:16px_16px]" />
+            <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl bg-zinc-950 border border-white/10 group">
+                {/* Dynamic Background */}
+                <div className="absolute inset-0">
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-purple-900/20 to-black" />
+                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[120px] mix-blend-screen pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px] mix-blend-screen pointer-events-none" />
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/90 to-purple-900/50" />
 
-                <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center md:items-start gap-8">
-                    {/* Avatar Group */}
-                    <div className="relative group">
-                        <div className="w-32 h-32 md:w-40 md:h-40 rounded-full p-1 bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 shadow-2xl relative z-10">
-                            <div className="w-full h-full rounded-full bg-slate-950 overflow-hidden relative">
-                                {userData.profilePicUrl ? (
-                                    <img src={userData.profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-4xl font-bold text-pink-400">
-                                        {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : String(userData.fullName || 'L').charAt(0).toUpperCase()}
+                <div className="relative z-10 p-10 md:p-14">
+                    <div className="flex flex-col md:flex-row gap-12 items-start">
+
+                        {/* 1. Identity Visual (Photo) */}
+                        <div className="relative group/avatar shrink-0 mx-auto md:mx-0">
+                            <div className="w-48 h-48 rounded-[2rem] p-1 bg-gradient-to-br from-purple-500 via-pink-500 to-amber-500 shadow-2xl relative z-10 rotate-3 transition-transform duration-500 group-hover/avatar:rotate-0">
+                                <div className="w-full h-full rounded-[1.8rem] bg-zinc-950 overflow-hidden relative border-4 border-zinc-900 shadow-inner">
+                                    {userData.profilePicUrl ? (
+                                        <img src={userData.profilePicUrl} alt="Profile" className="w-full h-full object-cover transition-transform duration-700 group-hover/avatar:scale-110" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-zinc-950 text-5xl font-black text-purple-500">
+                                            {typeof userData.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : String(userData.fullName || 'L').charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+
+                                    {/* Upload Overlay */}
+                                    <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-300 cursor-pointer backdrop-blur-sm">
+                                        <div className="p-3 bg-white/10 rounded-full backdrop-blur-md border border-white/20 mb-2 hover:scale-110 transition-transform">
+                                            <Camera className="text-white" size={24} />
+                                        </div>
+                                        <span className="text-white font-bold text-xs tracking-widest uppercase">Update Photo</span>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Role Badge */}
+                            <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap">
+                                <span className="px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-xl shadow-purple-900/40 border border-purple-400/30 flex items-center gap-2">
+                                    <Shield size={14} fill="currentColor" /> Team Leader
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* 2. Account Holder Info */}
+                        <div className="flex-1 w-full space-y-8">
+                            <div className="text-center md:text-left space-y-2">
+                                <p className="text-purple-400 font-bold tracking-widest text-xs uppercase mb-1 flex items-center justify-center md:justify-start gap-2">
+                                    <span className="w-8 h-[2px] bg-purple-500/50 rounded-full" />
+                                    Profile Details
+                                </p>
+                                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                                    {typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Leader')}
+                                </h1>
+                                <p className="text-zinc-400 font-medium text-lg flex items-center justify-center md:justify-start gap-2">
+                                    @{typeof userData.username === 'string' ? userData.username : (typeof userData.email === 'string' ? userData.email.split('@')[0] : 'user')}
+                                    <span className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 text-xs font-mono border border-zinc-700">Verified</span>
+                                </p>
+                            </div>
+
+                            {/* Data Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Email */}
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group/item">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 group-hover/item:text-indigo-300 transition-colors">
+                                            <Mail size={18} />
+                                        </div>
+                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Email Address</span>
                                     </div>
-                                )}
+                                    <p className="text-white font-semibold pl-12 truncate">{typeof userData.email === 'string' ? userData.email : String(userData.email || '')}</p>
+                                </div>
 
-                                {/* Upload Overlay */}
-                                <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer backdrop-blur-sm">
-                                    <Camera className="text-white mb-2 scale-75 group-hover:scale-100 transition-transform" />
-                                    <span className="text-white text-xs font-bold uppercase tracking-wider">Update Photo</span>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={handleAvatarUpload}
-                                    />
-                                </label>
-                            </div>
-                        </div>
-                        {/* Online Status Indicator */}
-                        <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3 w-6 h-6 bg-emerald-500 border-4 border-slate-900 rounded-full z-20 shadow-lg animate-pulse" />
-                        {loading && <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-30 rounded-full backdrop-blur-sm"><Loader2 className="animate-spin text-white w-8 h-8" /></div>}
-                    </div>
+                                {/* Mobile */}
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group/item">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 group-hover/item:text-emerald-300 transition-colors">
+                                            <Smartphone size={18} />
+                                        </div>
+                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Mobile Number</span>
+                                    </div>
+                                    <p className="text-white font-semibold pl-12">{typeof userData.mobile === 'string' ? userData.mobile : String(userData.mobile || 'Not Linked')}</p>
+                                </div>
 
-                    {/* User Info */}
-                    <div className="text-center md:text-left flex-1 space-y-3">
-                        <div className="flex flex-col md:flex-row items-center gap-3">
-                            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{typeof userData.fullName === 'string' ? userData.fullName : 'Leader'}</h1>
-                            <span className="px-3 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full text-xs font-bold uppercase tracking-wide shadow-[0_0_10px_rgba(168,85,247,0.2)]">
-                                Team Leader
-                            </span>
-                        </div>
+                                {/* Working Area */}
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group/item">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400 group-hover/item:text-purple-300 transition-colors">
+                                            <MapPin size={18} />
+                                        </div>
+                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Working Area</span>
+                                    </div>
+                                    <p className="text-white font-semibold pl-12">{typeof userData.jobLocation === 'string' ? userData.jobLocation : String(userData.jobLocation || 'Headquarters (HQ)')}</p>
+                                </div>
 
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-slate-400 text-sm">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                                <Shield size={14} className="text-emerald-400" />
-                                <span className="font-mono">{typeof userData.userId === 'string' ? userData.userId : String(userData.userId || 'ID: UNKNOWN')}</span>
+                                {/* User ID (System) */}
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group/item">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="p-2 rounded-lg bg-zinc-500/20 text-zinc-400 group-hover/item:text-zinc-300 transition-colors">
+                                            <Key size={18} />
+                                        </div>
+                                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">System ID</span>
+                                    </div>
+                                    <p className="text-zinc-400 font-mono text-xs pl-12 mt-1 truncate">{userData.id}</p>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                                <Mail size={14} className="text-blue-400" />
-                                <span>{typeof userData.email === 'string' ? userData.email : String(userData.email || '')}</span>
-                            </div>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                                <Smartphone size={14} className="text-purple-400" />
-                                <span>{typeof userData.mobile === 'string' ? userData.mobile : String(userData.mobile || '')}</span>
-                            </div>
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div className="pt-4 flex items-center justify-center md:justify-start gap-3">
-                            <button
-                                onClick={() => setIsEditing(!isEditing)}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg ${isEditing
-                                    ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
-                                    : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-purple-500/25'}`}
-                            >
-                                {isEditing ? <><LogOut size={16} /> Cancel Editing</> : <><UserCog size={16} /> Edit Profile</>}
-                            </button>
+                            {/* Actions */}
+                            <div className="pt-4 flex flex-wrap gap-4 justify-center md:justify-start">
+                                <button
+                                    onClick={() => setIsEditing(!isEditing)}
+                                    className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-colors shadow-lg shadow-white/10 flex items-center gap-2"
+                                >
+                                    <UserCog size={18} />
+                                    {isEditing ? 'Cancel Editing' : 'Edit Profile'}
+                                </button>
+                                <button className="px-8 py-3 bg-white/5 text-white font-bold rounded-xl hover:bg-white/10 transition-colors border border-white/10 flex items-center gap-2">
+                                    <LogOut size={18} />
+                                    Sign Out
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-                {/* Left: Permissions & Stats */}
-                <div className="space-y-6">
-                    {/* Access & Permissions - Corrected Keys */}
-                    <div className="bg-card border border-border shadow-sm rounded-2xl p-6 overflow-hidden relative">
-                        <h3 className="font-bold text-lg flex items-center gap-2 text-foreground mb-4">
-                            <Shield className="text-blue-500" size={20} /> Access Permissions
-                        </h3>
-                        <div className="space-y-3">
-                            {[
-                                { label: 'Rider Management', enabled: userData.permissions?.modules?.riders },
-                                { label: 'Lead Management', enabled: userData.permissions?.modules?.leads },
-                                { label: 'View Reports', enabled: userData.permissions?.modules?.reports },
-                                { label: 'Request Management', enabled: userData.permissions?.modules?.requests },
-                                { label: 'Notifications', enabled: userData.permissions?.modules?.notifications },
-                            ].map((perm, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border/50">
-                                    <span className="text-sm font-medium flex items-center gap-2">
-                                        {perm.label}
-                                    </span>
-                                    {perm.enabled ? (
-                                        <span className="text-[10px] font-bold px-2 py-1 bg-green-500/10 text-green-600 rounded-md border border-green-500/20">
-                                            GRANTED
-                                        </span>
-                                    ) : (
-                                        <span className="text-[10px] font-bold px-2 py-1 bg-red-500/10 text-red-600 rounded-md border border-red-500/20">
-                                            DENIED
-                                        </span>
-                                    )}
-                                </div>
-                            ))}
+            {/* Edit Form Section - Overlaid or Below */}
+            {isEditing && (
+                <div className="bg-white border border-zinc-200 shadow-xl rounded-3xl overflow-hidden animate-in slide-in-from-bottom duration-500">
+                    <div className="px-8 py-6 border-b border-zinc-100 bg-zinc-50/50 flex items-center gap-3">
+                        <div className="p-2 bg-purple-600 rounded-lg text-white shadow-lg shadow-purple-500/20">
+                            <Settings size={20} />
                         </div>
+                        <h3 className="font-bold text-xl text-zinc-900">Update Information</h3>
                     </div>
-                </div>
 
-                {/* Center & Right: Edit Forms */}
-                <div className="xl:col-span-2 space-y-6">
-
-                    {/* Editable Info Card */}
-                    <div className="bg-card border border-border shadow-sm rounded-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-500/10 rounded-lg text-purple-600"><Settings size={18} /></div>
-                                <h3 className="font-semibold text-lg">General Settings</h3>
-                            </div>
-                            {isEditing && <span className="text-xs text-orange-500 font-medium animate-pulse">Edit Mode Active</span>}
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                            <label className="block text-sm font-bold text-zinc-700">Full Name</label>
+                            <input
+                                value={formData.fullName}
+                                onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
+                            />
                         </div>
-
-                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                                    Full Name
-                                </label>
-                                {isEditing ? (
-                                    <input
-                                        value={formData.fullName}
-                                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                                        className="w-full px-4 py-2.5 bg-background border border-input rounded-xl focus:ring-2 focus:ring-purple-500/20 active:border-purple-500 outline-none transition-all font-medium"
-                                    />
-                                ) : (
-                                    <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 font-medium text-foreground">
-                                        {typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Leader')}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                                    Reporting Manager
-                                </label>
-                                <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 text-muted-foreground cursor-not-allowed">
-                                    {typeof userData.reportingManager === 'string' ? userData.reportingManager : String(userData.reportingManager || 'System Admin')}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                                    Job Location
-                                </label>
-                                <div className="px-4 py-2.5 bg-muted/30 rounded-xl border border-border/50 text-muted-foreground cursor-not-allowed flex items-center gap-2">
-                                    <MapPin size={14} /> {typeof userData.jobLocation === 'string' ? userData.jobLocation : String(userData.jobLocation || 'Remote HQ')}
-                                </div>
-                            </div>
+                        <div className="space-y-4">
+                            <label className="block text-sm font-bold text-zinc-700">Change Password</label>
+                            <input
+                                type="password"
+                                placeholder="New Password"
+                                value={formData.newPassword}
+                                onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
+                            />
+                        </div>
+                        <div className="space-y-4">
+                            <label className="block text-sm font-bold text-zinc-700">Confirm Password</label>
+                            <input
+                                type="password"
+                                placeholder="Confirm New Password"
+                                value={formData.confirmPassword}
+                                onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
+                            />
                         </div>
                     </div>
 
-                    {/* Authentication & Security (Only Visible in Edit Mode) */}
-                    {isEditing && (
-                        <div className="bg-red-50/50 border border-red-200 shadow-lg rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
-                            <div className="px-6 py-4 border-b border-red-200 bg-red-100/50 flex items-center gap-3">
-                                <div className="p-2 bg-red-500 text-white rounded-lg shadow-red-500/20 shadow-lg"><Key size={18} /></div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-red-900">Security & Password</h3>
-                                    <p className="text-xs text-red-700">Update your access credentials securely.</p>
-                                </div>
-                            </div>
-
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-red-800 uppercase tracking-wide">New Password</label>
-                                        <input
-                                            type="password"
-                                            value={formData.newPassword}
-                                            onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
-                                            className="w-full px-4 py-2.5 bg-white border border-red-200 rounded-xl focus:ring-4 focus:ring-red-500/10 outline-none transition-all placeholder:text-red-300"
-                                            placeholder="Enter new password"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-red-800 uppercase tracking-wide">Confirm Password</label>
-                                        <input
-                                            type="password"
-                                            value={formData.confirmPassword}
-                                            onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                            className="w-full px-4 py-2.5 bg-white border border-red-200 rounded-xl focus:ring-4 focus:ring-red-500/10 outline-none transition-all placeholder:text-red-300"
-                                            placeholder="Re-enter password"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="mt-8 flex justify-end items-center gap-4 border-t border-red-200 pt-6">
-                                    <button
-                                        onClick={() => setIsEditing(false)}
-                                        className="px-6 py-2.5 text-red-600 hover:bg-red-100/50 rounded-xl font-medium transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleUpdateProfile}
-                                        disabled={loading}
-                                        className="flex items-center gap-2 px-8 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-500/30 disabled:opacity-70"
-                                    >
-                                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    <div className="p-6 bg-zinc-50 flex justify-end gap-3 border-t border-zinc-100">
+                        <button onClick={() => setIsEditing(false)} className="px-6 py-2.5 font-bold text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50 rounded-xl transition-colors">Discard</button>
+                        <button
+                            onClick={handleUpdateProfile}
+                            disabled={loading}
+                            className="px-8 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-500/30 transition-all flex items-center gap-2"
+                        >
+                            {loading && <Loader2 className="animate-spin" size={16} />} Save Changes
+                        </button>
+                    </div>
                 </div>
+            )}
+
+            {/* Permissions Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'Rider Management', enabled: userData.permissions?.modules?.riders },
+                    { label: 'Lead Management', enabled: userData.permissions?.modules?.leads },
+                    { label: 'View Reports', enabled: userData.permissions?.modules?.reports },
+                    { label: 'Request Management', enabled: userData.permissions?.modules?.requests },
+                ].map((perm, idx) => (
+                    <div key={idx} className={`p-4 rounded-xl border ${perm.enabled ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'} flex items-center justify-between`}>
+                        <span className="font-medium text-sm text-zinc-700">{perm.label}</span>
+                        {perm.enabled ? (
+                            <span className="text-[10px] font-bold px-2 py-1 bg-emerald-500/10 text-emerald-600 rounded-md">GRANTED</span>
+                        ) : (
+                            <span className="text-[10px] font-bold px-2 py-1 bg-red-500/10 text-red-600 rounded-md">DENIED</span>
+                        )}
+                    </div>
+                ))}
             </div>
         </div>
     );

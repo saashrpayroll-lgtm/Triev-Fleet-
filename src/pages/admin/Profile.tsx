@@ -67,7 +67,11 @@ const Profile: React.FC = () => {
 
         } catch (err: any) {
             console.error('Avatar Upload Flow Failed:', err);
-            error(err.message || "Failed to upload avatar");
+            if (err.message && (err.message.includes('Bucket not found') || err.message.includes('The resource was not found'))) {
+                error("Storage bucket 'avatars' missing. Please create it in Supabase Dashboard.");
+            } else {
+                error(err.message || "Failed to upload avatar");
+            }
         } finally {
             setLoading(false);
         }
