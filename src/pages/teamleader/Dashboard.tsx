@@ -267,21 +267,21 @@ const Dashboard: React.FC = () => {
 
 
     return (
-        <div className="space-y-8 pb-20">
+        <div className="space-y-4 pb-10">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-3">
                 <div>
-                    <h1 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
+                    <h1 className="text-3xl font-extrabold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
                         Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}!
                     </h1>
-                    <p className="text-muted-foreground text-lg mt-1 font-medium flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <p className="text-muted-foreground text-sm mt-0.5 font-medium flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                         {format(new Date(), 'EEEE, MMMM do, yyyy')}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 bg-card border rounded-full text-sm font-semibold shadow-sm flex items-center gap-2">
-                        <Shield size={14} className="text-primary" />
+                    <div className="px-3 py-1.5 bg-card border rounded-full text-xs font-semibold shadow-sm flex items-center gap-2">
+                        <Shield size={12} className="text-primary" />
                         Team Leader View
                     </div>
                 </div>
@@ -294,7 +294,7 @@ const Dashboard: React.FC = () => {
 
 
             {/* BENTO GRID: Premium Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
                 {/* Rider Stats */}
                 {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
@@ -350,7 +350,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* RECOVERY TASKS SECTION (New) */}
-            <div className="animate-in slide-in-from-bottom duration-700 delay-200 mt-2">
+            <div className="animate-in slide-in-from-bottom duration-700 delay-200 mt-1">
                 <ComponentErrorBoundary name="Debt Recovery Tasks">
                     <DebtRecoveryTasks
                         riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
@@ -359,7 +359,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* AI Coaching Segment */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div className="lg:col-span-2">
                     {(userData.permissions?.dashboard?.charts?.onboarding ?? true) ? (
                         <ComponentErrorBoundary name="Dashboard Charts">
@@ -370,62 +370,62 @@ const Dashboard: React.FC = () => {
                             />
                         </ComponentErrorBoundary>
                     ) : (
-                        <div className="h-full bg-card/40 border border-dashed rounded-[2.5rem] flex items-center justify-center text-muted-foreground p-10 min-h-[300px]">
+                        <div className="h-full bg-card/40 border border-dashed rounded-[2rem] flex items-center justify-center text-muted-foreground p-8 min-h-[250px]">
                             Charts access restricted
                         </div>
                     )}
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden border border-white/5"
+                        className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[2rem] p-6 text-white shadow-2xl relative overflow-hidden border border-white/5"
                     >
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" />
                         <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-indigo-500/30 rounded-2xl backdrop-blur-xl border border-white/10">
-                                    <Zap className="text-indigo-300 fill-indigo-300" size={24} />
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2.5 bg-indigo-500/30 rounded-xl backdrop-blur-xl border border-white/10">
+                                    <Zap className="text-indigo-300 fill-indigo-300" size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black tracking-tighter">AI Team Coach</h3>
+                                    <h3 className="text-lg font-black tracking-tighter">AI Team Coach</h3>
                                     <p className="text-[10px] uppercase font-black tracking-[0.2em] text-indigo-300/80">Performance Engine</p>
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {aiInsight ? (
-                                    <div className="p-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
-                                        <div className="flex items-center gap-2 mb-2 text-indigo-200 text-xs font-bold uppercase tracking-wider">
-                                            <Sparkles size={12} className="text-yellow-400 animate-pulse" />
+                                    <div className="p-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
+                                        <div className="flex items-center gap-2 mb-2 text-indigo-200 text-[10px] font-bold uppercase tracking-wider">
+                                            <Sparkles size={10} className="text-yellow-400 animate-pulse" />
                                             Live Insight
                                         </div>
-                                        <p className="text-sm font-medium leading-relaxed text-white">
+                                        <p className="text-xs font-medium leading-relaxed text-white">
                                             "{safeRender(aiInsight)}"
                                         </p>
-                                        <div className="mt-3 flex gap-2">
+                                        <div className="mt-2.5 flex gap-2">
                                             <button
                                                 onClick={() => handleNavigate('/team-leader/riders')}
-                                                className="text-[10px] font-black uppercase tracking-widest bg-white text-indigo-900 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                                                className="text-[10px] font-black uppercase tracking-widest bg-white text-indigo-900 px-2.5 py-1 rounded-md hover:bg-indigo-50 transition-colors"
                                             >
                                                 View Details
                                             </button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                                        <p className="text-xs font-bold leading-relaxed text-indigo-100">
+                                    <div className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                        <p className="text-[10px] font-bold leading-relaxed text-indigo-100">
                                             "3 Riders in your team have not updated their wallets in 48h. Consider sending a WhatsApp reminder."
                                         </p>
-                                        <div className="mt-3 flex gap-2">
-                                            <button className="text-[10px] font-black uppercase tracking-widest bg-indigo-500 px-3 py-1 rounded-lg">Action Now</button>
+                                        <div className="mt-2.5 flex gap-2">
+                                            <button className="text-[10px] font-black uppercase tracking-widest bg-indigo-500 px-2.5 py-1 rounded-md">Action Now</button>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                                    <p className="text-xs font-bold leading-relaxed text-emerald-100">
+                                <div className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                                    <p className="text-[10px] font-bold leading-relaxed text-emerald-100">
                                         "Your lead conversion speed is 15% higher than the fleet average this week. Keep it up!"
                                     </p>
                                 </div>
@@ -433,13 +433,13 @@ const Dashboard: React.FC = () => {
                         </div>
                     </motion.div>
 
-                    <div className="bg-card/50 backdrop-blur-sm border rounded-3xl p-6 shadow-xl">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Activity size={18} className="text-primary" />
-                            <h3 className="font-black tracking-tight">Recent Performance</h3>
+                    <div className="bg-card/50 backdrop-blur-sm border rounded-[2rem] p-5 shadow-xl">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Activity size={16} className="text-primary" />
+                            <h3 className="font-black tracking-tight text-sm">Recent Performance</h3>
                         </div>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center text-sm font-bold">
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center text-xs font-bold">
                                 <span className="text-muted-foreground">Fleet Utilization</span>
                                 <span className="text-emerald-500">94.2%</span>
                             </div>
@@ -447,7 +447,7 @@ const Dashboard: React.FC = () => {
                                 <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '94%' }} />
                             </div>
 
-                            <div className="flex justify-between items-center text-sm font-bold pt-2">
+                            <div className="flex justify-between items-center text-xs font-bold pt-1">
                                 <span className="text-muted-foreground">Lead Quality</span>
                                 <span className="text-indigo-500">High</span>
                             </div>
@@ -460,7 +460,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Quick Actions Tiles */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
                     { id: 'addRider', label: 'Add Rider', icon: Users, path: '/team-leader/riders/new', color: 'text-blue-500', bg: 'bg-blue-500/10', permission: userData.permissions?.riders?.create },
                     { id: 'newLead', label: 'New Lead', icon: Zap, path: '/team-leader/leads', color: 'text-yellow-500', bg: 'bg-yellow-500/10', permission: userData.permissions?.leads?.create },
@@ -469,15 +469,15 @@ const Dashboard: React.FC = () => {
                 ].filter(action => action.permission ?? true).map((action, idx) => (
                     <motion.button
                         key={idx}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => handleNavigate(action.path)}
-                        className="flex flex-col items-center justify-center p-4 rounded-2xl bg-card border hover:border-primary/50 shadow-sm transition-all group"
+                        className="flex flex-col items-center justify-center p-3 rounded-2xl bg-card border hover:border-primary/50 shadow-sm transition-all group"
                     >
-                        <div className={`p-3 rounded-full ${action.bg} ${action.color} mb-2 group-hover:scale-110 transition-transform`}>
-                            <action.icon size={20} />
+                        <div className={`p-2.5 rounded-full ${action.bg} ${action.color} mb-1.5 group-hover:scale-110 transition-transform`}>
+                            <action.icon size={18} />
                         </div>
-                        <span className="font-bold text-sm text-foreground">{action.label}</span>
+                        <span className="font-bold text-xs text-foreground">{action.label}</span>
                     </motion.button>
                 ))}
             </div>
@@ -487,12 +487,12 @@ const Dashboard: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="bg-card/50 backdrop-blur-sm border rounded-3xl p-6 shadow-lg relative overflow-hidden"
+                className="bg-card/50 backdrop-blur-sm border rounded-3xl p-5 shadow-lg relative overflow-hidden"
             >
                 <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                    <Star size={200} />
+                    <Star size={180} />
                 </div>
-                <div className="mb-2 relative z-10">
+                <div className="mb-1 relative z-10">
                     {/* Header removed as requested */}
                 </div>
                 <div className="relative z-10">
@@ -507,7 +507,7 @@ const Dashboard: React.FC = () => {
                             />
                         </ComponentErrorBoundary>
                     ) : (
-                        <div className="p-10 text-center text-muted-foreground border border-dashed rounded-2xl">
+                        <div className="p-8 text-center text-muted-foreground border border-dashed rounded-2xl">
                             Leaderboard is restricted
                         </div>
                     )}

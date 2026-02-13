@@ -319,29 +319,29 @@ const Dashboard: React.FC = () => {
     const isTL = userData?.role === 'teamLeader';
 
     return (
-        <div className="space-y-5 pb-10">
+        <div className="space-y-3 pb-6">
             {/* Header Section */}
-            <div className="space-y-4">
+            <div className="space-y-2">
 
 
-                <div className="flex flex-col md:flex-row gap-4 justify-between items-end">
+                <div className="flex flex-col md:flex-row gap-3 justify-between items-end">
                     <div>
-                        <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-in slide-in-from-left duration-500">
+                        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1 animate-in slide-in-from-left duration-500">
                             {isTL ? "Team Command Center" : "Admin Command Center"}
                         </h1>
 
                     </div>
 
                     {/* Date Filters */}
-                    <div className="flex items-center gap-2 bg-muted/40 p-1.5 rounded-lg border">
-                        <Filter size={16} className="text-muted-foreground ml-2" />
-                        <span className="w-px h-4 bg-border mx-1"></span>
+                    <div className="flex items-center gap-2 bg-muted/40 p-1 rounded-lg border">
+                        <Filter size={14} className="text-muted-foreground ml-2" />
+                        <span className="w-px h-3 bg-border mx-1"></span>
                         {(['all', 'month', 'week'] as DateFilter[]).map((filter) => (
                             <button
                                 key={filter}
                                 onClick={() => setDateFilter(filter)}
                                 className={`
-                                    px-3 py-1.5 rounded-md text-xs font-semibold transition-all
+                                    px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all
                                     ${dateFilter === filter
                                         ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-indigo-400'
                                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -356,7 +356,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* BENTO GRID: 12+ Smart Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
                 {/* --- ROW 1: MISSION CRITICAL --- */}
                 <SmartMetricCard
@@ -481,7 +481,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Charts & Activity Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in slide-in-from-bottom duration-700 delay-300">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
                 {/* Charts Area (2/3 width) */}
                 <div className="lg:col-span-2">
                     <DashboardCharts
@@ -492,7 +492,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Activity Feed (1/3 width) */}
-                <div className="lg:col-span-1 h-[650px] flex flex-col gap-4">
+                <div className="lg:col-span-1 h-[650px] flex flex-col gap-3">
                     <div className="h-[300px]">
                         <WeeklyCollectionChart />
                     </div>
@@ -519,7 +519,7 @@ const Dashboard: React.FC = () => {
                     action={
                         <button
                             onClick={() => navigate('/portal/leaderboard')}
-                            className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium flex items-center gap-1 bg-muted/30 px-3 py-1.5 rounded-full border border-transparent hover:border-primary/20"
+                            className="text-[10px] text-muted-foreground hover:text-primary transition-colors font-medium flex items-center gap-1 bg-muted/30 px-2.5 py-1 rounded-full border border-transparent hover:border-primary/20"
                         >
                             View Full Leaderboard
                         </button>
