@@ -577,7 +577,8 @@ export const REQUIRED_RENT_COLLECTION_COLUMNS = [
     'Rider Name',
     'Mobile Number',
     'Type',
-    'Amount'
+    'Amount',
+    'Transaction ID' // Added for duplicate prevention
 ];
 
 export const processRentCollectionImport = async (
