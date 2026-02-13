@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Mail, Shield, UserCog, Camera, Save, LogOut, Settings, Key, MapPin, Loader2, Smartphone } from 'lucide-react';
+import { Mail, Shield, UserCog, Camera, LogOut, Settings, Key, MapPin, Loader2, Smartphone } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { logActivity } from '@/utils/activityLog';
 import { useToast } from '@/contexts/ToastContext';
@@ -320,7 +320,7 @@ const Profile: React.FC = () => {
                             disabled={loading}
                             className="px-8 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-500/30 transition-all flex items-center gap-2"
                         >
-                            {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                            {loading && <Loader2 className="animate-spin" size={16} />}
                             Save Changes
                         </button>
                     </div>
