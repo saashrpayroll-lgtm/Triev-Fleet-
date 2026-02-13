@@ -319,12 +319,12 @@ const Dashboard: React.FC = () => {
     const isTL = userData?.role === 'teamLeader';
 
     return (
-        <div className="space-y-8 pb-10">
+        <div className="space-y-5 pb-10">
             {/* Header Section */}
-            <div className="space-y-6">
+            <div className="space-y-4">
 
 
-                <div className="flex flex-col md:flex-row gap-6 justify-between items-end">
+                <div className="flex flex-col md:flex-row gap-4 justify-between items-end">
                     <div>
                         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-in slide-in-from-left duration-500">
                             {isTL ? "Team Command Center" : "Admin Command Center"}
@@ -356,7 +356,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* BENTO GRID: 12+ Smart Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
                 {/* --- ROW 1: MISSION CRITICAL --- */}
                 <SmartMetricCard
@@ -481,7 +481,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Charts & Activity Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom duration-700 delay-300">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in slide-in-from-bottom duration-700 delay-300">
                 {/* Charts Area (2/3 width) */}
                 <div className="lg:col-span-2">
                     <DashboardCharts
@@ -492,7 +492,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Activity Feed (1/3 width) */}
-                <div className="lg:col-span-1 h-[650px] flex flex-col gap-6">
+                <div className="lg:col-span-1 h-[650px] flex flex-col gap-4">
                     <div className="h-[300px]">
                         <WeeklyCollectionChart />
                     </div>

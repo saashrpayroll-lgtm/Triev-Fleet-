@@ -54,7 +54,7 @@ export const sendNotification = async ({
             }
         }
     } catch (error) {
-        console.error('Failed to send notification:', error);
+        // console.error('Failed to send notification');
     }
 };
 

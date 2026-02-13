@@ -22,7 +22,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom duration-700 delay-300">
 
             {/* 1. Fleet Composition (Vibrant Donut Chart) */}
-            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group">
+            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-zinc-200 dark:border-t-white/20 group">
                 <div className="mb-6 flex justify-between items-center">
                     <div>
                         <h3 className="text-xl font-black tracking-tighter text-foreground flex items-center gap-2">
@@ -64,8 +64,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                                 ))}
                             </Pie>
                             <Tooltip
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                                itemStyle={{ fontSize: '12px' }}
+                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: 'var(--background)', color: 'var(--foreground)' }}
+                                itemStyle={{ fontSize: '12px', color: 'var(--foreground)' }}
                             />
                             <Legend
                                 verticalAlign="bottom"
@@ -79,7 +79,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
             </div>
 
             {/* 2. Financial Overview (Horizontal Bar Chart) */}
-            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-white/20 group">
+            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-zinc-200 dark:border-t-white/20 group">
                 <div className="mb-6">
                     <h3 className="text-xl font-black tracking-tighter text-foreground flex items-center gap-2">
                         <span className="w-1.5 h-6 bg-emerald-500 rounded-full group-hover:scale-y-125 transition-transform" />
@@ -94,19 +94,19 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                             data={walletData}
                             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.1} />
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.1} stroke="var(--border)" />
                             <XAxis type="number" hide />
                             <YAxis
                                 dataKey="name"
                                 type="category"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 10, fontWeight: 'black', fill: '#64748b' }}
+                                tick={{ fontSize: 10, fontWeight: 'black', fill: 'var(--muted-foreground)' }} // Dynamic Color
                                 width={80}
                             />
                             <Tooltip
-                                cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }}
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                cursor={{ fill: 'var(--accent)' }}
+                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: 'var(--background)', color: 'var(--foreground)' }}
                                 formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
                                 labelFormatter={(label) => safeRender(label)}
                             />

@@ -373,7 +373,8 @@ export const processRiderImport = async (
 
     // console.log(`[Import Summary] Total: ${fileData.length}, Success: ${summary.success}, Failed: ${summary.failed}`);
     if (summary.failed > 0) {
-        console.warn("[Import Errors] First 5 errors:", summary.errors.slice(0, 5));
+        // console.warn("[Import Errors] First 5 errors:", summary.errors.slice(0, 5));
+        console.warn(`[Import] ${summary.failed} rows failed.`);
     }
 
     return summary;
@@ -548,7 +549,7 @@ export const processWalletUpdate = async (
             // console.log(`Sent ${notifications.length} batched wallet notifications.`);
         }
     } catch (e) {
-        console.error("Failed to send batched wallet notifications:", e);
+        console.error("Failed to send batched wallet notifications.");
     }
 
     // Log the overall activity to the main Activity page

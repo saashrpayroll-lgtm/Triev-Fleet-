@@ -294,7 +294,7 @@ const Dashboard: React.FC = () => {
 
 
             {/* BENTO GRID: Premium Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
                 {/* Rider Stats */}
                 {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
@@ -350,25 +350,8 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* RECOVERY TASKS SECTION (New) */}
-            <div className="animate-in slide-in-from-bottom duration-700 delay-200">
+            <div className="animate-in slide-in-from-bottom duration-700 delay-200 mt-2">
                 <ComponentErrorBoundary name="Debt Recovery Tasks">
-                    {/* We pass the 'myRiders' derived from leaderboardData (which is actually all riders, wait - 
-                         the stats logic fetches 'myRiders' but leaderboardData fetches 'allRiders'. 
-                         We need 'myRiders' for this component. 
-                         Looking at the fetchStats logic:
-                         The 'myRiders' data isn't stored in a state variable accessible here directly except inside 'stats'.
-                         Wait, 'leaderboardData' has 'riders' which IS 'allRiders'. 
-                         Ideally this component should take 'myRiders'. 
-                         I see 'leaderboardData' state variable. 
-                         Let's see where 'myRiders' went.
-                         It was used to calculate stats but not stored in state.
-                         
-                         CORRECTION: I need to store 'myRiders' in state to pass it to this component.
-                         Or, I can filter 'leaderboardData.riders' if it contains everyone and I know my ID.
-                         But 'leaderboardData.riders' is ALL riders.
-                         'userData.id' is available.
-                         So I can filter: leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)
-                     */}
                     <DebtRecoveryTasks
                         riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
                     />
@@ -376,7 +359,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* AI Coaching Segment */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
                     {(userData.permissions?.dashboard?.charts?.onboarding ?? true) ? (
                         <ComponentErrorBoundary name="Dashboard Charts">
