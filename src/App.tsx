@@ -39,7 +39,6 @@ import RequestManagement from '@/pages/admin/RequestManagement';
 import LeaderboardPage from '@/pages/admin/LeaderboardPage';
 
 import '@/index.css';
-import FloatingChatWidget from '@/components/chat/FloatingChatWidget';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 
 // Helper component for loading state
@@ -362,7 +361,7 @@ function AppRoutes() {
 
 import { Toaster } from 'sonner';
 import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
-import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
+
 
 function App() {
   // console.log('App component rendering (Supabase)');
@@ -373,9 +372,6 @@ function App() {
           <ToastProvider>
             <BrowserRouter>
               <AppRoutes />
-              <ComponentErrorBoundary name="ChatWidget">
-                <FloatingChatWidget />
-              </ComponentErrorBoundary>
               <Toaster position="top-right" richColors />
             </BrowserRouter>
           </ToastProvider>
