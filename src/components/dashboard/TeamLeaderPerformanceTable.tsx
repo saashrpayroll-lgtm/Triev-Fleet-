@@ -35,9 +35,31 @@ interface TeamLeaderPerformanceTableProps {
 const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({ data }) => {
     const navigate = useNavigate();
     const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff' | 'totalCollection', direction: 'asc' | 'desc' } | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+
+    const filteredData = React.useMemo(() => {
+        let processed = [...data];
+
+        // 1. Filter by Status
+        if (filterStatus !== 'all') {
+            processed = processed.filter(tl => tl.status === filterStatus);
+        }
+
+        // 2. Filter by Search Term
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            processed = processed.filter(tl =>
+                tl.name.toLowerCase().includes(lowerTerm) ||
+                tl.email.toLowerCase().includes(lowerTerm)
+            );
+        }
+
+        return processed;
+    }, [data, filterStatus, searchTerm]);
 
     const sortedData = React.useMemo(() => {
-        let sortable = [...data];
+        let sortable = [...filteredData];
         if (sortConfig !== null) {
             sortable.sort((a, b) => {
                 let aValue: any = a[sortConfig.key as keyof TLSnapshot];
@@ -64,7 +86,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
             sortable.sort((a, b) => b.activeRiders - a.activeRiders);
         }
         return sortable;
-    }, [data, sortConfig]);
+    }, [filteredData, sortConfig]);
 
     const handleSort = (key: any) => {
         let direction: 'asc' | 'desc' = 'desc';
@@ -75,41 +97,73 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
     };
 
     return (
-        <div className="bg-card border rounded-xl shadow-sm overflow-hidden animate-in fade-in duration-700">
-            <div className="p-6 border-b flex justify-between items-center">
-                <div>
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <Users className="text-indigo-500" size={20} />
-                        Team Leader Performance
-                    </h3>
-                    <p className="text-sm text-muted-foreground">Real-time metrics per supervisor</p>
+        <div className="bg-card border rounded-xl shadow-sm overflow-hidden animate-in fade-in duration-700 flex flex-col h-full max-h-[600px]">
+            <div className="p-4 border-b space-y-4">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                            <Users className="text-indigo-500" size={20} />
+                            Team Leader Performance
+                        </h3>
+                        <p className="text-sm text-muted-foreground">Real-time metrics per supervisor</p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/portal/users', { state: { filter: 'teamLeader' } })}
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                    >
+                        View All <ChevronRight size={14} />
+                    </button>
                 </div>
-                <button
-                    onClick={() => navigate('/portal/users', { state: { filter: 'teamLeader' } })}
-                    className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                    View All <ChevronRight size={14} />
-                </button>
+
+                {/* Advanced Filters Toolbar */}
+                <div className="flex items-center gap-3">
+                    <div className="relative flex-1 max-w-sm">
+                        <input
+                            type="text"
+                            placeholder="Search Team Leader..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg bg-muted/30 focus:bg-background transition-colors outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <div className="absolute left-3 top-2.5 text-muted-foreground">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                        </div>
+                    </div>
+
+                    <select
+                        value={filterStatus}
+                        onChange={(e: any) => setFilterStatus(e.target.value)}
+                        className="px-3 py-2 text-sm border rounded-lg bg-muted/30 focus:bg-background outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+
+                    <div className="text-xs text-muted-foreground ml-auto font-medium">
+                        Showing {sortedData.length} of {data.length}
+                    </div>
+                </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="bg-muted/50 text-left border-b">
-                            <th className="p-4 font-medium text-muted-foreground w-[250px]">Team Leader</th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('activeRiders')}>
+            <div className="overflow-y-auto flex-1 custom-scrollbar">
+                <table className="w-full text-sm relative">
+                    <thead className="sticky top-0 z-10 bg-card shadow-sm">
+                        <tr className="text-left border-b">
+                            <th className="p-4 font-medium text-muted-foreground w-[250px] bg-card">Team Leader</th>
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('activeRiders')}>
                                 Riders (Active)
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('walletDiff')}>
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('walletDiff')}>
                                 Wallet Health
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('totalCollection')}>
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('totalCollection')}>
                                 Collection
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground">
+                            <th className="p-4 font-medium text-muted-foreground bg-card">
                                 Lead Conversion
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground text-right">Actions</th>
+                            <th className="p-4 font-medium text-muted-foreground text-right bg-card">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -202,7 +256,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 </table>
                 {sortedData.length === 0 && (
                     <div className="p-8 text-center text-muted-foreground">
-                        No active Team Leaders found.
+                        {searchTerm ? 'No matches found.' : 'No active Team Leaders found.'}
                     </div>
                 )}
             </div>
