@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { Calendar } from 'lucide-react';
 
 const WeeklyCollectionChart: React.FC = () => {
@@ -15,26 +15,13 @@ const WeeklyCollectionChart: React.FC = () => {
             const startDate = subDays(endDate, 6); // Last 7 days including today
             startDate.setHours(0, 0, 0, 0);
 
-            // Fetch logs for wallet transactions in the last 7 days (Active/Recent)
-            const logsPromise = supabase
-                .from('wallet_transactions')
-                .select('timestamp, amount, type')
-                .eq('type', 'credit')
-                .gte('timestamp', startDate.toISOString());
-
-            // Fetch daily_collections for the same period (Archived)
-            const dailyPromise = supabase
+            // Fetch daily_collections for the last 7 days
+            const { data: dailyData, error } = await supabase
                 .from('daily_collections')
                 .select('date, total_collection')
                 .gte('date', format(startDate, 'yyyy-MM-dd'));
 
-            const [logsRes, dailyRes] = await Promise.all([logsPromise, dailyPromise]);
-
-            if (logsRes.error) throw logsRes.error;
-            if (dailyRes.error) throw dailyRes.error;
-
-            const logs = logsRes.data || [];
-            const dailyData = dailyRes.data || [];
+            if (error) throw error;
 
             // Initialize last 7 days structure
             const chartData = [];
@@ -45,22 +32,9 @@ const WeeklyCollectionChart: React.FC = () => {
                 const dayStr = format(d, 'EEE'); // "Mon", "Tue"
                 const dateStr = format(d, 'yyyy-MM-dd');
 
-                // 1. Sum from Wallet Transactions (Recent)
-                const dayLogs = logs.filter((log: any) => format(parseISO(log.timestamp), 'yyyy-MM-dd') === dateStr);
-                let logsTotal = 0;
-                dayLogs.forEach((log: any) => {
-                    if (typeof log.amount === 'number') {
-                        logsTotal += log.amount;
-                    }
-                });
-
-                // 2. Sum from Daily Collections (Archived)
-                // Note: daily_collections rows are per TL per day. So we sum all rows for this date.
-                const dayDaily = dailyData.filter((row: any) => row.date === dateStr);
-                const dailyTotal = dayDaily.reduce((acc: number, curr: any) => acc + (Number(curr.total_collection) || 0), 0);
-
-                // Total
-                const total = logsTotal + dailyTotal;
+                // Sum from Daily Collections (Source of Truth)
+                const dayEntries = (dailyData || []).filter((row: any) => row.date === dateStr);
+                const total = dayEntries.reduce((acc: number, curr: any) => acc + (Number(curr.total_collection) || 0), 0);
 
                 weeklySum += total;
                 chartData.push({
@@ -83,16 +57,15 @@ const WeeklyCollectionChart: React.FC = () => {
     useEffect(() => {
         fetchWeeklyData();
 
-        // Subscribe to real-time updates to refresh chart
+        // Subscribe to real-time updates from daily_collections
         const channel = supabase
-            .channel('public:activity_logs_weekly')
+            .channel('public:daily_collections_weekly')
             .on(
                 'postgres_changes',
                 {
-                    event: 'INSERT',
+                    event: '*', // Listen to all events (INSERT/UPDATE)
                     schema: 'public',
-                    table: 'wallet_transactions',
-                    filter: 'type=eq.credit'
+                    table: 'daily_collections'
                 },
                 () => {
                     fetchWeeklyData();
