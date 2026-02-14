@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { User, Rider, Lead } from '@/types';
-import { Trophy, Sparkles, Activity } from 'lucide-react';
+import { Trophy, Crown, TrendingUp, Wallet, Users, Zap, ArrowRight, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { safeRender } from '@/utils/safeRender';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-
+// Leaderboard Component
 interface LeaderboardProps {
     teamLeaders: User[];
     riders: Rider[];
@@ -16,300 +17,212 @@ interface LeaderboardProps {
 }
 
 const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], collections = {}, action, disableClick = false }) => {
-    // DEBUG: Log incoming data - REMOVED for Security
-    // console.log('🎯 LEADERBOARD: Received teamLeaders:', teamLeaders.length);
-
     const navigate = useNavigate();
     const location = useLocation();
-    const isDashboard = location.pathname.includes('dashboard') || location.pathname === '/admin' || location.pathname === '/team-leader';
 
-    // AI Scoring Algorithm (Same logic, enhanced display)
+    // AI Scoring Algorithm
     const scoredTLs = useMemo(() => {
-        // console.log('🎯 LEADERBOARD useMemo: Starting calculation');
-
         const result = teamLeaders.map(tl => {
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
             const activeCount = tlRiders.filter(r => r.status === 'active').length;
             const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
-            const totalWallet = tlRiders.reduce((sum, r) => sum + r.walletAmount, 0);
 
-            // Detailed Wallet Stats
+            // Wallet Stats
+            // Wallet Stats
             const positiveWallet = tlRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0);
             const negativeWallet = tlRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0);
-            const avgWallet = tlRiders.length > 0 ? Math.round(totalWallet / tlRiders.length) : 0;
+            // const totalWallet = positiveWallet + negativeWallet; 
+
 
             // Leads
             const tlLeads = leads.filter(l => l.createdBy === tl.id);
             const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
 
-            // Activity (Mock calculation based on recent timeline events or just sum of actions)
-            // Ideally this would come from an Activity Log, but we used derived stats for now
+            // Collection
             const collectionAmount = collections[tl.id] || 0;
-            const activityScore = activeCount + convertedLeads + (tlLeads.length > 0 ? 1 : 0);
 
-            // Scoring Logic
-            let score = 100;
-            score += activeCount * 10;
-            score -= inactiveCount * 5;
-            score += (totalWallet > 0 ? Math.floor(totalWallet / 1000) : 0);
-            score += (totalWallet < 0 ? Math.floor(totalWallet / 1000) * 2 : 0);
-            score += convertedLeads * 20;
-            score += Math.floor(collectionAmount / 1000) * 5; // 5 points per 1k collected
+            // --- WEIGHTED SCORING LOGIC ---
+            let score = 0;
+            score += activeCount * 10;                         // +10 per Active Rider
+            score += Math.floor(collectionAmount / 1000) * 5;  // +5 per 1k Collected
+            score += convertedLeads * 20;                      // +20 per Converted Lead
+            score += Math.floor(positiveWallet / 1000) * 1;    // +1 per 1k Positive Wallet
+            score -= inactiveCount * 5;                        // -5 per Inactive Rider
+            score -= Math.abs(Math.floor(negativeWallet / 1000)) * 2; // -2 per 1k Negative Wallet
 
-            // CRITICAL FIX: Only include primitive fields, not the entire object
-            // This prevents any JSONB or object fields from causing React Error #310
-            const tlData = {
+            // Normalize Score (Min 0)
+            score = Math.max(0, Math.round(score));
+
+            return {
                 id: tl.id,
                 fullName: tl.fullName,
                 email: tl.email,
                 role: tl.role,
-                score: Math.max(0, score),
+                score,
                 stats: {
                     activeRiders: activeCount,
                     totalRiders: tlRiders.length,
-                    wallet: totalWallet,
+                    collection: collectionAmount,
+                    convertedLeads,
+                    leadsTotal: tlLeads.length,
                     positiveWallet,
                     negativeWallet,
-                    avgWallet,
-                    leads: tlLeads.length,
-                    converted: convertedLeads,
-                    conversionRate: tlLeads.length > 0 ? Math.round((convertedLeads / tlLeads.length) * 100) : 0,
-                    activity: activityScore,
-                    collection: collectionAmount
+                    efficiency: tlRiders.length > 0 ? Math.round((activeCount / tlRiders.length) * 100) : 0
                 }
             };
-            return tlData;
-        }).sort((a, b) => b.score - a.score).slice(0, 3);
+        }).sort((a, b) => b.score - a.score).slice(0, 3); // Get Top 3
 
         return result;
     }, [teamLeaders, riders, leads, collections]);
 
-    const getRankStyles = (index: number) => {
-        switch (index) {
-            case 0: return {
-                bg: 'bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-900/20 dark:to-amber-900/10',
-                border: 'border-yellow-200 dark:border-yellow-700/50',
-                text: 'text-yellow-700 dark:text-yellow-500',
-                badge: 'bg-yellow-500',
-                shadow: 'shadow-yellow-500/10'
-            };
-            case 1: return {
-                bg: 'bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-800/20 dark:to-gray-800/10',
-                border: 'border-slate-200 dark:border-slate-700/50',
-                text: 'text-slate-700 dark:text-slate-400',
-                badge: 'bg-slate-400',
-                shadow: 'shadow-slate-500/10'
-            };
-            case 2: return {
-                bg: 'bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/10',
-                border: 'border-orange-200 dark:border-orange-700/50',
-                text: 'text-orange-700 dark:text-orange-500',
-                badge: 'bg-orange-500',
-                shadow: 'shadow-orange-500/10'
-            };
-            default: return { bg: '', border: '', text: '', badge: '', shadow: '' };
+    const handleCardClick = () => {
+        if (!disableClick && location.pathname.includes('admin')) {
+            navigate('/admin/leaderboard');
         }
     };
 
-    if (scoredTLs.length === 0) return null;
-
-    // Podium Order: 2nd, 1st, 3rd
-    const podiumOrder = [scoredTLs[1], scoredTLs[0], scoredTLs[2]].filter(Boolean);
+    const podiumOrder = [1, 0, 2]; // Silver (2), Gold (1), Bronze (3) visual order
 
     return (
-        <div className="w-full">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-yellow-100 text-yellow-600 rounded-xl">
-                        <Trophy size={20} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-lg flex items-center gap-2 text-foreground">
-                            Top Performers Leaderboard
-                            <Sparkles size={16} className="text-yellow-500 fill-yellow-500 animate-pulse" />
-                        </h3>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold uppercase tracking-widest">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            Live Sync: {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </p>
-                    </div>
-                </div>
-                {action}
-            </div>
+        <div className="bg-card/30 backdrop-blur-sm border-0 rounded-none p-0 relative overflow-visible mt-6">
+            <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-6 min-h-[360px] md:min-h-[400px] px-2 md:px-8 pb-4">
+                {podiumOrder.map((positionIndex) => {
+                    const tl = scoredTLs[positionIndex];
+                    // If less than 3 TLs, show placeholders or nothing
+                    if (!tl) return null;
 
-            {/* Podium Layout */}
-            <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-8 h-auto md:h-[450px] pt-10">
-                {podiumOrder.map((tl, idx) => {
-                    // Determine actual rank based on sorted list
-                    const actualRank = scoredTLs.indexOf(tl);
-                    const isFirst = actualRank === 0;
-                    const isSecond = actualRank === 1;
+                    const rank = positionIndex + 1;
+                    const isFirst = rank === 1; // Gold
+                    const isSecond = rank === 2; // Silver
+                    // const isThird = rank === 3; // Bronze
 
-
-                    const styles = getRankStyles(actualRank);
-
-                    // Podium Visual Height adjustments
-                    let podiumHeightClass = '';
-                    let orderClass = '';
-                    let scaleClass = '';
+                    // Dynamic Styling based on Rank
+                    let cardStyle = '';
+                    let heightClass = '';
+                    let badgeColor = '';
+                    let glowColor = '';
 
                     if (isFirst) {
-                        orderClass = 'order-1 md:order-2'; // Center on desktop
-                        podiumHeightClass = 'min-h-[380px]';
-                        scaleClass = 'md:scale-110 z-20';
+                        cardStyle = 'bg-gradient-to-b from-yellow-300 via-amber-200 to-yellow-500 text-yellow-950 border-yellow-400';
+                        heightClass = 'h-[340px] md:h-[380px] w-full md:w-[260px] z-20';
+                        badgeColor = 'bg-yellow-500 text-white shadow-yellow-500/50';
+                        glowColor = 'shadow-[0_0_60px_-10px_rgba(234,179,8,0.6)]';
                     } else if (isSecond) {
-                        orderClass = 'order-2 md:order-1'; // Left on desktop
-                        podiumHeightClass = 'min-h-[320px]';
-                        scaleClass = 'z-10 mt-8';
-                    } else { // Third
-                        orderClass = 'order-3 md:order-3'; // Right on desktop
-                        podiumHeightClass = 'min-h-[290px]';
-                        scaleClass = 'z-0 mt-16';
+                        cardStyle = 'bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 text-slate-800 border-slate-400';
+                        heightClass = 'h-[300px] md:h-[320px] w-full md:w-[220px] z-10';
+                        badgeColor = 'bg-slate-500 text-white shadow-slate-500/50';
+                        glowColor = 'shadow-[0_0_40px_-12px_rgba(100,116,139,0.5)]';
+                    } else {
+                        cardStyle = 'bg-gradient-to-b from-orange-200 via-orange-300 to-orange-400 text-orange-900 border-orange-300';
+                        heightClass = 'h-[270px] md:h-[280px] w-full md:w-[220px] z-10';
+                        badgeColor = 'bg-orange-600 text-white shadow-orange-600/50';
+                        glowColor = 'shadow-[0_0_40px_-12px_rgba(234,88,12,0.5)]';
                     }
 
                     return (
                         <motion.div
                             key={tl.id}
                             initial={{ opacity: 0, y: 50 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: idx * 0.1 }}
-                            className={`w-full md:w-1/3 relative flex flex-col ${orderClass} ${scaleClass}`}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: positionIndex * 0.15, duration: 0.6, type: 'spring', stiffness: 100 }}
+                            onClick={handleCardClick}
+                            className={`relative rounded-3xl p-1 flex flex-col justify-end transition-all duration-300 hover:-translate-y-2 cursor-pointer group ${heightClass} ${glowColor}`}
                         >
-                            {/* Crown for 1st Place */}
-                            {isFirst && (
-                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-yellow-500 animate-bounce">
-                                    <Trophy size={48} className="drop-shadow-lg fill-yellow-400" />
-                                </div>
-                            )}
+                            {/* Main Card Content */}
+                            <div className={`absolute inset-0 rounded-[22px] border-t-2 border-white/40 shadow-2xl overflow-hidden flex flex-col items-center pt-8 pb-4 px-4 ${cardStyle}`}>
 
-                            <div
-                                className={`
-                                    relative flex-1 rounded-t-3xl border-x border-t border-b-0 p-3 
-                                    ${styles.bg} ${styles.border} ${styles.shadow} 
-                                    backdrop-blur-md hover:shadow-xl transition-all 
-                                    ${disableClick ? 'cursor-default' : 'cursor-pointer'} 
-                                    flex flex-col
-                                    ${podiumHeightClass}
-                                `}
-                                onClick={() => {
-                                    if (disableClick) return;
-                                    if (isDashboard) {
-                                        navigate('/portal/leaderboard');
-                                    } else {
-                                        navigate(`/portal/users?highlightUserId=${tl.id}`);
-                                    }
-                                }}
-                            >
-                                {/* Rank Badge (Floating) */}
-                                <div className={`self-center -mt-8 w-10 h-10 rounded-full ${styles.badge} text-white flex items-center justify-center font-black text-lg shadow-lg border-4 border-white dark:border-slate-900 z-50`}>
-                                    #{actualRank + 1}
-                                </div>
+                                {/* Crown for #1 */}
+                                {isFirst && (
+                                    <div className="absolute -top-10 animate-[bounce_2s_infinite]">
+                                        <Crown size={56} className="text-yellow-500 drop-shadow-xl fill-yellow-400" strokeWidth={1.5} />
+                                    </div>
+                                )}
 
-                                {/* User Info */}
-                                <div className="text-center mt-2 mb-3">
-                                    <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center text-xl font-bold bg-white dark:bg-black/20 shadow-inner ${styles.text} mb-1`}>
-                                        {safeRender(tl.fullName || tl.email || '?').charAt(0).toUpperCase()}
+                                {/* Avatar Circle */}
+                                <div className={`relative mb-3 transition-transform duration-500 group-hover:scale-105 ${isFirst ? 'scale-110 translate-y-2' : ''}`}>
+                                    <div className="w-16 h-16 rounded-full bg-white/90 backdrop-blur shadow-inner flex items-center justify-center text-2xl font-black border-4 border-white/50 text-slate-900">
+                                        {tl.fullName ? tl.fullName.charAt(0).toUpperCase() : '?'}
                                     </div>
-                                    <div className="font-extrabold text-sm truncate px-1">
-                                        {safeRender(tl.fullName || 'Unknown')}
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground opacity-80 uppercase tracking-wider font-bold">
-                                        {Math.round(tl.score)} Pts
+                                    <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-black shadow-lg uppercase tracking-wider border border-white/20 ${badgeColor}`}>
+                                        Rank #{rank}
                                     </div>
                                 </div>
 
-                                {/* Detailed Stats Grid */}
-                                <div className="space-y-2 flex-1">
-                                    {/* 1. Riders & Leads */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="bg-white/40 dark:bg-black/10 rounded-lg p-1.5 text-center">
-                                            <div className="text-[9px] uppercase font-bold text-muted-foreground">Riders</div>
-                                            <div className="font-black text-blue-600 text-sm">
-                                                {tl.stats.activeRiders}<span className="text-[10px] text-muted-foreground">/{tl.stats.totalRiders}</span>
-                                            </div>
-                                        </div>
-                                        <div className="bg-white/40 dark:bg-black/10 rounded-lg p-1.5 text-center">
-                                            <div className="text-[9px] uppercase font-bold text-muted-foreground">Leads</div>
-                                            <div className="font-black text-orange-600 text-sm">
-                                                {tl.stats.leads}<span className="text-[10px] text-muted-foreground"> ({tl.stats.conversionRate}%)</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Collection Badge */}
-                                    <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-1.5 text-center border border-green-100 dark:border-green-900/20">
-                                        <div className="text-[9px] uppercase font-bold text-green-700 dark:text-green-400">Collection</div>
-                                        <div className="font-black text-green-600 text-sm">
-                                            ₹{(tl.stats.collection || 0).toLocaleString()}
-                                        </div>
+                                {/* Name & Score */}
+                                <div className="text-center mt-6 mb-2 w-full">
+                                    <h3 className="font-extrabold text-lg leading-tight truncate px-1 w-full drop-shadow-sm">
+                                        {safeRender(tl.fullName)}
+                                    </h3>
+                                    <div className="inline-flex items-center gap-1.5 bg-black/10 px-3 py-1 rounded-full mt-2 border border-black/5 shadow-inner">
+                                        <Zap size={14} className="fill-current text-current" />
+                                        <span className="text-sm font-black tracking-wide">{tl.score.toLocaleString()} XP</span>
                                     </div>
                                 </div>
 
-                                {/* 2. Wallet Net */}
-                                <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 flex justify-between items-center">
-                                    <div className="text-[9px] uppercase font-bold text-muted-foreground text-left leading-tight">
-                                        Net<br />Wallet
-                                    </div>
-                                    <div className="text-sm font-black text-right">
-                                        <span className={`${tl.stats.wallet < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                                            {tl.stats.wallet >= 1000 || tl.stats.wallet <= -1000
-                                                ? `${(tl.stats.wallet / 1000).toFixed(1)}k`
-                                                : tl.stats.wallet}
-                                        </span>
-                                        <div className="text-[9px] font-medium opacity-70 text-foreground">
-                                            Avg: ₹{tl.stats.avgWallet}
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* Mini Stats Grid (Podium Only) */}
+                                <div className="grid grid-cols-2 gap-2 w-full mt-auto bg-black/5 rounded-2xl p-2.5 border border-white/10 shadow-sm">
+                                    <TooltipProvider delayDuration={0}>
+                                        <Tooltip>
+                                            <TooltipTrigger className="flex flex-col items-center p-1.5 rounded-lg hover:bg-black/5 transition-colors">
+                                                <Users size={16} className="mb-0.5 opacity-80" strokeWidth={2.5} />
+                                                <span className="text-xs font-bold">{tl.stats.activeRiders}</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="font-bold bg-slate-900 text-white border-0"><p>Active Riders (+10pts)</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
 
-                                {/* 3. Wallet Split Visual */}
-                                <div className="bg-white/40 dark:bg-black/10 rounded-lg p-2 space-y-1">
-                                    <div className="flex justify-between text-[8px] font-bold uppercase text-muted-foreground">
-                                        <span className="text-emerald-600">Pos: {(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
-                                        <span className="text-red-500">Neg: {(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                                        <div
-                                            className="h-full bg-emerald-500"
-                                            style={{ width: `${(tl.stats.positiveWallet / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
-                                        />
-                                        <div
-                                            className="h-full bg-red-500"
-                                            style={{ width: `${(Math.abs(tl.stats.negativeWallet) / (tl.stats.positiveWallet + Math.abs(tl.stats.negativeWallet) || 1)) * 100}%` }}
-                                        />
-                                    </div>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger className="flex flex-col items-center p-1.5 rounded-lg hover:bg-black/5 transition-colors">
+                                                <Wallet size={16} className="mb-0.5 opacity-80" strokeWidth={2.5} />
+                                                <span className="text-xs font-bold">{(tl.stats.collection / 1000).toFixed(1)}k</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="font-bold bg-emerald-700 text-white border-0"><p>Collection (+5pts/1k)</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger className="flex flex-col items-center p-1.5 rounded-lg hover:bg-black/5 transition-colors">
+                                                <TrendingUp size={16} className="mb-0.5 opacity-80" strokeWidth={2.5} />
+                                                <span className="text-xs font-bold">{tl.stats.convertedLeads}</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="font-bold bg-blue-700 text-white border-0"><p>Converted Leads (+20pts)</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger className="flex flex-col items-center p-1.5 rounded-lg hover:bg-black/5 transition-colors">
+                                                <Star size={16} className="mb-0.5 opacity-80" strokeWidth={2.5} />
+                                                <span className="text-xs font-bold">{tl.stats.efficiency}%</span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="font-bold bg-indigo-700 text-white border-0"><p>Fleet Efficiency</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 </div>
                             </div>
-
-                            {/* Footer / Base Decoration */}
-                            <div className="mt-2 border-t border-black/5 dark:border-white/5 pt-2">
-                                <div className="flex justify-center text-[9px] text-muted-foreground font-bold uppercase">
-                                    <span className="flex items-center gap-1">
-                                        <Activity size={10} /> Activity Score: {tl.stats.activity}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Shine Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-3xl" />
                         </motion.div>
                     );
                 })}
             </div>
 
-            {/* Micro-animations for score updates - visual indicator */}
-            <div className="mt-8 flex justify-center overflow-hidden h-1">
-                <motion.div
-                    initial={{ x: '-100%' }}
-                    animate={{ x: '100%' }}
-                    transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-                    className="w-1/3 h-full bg-gradient-to-r from-transparent via-primary/30 to-transparent"
-                />
-            </div>
+            {/* View Full Leaderboard Action */}
+            {action}
+            {(!action && !disableClick && location.pathname.includes('admin')) && (
+                <div onClick={handleCardClick} className="absolute top-2 right-2 p-2 cursor-pointer group/arrow z-30">
+                    <div className="bg-white/20 hover:bg-white/40 backdrop-blur-md p-2 rounded-full text-foreground transition-all duration-300 shadow-lg border border-white/20 group-hover/arrow:scale-110">
+                        <ArrowRight size={20} className="group-hover/arrow:translate-x-0.5 transition-transform" />
+                    </div>
+                </div>
+            )}
 
-            <p className="text-center text-[10px] text-muted-foreground mt-4 opacity-0 animate-in fade-in duration-1000 delay-500">
-                Performance score based on active riders, lead conversions, wallet health, allotments & activity
-            </p>
+            {scoredTLs.length === 0 && (
+                <div className="col-span-3 text-center p-12 text-muted-foreground bg-muted/20 rounded-xl border border-dashed flex flex-col items-center justify-center gap-4">
+                    <Trophy size={48} className="text-muted opacity-20" />
+                    <p className="font-medium">Not enough data to generate rankings yet.</p>
+                </div>
+            )}
         </div>
     );
 };

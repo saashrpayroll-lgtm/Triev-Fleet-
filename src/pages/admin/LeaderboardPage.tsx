@@ -17,6 +17,7 @@ interface ScoredTL extends User {
             converted: number;
             conversionRate: number;
         };
+        collection: number;
     };
     rank: number;
 }
@@ -25,6 +26,7 @@ const LeaderboardPage: React.FC = () => {
     const [teamLeaders, setTeamLeaders] = useState<User[]>([]);
     const [riders, setRiders] = useState<Rider[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
+    const [collections, setCollections] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'score', direction: 'desc' });
@@ -67,6 +69,18 @@ const LeaderboardPage: React.FC = () => {
                     setLeads(leadsData as Lead[]);
                 }
 
+                // Fetch Collections
+                const { data: dailyRes } = await supabase.from('daily_collections').select('team_leader_id, total_collection');
+                const colMap: Record<string, number> = {};
+                if (dailyRes) {
+                    dailyRes.forEach((d: any) => {
+                        const tlId = d.team_leader_id;
+                        const amt = Number(d.total_collection) || 0;
+                        colMap[tlId] = (colMap[tlId] || 0) + amt;
+                    });
+                    setCollections(colMap);
+                }
+
             } catch (error) {
                 console.error('Error loading leaderboard data:', error);
             } finally {
@@ -79,9 +93,10 @@ const LeaderboardPage: React.FC = () => {
         // Realtime Subscription
         const subscription = supabase
             .channel('leaderboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { console.log('Users changed, reloading...'); fetchData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => { console.log('Riders changed, reloading...'); fetchData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => { console.log('Leads changed, reloading...'); fetchData(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => fetchData())
             .subscribe();
 
         return () => {
@@ -96,30 +111,33 @@ const LeaderboardPage: React.FC = () => {
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
             const activeCount = tlRiders.filter(r => r.status === 'active').length;
             const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
+            // Wallet Stats
             const totalWallet = tlRiders.reduce((sum, r) => sum + r.walletAmount, 0);
+            const positiveWallet = tlRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0);
+            const negativeWallet = tlRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0);
 
             // Leads
             const tlLeads = leads.filter(l => l.createdBy === tl.id);
             const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
 
-            // Simple Scoring Algorithm
-            let score = 100; // Base
+            // Collection
+            const collectionAmount = collections[tl.id] || 0;
 
-            // 1. Fleet Health
-            score += activeCount * 10;
-            score -= inactiveCount * 5;
+            // --- WEIGHTED SCORING LOGIC ---
+            let score = 0;
+            score += activeCount * 10;                         // +10 per Active Rider
+            score += Math.floor(collectionAmount / 1000) * 5;  // +5 per 1k Collected
+            score += convertedLeads * 20;                      // +20 per Converted Lead
+            score += Math.floor(positiveWallet > 0 ? positiveWallet / 1000 : 0) * 1;    // +1 per 1k Positive Wallet
+            score -= inactiveCount * 5;                        // -5 per Inactive Rider
+            score -= Math.abs(Math.floor(negativeWallet < 0 ? negativeWallet / 1000 : 0)) * 2; // -2 per 1k Negative Wallet
 
-            // 2. Wallet Health
-            score += (totalWallet > 0 ? Math.floor(totalWallet / 1000) : 0);
-            score += (totalWallet < 0 ? Math.floor(totalWallet / 1000) * 2 : 0);
-
-            // 3. Lead Conversion
-            score += convertedLeads * 20;
-            score += (tlLeads.length - convertedLeads) * 2; // +2 for attempting (New/Not Convert)
+            // Normalize Score (Min 0)
+            score = Math.max(0, Math.round(score));
 
             return {
                 ...tl,
-                score: Math.max(0, score),
+                score,
                 stats: {
                     active: activeCount,
                     total: tlRiders.length,
@@ -130,7 +148,8 @@ const LeaderboardPage: React.FC = () => {
                         total: tlLeads.length,
                         converted: convertedLeads,
                         conversionRate: tlLeads.length > 0 ? (convertedLeads / tlLeads.length) * 100 : 0
-                    }
+                    },
+                    collection: collectionAmount
                 }
             } as ScoredTL;
         });
@@ -142,6 +161,7 @@ const LeaderboardPage: React.FC = () => {
                 if (key === 'wallet') return item.stats.wallet;
                 if (key === 'riders') return item.stats.active;
                 if (key === 'leads') return item.stats.leads.conversionRate;
+                if (key === 'collection') return item.stats.collection;
                 return 0;
             };
 
@@ -150,7 +170,7 @@ const LeaderboardPage: React.FC = () => {
 
             return sortConfig.direction === 'desc' ? valB - valA : valA - valB;
         }).map((item, index) => ({ ...item, rank: index + 1 }));
-    }, [teamLeaders, riders, leads, sortConfig]);
+    }, [teamLeaders, riders, leads, collections, sortConfig]);
 
     const filteredList = scoredList.filter(tl =>
         (tl.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -177,7 +197,7 @@ const LeaderboardPage: React.FC = () => {
                 </p>
             </div>
 
-            <Leaderboard teamLeaders={teamLeaders} riders={riders} leads={leads} />
+            <Leaderboard teamLeaders={teamLeaders} riders={riders} leads={leads} collections={collections} />
 
             <div className="bg-card border rounded-xl overflow-hidden shadow-sm">
                 <div className="p-4 border-b bg-muted/40 flex flex-col md:flex-row gap-4 justify-between items-center">
@@ -210,6 +230,9 @@ const LeaderboardPage: React.FC = () => {
                                 </th>
                                 <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('wallet')}>
                                     <div className="flex items-center gap-1">Wallet <ArrowUpDown size={12} /></div>
+                                </th>
+                                <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('collection')}>
+                                    <div className="flex items-center gap-1">Collection <ArrowUpDown size={12} /></div>
                                 </th>
                                 <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('leads')}>
                                     <div className="flex items-center gap-1">Lead Conv. <ArrowUpDown size={12} /></div>
@@ -266,6 +289,11 @@ const LeaderboardPage: React.FC = () => {
                                             <div className="text-xs text-muted-foreground">
                                                 Avg: ₹{Math.round(tl.stats.avgWallet).toLocaleString('en-IN')}
                                             </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="font-bold text-green-600">
+                                            ₹{(tl.stats.collection || 0).toLocaleString('en-IN')}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3">
