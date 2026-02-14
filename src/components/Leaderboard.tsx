@@ -4,7 +4,7 @@ import { Trophy, Crown, TrendingUp, Wallet, Users, Zap, ArrowRight, Star } from 
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { safeRender } from '@/utils/safeRender';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/CustomTooltip';
 
 // Leaderboard Component
 interface LeaderboardProps {
