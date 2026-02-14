@@ -140,12 +140,9 @@ const Dashboard: React.FC = () => {
             setLeaderboardData({ teamLeaders: allTls, riders: allRiders, leads: allLeads });
 
             // 4. Fetch Collections for Leaderboard (History + Today)
-            const [dailyRes, todayRes] = await Promise.all([
-                supabase.from('daily_collections').select('team_leader_id, total_collection'),
-                supabase.from('wallet_transactions')
-                    .select('amount, team_leader_id')
-                    .eq('type', 'credit')
-                    .gte('timestamp', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+            // 4. Fetch Collections for Leaderboard
+            const [dailyRes] = await Promise.all([
+                supabase.from('daily_collections').select('team_leader_id, total_collection')
             ]);
 
             const collections: Record<string, number> = {};
@@ -157,14 +154,8 @@ const Dashboard: React.FC = () => {
                 collections[tlId] = (collections[tlId] || 0) + amt;
             });
 
-            // Add Today
-            (todayRes.data || []).forEach((txn: any) => {
-                const tlId = txn.team_leader_id;
-                const amt = Number(txn.amount) || 0;
-                if (tlId) {
-                    collections[tlId] = (collections[tlId] || 0) + amt;
-                }
-            });
+            // Add Today - REMOVED
+            // logic is now handled by DB Trigger updating daily_collections automatically.
 
             setTlCollections(collections);
 
@@ -178,21 +169,15 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         fetchStats();
 
-        // Real-time Subscriptions
-        // Real-time Subscriptions
+        // Real-time Collections Update via daily_collections table
         const channel = supabase
             .channel('tl-dashboard-realtime')
             .on(
                 'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
-                (payload: any) => {
-                    const newTxn = payload.new as any;
-                    if (newTxn.team_leader_id) {
-                        setTlCollections(prev => ({
-                            ...prev,
-                            [newTxn.team_leader_id]: (prev[newTxn.team_leader_id] || 0) + Number(newTxn.amount)
-                        }));
-                    }
+                { event: '*', schema: 'public', table: 'daily_collections' },
+                () => {
+                    // Refresh dashboard when collection totals change
+                    fetchStats();
                 }
             )
             .subscribe();

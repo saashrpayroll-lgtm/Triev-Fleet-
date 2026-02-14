@@ -193,7 +193,7 @@ const WalletHistory: React.FC = () => {
         setIsDeleting(true);
         try {
             const { error } = await supabase
-                .from('activity_logs')
+                .from('wallet_transactions')
                 .delete()
                 .in('id', selectedIds);
 

@@ -42,7 +42,7 @@ const Dashboard: React.FC = () => {
         if (isInitial) setLoading(true);
 
         try {
-            const [ridersRes, leadsRes, requestsRes, usersRes, logsRes, dailyRes] = await Promise.all([
+            const [ridersRes, leadsRes, requestsRes, usersRes, dailyRes] = await Promise.all([
                 supabase.from('riders').select(`
                     id,
                     trievId:triev_id,
@@ -76,12 +76,11 @@ const Dashboard: React.FC = () => {
                     status,
                     role
                 `).eq('role', 'teamLeader'),
-                supabase.from('wallet_transactions')
-                    .select('amount, team_leader_id')
-                    .eq('type', 'credit')
-                    .gte('timestamp', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()), // Fetch TODAY's transactions
                 supabase.from('daily_collections').select('team_leader_id, total_collection')
             ]);
+
+            // Note: Removed wallet_transactions fetch to avoid double counting. 
+            // daily_collections now authoritative source.
 
             if (ridersRes.error) throw ridersRes.error;
 
@@ -96,15 +95,8 @@ const Dashboard: React.FC = () => {
                 collections[tlId] = (collections[tlId] || 0) + amt;
             });
 
-            // 2. Add Recent Transactions (Today)
-            const todayTxns = logsRes.data || [];
-            todayTxns.forEach((txn: any) => {
-                const tlId = txn.team_leader_id;
-                const amt = Number(txn.amount) || 0;
-                if (tlId) {
-                    collections[tlId] = (collections[tlId] || 0) + amt;
-                }
-            });
+            // 2. Add Recent Transactions (Today) - REMOVED
+            // logic is now handled by DB Trigger updating daily_collections automatically.
             setTlCollections(collections);
 
             setRawData({
@@ -138,19 +130,13 @@ const Dashboard: React.FC = () => {
                 fetchDashboardData();
             })
             // Real-time Collections Update
+            // Real-time Collections Update via daily_collections table
             .on(
                 'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: 'type=eq.credit' },
-                (payload) => {
-                    const newTxn = payload.new as any;
-                    // Check if it's today's transaction (though INSERT implies new)
-                    // Update state optimistically
-                    if (newTxn.team_leader_id) {
-                        setTlCollections(prev => ({
-                            ...prev,
-                            [newTxn.team_leader_id]: (prev[newTxn.team_leader_id] || 0) + Number(newTxn.amount)
-                        }));
-                    }
+                { event: '*', schema: 'public', table: 'daily_collections' },
+                () => {
+                    // Refresh dashboard when collection totals change
+                    fetchDashboardData();
                 }
             )
             .subscribe();
