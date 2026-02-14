@@ -101,16 +101,16 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                                 type="category"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 10, fontWeight: 'black', fill: 'var(--muted-foreground)' }} // Dynamic Color
+                                tick={{ fontSize: 11, fontWeight: 'bold', fill: 'var(--foreground)' }} // Fixed visibility
                                 width={80}
                             />
                             <Tooltip
-                                cursor={{ fill: 'var(--accent)' }}
+                                cursor={{ fill: 'var(--muted/20)' }}
                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: 'var(--background)', color: 'var(--foreground)' }}
                                 formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
                                 labelFormatter={(label) => safeRender(label)}
                             />
-                            <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
+                            <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={32} label={{ position: 'insideRight', fill: '#fff', fontSize: 11, fontWeight: 'bold' }}>
                                 {walletData.map((entry, index) => (
                                     <Cell
                                         key={`cell-${index}`}
