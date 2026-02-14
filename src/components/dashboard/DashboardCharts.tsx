@@ -94,19 +94,27 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                             data={walletData}
                             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.1} stroke="var(--border)" />
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} stroke="currentColor" />
                             <XAxis type="number" hide />
                             <YAxis
                                 dataKey="name"
                                 type="category"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 11, fontWeight: 'bold', fill: 'var(--foreground)' }} // Fixed visibility
+                                tick={{ fontSize: 11, fontWeight: 'bold', fill: 'hsl(var(--foreground))' }}
                                 width={80}
                             />
                             <Tooltip
-                                cursor={{ fill: 'var(--muted/20)' }}
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: 'var(--background)', color: 'var(--foreground)' }}
+                                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1 }}
+                                contentStyle={{
+                                    borderRadius: '16px',
+                                    border: 'none',
+                                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+                                    fontWeight: 'bold',
+                                    backgroundColor: 'hsl(var(--popover))',
+                                    color: 'hsl(var(--popover-foreground))'
+                                }}
+                                itemStyle={{ color: 'hsl(var(--foreground))' }}
                                 formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
                                 labelFormatter={(label) => safeRender(label)}
                             />
