@@ -20,25 +20,14 @@ BEGIN
     END IF;
 
     -- 2. Determine Amount and Logic
-    -- We only care about adding funds (Collections)
-    -- If mode is 'ADD', we increment.
-    -- If mode is 'SUBTRACT' (and it was a correction to a collection?), maybe decrement?
-    -- For now, let's strictly handle 'ADD' as positive collection.
-    -- Also check type? RENT_COLLECTION, DAILY_COLLECTION. 
-    -- 'MANUAL_ADJUSTMENT' with mode 'ADD' should also count as collection? Yes.
+    -- STRICT FILTER: Only 'DAILY_COLLECTION' (from Bulk Rent Import) constitutes 'FTD Collection'.
+    -- Manual Adjustments, Reconciliations, and System Imports should NOT pollute the Daily Collection Stats.
     
-    v_amount := NEW.amount;
-    
-    IF NEW.mode = 'ADD' THEN
-        -- Positive impact on collection
-    ELSIF NEW.mode = 'SUBTRACT' AND TG_OP = 'INSERT' THEN
-        -- Negative impact? (Refund). 
-        -- If we subtract from wallet, does it mean we returned money? 
-        -- For 'daily_collections' (performance), usually we want Net Collection.
-        v_amount := -NEW.amount;
+    IF NEW.transaction_type = 'DAILY_COLLECTION' AND NEW.mode = 'ADD' THEN
+        v_amount := NEW.amount;
     ELSE
-        -- Helper for SET mode? Complex. Let's stick to ADD/SUBTRACT relative changes.
-        RETURN NULL; -- Ignore SET for daily stats for now
+        -- Helper for any other types (MANUAL_ADJUSTMENT, SYSTEM_RENT_CHARGE, etc.) -> IGNORE.
+        RETURN NULL; 
     END IF;
 
     -- 3. Determine Date
