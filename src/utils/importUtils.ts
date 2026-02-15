@@ -721,13 +721,12 @@ export const processRentCollectionImport = async (
                 }
 
                 // 4. Update Wallet via LedgerAPI
-                // Collection = Reduces Debt = SUBTRACT mode
-                // Type = DAILY_COLLECTION (Matches SQL constraint)
+                // Collection = Credit = ADD mode (Standard Wallet: Adds to balance)
                 await LedgerAPI.addTransaction({
                     riderId: riderId,
                     amount: amount,
-                    type: 'DAILY_COLLECTION' as any, // Ensure type matches SQL enum
-                    mode: 'SUBTRACT',
+                    type: 'DAILY_COLLECTION' as any,
+                    mode: 'ADD',
                     description: `Rent Collected via Import`,
                     metadata: {
                         source: 'rent_import',

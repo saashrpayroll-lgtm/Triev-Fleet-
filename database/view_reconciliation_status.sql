@@ -20,10 +20,10 @@ SELECT
     r.wallet_amount AS system_balance,
     ls.snapshot_balance AS snapshot_balance,
     ls.snapshot_date,
-    (r.wallet_amount - ls.snapshot_balance) AS difference
+    (ls.snapshot_balance - r.wallet_amount) AS difference -- Positive Diff = Snapshot is higher (Sys needs Credit)
 FROM public.riders r
 JOIN latest_snapshots ls ON r.id = ls.rider_id
-WHERE ABS(r.wallet_amount - ls.snapshot_balance) > 1; -- Threshold of 1 Rupee
+WHERE ABS(ls.snapshot_balance - r.wallet_amount) > 1; -- Threshold of 1 Rupee
 
 -- Grant access
 GRANT SELECT ON public.view_reconciliation_status TO authenticated;

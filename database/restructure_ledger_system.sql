@@ -71,21 +71,22 @@ BEGIN
         base_time := first_snapshot.snapshot_date;
     END IF;
 
-    -- B. Sum ADDs (Rent Charges) -> Increases Debt
+    -- B. Sum ADDs (Collections/Credits) -> Increases Balance (Positive)
     SELECT COALESCE(SUM(amount), 0) INTO total_add
     FROM public.wallet_ledger
     WHERE rider_id = target_rider_id 
       AND mode = 'ADD' 
       AND transaction_date >= base_time;
 
-    -- C. Sum SUBTRACTs (Collections) -> Decreases Debt
+    -- C. Sum SUBTRACTs (Rent/Debits) -> Decreases Balance (Negative)
     SELECT COALESCE(SUM(amount), 0) INTO total_subtract
     FROM public.wallet_ledger
     WHERE rider_id = target_rider_id 
       AND mode = 'SUBTRACT' 
       AND transaction_date >= base_time;
 
-    -- D. Calculate Final Debt
+    -- D. Calculate Final Balance (Standard Wallet Model)
+    -- Balance = Opening + Credits - Debits
     final_balance := base_balance + total_add - total_subtract;
 
     -- E. Update Cache

@@ -36,7 +36,7 @@ BEGIN
                 ) VALUES (
                     r.rider_id,
                     'SYSTEM_RENT_CHARGE',
-                    'ADD', -- Increases Debt
+                    'SUBTRACT', -- Decreases Balance (Debit)
                     r.daily_rent_amount,
                     'Daily Rent Charge for ' || TO_CHAR(p_date, 'YYYY-MM-DD'),
                     'SYSTEM',
@@ -98,13 +98,8 @@ BEGIN
     -- Or just trust riders.wallet_amount?
     SELECT wallet_amount INTO v_current_ledger_balance FROM public.riders WHERE id = p_rider_id;
     
-    -- Diff = New Snapshot (External Truth) - System Balance (Internal Truth)
-    -- If Snapshot says 500 (Debt) and System says 400 (Debt) -> Diff = +100 (Debt increased).
-    -- This implies a Charge was missed (Rent?).
-    
-    -- If Snapshot says 300 (Debt) and System says 400 (Debt) -> Diff = -100 (Debt decreased).
-    -- This implies a Payment was missed (Collection?).
-    
+    -- Standard Wallet Model: Positive = Credit, Negative = Debit
+    -- Diff = Snapshot (True) - System (Calculated)
     v_diff := p_snapshot_balance - v_current_ledger_balance;
 
     -- Fetch Daily Rent for logic
@@ -113,46 +108,36 @@ BEGIN
     IF v_diff = 0 THEN
         v_action_taken := 'MATCHED';
         
-    ELSIF v_diff > 0 THEN
-        -- Debt Increased. 
+    ELSIF v_diff < 0 THEN
+        -- Snapshot is LOWER than System.
+        -- Example: System says 500, Snapshot says 200. Diff = -300.
+        -- Means we missed a DEBIT (SUBTRACT transaction) like Rent.
+        
         -- Case A: Missed Rent?
-        IF v_daily_rent IS NOT NULL AND ABS(v_diff - v_daily_rent) < 1 THEN
-            -- It matches daily rent amount. Auto-insert Rent.
+        -- Check if Diff matches daily rent magnitude
+        IF v_daily_rent IS NOT NULL AND ABS(ABS(v_diff) - v_daily_rent) < 1 THEN
+            -- It matches daily rent amount. Auto-insert Rent (SUBTRACT).
             INSERT INTO public.wallet_ledger (
                 rider_id, transaction_type, mode, amount, description, source_type, transaction_date, metadata
             ) VALUES (
-                p_rider_id, 'SYSTEM_RENT_CHARGE', 'ADD', v_daily_rent, 
+                p_rider_id, 'SYSTEM_RENT_CHARGE', 'SUBTRACT', v_daily_rent, 
                 'Auto-Reconciled Rent from Snapshot', 'IMPORT', p_snapshot_date, 
                 jsonb_build_object('auto_reconciled', true, 'snapshot_date', p_snapshot_date)
             ) RETURNING id INTO v_new_txn_id;
             v_action_taken := 'AUTO_ADDED_RENT';
         ELSE
-            -- Unknown Debt Increase. Flag it?
-            -- For now, just leave it as discrepancy for Admin to see.
-            v_action_taken := 'MISMATCH_HIGHER';
+            -- Unknown Debit.
+            v_action_taken := 'MISMATCH_LOWER';
         END IF;
 
-    ELSIF v_diff < 0 THEN
-        -- Debt Decreased.
+    ELSIF v_diff > 0 THEN
+        -- Snapshot is HIGHER than System.
+        -- Example: System says 200, Snapshot says 500. Diff = +300.
+        -- Means we missed a CREDIT (ADD transaction) like Collection/Recharge.
+        
         -- Case B: Missed Collection?
-        -- We treat the Diff magnitude as the Collection Amount.
-        -- We insert a 'DAILY_COLLECTION' (SUBTRACT).
-        
-        -- STRICT RULE: "Only transactions with valid transaction_id... should be considered recharge"
-        -- Since this is coming from a "Wallet Update" file which usually has just balance, 
-        -- we might NOT have a txn id.
-        -- So we CANNOT auto-insert collection without a Txn ID usually.
-        -- But prompt said: "IF difference matches Collection Import Amount -> Insert".
-        -- Here we don't have "Collection Import Amount", we just have Balance.
-        
-        -- Prompt 3: "IF difference matches collection import amount... Insert"
-        -- Prompt 5B: "Wallet Update... Trigger difference engine... Never overwrite".
-        
-        -- Attempt Auto-Reconcile if it looks like a clean collection?
-        -- Risk: Double counting if safe-guards fail.
-        -- Safe Bet: Record snapshot, let Admin see Mismatch.
-        
-        v_action_taken := 'MISMATCH_LOWER';
+        -- Cannot auto-insert without Transaction ID.
+        v_action_taken := 'MISMATCH_HIGHER';
     END IF;
 
     RETURN jsonb_build_object(
