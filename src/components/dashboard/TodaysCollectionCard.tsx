@@ -29,6 +29,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     )
                 `)
                 .eq('mode', 'ADD') // Only collections/credits
+                .eq('transaction_type', 'DAILY_COLLECTION') // STRICT: Only Rent Collection Imports
                 .gte('created_at', todayIso);
 
             if (teamLeaderId) {
@@ -80,6 +81,12 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 },
                 async (payload) => {
                     const newLog = payload.new as any;
+
+                    // STRICT FILTER: Ignore Auto-fixes, Manual Adjustments, etc.
+                    if (newLog.transaction_type !== 'DAILY_COLLECTION') {
+                        return;
+                    }
+
 
                     // Check timestamp to ensure it's from today
                     const logDate = new Date(newLog.created_at);
