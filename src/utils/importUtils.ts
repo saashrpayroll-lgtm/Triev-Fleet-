@@ -343,8 +343,20 @@ export const processRiderImport = async (
             };
 
             // 5. Insert New Rider
-            const { error } = await supabase.from('riders').insert(riderData);
+            const { data: newRider, error } = await supabase.from('riders').insert(riderData).select('id, wallet_amount').single();
             if (error) throw error;
+
+            // NEW: Insert Snapshot (Opening Balance)
+            // We use 'value' from parsed wallet amount.
+            if (newRider) {
+                const openingBalance = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance']));
+                await supabase.from('wallet_snapshots').insert({
+                    rider_id: newRider.id,
+                    snapshot_balance: openingBalance,
+                    snapshot_date: new Date().toISOString(),
+                    source_type: 'RIDER_IMPORT'
+                });
+            }
 
             summary.success++;
 
@@ -453,19 +465,13 @@ export const processWalletUpdate = async (
                 throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
             }
 
-            // Update using LedgerAPI (Handles Balance Update + Ledger Entry)
-            // 'amount' is the Target Balance from the sheet, so we use SET mode.
-            await LedgerAPI.addTransaction({
+            // Update using LedgerAPI (Handles Snapshot + Reconciliation)
+            // 'amount' is the Target Balance from the sheet.
+            await LedgerAPI.processSnapshot({
                 riderId: matchData.id,
-                amount: amount, // Target Balance
-                type: 'BULK_IMPORT',
-                mode: 'SET',
-                description: 'Bulk Wallet Update (Import)',
-                metadata: {
-                    source: 'bulk_import_sheet',
-                    adminName: adminName,
-                    originalRow: row
-                }
+                balance: amount,
+                date: new Date().toISOString(),
+                source: 'WALLET_UPDATE'
             });
 
             // Track for Notification
@@ -715,19 +721,23 @@ export const processRentCollectionImport = async (
                 }
 
                 // 4. Update Wallet via LedgerAPI
-                // Collection = Credit = ADD mode
+                // Collection = Reduces Debt = SUBTRACT mode
+                // Type = DAILY_COLLECTION (Matches SQL constraint)
                 await LedgerAPI.addTransaction({
                     riderId: riderId,
                     amount: amount,
-                    type: 'RENT_COLLECTION',
-                    mode: 'ADD',
+                    type: 'DAILY_COLLECTION' as any, // Ensure type matches SQL enum
+                    mode: 'SUBTRACT',
                     description: `Rent Collected via Import`,
                     metadata: {
                         source: 'rent_import',
                         transaction_id: transactionId,
                         date_on_sheet: transactionDateStr,
                         adminName: adminName
-                    }
+                    },
+                    externalId: transactionId || null,
+                    source: 'IMPORT',
+                    transactionDate: transactionDateStr
                 });
 
                 summary.success++;

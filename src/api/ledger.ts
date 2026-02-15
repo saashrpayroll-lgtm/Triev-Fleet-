@@ -10,6 +10,9 @@ export interface WalletTransactionInput {
     mode: TransactionMode;
     description?: string;
     metadata?: any;
+    externalId?: string;
+    source?: 'SYSTEM' | 'IMPORT' | 'MANUAL';
+    transactionDate?: string;
 }
 
 export const LedgerAPI = {
@@ -24,7 +27,10 @@ export const LedgerAPI = {
             p_type: input.type,
             p_mode: input.mode,
             p_description: input.description,
-            p_metadata: input.metadata
+            p_metadata: input.metadata,
+            p_external_id: input.externalId || null,
+            p_source: input.source || 'MANUAL',
+            p_date: input.transactionDate || new Date().toISOString()
         });
 
         if (error) throw error;
@@ -79,5 +85,21 @@ export const LedgerAPI = {
             .reduce((sum, t) => sum + t.amount, 0) || 0;
 
         return baseBalance + adds - subtracts;
+    },
+
+    /**
+     * Processes a wallet snapshot for reconciliation.
+     * Starts the difference engine on the server.
+     */
+    processSnapshot: async (input: { riderId: string, balance: number, date: string, source: string }) => {
+        const { data, error } = await supabase.rpc('process_wallet_snapshot', {
+            p_rider_id: input.riderId,
+            p_snapshot_balance: input.balance,
+            p_snapshot_date: input.date,
+            p_source_type: input.source
+        });
+
+        if (error) throw error;
+        return data;
     }
 };

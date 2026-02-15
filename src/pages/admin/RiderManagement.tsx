@@ -12,7 +12,7 @@ import TLMappingModal from '@/components/TLMappingModal';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import WalletAdjustmentModal from '@/components/WalletAdjustmentModal';
-import { LedgerAPI } from '@/api/ledger';
+
 import { notifyTeamLeader } from '@/utils/notificationUtils';
 import { logActivity } from '@/utils/activityLog';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -316,22 +316,20 @@ const RiderManagement: React.FC = () => {
 
             // Log Wallet Transaction if initial amount > 0
             // Log Wallet Transaction if initial amount > 0
-            if (walletAmount > 0) {
+            if (walletAmount !== 0) {
                 try {
-                    await LedgerAPI.addTransaction({
-                        riderId: newItemId,
-                        amount: walletAmount,
-                        type: 'MANUAL_ADJUSTMENT', // Or 'SYSTEM_IMPORT' if preferred, but manual fits here
-                        mode: 'SET', // Initial set
-                        description: 'Initial wallet deposit',
-                        metadata: {
-                            source: 'add_rider_form',
-                            createdBy: currentUser?.email
-                        }
+                    // Phase 2: Insert into wallet_snapshots as Opening Balance
+                    // We do not create a ledger entry for the base balance.
+                    await supabase.from('wallet_snapshots').insert({
+                        rider_id: newItemId,
+                        snapshot_balance: walletAmount,
+                        snapshot_date: new Date().toISOString(),
+                        source_type: 'MANUAL_SNAPSHOT',
+                        created_by: currentUser?.id
                     });
                 } catch (err) {
-                    console.error('Failed to log wallet transaction:', err);
-                    toast.error('Rider added but wallet log failed.');
+                    console.error('Failed to create opening snapshot:', err);
+                    toast.error('Rider added but opening balance log failed.');
                 }
             }
 

@@ -12,6 +12,7 @@ import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
 import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
+import ReconciliationWidget from '@/components/dashboard/ReconciliationWidget';
 import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
 import TeamLeaderPerformanceTable, { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
 import { startOfWeek, startOfMonth } from 'date-fns';
@@ -355,6 +356,13 @@ const Dashboard: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            </div>
+
+
+
+            {/* Reconciliation Widget (Shows only if issues exist) */}
+            <div className="mb-4">
+                <ReconciliationWidget />
             </div>
 
             {/* BENTO GRID: 12+ Smart Metrics */}

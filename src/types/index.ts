@@ -458,3 +458,16 @@ export interface Lead {
     isPermanentlyDeleted?: boolean;
     score?: number; // AI Score (0-100)
 }
+
+// Reconciliation Types
+export interface ReconciliationItem {
+    rider_id: string;
+    rider_name: string;
+    triev_id: string;
+    mobile_number: string;
+    team_leader_id?: string;
+    system_balance: number;
+    snapshot_balance: number;
+    snapshot_date: string;
+    difference: number;
+}
