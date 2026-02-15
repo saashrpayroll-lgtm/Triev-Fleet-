@@ -14,7 +14,7 @@ interface LedgerEntry {
     id: string;
     rider_id: string;
     amount: number;
-    type: 'SYSTEM_IMPORT' | 'MANUAL_ADJUSTMENT' | 'DAILY_COLLECTION';
+    transaction_type: 'SYSTEM_IMPORT' | 'MANUAL_ADJUSTMENT' | 'DAILY_COLLECTION' | 'SYSTEM_RENT_CHARGE';
     mode: 'ADD' | 'SUBTRACT' | 'SET';
     description: string;
     metadata: any;
@@ -93,7 +93,7 @@ const WalletHistory: React.FC = () => {
 
             // Apply Filters
             if (filterType !== 'all') {
-                query = query.eq('type', filterType);
+                query = query.eq('transaction_type', filterType);
             }
 
             if (searchTerm) {
@@ -160,7 +160,7 @@ const WalletHistory: React.FC = () => {
                 `);
 
             // Apply Filters (Same as above)
-            if (filterType !== 'all') query = query.eq('type', filterType);
+            if (filterType !== 'all') query = query.eq('transaction_type', filterType);
             if (searchTerm) query = query.or(`description.ilike.%${searchTerm}%`);
             if (dateRange.start) query = query.gte('created_at', new Date(dateRange.start).toISOString());
             if (dateRange.end) {
@@ -187,7 +187,7 @@ const WalletHistory: React.FC = () => {
                 Date: format(parseISO(item.created_at), 'yyyy-MM-dd HH:mm:ss'),
                 Rider: item.riders?.rider_name || 'N/A',
                 'Team Leader': item.riders?.users?.full_name || 'N/A',
-                Type: item.type,
+                Type: item.transaction_type,
                 Mode: item.mode,
                 Amount: item.amount,
                 Description: item.description,
@@ -319,7 +319,8 @@ const WalletHistory: React.FC = () => {
                                         { value: 'all', label: 'All Types' },
                                         { value: 'MANUAL_ADJUSTMENT', label: 'Manual Adjustment' },
                                         { value: 'DAILY_COLLECTION', label: 'Daily Collection' },
-                                        { value: 'SYSTEM_IMPORT', label: 'System Import' }
+                                        { value: 'SYSTEM_IMPORT', label: 'System Import' },
+                                        { value: 'SYSTEM_RENT_CHARGE', label: 'System Rent Charge' }
                                     ]}
                                     value={filterType}
                                     onChange={(val) => setFilterType(val as any)}
@@ -454,7 +455,7 @@ const WalletHistory: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                                                    {t.type ? t.type.replace(/_/g, ' ') : 'Unknown'}
+                                                    {t.transaction_type ? t.transaction_type.replace(/_/g, ' ') : 'Unknown'}
                                                 </span>
                                             </td>
                                             <td className={`px-6 py-4 text-right font-bold ${isCredit ? 'text-green-600' :
