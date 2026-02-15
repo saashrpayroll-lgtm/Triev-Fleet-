@@ -3,7 +3,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, FileText } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
@@ -443,8 +443,8 @@ const WalletHistory: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold capitalize ${isCredit ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                        isDebit ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                    isDebit ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                                     }`}>
                                                     {isCredit && <ArrowUpRight size={12} />}
                                                     {isDebit && <ArrowDownLeft size={12} />}
@@ -458,8 +458,8 @@ const WalletHistory: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className={`px-6 py-4 text-right font-bold ${isCredit ? 'text-green-600' :
-                                                    isDebit ? 'text-red-600' :
-                                                        'text-blue-600'
+                                                isDebit ? 'text-red-600' :
+                                                    'text-blue-600'
                                                 }`}>
                                                 {isCredit ? '+' : isDebit ? '-' : '='}₹{amount.toLocaleString()}
                                             </td>

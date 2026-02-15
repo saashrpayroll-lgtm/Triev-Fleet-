@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, DollarSign, Wallet } from 'lucide-react';
-import { LedgerAPI, TransactionType, TransactionMode } from '@/api/ledger';
+import { LedgerAPI } from '@/api/ledger';
 import { toast } from 'sonner';
 
 const adjustmentSchema = z.object({
@@ -41,7 +41,7 @@ const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
         defaultValues: {
             amount: 0,
             type: 'MANUAL_ADJUSTMENT' as const,
-            mode: 'ADD' as TransactionMode,
+            mode: 'ADD',
             description: '',
         },
     });
