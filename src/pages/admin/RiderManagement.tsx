@@ -11,6 +11,8 @@ import BulkActionsBar from '@/components/BulkActionsBar';
 import TLMappingModal from '@/components/TLMappingModal';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
+import WalletAdjustmentModal from '@/components/WalletAdjustmentModal';
+import { LedgerAPI } from '@/api/ledger';
 import { notifyTeamLeader } from '@/utils/notificationUtils';
 import { logActivity } from '@/utils/activityLog';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -40,6 +42,7 @@ const RiderManagement: React.FC = () => {
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [viewingRider, setViewingRider] = useState<Rider | null>(null);
     const [reminderRider, setReminderRider] = useState<Rider | null>(null);
+    const [adjustmentRider, setAdjustmentRider] = useState<Rider | null>(null); // New State
     const [showExportModal, setShowExportModal] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
@@ -288,7 +291,7 @@ const RiderManagement: React.FC = () => {
                 chassis_number: formData.chassis_number || formData.chassisNumber,
                 client_name: formData.client_name || formData.clientName,
                 client_id: formData.client_id || formData.clientId,
-                wallet_amount: formData.wallet_amount ?? formData.walletAmount ?? 0,
+                wallet_amount: 0, // Initial amount handled via Ledger Transaction
                 allotment_date: formData.allotment_date || formData.allotmentDate,
                 remarks: formData.remarks,
                 status: formData.status || 'active',
@@ -312,36 +315,24 @@ const RiderManagement: React.FC = () => {
             });
 
             // Log Wallet Transaction if initial amount > 0
-            // Log Wallet Transaction (NEW TABLE)
+            // Log Wallet Transaction if initial amount > 0
             if (walletAmount > 0) {
-                const { error: walletError } = await supabase.from('wallet_transactions').insert({
-                    rider_id: newItemId,
-                    team_leader_id: dbPayload.team_leader_id,
-                    amount: walletAmount,
-                    type: 'credit',
-                    description: `Initial wallet deposit`,
-                    metadata: {
-                        source: 'manual_entry',
-                        oldBalance: 0,
-                        newBalance: walletAmount,
-                        riderName: dbPayload.rider_name
-                    },
-                    performed_by: currentUser?.email
-                });
-
-                if (walletError) {
-                    console.error('Failed to log wallet transaction:', walletError);
+                try {
+                    await LedgerAPI.addTransaction({
+                        riderId: newItemId,
+                        amount: walletAmount,
+                        type: 'MANUAL_ADJUSTMENT', // Or 'SYSTEM_IMPORT' if preferred, but manual fits here
+                        mode: 'SET', // Initial set
+                        description: 'Initial wallet deposit',
+                        metadata: {
+                            source: 'add_rider_form',
+                            createdBy: currentUser?.email
+                        }
+                    });
+                } catch (err) {
+                    console.error('Failed to log wallet transaction:', err);
                     toast.error('Rider added but wallet log failed.');
                 }
-
-                // Keep Activity Log for Audit Trail
-                await logActivity({
-                    actionType: 'wallet_transaction',
-                    targetType: 'rider',
-                    targetId: newItemId,
-                    details: `Initial wallet deposit: ₹${walletAmount}`,
-                    performedBy: currentUser?.email
-                });
             }
 
             // Notify System & TL
@@ -371,7 +362,7 @@ const RiderManagement: React.FC = () => {
                 chassis_number: formData.chassisNumber,
                 client_name: formData.clientName,
                 client_id: formData.clientId,
-                wallet_amount: formData.walletAmount,
+                // wallet_amount: formData.walletAmount, // Prevent direct wallet update
                 allotment_date: formData.allotmentDate,
                 remarks: formData.remarks || formData.comments,
                 status: formData.status,
@@ -391,48 +382,9 @@ const RiderManagement: React.FC = () => {
                 performedBy: currentUser?.email
             });
 
-            // Calculate Wallet Difference and Log Transaction
-            const oldBalance = Number(editingRider.walletAmount) || 0;
-            const newBalance = Number(formData.walletAmount) || 0;
-            const diff = newBalance - oldBalance;
-
-            console.log('Wallet Update Debug:', { oldBalance, newBalance, diff });
-
-            if (diff !== 0) {
-                const isCredit = diff > 0;
-
-                // Insert into wallet_transactions
-                const { error: walletError } = await supabase.from('wallet_transactions').insert({
-                    rider_id: editingRider.id,
-                    team_leader_id: formData.teamLeaderId || editingRider.teamLeaderId,
-                    amount: Math.abs(diff),
-                    type: isCredit ? 'credit' : 'debit',
-                    description: `Wallet update via Admin Panel`,
-                    metadata: {
-                        source: 'manual_update',
-                        oldBalance: oldBalance,
-                        newBalance: newBalance,
-                        riderName: formData.riderName || editingRider.riderName
-                    },
-                    performed_by: currentUser?.email
-                });
-
-                if (walletError) {
-                    console.error('Failed to log wallet transaction:', walletError);
-                }
-
-                // Audit Log
-                await logActivity({
-                    actionType: 'wallet_transaction',
-                    targetType: 'rider',
-                    targetId: editingRider.id,
-                    details: `Wallet ${isCredit ? 'Credit' : 'Debit'}: ₹${Math.abs(diff)}`,
-                    performedBy: currentUser?.email,
-                    metadata: {
-                        amount: Math.abs(diff),
-                        type: isCredit ? 'credit' : 'debit'
-                    }
-                });
+            // Wallet updates are now handled via separate Adjustment Modal
+            if (formData.walletAmount !== undefined && Number(formData.walletAmount) !== Number(editingRider.walletAmount)) {
+                toast.info("Wallet balance cannot be edited directly. Please use the 'Adjust Wallet' action.");
             }
 
             // Notify TL
@@ -552,12 +504,19 @@ const RiderManagement: React.FC = () => {
 
         try {
             // 1. Delete dependent data (Manual Cascade)
-            // Wallet Transactions (Known FK blocker)
+
+            // A. Ledger & Transactions (Critical Financial Data)
+            // We must delete from wallet_ledger first as it's the new source of truth.
+            const { error: wlError } = await supabase.from('wallet_ledger').delete().eq('rider_id', rider.id);
+            if (wlError) {
+                console.error('Error deleting wallet_ledger:', wlError);
+                throw new Error('Failed to clean up wallet ledger. Deletion aborted.');
+            }
+
+            // Wallet Transactions (Legacy Support)
             const { error: wtError } = await supabase.from('wallet_transactions').delete().eq('rider_id', rider.id);
             if (wtError) {
-                console.error('Error deleting wallet transactions:', wtError);
-                // Optionally continue or throw. Usually safe to throw as data integrity is key.
-                throw new Error('Failed to clean up wallet transactions. Deletion aborted.');
+                console.warn('Error deleting legacy wallet_transactions (non-fatal):', wtError);
             }
 
             // 2. Requests (Manual Cascade)
@@ -949,15 +908,26 @@ const RiderManagement: React.FC = () => {
             const idsToDelete = Array.from(selectedRiders);
 
             // 1. Delete dependent data (Manual Cascade)
-            // Wallet Transactions
+
+            // A. Ledger (New System)
+            const { error: wlError } = await supabase
+                .from('wallet_ledger')
+                .delete()
+                .in('rider_id', idsToDelete);
+
+            if (wlError) {
+                console.error('Error deleting wallet ledger (bulk):', wlError);
+                throw new Error('Failed to clean up wallet ledger. Bulk deletion aborted.');
+            }
+
+            // B. Wallet Transactions (Legacy)
             const { error: wtError } = await supabase
                 .from('wallet_transactions')
                 .delete()
                 .in('rider_id', idsToDelete);
 
             if (wtError) {
-                console.error('Error deleting wallet transactions (bulk):', wtError);
-                throw new Error('Failed to clean up wallet transactions. Bulk deletion aborted.');
+                console.warn('Error deleting legacy wallet transactions (bulk, non-fatal):', wtError);
             }
 
             // Requests (Manual Cascade)
@@ -1286,6 +1256,7 @@ const RiderManagement: React.FC = () => {
                             onRestore={() => handleRestoreRider(rider)}
                             onPermanentDelete={() => handlePermanentDelete(rider)}
                             onReassign={() => setReassigningRider(rider)}
+                            onAdjustWallet={() => setAdjustmentRider(rider)}
                             userRole="admin"
                         />
                     )}
@@ -1392,6 +1363,19 @@ const RiderManagement: React.FC = () => {
                         riders={riders.filter(r => selectedRiders.has(r.id))}
                         onClose={() => setShowBulkReminderModal(false)}
                         onSend={handleBulkSendReminders}
+                    />
+                )
+            }
+            {
+                adjustmentRider && (
+                    <WalletAdjustmentModal
+                        riderId={adjustmentRider.id}
+                        riderName={adjustmentRider.riderName}
+                        currentBalance={adjustmentRider.walletAmount}
+                        onClose={() => setAdjustmentRider(null)}
+                        onSuccess={() => {
+                            fetchData();
+                        }}
                     />
                 )
             }

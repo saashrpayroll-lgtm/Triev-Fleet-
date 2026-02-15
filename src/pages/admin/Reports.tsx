@@ -210,15 +210,26 @@ const Reports: React.FC = () => {
                     break;
                 case 'tl_daily_collection':
                     // Fetch logs for the specific date range
-                    // Note: We need wallet_transaction specifically. 
-                    const { data: walletTxns } = await supabase
-                        .from('wallet_transactions')
-                        .select('amount, type, team_leader_id, timestamp')
-                        .gte('timestamp', startDate.toISOString())
-                        .lte('timestamp', endDate.toISOString())
-                        .eq('type', 'credit'); // Optimization: Only fetch credits
+                    // Updated to use wallet_ledger as the source of truth
+                    const { data: ledgerEntries } = await supabase
+                        .from('wallet_ledger')
+                        .select('amount, mode, type, rider_id, created_at')
+                        .gte('created_at', startDate.toISOString())
+                        .lte('created_at', endDate.toISOString())
+                        .eq('mode', 'ADD'); // Only ADDs (Credits/Collections)
 
-                    data = generateTLDailyCollectionReport((walletTxns || []) as any[], teamLeaders, startDate, endDate, selectedTLs);
+                    // Map to expected format with TL ID from riders state
+                    const mappedLogs = (ledgerEntries || []).map((entry: any) => {
+                        const rider = riders.find(r => r.id === entry.rider_id);
+                        return {
+                            amount: entry.amount,
+                            type: 'credit', // normalize for reportUtils expectation
+                            team_leader_id: rider?.teamLeaderId || '',
+                            timestamp: entry.created_at
+                        };
+                    });
+
+                    data = generateTLDailyCollectionReport(mappedLogs, teamLeaders, startDate, endDate, selectedTLs);
                     break;
                 default:
                     data = riders.map(transformRiderData);

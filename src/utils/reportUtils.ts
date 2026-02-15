@@ -493,7 +493,7 @@ export const generateSystemHealthReport = (riders: Rider[], users: User[], reque
  * Generate TL Daily Collection Matrix Report
  */
 export const generateTLDailyCollectionReport = (
-    logs: ActivityLogEntry[],
+    logs: (ActivityLogEntry | WalletTransactionSummary)[],
     teamLeaders: User[],
     startDate: Date,
     endDate: Date,
@@ -686,3 +686,11 @@ export const formatReportForExport = (reportType: string, data: any[]): any[] =>
             return data;
     }
 };
+// ... existing code ...
+
+export interface WalletTransactionSummary {
+    amount: number;
+    type: string;
+    team_leader_id: string;
+    timestamp: string;
+}

@@ -19,6 +19,7 @@ interface ActionDropdownMenuProps {
     onReassign?: () => void;
     onRestore?: () => void;
     onPermanentDelete?: () => void;
+    onAdjustWallet?: () => void;
     userRole: 'admin' | 'teamLeader';
     permissions?: ActionPermissions;
 }
@@ -32,6 +33,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
     onReassign,
     onRestore,
     onPermanentDelete,
+    onAdjustWallet,
     userRole,
     permissions = {
         view: true,
@@ -128,6 +130,19 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                             >
                                 <Edit size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
                                 <span className="font-medium text-sm">Edit Rider</span>
+                            </button>
+                        )}
+
+                        {/* Wallet Adjustment */}
+                        {!isDeleted && onAdjustWallet && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onAdjustWallet(); setIsOpen(false); }}
+                                className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group"
+                            >
+                                <div className="text-muted-foreground group-hover:text-primary transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
+                                </div>
+                                <span className="font-medium text-sm">Adjust Wallet</span>
                             </button>
                         )}
 

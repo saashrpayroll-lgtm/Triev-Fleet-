@@ -3,33 +3,32 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Trash2, Filter, ChevronLeft, ChevronRight, User, AlertCircle, CheckSquare, Download, Calendar } from 'lucide-react';
-import { format, subDays, parseISO } from 'date-fns';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, FileText } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
+import { exportToCSV } from '@/utils/exportUtils';
 
-interface WalletTransaction {
+// Interface matching wallet_ledger view/table
+interface LedgerEntry {
     id: string;
     rider_id: string;
-    team_leader_id: string;
     amount: number;
-    type: 'credit' | 'debit';
+    type: 'SYSTEM_IMPORT' | 'MANUAL_ADJUSTMENT' | 'DAILY_COLLECTION';
+    mode: 'ADD' | 'SUBTRACT' | 'SET';
     description: string;
     metadata: any;
-    performed_by: string;
-    timestamp: string;
+    created_at: string;
     riders?: {
         rider_name: string;
-        users?: { full_name: string };
+        team_leader_id?: string;
+        users?: { full_name: string }; // Team Leader
     };
-    users?: { full_name: string };
 }
-
-import { exportToCSV } from '@/utils/exportUtils';
 
 const WalletHistory: React.FC = () => {
     const { userData } = useSupabaseAuth();
-    const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+    const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [teamLeaders, setTeamLeaders] = useState<UserType[]>([]);
 
@@ -40,42 +39,12 @@ const WalletHistory: React.FC = () => {
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState<'all' | 'credit' | 'debit'>('all');
+    const [filterType, setFilterType] = useState<string>('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [filterTL, setFilterTL] = useState<string>('all');
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-    // Bulk Actions
-    // Bulk Actions
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [isDeleting, setIsDeleting] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
-    const [isEditDateModalOpen, setIsEditDateModalOpen] = useState(false);
-    const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null); // For single row edit
-
-    const handleUpdateDate = async (newDateIso: string) => {
-        const idsToUpdate = editingTransactionId ? [editingTransactionId] : selectedIds;
-
-        if (idsToUpdate.length === 0) return;
-
-        try {
-            const { error } = await supabase
-                .from('wallet_transactions')
-                .update({ timestamp: newDateIso })
-                .in('id', idsToUpdate);
-
-            if (error) throw error;
-
-            toast.success(`Updated date for ${idsToUpdate.length} transaction(s)`);
-            setIsEditDateModalOpen(false);
-            setEditingTransactionId(null);
-            setSelectedIds([]); // Clear selection after bulk update
-            fetchTransactions(); // Refresh
-        } catch (err: any) {
-            console.error("Failed to update date:", err);
-            toast.error("Failed to update date");
-        }
-    };
 
     // Initial Data Load (TLs)
     useEffect(() => {
@@ -86,12 +55,10 @@ const WalletHistory: React.FC = () => {
                     .select('*')
                     .eq('role', 'teamLeader');
                 if (data) {
-                    // Map DB snake_case to CamelCase for UserType
                     const mappedData = data.map((u: any) => ({
                         ...u,
                         fullName: u.full_name || u.fullName,
                         userId: u.user_id || u.userId,
-                        // Add other mappings if needed, but fullName is critical for the dropdown
                     }));
                     setTeamLeaders(mappedData as UserType[]);
                 }
@@ -105,22 +72,23 @@ const WalletHistory: React.FC = () => {
         try {
             // Permission Check
             if (userData?.role === 'teamLeader' && !userData?.permissions?.wallet?.viewHistory) {
-                // Access Denied (Silent or UI handled)
                 setTransactions([]);
                 setTotalCount(0);
                 setLoading(false);
                 return;
             }
 
+            // Query wallet_ledger
+            // Note: wallet_ledger is a simple table. We join riders to get name and TL info.
             let query = supabase
-                .from('wallet_transactions')
+                .from('wallet_ledger')
                 .select(`
                     *,
-                    riders (
+                    riders!inner (
                         rider_name,
+                        team_leader_id,
                         users (full_name)
-                    ),
-                    users (full_name)
+                    )
                 `, { count: 'exact' });
 
             // Apply Filters
@@ -129,24 +97,25 @@ const WalletHistory: React.FC = () => {
             }
 
             if (searchTerm) {
-                // Approximate search
-                query = query.or(`description.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
+                query = query.or(`description.ilike.%${searchTerm}%`);
             }
 
             if (dateRange.start) {
-                query = query.gte('timestamp', new Date(dateRange.start).toISOString());
+                query = query.gte('created_at', new Date(dateRange.start).toISOString());
             }
             if (dateRange.end) {
                 const endDate = new Date(dateRange.end);
                 endDate.setHours(23, 59, 59, 999);
-                query = query.lte('timestamp', endDate.toISOString());
+                query = query.lte('created_at', endDate.toISOString());
             }
 
-            // Role-Based Access Control
+            // Role-Based Access Control & TL Filter
+            // Since TL ID is not in wallet_ledger, filtering by TL requires filtering on the joined 'riders' table.
+            // Supabase supports filtering on joined tables with !inner
             if (userData?.role === 'teamLeader') {
-                query = query.eq('team_leader_id', userData.id);
+                query = query.eq('riders.team_leader_id', userData.id);
             } else if (filterTL !== 'all') {
-                query = query.eq('team_leader_id', filterTL);
+                query = query.eq('riders.team_leader_id', filterTL);
             }
 
             // Pagination
@@ -154,17 +123,17 @@ const WalletHistory: React.FC = () => {
             const to = from + pageSize - 1;
 
             const { data, count, error } = await query
-                .order('timestamp', { ascending: false })
+                .order('created_at', { ascending: false })
                 .range(from, to);
 
             if (error) throw error;
 
-            setTransactions(data as WalletTransaction[] || []);
+            setTransactions(data as LedgerEntry[] || []);
             setTotalCount(count || 0);
 
         } catch (error) {
-            console.error('Error fetching wallet history:', error);
-            toast.error('Failed to load wallet history');
+            console.error('Error fetching wallet ledger:', error);
+            toast.error('Failed to load wallet ledger');
         } finally {
             setLoading(false);
         }
@@ -172,199 +141,75 @@ const WalletHistory: React.FC = () => {
 
     useEffect(() => {
         fetchTransactions();
-    }, [currentPage, pageSize, filterType, dateRange, filterTL, userData]); // Removed real-time sub for now to simplify pagination logic
-
-    // Bulk Actions
-    const toggleSelectAll = () => {
-        if (selectedIds.length === transactions.length) {
-            setSelectedIds([]);
-        } else {
-            setSelectedIds(transactions.map(t => t.id));
-        }
-    };
-
-    const toggleSelect = (id: string) => {
-        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    };
-
-    const handleBulkDelete = async () => {
-        if (!confirm(`Are you sure you want to delete ${selectedIds.length} transactions? This is irreversible.`)) return;
-
-        setIsDeleting(true);
-        try {
-            const { error } = await supabase
-                .from('wallet_transactions')
-                .delete()
-                .in('id', selectedIds);
-
-            if (error) throw error;
-
-            toast.success(`Deleted ${selectedIds.length} records`);
-            setSelectedIds([]);
-            fetchTransactions();
-        } catch (e) {
-            console.error(e);
-            toast.error('Failed to delete records');
-        } finally {
-            setIsDeleting(false);
-        }
-    };
+    }, [currentPage, pageSize, filterType, dateRange, filterTL, userData]);
 
     // Export Functionality
     const handleExport = async () => {
         setIsExporting(true);
         const loadingToast = toast.loading('Preparing export...');
         try {
-            // Replicate query logic for FULL dataset (no pagination)
             let query = supabase
-                .from('wallet_transactions')
-                .select(`*, riders(rider_name), users(full_name)`);
+                .from('wallet_ledger')
+                .select(`
+                    *,
+                    riders!inner (
+                        rider_name,
+                        team_leader_id,
+                        users (full_name)
+                    )
+                `);
 
-            // Apply Filters
-            if (filterType !== 'all') {
-                query = query.eq('type', filterType);
-            }
-            if (searchTerm) {
-                query = query.or(`description.ilike.%${searchTerm}%,performed_by.ilike.%${searchTerm}%`);
-            }
-            if (dateRange.start) {
-                query = query.gte('timestamp', new Date(dateRange.start).toISOString());
-            }
+            // Apply Filters (Same as above)
+            if (filterType !== 'all') query = query.eq('type', filterType);
+            if (searchTerm) query = query.or(`description.ilike.%${searchTerm}%`);
+            if (dateRange.start) query = query.gte('created_at', new Date(dateRange.start).toISOString());
             if (dateRange.end) {
                 const endDate = new Date(dateRange.end);
                 endDate.setHours(23, 59, 59, 999);
-                query = query.lte('timestamp', endDate.toISOString());
+                query = query.lte('created_at', endDate.toISOString());
             }
-
-            // RBAC
             if (userData?.role === 'teamLeader') {
-                query = query.eq('team_leader_id', userData.id);
+                query = query.eq('riders.team_leader_id', userData.id);
             } else if (filterTL !== 'all') {
-                query = query.eq('team_leader_id', filterTL);
+                query = query.eq('riders.team_leader_id', filterTL);
             }
 
-            const { data, error } = await query.order('timestamp', { ascending: false });
+            const { data, error } = await query.order('created_at', { ascending: false });
             if (error) throw error;
 
             if (!data || data.length === 0) {
-                toast.info('No data to export');
                 toast.dismiss(loadingToast);
-                setIsExporting(false);
+                toast.info('No data to export');
                 return;
             }
 
-            // Flatten Data for CSV
             const csvData = data.map((item: any) => ({
-                Date: format(parseISO(item.timestamp), 'yyyy-MM-dd HH:mm:ss'),
+                Date: format(parseISO(item.created_at), 'yyyy-MM-dd HH:mm:ss'),
                 Rider: item.riders?.rider_name || 'N/A',
-                'Team Leader': item.users?.full_name || 'N/A',
-                Type: item.type || 'N/A',
-                Amount: item.amount || 0,
-                Details: item.description,
-                Source: item.metadata?.source || 'Manual',
-                'Performed By': item.performed_by
+                'Team Leader': item.riders?.users?.full_name || 'N/A',
+                Type: item.type,
+                Mode: item.mode,
+                Amount: item.amount,
+                Description: item.description,
+                Source: item.metadata?.source || 'N/A'
             }));
 
-            // Export
-            exportToCSV(csvData, `Wallet_History_Export_${format(new Date(), 'yyyyMMdd_HHmm')}`);
+            exportToCSV(csvData, `Wallet_Ledger_Export_${format(new Date(), 'yyyyMMdd_HHmm')}`);
             toast.success('Export successful');
-            toast.dismiss(loadingToast);
 
         } catch (error) {
             console.error('Export failed:', error);
             toast.error('Failed to export data');
-            toast.dismiss(loadingToast);
         } finally {
+            toast.dismiss(loadingToast);
             setIsExporting(false);
         }
     };
 
-    // Safe Archive & Delete
-    const handleCleanHistory = async () => {
-        if (userData?.role !== 'admin') return;
-        if (!confirm('This will ARCHIVE transactions older than 3 days to Daily Collections and then delete them from this list. Continue?')) return;
+    // Calculate stats for CURRENT PAGE (Global stats would require separate aggregation query)
+    const pageCredits = transactions.reduce((acc, t) => t.mode === 'ADD' ? acc + (Number(t.amount) || 0) : acc, 0);
+    const pageDebits = transactions.reduce((acc, t) => t.mode === 'SUBTRACT' ? acc + (Number(t.amount) || 0) : acc, 0);
 
-        const loadingToast = toast.loading('Archiving & Cleaning...');
-        try {
-            const threeDaysAgo = subDays(new Date(), 3);
-            const cutoffDate = threeDaysAgo.toISOString();
-
-            // Step 1: Fetch transactions to be archived
-            const { data: oldData, error: fetchError } = await supabase
-                .from('wallet_transactions')
-                .select('*')
-                .lt('timestamp', cutoffDate)
-                .eq('type', 'credit'); // Only aggregate credits for collection
-
-            if (fetchError) throw fetchError;
-
-            if (!oldData || oldData.length === 0) {
-                toast.dismiss(loadingToast);
-                toast.info('No old records to clean.');
-                return;
-            }
-
-            // Step 2: Aggregate by Date and Team Leader
-            const aggregator: Record<string, number> = {}; // "TL_ID|DATE" -> Total
-
-            oldData.forEach(tx => {
-                const date = tx.timestamp.split('T')[0];
-                const tlId = tx.team_leader_id;
-                if (!tlId) return;
-
-                const key = `${tlId}|${date}`;
-                aggregator[key] = (aggregator[key] || 0) + Number(tx.amount);
-            });
-
-            // Step 3: Update Daily Collections (Upsert)
-            const upsertPromises = Object.entries(aggregator).map(async ([key, total]) => {
-                const [tlId, date] = key.split('|');
-
-                const { data: existing } = await supabase
-                    .from('daily_collections')
-                    .select('total_collection')
-                    .eq('team_leader_id', tlId)
-                    .eq('date', date)
-                    .single();
-
-                const newTotal = (existing?.total_collection || 0) + total;
-
-                return supabase
-                    .from('daily_collections')
-                    .upsert({
-                        team_leader_id: tlId,
-                        date: date,
-                        total_collection: newTotal,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'team_leader_id,date' });
-            });
-
-            await Promise.all(upsertPromises);
-
-            // Step 4: Delete from wallet_transactions
-            const { error: delError } = await supabase
-                .from('wallet_transactions')
-                .delete()
-                .lt('timestamp', cutoffDate);
-
-            if (delError) throw delError;
-
-            toast.dismiss(loadingToast);
-            toast.success(`Archived & Cleaned successfully.`);
-            fetchTransactions();
-
-        } catch (error) {
-            console.error(error);
-            toast.dismiss(loadingToast);
-            toast.error('Cleanup failed');
-        }
-    };
-
-    // Calculate totals for displayed data
-    const totalCredit = transactions.reduce((acc, t) => t.type === 'credit' ? acc + (Number(t.amount) || 0) : acc, 0);
-    const totalDebit = transactions.reduce((acc, t) => t.type === 'debit' ? acc + (Number(t.amount) || 0) : acc, 0);
-
-    // Permission Guard Return
     if (userData?.role === 'teamLeader' && !userData?.permissions?.wallet?.viewHistory) {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-center h-[50vh]">
@@ -372,7 +217,7 @@ const WalletHistory: React.FC = () => {
                     <AlertCircle size={48} className="text-red-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800">Access Denied</h2>
-                <p className="text-gray-500 mt-2 max-w-md">You do not have permission to view Wallet History. Please contact your administrator.</p>
+                <p className="text-gray-500 mt-2 max-w-md">You do not have permission to view Wallet History.</p>
             </div>
         );
     }
@@ -382,21 +227,13 @@ const WalletHistory: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <History className="text-primary" /> Wallet Transaction History
+                        <History className="text-primary" /> Wallet Ledger
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Track rider wallet credits, debits, and bulk updates.
+                        Immutable record of all wallet transactions.
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {userData?.role === 'admin' && (
-                        <button
-                            onClick={handleCleanHistory}
-                            className="bg-orange-100 text-orange-700 hover:bg-orange-200 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                        >
-                            <Trash2 size={16} /> Clean Old History
-                        </button>
-                    )}
                     <button onClick={() => fetchTransactions()} className="p-2 hover:bg-muted rounded-full transition-colors" title="Refresh">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                     </button>
@@ -411,12 +248,12 @@ const WalletHistory: React.FC = () => {
                 </div>
             </div>
 
-            {/* Stats Cards (Same as before) */}
+            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <GlassCard className="p-6 flex items-center justify-between border-l-4 border-l-green-500">
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Page Credit</p>
-                        <h3 className="text-2xl font-bold text-green-600">+₹{totalCredit.toLocaleString()}</h3>
+                        <p className="text-sm font-medium text-muted-foreground">Page Credits</p>
+                        <h3 className="text-2xl font-bold text-green-600">+₹{pageCredits.toLocaleString()}</h3>
                     </div>
                     <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600">
                         <ArrowUpRight size={24} />
@@ -424,8 +261,8 @@ const WalletHistory: React.FC = () => {
                 </GlassCard>
                 <GlassCard className="p-6 flex items-center justify-between border-l-4 border-l-red-500">
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Page Debit</p>
-                        <h3 className="text-2xl font-bold text-red-600">-₹{totalDebit.toLocaleString()}</h3>
+                        <p className="text-sm font-medium text-muted-foreground">Page Debits</p>
+                        <h3 className="text-2xl font-bold text-red-600">-₹{pageDebits.toLocaleString()}</h3>
                     </div>
                     <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600">
                         <ArrowDownLeft size={24} />
@@ -433,9 +270,9 @@ const WalletHistory: React.FC = () => {
                 </GlassCard>
                 <GlassCard className="p-6 flex items-center justify-between border-l-4 border-l-blue-500">
                     <div>
-                        <p className="text-sm font-medium text-muted-foreground">Page Net Flow</p>
-                        <h3 className={`text-2xl font-bold ${totalCredit - totalDebit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                            {totalCredit - totalDebit >= 0 ? '+' : ''}₹{(totalCredit - totalDebit).toLocaleString()}
+                        <p className="text-sm font-medium text-muted-foreground">Page Net Change</p>
+                        <h3 className={`text-2xl font-bold ${pageCredits - pageDebits >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                            {pageCredits - pageDebits >= 0 ? '+' : ''}₹{(pageCredits - pageDebits).toLocaleString()}
                         </h3>
                     </div>
                     <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600">
@@ -453,7 +290,7 @@ const WalletHistory: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                             <input
                                 type="text"
-                                placeholder="Search details or performed by..."
+                                placeholder="Search description..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && fetchTransactions()}
@@ -461,7 +298,7 @@ const WalletHistory: React.FC = () => {
                             />
                         </div>
 
-                        {/* Action Buttons */}
+                        {/* Filter Toggle */}
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -469,15 +306,6 @@ const WalletHistory: React.FC = () => {
                             >
                                 <Filter size={18} /> Filters
                             </button>
-                            {selectedIds.length > 0 && (
-                                <button
-                                    onClick={handleBulkDelete}
-                                    disabled={isDeleting}
-                                    className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all flex items-center gap-2 font-medium text-sm shadow-md"
-                                >
-                                    <Trash2 size={18} /> Delete ({selectedIds.length})
-                                </button>
-                            )}
                         </div>
                     </div>
 
@@ -489,8 +317,9 @@ const WalletHistory: React.FC = () => {
                                 <SearchableSelect
                                     options={[
                                         { value: 'all', label: 'All Types' },
-                                        { value: 'credit', label: 'Credits Only' },
-                                        { value: 'debit', label: 'Debits Only' }
+                                        { value: 'MANUAL_ADJUSTMENT', label: 'Manual Adjustment' },
+                                        { value: 'DAILY_COLLECTION', label: 'Daily Collection' },
+                                        { value: 'SYSTEM_IMPORT', label: 'System Import' }
                                     ]}
                                     value={filterType}
                                     onChange={(val) => setFilterType(val as any)}
@@ -545,7 +374,7 @@ const WalletHistory: React.FC = () => {
                 <div className="overflow-x-auto min-h-[400px]">
                     <div className="flex items-center justify-between p-4 border-b bg-muted/20">
                         <div className="text-sm text-muted-foreground">
-                            Showing <span className="font-medium text-foreground">{transactions.length}</span> of <span className="font-medium text-foreground">{totalCount}</span> transactions
+                            Showing <span className="font-medium text-foreground">{transactions.length}</span> of <span className="font-medium text-foreground">{totalCount}</span> entries
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">Rows:</span>
@@ -564,17 +393,13 @@ const WalletHistory: React.FC = () => {
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs uppercase bg-muted/50 text-muted-foreground font-semibold">
                             <tr>
-                                <th className="w-10 px-6 py-4">
-                                    <button onClick={toggleSelectAll} className="hover:text-primary">
-                                        {selectedIds.length > 0 && selectedIds.length === transactions.length ? <CheckSquare size={16} /> : <div className="w-4 h-4 border-2 border-muted-foreground rounded-sm" />}
-                                    </button>
-                                </th>
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Rider</th>
                                 <th className="px-6 py-4">Team Leader</th>
+                                <th className="px-6 py-4">Mode</th>
                                 <th className="px-6 py-4">Type</th>
                                 <th className="px-6 py-4 text-right">Amount</th>
-                                <th className="px-6 py-4">Details</th>
+                                <th className="px-6 py-4">Description</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -583,80 +408,63 @@ const WalletHistory: React.FC = () => {
                                     <td colSpan={7} className="text-center py-24">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                            <span className="text-muted-foreground text-sm">Loading transactions...</span>
+                                            <span className="text-muted-foreground text-sm">Loading ledger...</span>
                                         </div>
                                     </td>
                                 </tr>
                             ) : transactions.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="text-center py-24 text-muted-foreground">
-                                        No transactions found matching your filters.
+                                        No ledger entries found.
                                     </td>
                                 </tr>
                             ) : (
                                 transactions.map((t) => {
                                     const amount = Number(t.amount) || 0;
-                                    const isCredit = t.type === 'credit';
-                                    const riderName = t.riders?.rider_name || 'Unknown';
-
-                                    // Use joined data from query (Direct TL or via Rider)
-                                    const tlName = t.users?.full_name || t.riders?.users?.full_name || 'N/A';
-
-                                    const isSelected = selectedIds.includes(t.id);
+                                    const isCredit = t.mode === 'ADD';
+                                    const isDebit = t.mode === 'SUBTRACT';
+                                    const isSet = t.mode === 'SET';
 
                                     return (
-                                        <tr key={t.id} className={`hover:bg-muted/30 transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                            <td className="px-6 py-4">
-                                                <button onClick={() => toggleSelect(t.id)} className="text-muted-foreground hover:text-primary">
-                                                    {isSelected ? <CheckSquare size={16} className="text-primary" /> : <div className="w-4 h-4 border-2 border-muted-foreground rounded-sm" />}
-                                                </button>
-                                            </td>
+                                        <tr key={t.id} className="hover:bg-muted/30 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium">{format(parseISO(t.timestamp), 'dd MMM yyyy')}</span>
-                                                    <span className="text-xs text-muted-foreground">{format(parseISO(t.timestamp), 'hh:mm a')}</span>
+                                                    <span className="font-medium">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
+                                                    <span className="text-xs text-muted-foreground">{format(parseISO(t.created_at), 'hh:mm a')}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 font-medium">{riderName}</td>
+                                            <td className="px-6 py-4 font-medium">{t.riders?.rider_name || 'Unknown'}</td>
                                             <td className="px-6 py-4 text-muted-foreground">
-                                                {tlName !== 'N/A' ? (
+                                                {t.riders?.users?.full_name ? (
                                                     <span className="flex items-center gap-1">
-                                                        <User size={12} /> {tlName}
+                                                        <User size={12} /> {t.riders.users.full_name}
                                                     </span>
                                                 ) : '-'}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold capitalize ${isCredit ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold capitalize ${isCredit ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                        isDebit ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                                     }`}>
-                                                    {isCredit ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
-                                                    {t.type}
+                                                    {isCredit && <ArrowUpRight size={12} />}
+                                                    {isDebit && <ArrowDownLeft size={12} />}
+                                                    {isSet && <RefreshCw size={12} />}
+                                                    {t.mode}
                                                 </span>
                                             </td>
-                                            <td className={`px-6 py-4 text-right font-bold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
-                                                {isCredit ? '+' : '-'}₹{amount.toLocaleString()}
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                                                    {t.type.replace('_', ' ')}
+                                                </span>
+                                            </td>
+                                            <td className={`px-6 py-4 text-right font-bold ${isCredit ? 'text-green-600' :
+                                                    isDebit ? 'text-red-600' :
+                                                        'text-blue-600'
+                                                }`}>
+                                                {isCredit ? '+' : isDebit ? '-' : '='}₹{amount.toLocaleString()}
                                             </td>
                                             <td className="px-6 py-4 text-muted-foreground max-w-xs truncate" title={t.description}>
                                                 {t.description}
-                                                {t.metadata?.source === 'bulk_import' && (
-                                                    <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-semibold border border-blue-200">BULK</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingTransactionId(t.id);
-                                                            setIsEditDateModalOpen(true);
-                                                        }}
-                                                        className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-primary transition-colors"
-                                                        title="Edit Date"
-                                                    >
-                                                        <Calendar size={14} />
-                                                    </button>
-                                                    <button className="text-primary hover:underline text-xs" onClick={() => toast.info(JSON.stringify(t.metadata, null, 2))}>
-                                                        View Data
-                                                    </button>
-                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -689,78 +497,6 @@ const WalletHistory: React.FC = () => {
                     </button>
                 </div>
             </GlassCard>
-
-            {/* Bulk Actions Bar */}
-            {
-                selectedIds.length > 0 && (
-                    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-full shadow-xl flex items-center gap-4 z-50 animate-in slide-in-from-bottom duration-300">
-                        <span className="font-semibold text-sm">{selectedIds.length} selected</span>
-                        <div className="h-4 w-[1px] bg-background/20" />
-                        <button
-                            onClick={() => setIsEditDateModalOpen(true)}
-                            className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                        >
-                            <Calendar size={16} /> Edit Date
-                        </button>
-                        {isDeleting ? (
-                            <span className="flex items-center gap-2 text-sm text-red-400">
-                                <RefreshCw size={16} className="animate-spin" /> Deleting...
-                            </span>
-                        ) : (
-                            <button onClick={handleBulkDelete} className="flex items-center gap-2 text-sm hover:text-red-400 transition-colors">
-                                <Trash2 size={16} /> Delete
-                            </button>
-                        )}
-                        <button onClick={() => setSelectedIds([])} className="ml-2 text-xs opacity-70 hover:opacity-100">
-                            Cancel
-                        </button>
-                    </div>
-                )
-            }
-
-            {/* Edit Date Modal */}
-            {
-                isEditDateModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-border">
-                            <div className="p-6">
-                                <h3 className="text-lg font-bold mb-2">Update Transaction Date</h3>
-                                <p className="text-sm text-muted-foreground mb-6">
-                                    Select a new date for {selectedIds.length > 0 ? `${selectedIds.length} transactions` : 'this transaction'}.
-                                </p>
-
-                                <div className="space-y-4">
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-xs font-semibold uppercase text-muted-foreground">New Date</label>
-                                        <input
-                                            type="datetime-local"
-                                            className="w-full px-3 py-2 rounded-lg border border-input bg-transparent shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                            style={{ colorScheme: 'light dark' }}
-                                            onChange={(e) => {
-                                                if (e.target.value) {
-                                                    handleUpdateDate(new Date(e.target.value).toISOString());
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end gap-3 mt-8">
-                                    <button
-                                        onClick={() => {
-                                            setIsEditDateModalOpen(false);
-                                            setEditingTransactionId(null);
-                                        }}
-                                        className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
         </div >
     );
 };

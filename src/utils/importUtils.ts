@@ -1,6 +1,7 @@
 import { supabase } from '@/config/supabase';
 import { ImportSummary, ClientName } from '@/types';
 import { logActivity } from './activityLog';
+import { LedgerAPI } from '@/api/ledger';
 
 // Constants for Rider Import
 export const REQUIRED_RIDER_COLUMNS = [
@@ -66,7 +67,7 @@ const logImportHistory = async (
 // Start: Bulk Rider Import Logic
 export const processRiderImport = async (
     fileData: any[],
-    adminId: string,
+    adminId: string, // Kept for interface consistency if needed, or remove if not used in logs anymore
     adminName: string
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
@@ -452,70 +453,20 @@ export const processWalletUpdate = async (
                 throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
             }
 
-            // Update
-            const { error } = await supabase.from('riders').update({
-                wallet_amount: amount,
-                updated_at: new Date().toISOString()
-            }).eq('id', matchData.id);
-
-            if (error) throw error;
-
-            // Log Transaction Logic
-            const oldBalance = Number(matchData.wallet_amount) || 0;
-            const newBalance = amount; // 'amount' is the value from the sheet (target balance)
-
-            // Wait, is the sheet providing the NEW BALANCE or the AMOUNT TO ADD?
-            // "Update wallet balance" usually means "Set new balance to X".
-            // The previous logic was `.update({ wallet_amount: amount })`, so it is SETTING the balance.
-
-            const diff = newBalance - oldBalance;
-
-            if (diff !== 0) {
-                const isCredit = diff > 0;
-
-                // 1. Insert into wallet_transactions (CRITICAL FIX)
-                const { error: txError } = await supabase.from('wallet_transactions').insert({
-                    rider_id: matchData.id,
-                    team_leader_id: matchData.team_leader_id,
-                    amount: Math.abs(diff),
-                    type: isCredit ? 'credit' : 'debit',
-                    description: `Bulk Wallet Update`,
-                    metadata: {
-                        source: 'bulk_import',
-                        oldBalance: oldBalance,
-                        newBalance: newBalance,
-                        riderName: matchData.rider_name
-                    },
-                    performed_by: adminName // Using adminName passed to function
-                });
-
-                if (txError) {
-                    console.error("Failed to insert wallet transaction:", txError);
-                    // We don't throw here to avoid failing the whole row if just the log fails? 
-                    // Actually, for financial integrity, we probably SHOULD know. 
-                    // But for now let's just log error to not break the user's "113 failed" count further if it's unrelated.
+            // Update using LedgerAPI (Handles Balance Update + Ledger Entry)
+            // 'amount' is the Target Balance from the sheet, so we use SET mode.
+            await LedgerAPI.addTransaction({
+                riderId: matchData.id,
+                amount: amount, // Target Balance
+                type: 'BULK_IMPORT',
+                mode: 'SET',
+                description: 'Bulk Wallet Update (Import)',
+                metadata: {
+                    source: 'bulk_import_sheet',
+                    adminName: adminName,
+                    originalRow: row
                 }
-
-                // 2. Audit Log (Legacy/Activity)
-                await logActivity({
-                    actionType: 'wallet_transaction',
-                    targetType: 'rider',
-                    targetId: matchData.id,
-                    details: `Bulk Wallet Update: ₹${Math.abs(diff)} (${isCredit ? 'Credit' : 'Debit'})`,
-                    metadata: {
-                        amount: Math.abs(diff),
-                        type: isCredit ? 'credit' : 'debit',
-                        oldBalance: oldBalance,
-                        newBalance: newBalance,
-                        riderName: matchData.rider_name,
-                        teamLeaderId: matchData.team_leader_id,
-                        source: 'bulk_import'
-                    },
-                    performedBy: adminName
-                }).catch(console.error);
-            }
-
-            // console.log(`Successfully updated wallet for ${matchData.rider_name} using ${identifierUsed}`);
+            });
 
             // Track for Notification
             if (matchData.team_leader_id) {
@@ -587,7 +538,7 @@ export const REQUIRED_RENT_COLLECTION_COLUMNS = [
 
 export const processRentCollectionImport = async (
     fileData: any[],
-    adminId: string,
+    // adminId: string, // Removed unused
     adminName: string
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
@@ -642,8 +593,8 @@ export const processRentCollectionImport = async (
 
                 // 1. Find Rider (Robust Search)
                 let riderId = null;
-                let teamLeaderId = null;
-                let currentBalance = 0;
+                // let teamLeaderId = null; // Unused
+                // let currentBalance = 0; // Unused
 
 
 
@@ -671,7 +622,7 @@ export const processRentCollectionImport = async (
                     return data && data.length > 0 ? data[0] : null;
                 };
 
-                // NOTE: 'findRiderFuzzy' removed because ILIKE on Numeric columns fails without casting, 
+                // NOTE: 'findRiderFuzzy' removed because ILIKE on Numeric columns fails without casting,
                 // and casting caused 400 errors. We stick to robust exact matching for now.
 
                 // Strategy A: Triev ID Matching
@@ -691,8 +642,7 @@ export const processRentCollectionImport = async (
 
                         if (rider) {
                             riderId = rider.id;
-                            teamLeaderId = rider.team_leader_id;
-                            currentBalance = rider.wallet_amount || 0;
+                            // teamLeaderId = rider.team_leader_id;
                         }
                     }
                 }
@@ -724,8 +674,7 @@ export const processRentCollectionImport = async (
 
                         if (rider) {
                             riderId = rider.id;
-                            teamLeaderId = rider.team_leader_id;
-                            currentBalance = rider.wallet_amount || 0;
+                            // teamLeaderId = rider.team_leader_id;
                         }
                     }
                 }
@@ -738,12 +687,12 @@ export const processRentCollectionImport = async (
 
                 const transactionId = row['Transaction ID'] || row['transaction_id'] || '';
 
-                // 2. Duplicate Check
+                // 2. Duplicate Check using wallet_ledger
                 if (transactionId) {
                     const { data: existingTxn } = await supabase
-                        .from('wallet_transactions')
+                        .from('wallet_ledger')
                         .select('id')
-                        .eq('metadata->>transaction_id', transactionId) // JSONB query
+                        .eq('metadata->>transaction_id', transactionId)
                         .limit(1);
 
                     if (existingTxn && existingTxn.length > 0) {
@@ -751,93 +700,53 @@ export const processRentCollectionImport = async (
                     }
                 }
 
-                // 3. Calculate New Balance
-                // Logic: Always ADD the collection amount.
-                // -500 + 200 = -300 (Correct)
-                // 100 + 200 = 300 (Correct)
-                const newBalance = currentBalance + amount;
-
-                // 3.5 Parse Date (if provided)
-                let transactionDate = new Date().toISOString(); // Default to NOW
+                let transactionDateStr = new Date().toISOString();
                 const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
                 if (dateRaw) {
-                    // Try parsing various formats
                     const d = new Date(dateRaw);
                     if (!isNaN(d.getTime())) {
-                        transactionDate = d.toISOString();
+                        transactionDateStr = d.toISOString();
                     } else {
-                        // Handle DD-MM-YYYY or DD/MM/YYYY manually if needed, or rely on distinct formats
-                        // For now assuming standard parsable strings or ISO
-                        // simple DD/MM/YYYY regex fallback
                         const parts = dateRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
                         if (parts) {
-                            const day = parseInt(parts[1], 10);
-                            const month = parseInt(parts[2], 10) - 1;
-                            const year = parseInt(parts[3], 10);
-                            transactionDate = new Date(year, month, day).toISOString();
+                            transactionDateStr = new Date(parseInt(parts[3], 10), parseInt(parts[2], 10) - 1, parseInt(parts[1], 10)).toISOString();
                         }
                     }
                 }
 
-                // 4. Update Wallet & Log Transaction
-                // Note: We do NOT use the backdate for the `updated_at` of the rider wallet itself, 
-                // because the wallet balance is the CURRENT state. 
-                // However, the transaction log acts as the ledger with the backdate.
-                const { error: updateError } = await supabase
-                    .from('riders')
-                    .update({ wallet_amount: newBalance })
-                    .eq('id', riderId);
-
-                if (updateError) throw updateError;
-
-                // Log Transaction
-                const { error: logError } = await supabase
-                    .from('wallet_transactions')
-                    .insert({
-                        rider_id: riderId,
-                        team_leader_id: teamLeaderId,
-                        amount: amount,
-                        type: 'credit', // Collection is always a credit to the wallet
-                        description: `Rent Collection Import (Ref: ${transactionId || trievId || mobile})`,
-                        timestamp: transactionDate, // Use the backdated date
-                        metadata: {
-                            source: 'import',
-                            imported_by: adminName,
-                            admin_id: adminId,
-                            original_row: row,
-                            transaction_id: transactionId // Store for duplicate checks
-                        }
-                    });
-
-                if (logError) console.warn("Transaction log failed but wallet updated", logError);
+                // 4. Update Wallet via LedgerAPI
+                // Collection = Credit = ADD mode
+                await LedgerAPI.addTransaction({
+                    riderId: riderId,
+                    amount: amount,
+                    type: 'RENT_COLLECTION',
+                    mode: 'ADD',
+                    description: `Rent Collected via Import`,
+                    metadata: {
+                        source: 'rent_import',
+                        transaction_id: transactionId,
+                        date_on_sheet: transactionDateStr,
+                        adminName: adminName
+                    }
+                });
 
                 summary.success++;
-
             } catch (err: any) {
-                // If skipped due to duplicate, count as 'skipped' or 'failed'? 
-                // Usually failed with a specific reason is better for the report.
                 summary.failed++;
-                // Re-extract transactionId if needed for error report as it might be undefined in catch block if error occurred before declaration?
-                // Actually we should declare it outside try block or extract again. 
-                // Extracting again for safety in catch block scope if variable hoisting isn't relied upon.
-                const txnIdForError = row['Transaction ID'] || row['transaction_id'] || '';
-
                 summary.errors.push({
                     row: rowNum,
-                    identifier: txnIdForError || trievId || mobile || 'Unknown',
-                    reason: err.message,
+                    identifier: trievId || mobile || `Row ${rowNum}`,
+                    reason: err.message || "Unknown error",
                     data: row
                 });
             }
         }
-
-        await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
-
-    } catch (err: any) {
+    } catch (error: any) {
+        console.error("Critical error in rent import:", error);
         summary.errors.push({
             row: 0,
             identifier: 'FILE',
-            reason: `Fatal Error: ${err.message}`
+            reason: `Fatal Error: ${error.message}`
         });
     }
 

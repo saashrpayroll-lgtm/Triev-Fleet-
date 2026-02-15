@@ -273,9 +273,9 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
                                     type="number"
                                     step="0.01"
                                     placeholder="0.00"
-                                    disabled={userRole !== 'admin'}
+                                    disabled={isEdit || userRole !== 'admin'}
                                     className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background ${errors.walletAmount ? 'border-destructive' : 'border-input'
-                                        } ${userRole !== 'admin' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        } ${(isEdit || userRole !== 'admin') ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 />
                                 {errors.walletAmount && (
                                     <p className="text-destructive text-sm mt-1">{errors.walletAmount.message as string}</p>

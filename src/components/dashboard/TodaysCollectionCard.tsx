@@ -16,16 +16,24 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             today.setHours(0, 0, 0, 0);
             const todayIso = today.toISOString();
 
-            // Fetch logs for wallet transactions created today
+            // Use wallet_ledger as source of truth
+            // Query construction depends on whether we filter by TL
             let query = supabase
-                .from('wallet_transactions')
-                .select('*')
-                .eq('type', 'credit')
-                .gte('timestamp', todayIso);
+                .from('wallet_ledger')
+                .select(`
+                    amount,
+                    mode,
+                    created_at,
+                    rider:riders!inner (
+                        team_leader_id
+                    )
+                `)
+                .eq('mode', 'ADD') // Only collections/credits
+                .gte('created_at', todayIso);
 
             if (teamLeaderId) {
-                // Filter by teamLeaderId in metadata is done in memory below for simplicity/performance 
-                // unless we add a specific index. 
+                // Filter by TL via the joined riders table
+                query = query.eq('riders.team_leader_id', teamLeaderId);
             }
 
             const { data, error } = await query;
@@ -38,11 +46,10 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             let total = 0;
             let count = 0;
 
-            data?.forEach((txn: any) => {
-                // Filter for 'credit' transactions (money coming IN) - ALREADY FILTERED IN QUERY
-                // Filter by TL if prop provided
-                if (teamLeaderId && txn.team_leader_id !== teamLeaderId) return;
+            // Type assertion for the joined data
+            const transactions = data as any[];
 
+            transactions.forEach((txn) => {
                 const amt = Number(txn.amount);
                 if (!isNaN(amt)) {
                     total += amt;
@@ -60,32 +67,46 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
     useEffect(() => {
         fetchTodaysCollection();
 
-        // Real-time subscription
+        // Real-time subscription to wallet_ledger
         const channel = supabase
-            .channel('public:activity_logs_ftd')
+            .channel('public:wallet_ledger_ftd')
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
-                    table: 'wallet_transactions',
-                    filter: 'type=eq.credit'
+                    table: 'wallet_ledger',
+                    filter: 'mode=eq.ADD' // Only listen for ADDs
                 },
-                (payload) => {
+                async (payload) => {
                     const newLog = payload.new as any;
-                    // Check timestamp to ensure it's from today (simulating fresh start if app stays open across midnight)
-                    const logDate = new Date(newLog.timestamp);
+
+                    // Check timestamp to ensure it's from today
+                    const logDate = new Date(newLog.created_at);
                     const today = new Date();
                     const isToday = logDate.getDate() === today.getDate() &&
                         logDate.getMonth() === today.getMonth() &&
                         logDate.getFullYear() === today.getFullYear();
 
                     if (isToday) {
-                        // Filter for TL if prop is present
-                        if (teamLeaderId && newLog.team_leader_id !== teamLeaderId) return;
-
                         const amt = Number(newLog.amount);
-                        if (!isNaN(amt)) {
+                        if (isNaN(amt)) return;
+
+                        if (teamLeaderId) {
+                            // If filtering by TL, we must verify the rider belongs to this TL
+                            // We need to fetch the rider's TL ID since it's not in wallet_ledger
+                            const { data: riderData } = await supabase
+                                .from('riders')
+                                .select('team_leader_id')
+                                .eq('id', newLog.rider_id)
+                                .single();
+
+                            if (riderData && riderData.team_leader_id === teamLeaderId) {
+                                setAmount(prev => prev + amt);
+                                setTransactionCount(prev => prev + 1);
+                            }
+                        } else {
+                            // Global view (Admin)
                             setAmount(prev => prev + amt);
                             setTransactionCount(prev => prev + 1);
                         }
