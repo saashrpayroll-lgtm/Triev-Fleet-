@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, DollarSign, Wallet } from 'lucide-react';
+import { X, IndianRupee, Wallet } from 'lucide-react';
 import { LedgerAPI } from '@/api/ledger';
 import { toast } from 'sonner';
 
@@ -131,12 +131,12 @@ const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
                         <div>
                             <label className="block text-sm font-medium mb-1.5">Amount (₹)</label>
                             <div className="relative">
-                                <DollarSign size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                                <IndianRupee size={16} className="absolute left-3 top-3 text-muted-foreground" />
                                 <input
                                     {...register('amount', { valueAsNumber: true })}
                                     type="number"
-                                    step="1"
-                                    placeholder="0"
+                                    step="0.01"
+                                    placeholder="0.00"
                                     className="w-full pl-9 pr-4 py-2.5 border rounded-lg bg-background focus:ring-2 focus:ring-primary/20 outline-none"
                                 />
                             </div>
