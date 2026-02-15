@@ -1,4 +1,3 @@
-
 -- Function to update daily_collections on new credit transaction
 CREATE OR REPLACE FUNCTION public.handle_new_wallet_transaction()
 RETURNS TRIGGER AS $$
@@ -8,7 +7,7 @@ BEGIN
         INSERT INTO public.daily_collections (team_leader_id, date, total_collection, updated_at)
         VALUES (
             NEW.team_leader_id, 
-            DATE(NEW.timestamp), 
+            DATE(NEW.timestamp AT TIME ZONE 'Asia/Kolkata'), -- Force IST Date
             NEW.amount, 
             NOW()
         )
@@ -22,8 +21,6 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger: Run ONLY on INSERT
--- We intentionally do NOT create a DELETE trigger, so deletions of transactions 
--- do NOT reduce the historical collection total, as requested.
 DROP TRIGGER IF EXISTS on_wallet_transaction_insert ON public.wallet_transactions;
 CREATE TRIGGER on_wallet_transaction_insert
     AFTER INSERT ON public.wallet_transactions
