@@ -454,7 +454,7 @@ const WalletHistory: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                                                    {t.type.replace('_', ' ')}
+                                                    {t.type ? t.type.replace(/_/g, ' ') : 'Unknown'}
                                                 </span>
                                             </td>
                                             <td className={`px-6 py-4 text-right font-bold ${isCredit ? 'text-green-600' :
