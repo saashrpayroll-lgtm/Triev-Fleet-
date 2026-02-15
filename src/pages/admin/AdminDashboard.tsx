@@ -34,6 +34,7 @@ const Dashboard: React.FC = () => {
         teamLeaders: [] as User[]
     });
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
+    const [ftdCollections, setFtdCollections] = useState<Record<string, number>>({});
 
     // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
@@ -76,7 +77,7 @@ const Dashboard: React.FC = () => {
                     status,
                     role
                 `).eq('role', 'teamLeader'),
-                supabase.from('daily_collections').select('team_leader_id, total_collection')
+                supabase.from('daily_collections').select('team_leader_id, total_collection, date')
             ]);
 
             // Note: Removed wallet_transactions fetch to avoid double counting. 
@@ -86,18 +87,29 @@ const Dashboard: React.FC = () => {
 
             // Process Collections
             const collections: Record<string, number> = {};
+            const ftdMap: Record<string, number> = {};
+
+            const todayStr = new Date().toISOString().split('T')[0];
 
             // 1. Add Historical Data
             const dailyData = dailyRes.data || [];
             dailyData.forEach((d: any) => {
                 const tlId = d.team_leader_id;
                 const amt = Number(d.total_collection) || 0;
+
+                // Total Collection (All Time)
                 collections[tlId] = (collections[tlId] || 0) + amt;
+
+                // FTD Collection (Today Only)
+                if (d.date === todayStr) {
+                    ftdMap[tlId] = (ftdMap[tlId] || 0) + amt;
+                }
             });
 
             // 2. Add Recent Transactions (Today) - REMOVED
             // logic is now handled by DB Trigger updating daily_collections automatically.
             setTlCollections(collections);
+            setFtdCollections(ftdMap);
 
             setRawData({
                 riders: ridersRes.data as Rider[] || [],
@@ -282,10 +294,10 @@ const Dashboard: React.FC = () => {
                     conversionRate
                 },
                 status: tl.status,
-                totalCollection: tlCollections[tl.id] || 0
+                totalCollection: ftdCollections[tl.id] || 0 // Use FTD instead of Total
             };
         });
-    }, [rawData, tlCollections]);
+    }, [rawData, tlCollections, ftdCollections]);
 
     // --- Render Loading ---
     if (loading) {
