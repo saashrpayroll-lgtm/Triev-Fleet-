@@ -38,7 +38,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
     const [loadingTL, setLoadingTL] = useState(true);
 
     // Wallet State
-    const [walletTxns, setWalletTxns] = useState<LedgerEntry[]>([]);
+    const [walletTxns, setWalletTxns] = useState<any[]>([]); // Use any to support both type and transaction_type temporarily
     const [loadingWallet, setLoadingWallet] = useState(false);
 
     // Reminder State
@@ -579,7 +579,9 @@ ${new Date().toLocaleString('en-IN')}`;
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-3">
-                                                                <span className="bg-muted px-2 py-0.5 rounded textxs font-mono">{t.type.replace(/_/g, ' ')}</span>
+                                                                <span className="bg-muted px-2 py-0.5 rounded textxs font-mono">
+                                                                    {t.transaction_type ? t.transaction_type.replace(/_/g, ' ') : (t.type ? t.type.replace(/_/g, ' ') : 'Unknown')}
+                                                                </span>
                                                             </td>
                                                             <td className="px-6 py-3">
                                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${isCredit ? 'bg-green-100 text-green-700' : isDebit ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
