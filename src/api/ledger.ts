@@ -101,5 +101,17 @@ export const LedgerAPI = {
 
         if (error) throw error;
         return data;
+    },
+
+    /**
+     * Forces reconciliation of a rider's balance with their latest snapshot.
+     */
+    reconcileRider: async (riderId: string) => {
+        const { data, error } = await supabase.rpc('reconcile_rider_balance', {
+            p_rider_id: riderId
+        });
+
+        if (error) throw error;
+        return data;
     }
 };
