@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.rent_master (
 -- Enable RLS for rent_master
 ALTER TABLE public.rent_master ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins have full access on rent_master" ON public.rent_master;
 CREATE POLICY "Admins have full access on rent_master" ON public.rent_master
     FOR ALL USING (
         EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.wallet_snapshots (
 -- Enable RLS for wallet_snapshots
 ALTER TABLE public.wallet_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins have full access on wallet_snapshots" ON public.wallet_snapshots;
 CREATE POLICY "Admins have full access on wallet_snapshots" ON public.wallet_snapshots
     FOR ALL USING (
         EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
