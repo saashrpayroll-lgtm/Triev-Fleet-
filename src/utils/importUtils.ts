@@ -476,6 +476,10 @@ export const processWalletUpdate = async (
                 source: 'WALLET_UPDATE'
             });
 
+            // FORCE RECONCILIATION to ensure 100% accuracy immediately
+            // This will create a 'MANUAL_ADJUSTMENT' if there is ANY difference.
+            await LedgerAPI.reconcileRider(matchData.id);
+
             // Track for Notification
             if (matchData.team_leader_id) {
                 tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
