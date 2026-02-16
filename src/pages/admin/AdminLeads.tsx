@@ -54,7 +54,14 @@ const AdminLeads: React.FC = () => {
         if (statusParam) {
             setActiveTab(statusParam as any);
         }
-    }, [location.search]);
+
+        // Handle Quick Filters from Dashboard (e.g., Team Leader Table)
+        const state = location.state as { filter?: string, value?: string };
+        if (state?.filter === 'teamLeader' && state.value) {
+            setFilterConfig(prev => ({ ...prev, teamLeaderId: state.value! }));
+            setShowFilterModal(true); // Show modal so they know unique view is active
+        }
+    }, [location.search, location.state]);
 
     useEffect(() => {
         setLoading(true);

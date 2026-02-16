@@ -122,14 +122,23 @@ const RiderManagement: React.FC = () => {
     // Deep Linking Handler
     // Deep Linking Handler
     useEffect(() => {
-        // Handle State (Highlight Rider)
-        const state = location.state as { highlightRiderId?: string };
+        // Handle State (Highlight Rider & Filters)
+        const state = location.state as { highlightRiderId?: string, filter?: string, value?: string };
+
         if (state?.highlightRiderId && riders.length > 0) {
             const targetRider = riders.find(r => r.id === state.highlightRiderId);
             if (targetRider) {
                 setViewingRider(targetRider);
                 window.history.replaceState({}, document.title);
             }
+        }
+
+        // Handle Quick Filter from Dashboard (e.g., Team Leader Table)
+        if (state?.filter === 'teamLeader' && state.value) {
+            setAdvancedFilters(prev => ({ ...prev, teamLeader: state.value! }));
+            setShowAdvancedFilters(true);
+            // Clear state to prevent re-filtering on refresh if desired, or keep it. 
+            // Better to keep it for now or rely on the filter state.
         }
 
         // Handle URL Params (Filters)
