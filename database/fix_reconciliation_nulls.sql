@@ -1,6 +1,7 @@
+-- FIX: Handle NULL wallet_amount in riders table during reconciliation
+-- Issue: If a rider has NULL wallet_amount, the reconciliation math (Snapshot - Current) becomes NULL, causing the update to be skipped silently.
 
--- 3. One-Click Reconciliation Fix
--- This function is called by Admin to force-reconcile a rider's balance with their latest Snapshot.
+-- 1. Update reconcile_rider_balance to use COALESCE
 CREATE OR REPLACE FUNCTION public.reconcile_rider_balance(
     p_rider_id UUID
 )
@@ -25,14 +26,12 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'No snapshot found');
     END IF;
 
-    -- 2. Get Current Calculated Balance
+    -- 2. Get Current Calculated Balance (Handle NULL with 0)
     SELECT COALESCE(wallet_amount, 0) INTO v_current_ledger_balance 
     FROM public.riders 
     WHERE id = p_rider_id;
 
     -- 3. Calculate Difference
-    -- Standard Model: Positive = Credit, Negative = Debit
-    -- Diff = Snapshot (Target) - System (Current)
     v_diff := v_snapshot_balance - v_current_ledger_balance;
 
     IF v_diff = 0 THEN
@@ -81,6 +80,67 @@ BEGIN
         'diff', v_diff,
         'action', v_action,
         'txn_id', v_new_txn_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 2. Update process_wallet_snapshot to use COALESCE
+CREATE OR REPLACE FUNCTION public.process_wallet_snapshot(
+    p_rider_id UUID,
+    p_snapshot_balance NUMERIC,
+    p_snapshot_date DATE,
+    p_source_type TEXT -- 'RIDER_IMPORT' or 'WALLET_UPDATE'
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_current_ledger_balance NUMERIC;
+    v_diff NUMERIC;
+    v_daily_rent NUMERIC;
+    v_action_taken TEXT := 'SNAPSHOT_ONLY';
+    v_new_txn_id UUID;
+BEGIN
+    -- 1. Insert Snapshot
+    INSERT INTO public.wallet_snapshots (rider_id, snapshot_balance, snapshot_date, source_type)
+    VALUES (p_rider_id, p_snapshot_balance, p_snapshot_date, p_source_type);
+
+    -- 2. Calculate Difference
+    SELECT COALESCE(wallet_amount, 0) INTO v_current_ledger_balance FROM public.riders WHERE id = p_rider_id;
+    
+    v_diff := p_snapshot_balance - v_current_ledger_balance;
+
+    -- Fetch Daily Rent for logic
+    SELECT daily_rent_amount INTO v_daily_rent FROM public.rent_master WHERE rider_id = p_rider_id;
+
+    IF v_diff = 0 THEN
+        v_action_taken := 'MATCHED';
+        
+    ELSIF v_diff < 0 THEN
+        -- Check for Missed Rent
+        IF v_daily_rent IS NOT NULL AND ABS(ABS(v_diff) - v_daily_rent) < 1 THEN
+            INSERT INTO public.wallet_ledger (
+                rider_id, transaction_type, mode, amount, description, source_type, transaction_date, metadata
+            ) VALUES (
+                p_rider_id, 'SYSTEM_RENT_CHARGE', 'SUBTRACT', v_daily_rent, 
+                'Auto-Reconciled Rent from Snapshot', 'IMPORT', p_snapshot_date, 
+                jsonb_build_object('auto_reconciled', true, 'snapshot_date', p_snapshot_date)
+            ) RETURNING id INTO v_new_txn_id;
+            v_action_taken := 'AUTO_ADDED_RENT';
+        ELSE
+            -- Unknown Debit.
+            v_action_taken := 'MISMATCH_LOWER';
+        END IF;
+
+    ELSIF v_diff > 0 THEN
+        v_action_taken := 'MISMATCH_HIGHER';
+    END IF;
+
+    RETURN jsonb_build_object(
+        'rider_id', p_rider_id,
+        'system_balance', v_current_ledger_balance,
+        'snapshot_balance', p_snapshot_balance,
+        'diff', v_diff,
+        'action', v_action_taken
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -96,7 +96,7 @@ BEGIN
     
     -- Recalculate wrapper to ensure riders table is up to date?
     -- Or just trust riders.wallet_amount?
-    SELECT wallet_amount INTO v_current_ledger_balance FROM public.riders WHERE id = p_rider_id;
+    SELECT COALESCE(wallet_amount, 0) INTO v_current_ledger_balance FROM public.riders WHERE id = p_rider_id;
     
     -- Standard Wallet Model: Positive = Credit, Negative = Debit
     -- Diff = Snapshot (True) - System (Calculated)
