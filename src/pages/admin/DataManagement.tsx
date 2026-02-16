@@ -731,9 +731,10 @@ const DataManagement: React.FC = () => {
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2 mt-4 bg-muted/20 p-3 rounded-lg text-sm ml-7">
+                                        <div className="grid grid-cols-4 gap-2 mt-4 bg-muted/20 p-3 rounded-lg text-sm ml-7">
                                             <div className="text-center border-r border-border/50"><div>Total</div><div className="font-bold">{record.totalRows}</div></div>
                                             <div className="text-center border-r border-border/50"><div>Success</div><div className="font-bold text-green-600">{record.successCount}</div></div>
+                                            <div className="text-center border-r border-border/50"><div>Skipped</div><div className="font-bold text-amber-500">{record.totalRows - record.successCount - record.failureCount}</div></div>
                                             <div className="text-center"><div>Failed</div><div className="font-bold text-red-600">{record.failureCount}</div></div>
                                         </div>
                                         {record.errors && record.errors.length > 0 && (
