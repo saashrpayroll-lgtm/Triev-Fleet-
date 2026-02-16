@@ -306,6 +306,26 @@ const Dashboard: React.FC = () => {
                     />
                 )}
 
+                <SmartMetricCard
+                    title="Positive Riders"
+                    value={stats.positiveWallet}
+                    icon={Users}
+                    color="emerald"
+                    trend={{ value: Math.round((stats.positiveWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'up' }}
+                    subtitle="Wallet > 0"
+                    onClick={() => handleNavigate('/team-leader/riders', { filter: 'positive_wallet' })}
+                />
+
+                <SmartMetricCard
+                    title="Negative Riders"
+                    value={stats.negativeWallet}
+                    icon={Users}
+                    color="rose"
+                    trend={{ value: Math.round((stats.negativeWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'down' }}
+                    subtitle="Wallet < 0"
+                    onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
+                />
+
                 <TodaysCollectionCard teamLeaderId={userData.id} />
 
                 {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (

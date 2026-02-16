@@ -393,6 +393,26 @@ const Dashboard: React.FC = () => {
                 <TodaysCollectionCard />
 
                 <SmartMetricCard
+                    title="Positive Riders"
+                    value={stats.positiveWalletCount}
+                    icon={TrendingUp}
+                    color="emerald"
+                    subtitle="Wallet > 0"
+                    trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
+                />
+
+                <SmartMetricCard
+                    title="Negative Riders"
+                    value={stats.negativeWalletCount}
+                    icon={TrendingDown}
+                    color="rose"
+                    subtitle="Wallet < 0"
+                    trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                />
+
+                <SmartMetricCard
                     title="Outstanding Risk"
                     value={stats.outstandingDues}
                     icon={AlertTriangle}
