@@ -39,12 +39,8 @@ const ReconciliationWidget: React.FC = () => {
         try {
             await LedgerAPI.reconcileRider(riderId);
             toast.success('Wallet reconciled successfully');
-            // Optimistically remove/update item
-            const item = items.find(i => i.rider_id === riderId);
-            if (item) {
-                // Or just refresh
-                fetchData();
-            }
+            // Refresh data to show updated status
+            await fetchData();
         } catch (err: any) {
             toast.error(err.message || 'Failed to reconcile');
         } finally {

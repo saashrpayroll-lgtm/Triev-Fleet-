@@ -7,7 +7,8 @@ import { LedgerAPI } from '@/api/ledger';
 import { toast } from 'sonner';
 
 const adjustmentSchema = z.object({
-    amount: z.number().min(1, 'Amount must be greater than 0'),
+    // Allow negative numbers (we'll handle logic), but effectively we want non-zero
+    amount: z.number().refine(val => val !== 0, 'Amount cannot be zero'),
     type: z.enum(['MANUAL_ADJUSTMENT', 'DAILY_COLLECTION'] as const),
     mode: z.enum(['ADD', 'SUBTRACT'] as const),
     description: z.string().min(3, 'Reason is required'),
@@ -47,15 +48,39 @@ const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
     });
 
     const mode = watch('mode');
+    const amountValue = watch('amount');
+
+    // Effect: Auto-switch mode based on input sign
+    React.useEffect(() => {
+        if (amountValue < 0) {
+            setValue('mode', 'SUBTRACT');
+            // We don't necessarily need to flip the sign in the input immediately as it might confuse typing,
+            // but for the submission we will handle absolute values.
+        } else if (amountValue > 0 && mode === 'SUBTRACT' && !isSubmitting) {
+            // If user manually set SUBTRACT, we let them keep it positive standardly.
+            // But if they type positive, we default to ADD unless they clicked Deduct.
+            // Actually, simplified logic: A negative input IMPLIES deduction.
+        }
+    }, [amountValue, setValue]);
 
     const handleTransaction = async (data: any) => {
         setIsSubmitting(true);
         try {
+            // Logic: If user typed negative, treat as SUBTRACT with positive magnitude.
+            // If user typed positive but selected SUBTRACT, treat as SUBTRACT.
+            let finalAmount = data.amount;
+            let finalMode = data.mode;
+
+            if (finalAmount < 0) {
+                finalAmount = Math.abs(finalAmount);
+                finalMode = 'SUBTRACT';
+            }
+
             await LedgerAPI.addTransaction({
                 riderId,
-                amount: data.amount,
+                amount: finalAmount,
                 type: data.type,
-                mode: data.mode,
+                mode: finalMode,
                 description: data.description,
                 metadata: { source: 'admin_panel' }
             });

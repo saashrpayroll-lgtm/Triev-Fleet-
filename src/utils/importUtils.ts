@@ -440,6 +440,7 @@ export const processWalletUpdate = async (
                 throw new Error("Missing Identifier: 'Triev ID' or 'Mobile Number' is required column.");
             }
             if (isNaN(amount)) throw new Error("Invalid Wallet Amount value.");
+            // Note: We accept 0 as a valid target balance (e.g. clearing dues)
 
             let matchData = null;
             // let identifierUsed = '';

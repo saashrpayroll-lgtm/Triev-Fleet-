@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2, RefreshCw, Download as DownloadIcon } from 'lucide-react';
+import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2, RefreshCw, Download as DownloadIcon, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import DataImport from '@/components/DataImport';
 import GlassCard from '@/components/GlassCard';
@@ -9,6 +9,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import { downloadRiderTemplate, downloadWalletTemplate, downloadRentCollectionTemplate } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
+import RiderAuditModal from '@/components/RiderAuditModal';
 
 const DataManagement: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -24,6 +25,7 @@ const DataManagement: React.FC = () => {
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
+    const [showAuditModal, setShowAuditModal] = useState(false);
 
     // Refs for interval
     const riderConfigRef = React.useRef(riderConfig);
@@ -430,10 +432,21 @@ const DataManagement: React.FC = () => {
                             >
                                 <DownloadIcon size={16} /> Download Template
                             </button>
+                            <button
+                                onClick={() => setShowAuditModal(true)}
+                                className="px-4 py-2 text-sm font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 rounded-lg flex gap-2 items-center transition-colors border border-purple-200"
+                            >
+                                <Search size={16} /> Audit / Sync Check
+                            </button>
                         </div>
                         <DataImport onImport={handleRiderImport} mode="rider" />
                     </GlassCard>
                 )}
+
+                <RiderAuditModal
+                    isOpen={showAuditModal}
+                    onClose={() => setShowAuditModal(false)}
+                />
 
                 {activeTab === 'wallet' && (
                     <GlassCard className="p-8">
