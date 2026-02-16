@@ -749,7 +749,7 @@ export const processRentCollectionImport = async (
                         riderId: riderId,
                         balance: (txnResult as any).new_balance,
                         date: transactionDateStr, // Use transaction date
-                        source: 'RENT_COLLECTION_AUTO'
+                        source: 'RIDER_IMPORT'
                     });
                 }
 

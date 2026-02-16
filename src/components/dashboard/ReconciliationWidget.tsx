@@ -62,7 +62,7 @@ const ReconciliationWidget: React.FC = () => {
                 riderId: riderId,
                 balance: systemBalance,
                 date: new Date().toISOString(),
-                source: 'MANUAL_TRUST_SYSTEM'
+                source: 'MANUAL_SNAPSHOT'
             });
             toast.success('Snapshot updated to match System Balance');
             fetchData();
@@ -113,7 +113,7 @@ const ReconciliationWidget: React.FC = () => {
                         riderId: item.rider_id,
                         balance: item.system_balance,
                         date: new Date().toISOString(),
-                        source: 'MANUAL_TRUST_SYSTEM' // Bulk Trust
+                        source: 'MANUAL_SNAPSHOT' // Bulk Trust
                     });
                     successCount++;
                 } catch (e) {
