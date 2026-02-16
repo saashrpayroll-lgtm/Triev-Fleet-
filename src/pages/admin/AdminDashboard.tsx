@@ -299,7 +299,7 @@ const Dashboard: React.FC = () => {
                     conversionRate
                 },
                 status: tl.status,
-                totalCollection: ftdCollections[tl.id] || 0 // Use FTD instead of Total
+                totalCollection: tlCollections[tl.id] || 0 // Use Total Collection (All Time/Month) instead of FTD
             };
         });
     }, [rawData, tlCollections, ftdCollections]);

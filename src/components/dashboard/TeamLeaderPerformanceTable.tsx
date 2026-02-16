@@ -7,6 +7,8 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '../ui/dropdown-menu';
 
+import CollectionHistoryModal from './CollectionHistoryModal';
+
 export interface TLSnapshot {
     id: string;
     name: string;
@@ -37,6 +39,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
     const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff' | 'totalCollection', direction: 'asc' | 'desc' } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+    const [historyModalData, setHistoryModalData] = useState<{ id: string, name: string } | null>(null);
 
     const filteredData = React.useMemo(() => {
         let processed = [...data];
@@ -247,7 +250,11 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                             <DropdownMenuItem onClick={() => navigate('/portal/leads', { state: { filter: 'teamLeader', value: tl.id } })}>
                                                 View Leads
                                             </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setHistoryModalData({ id: tl.id, name: tl.name })}>
+                                                View Collection History
+                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
+
                                     </DropdownMenu>
                                 </td>
                             </tr>
@@ -260,6 +267,16 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                     </div>
                 )}
             </div>
+
+            {/* Collection History Modal */}
+            {
+                historyModalData && <CollectionHistoryModal
+                    isOpen={!!historyModalData}
+                    onClose={() => setHistoryModalData(null)}
+                    teamLeaderId={historyModalData.id}
+                    teamLeaderName={historyModalData.name}
+                />
+            }
         </div>
     );
 };

@@ -216,6 +216,7 @@ const Reports: React.FC = () => {
                         .select('amount, mode, type, rider_id, created_at')
                         .gte('created_at', startDate.toISOString())
                         .lte('created_at', endDate.toISOString())
+                        .eq('transaction_type', 'DAILY_COLLECTION') // STRICT: Only Rent Collection
                         .eq('mode', 'ADD'); // Only ADDs (Credits/Collections)
 
                     // Map to expected format with TL ID from riders state

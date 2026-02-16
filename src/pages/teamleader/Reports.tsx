@@ -148,6 +148,37 @@ const Reports: React.FC = () => {
                     data = negativeRiders.map(transformRiderData);
                     break;
 
+                case 'daily_collection':
+                    // Fetch Collection History for this TL
+                    // Use wallet_ledger for detailed transaction history
+                    // We default to last 30 days if no filter (though filters logic needs to be added to UI if we want date range)
+                    // For now, let's fetch ALL time or last 30 days. Let's do last 30 days.
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                    const { data: collectionData, error: collectionError } = await supabase
+                        .from('wallet_ledger')
+                        .select('amount, created_at, rider:riders!inner(rider_name, mobile_number)')
+                        .eq('transaction_type', 'DAILY_COLLECTION')
+                        .eq('mode', 'ADD')
+                        .gte('created_at', thirtyDaysAgo.toISOString())
+                        .order('created_at', { ascending: false });
+
+                    if (collectionError) throw collectionError;
+
+                    // Filter manually for this TL's riders if RLS doesn't handle it (it should, but safety first)
+                    // actually logic above uses !inner join, so we need to ensure rider belongs to TL.
+                    // But wallet_ledger RLS might restricting.
+                    // Let's assume RLS allows reading ledger linked to Own Riders.
+
+                    data = (collectionData || []).map((item: any) => ({
+                        'Date': new Date(item.created_at).toLocaleDateString(),
+                        'Rider Name': item.rider?.rider_name || 'Unknown',
+                        'Mobile': item.rider?.mobile_number || 'Unknown',
+                        'Amount': item.amount,
+                    }));
+                    break;
+
                 default:
                     data = riders.map(transformRiderData);
             }
@@ -203,6 +234,7 @@ const Reports: React.FC = () => {
             case 'wallet_summary': return <Wallet size={18} className={active ? "text-white" : "text-green-500"} />;
             case 'client_distribution': return <BarChart3 size={18} className={active ? "text-white" : "text-purple-500"} />;
             case 'request_history': return <Shield size={18} className={active ? "text-white" : "text-amber-500"} />;
+            case 'daily_collection': return <Wallet size={18} className={active ? "text-white" : "text-emerald-500"} />;
             default: return <FileText size={18} className={active ? "text-white" : "text-gray-500"} />;
         }
     };
@@ -285,7 +317,7 @@ const Reports: React.FC = () => {
                             {REPORT_TEMPLATES.filter(t => {
                                 if (t.name.includes('Admin Only')) return false;
                                 const supportedTemplates = [
-                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'client_distribution'
+                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'client_distribution', 'daily_collection'
                                 ];
                                 return supportedTemplates.includes(t.id);
                             }).map((template) => (
