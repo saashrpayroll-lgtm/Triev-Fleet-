@@ -295,7 +295,8 @@ export const processRiderImport = async (
             const orConditions = [];
             if (trievId) orConditions.push(`triev_id.eq.${trievId}`);
             if (mobile) orConditions.push(`mobile_number.eq.${mobile}`);
-            if (chassis) orConditions.push(`chassis_number.eq.${chassis}`);
+            // User Request: Do NOT use Chassis for duplicate check. Only ID and Mobile.
+            // if (chassis) orConditions.push(`chassis_number.eq.${chassis}`);
 
             if (orConditions.length > 0) {
                 const { data, error } = await supabase
