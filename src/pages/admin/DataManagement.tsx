@@ -259,7 +259,7 @@ const DataManagement: React.FC = () => {
     const handleRentCollectionImport = async (data: any[]) => {
         if (!userData) return;
         try {
-            const summary = await processRentCollectionImport(data, userData.fullName);
+            const summary = await processRentCollectionImport(data, userData.id, userData.fullName);
             alert(`Rent Collection Import Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
             setActiveTab('history');
         } catch (error) {

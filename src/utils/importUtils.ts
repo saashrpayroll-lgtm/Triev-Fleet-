@@ -544,7 +544,7 @@ export const REQUIRED_RENT_COLLECTION_COLUMNS = [
 
 export const processRentCollectionImport = async (
     fileData: any[],
-    // adminId: string, // Removed unused
+    adminId: string,
     adminName: string
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
@@ -772,6 +772,9 @@ export const processRentCollectionImport = async (
             reason: `Fatal Error: ${error.message}`
         });
     }
+
+    // Log Import History
+    await logImportHistory(adminId, adminName, 'googleSheet', summary, fileData.length);
 
     return summary;
 };
