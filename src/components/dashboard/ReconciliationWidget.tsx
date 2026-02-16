@@ -87,73 +87,96 @@ const ReconciliationWidget: React.FC = () => {
                     await LedgerAPI.reconcileRider(item.rider_id);
                     successCount++;
                 } catch (e) {
-                    console.error(`Failed to reconcile ${item.rider_id}`, e);
+                    console.error(`Failed to reconcile ${item.rider_name}`, e);
                 }
             }
-            toast.success(`Reconciled ${successCount} out of ${items.length} riders`);
+            toast.success(`Successfully reconciled ${successCount} wallets`);
             fetchData();
         } catch (err: any) {
-            toast.error('Batch reconciliation failed');
+            toast.error('Bulk reconciliation failed');
         } finally {
             setReconcilingAll(false);
         }
     };
 
-    if (loading) return (
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-        </div>
-    );
+    const handleTrustAll = async () => {
+        if (!confirm(`Are you sure you want to trust the System Balance for all ${items.length} riders? This will update their snapshots.`)) {
+            return;
+        }
 
-    if (items.length === 0) {
+        setReconcilingAll(true);
+        try {
+            let successCount = 0;
+            for (const item of items) {
+                try {
+                    await LedgerAPI.processSnapshot({
+                        riderId: item.rider_id,
+                        balance: item.system_balance,
+                        date: new Date().toISOString(),
+                        source: 'MANUAL_TRUST_SYSTEM' // Bulk Trust
+                    });
+                    successCount++;
+                } catch (e) {
+                    console.error(`Failed to update snapshot for ${item.rider_name}`, e);
+                }
+            }
+            toast.success(`Successfully updated snapshots for ${successCount} riders`);
+            fetchData();
+        } catch (err: any) {
+            toast.error('Bulk snapshot update failed');
+        } finally {
+            setReconcilingAll(false);
+        }
+    };
+
+    if (loading && items.length === 0) {
         return (
-            <div className="bg-card border border-border rounded-xl p-6 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                        <CheckCircle className="text-green-600 dark:text-green-400" size={20} />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-lg">System Reconciled</h3>
-                        <p className="text-sm text-muted-foreground">All wallet balances match snapshots.</p>
-                    </div>
-                </div>
-                <button onClick={fetchData} className="p-2 hover:bg-muted rounded-full">
-                    <RefreshCcw size={16} className="text-muted-foreground" />
-                </button>
+            <div className="p-6 text-center space-y-3 animate-pulse">
+                <div className="h-4 bg-muted rounded w-3/4 mx-auto"></div>
+                <div className="h-4 bg-muted rounded w-1/2 mx-auto"></div>
             </div>
         );
     }
 
+    if (items.length === 0) return null;
+
     return (
-        <div className="bg-card border border-red-200 dark:border-red-900/30 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 bg-red-50 dark:bg-red-950/20 border-b border-red-100 dark:border-red-900/10 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <AlertTriangle className="text-red-600 animate-pulse" size={20} />
+        <div className="bg-card border-l-4 border-l-amber-500 rounded-r-xl shadow-sm overflow-hidden mb-6 animate-in slide-in-from-top-2 duration-500">
+            <div className="p-4 bg-amber-50/50 dark:bg-amber-950/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-full text-amber-600 mt-1">
+                        <AlertTriangle size={20} />
+                    </div>
                     <div>
-                        <h3 className="font-bold text-red-700 dark:text-red-400">Reconciliation Action Required</h3>
-                        <p className="text-xs text-red-600/80 hidden sm:block">
-                            {items.length} riders have balance mismatches.
+                        <h3 className="font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                            {items.length} Wallet Discrepancies Detected
+                        </h3>
+                        <p className="text-sm text-amber-700 dark:text-amber-300/80 mt-1">
+                            Calculated Ledger Balance does not match the imported Snapshot.
+                            <br />
+                            <span className="text-xs opacity-80">This usually happens after manual edits or missing history.</span>
                         </p>
                     </div>
-                    <span className="bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs px-2 py-0.5 rounded-full font-bold ml-2">
-                        {items.length}
-                    </span>
                 </div>
                 <div className="flex gap-2">
                     <button
+                        onClick={handleTrustAll}
+                        disabled={reconcilingAll}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {reconcilingAll ? <RefreshCcw size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                        Trust System (All)
+                    </button>
+                    <button
                         onClick={handleReconcileAll}
                         disabled={reconcilingAll}
-                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 disabled:opacity-50 transition-colors shadow-sm"
+                        className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
                     >
-                        {reconcilingAll ? (
-                            <RefreshCcw size={14} className="animate-spin" />
-                        ) : (
-                            <Zap size={14} /> // Thunderbolt icon
-                        )}
-                        {reconcilingAll ? 'Fixing...' : 'Fix All'}
+                        {reconcilingAll ? <RefreshCcw size={16} className="animate-spin" /> : <Zap size={16} />}
+                        Fix All
                     </button>
-                    <button onClick={fetchData} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full transition-colors">
-                        <RefreshCcw size={14} className="text-red-700 dark:text-red-400" />
+                    <button onClick={fetchData} className="p-2 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-full transition-colors text-amber-700">
+                        <RefreshCcw size={16} />
                     </button>
                 </div>
             </div>
