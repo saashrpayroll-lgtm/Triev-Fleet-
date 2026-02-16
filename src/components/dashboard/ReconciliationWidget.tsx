@@ -52,6 +52,27 @@ const ReconciliationWidget: React.FC = () => {
         }
     };
 
+    const handleAcceptSystem = async (riderId: string, systemBalance: number) => {
+        if (!confirm("Are you sure the System Balance is correct? This will update the Snapshot to match.")) return;
+
+        setReconciling(riderId);
+        try {
+            // Update Snapshot to match System Balance
+            await LedgerAPI.processSnapshot({
+                riderId: riderId,
+                balance: systemBalance,
+                date: new Date().toISOString(),
+                source: 'MANUAL_TRUST_SYSTEM'
+            });
+            toast.success('Snapshot updated to match System Balance');
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to update snapshot');
+        } finally {
+            setReconciling(null);
+        }
+    };
+
     const handleReconcileAll = async () => {
         if (!confirm(`Are you sure you want to auto-fix ${items.length} wallet discrepancies? This will add correcting transactions.`)) {
             return;
@@ -155,18 +176,33 @@ const ReconciliationWidget: React.FC = () => {
                                 </span>
                             </div>
 
-                            <button
-                                onClick={() => handleReconcile(item.rider_id)}
-                                disabled={reconciling === item.rider_id || reconcilingAll}
-                                className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
-                                title="Auto-Fix Balance"
-                            >
-                                {reconciling === item.rider_id ? (
-                                    <RefreshCcw size={14} className="animate-spin" />
-                                ) : (
-                                    'Fix'
-                                )}
-                            </button>
+                            <div className="flex gap-1.5">
+                                <button
+                                    onClick={() => handleAcceptSystem(item.rider_id, item.system_balance)}
+                                    disabled={reconciling === item.rider_id || reconcilingAll}
+                                    className="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                                    title="Update Snapshot to match System Balance (Trust System)"
+                                >
+                                    {reconciling === item.rider_id ? (
+                                        <RefreshCcw size={14} className="animate-spin" />
+                                    ) : (
+                                        'Trust System'
+                                    )}
+                                </button>
+
+                                <button
+                                    onClick={() => handleReconcile(item.rider_id)}
+                                    disabled={reconciling === item.rider_id || reconcilingAll}
+                                    className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+                                    title="Auto-Fix Balance (Trust Snapshot)"
+                                >
+                                    {reconciling === item.rider_id ? (
+                                        <RefreshCcw size={14} className="animate-spin" />
+                                    ) : (
+                                        'Fix'
+                                    )}
+                                </button>
+                            </div>
 
                             <button
                                 onClick={() => navigate(`/portal/history/${item.rider_id}`)}

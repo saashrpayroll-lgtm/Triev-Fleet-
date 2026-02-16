@@ -722,7 +722,9 @@ export const processRentCollectionImport = async (
 
                 // 4. Update Wallet via LedgerAPI
                 // Collection = Credit = ADD mode (Standard Wallet: Adds to balance)
-                await LedgerAPI.addTransaction({
+                // 4. Update Wallet via LedgerAPI
+                // Collection = Credit = ADD mode (Standard Wallet: Adds to balance)
+                const txnResult = await LedgerAPI.addTransaction({
                     riderId: riderId,
                     amount: amount,
                     type: 'DAILY_COLLECTION' as any,
@@ -738,6 +740,18 @@ export const processRentCollectionImport = async (
                     source: 'IMPORT',
                     transactionDate: transactionDateStr
                 });
+
+                // AUTO-SYNC SNAPSHOT:
+                // To prevent Reconciliation Mismatch (Stale Snapshot vs New System Balance),
+                // we immediately pin the new balance as a verified Snapshot.
+                if (txnResult && (txnResult as any).new_balance !== undefined) {
+                    await LedgerAPI.processSnapshot({
+                        riderId: riderId,
+                        balance: (txnResult as any).new_balance,
+                        date: transactionDateStr, // Use transaction date
+                        source: 'RENT_COLLECTION_AUTO'
+                    });
+                }
 
                 summary.success++;
             } catch (err: any) {
