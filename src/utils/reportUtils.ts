@@ -191,6 +191,18 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
         parameters: ['dateRange', 'actionType'],
     },
     {
+        id: 'revenue_report',
+        name: 'Revenue Report (Billing vs Collection)',
+        description: 'Comparison of Daily Rent Charges (Billing) vs Actual Collections',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'defaulter_list',
+        name: 'Defaulter List (High Debt)',
+        description: 'List of riders with high negative wallet balance',
+        parameters: ['threshold'],
+    },
+    {
         id: 'system_health',
         name: 'System Health & Stats',
         description: 'Overview of system counts and status distribution',
@@ -679,6 +691,7 @@ export const formatReportForExport = (reportType: string, data: any[]): any[] =>
         // Use raw data for these as they are already formatted in generators or are flat
         case 'request_history':
         case 'activity_log_report':
+        case 'defaulter_list': // Add defaulter list here for formatting
         case 'system_health':
             return data;
 
@@ -686,7 +699,105 @@ export const formatReportForExport = (reportType: string, data: any[]): any[] =>
             return data;
     }
 };
+
+
+
 // ... existing code ...
+
+/**
+ * Generate Revenue Report (Billing vs Collection)
+ */
+export const generateRevenueReport = (
+    ledgerEntries: any[],
+    startDate: Date,
+    endDate: Date
+): any[] => {
+    const dateMap = new Map<string, { billing: number; collection: number }>();
+    const dateKeys: string[] = [];
+
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Initialize dates
+    while (currentDate <= end) {
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const year = currentDate.getFullYear();
+        const dateStr = `${day}/${month}/${year}`; // DD/MM/YYYY
+
+        dateKeys.push(dateStr);
+        dateMap.set(dateStr, { billing: 0, collection: 0 });
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Process Ledger Entries
+    ledgerEntries.forEach(entry => {
+        // Safe date parsing
+        const txnDate = new Date(entry.transaction_date || entry.created_at);
+        if (isNaN(txnDate.getTime())) return;
+
+        const day = String(txnDate.getDate()).padStart(2, '0');
+        const month = String(txnDate.getMonth() + 1).padStart(2, '0');
+        const year = txnDate.getFullYear();
+        const dateStr = `${day}/${month}/${year}`;
+
+        if (dateMap.has(dateStr)) {
+            const current = dateMap.get(dateStr)!;
+            const amount = Number(entry.amount) || 0;
+
+            if (entry.transaction_type === 'SYSTEM_RENT_CHARGE' && entry.mode === 'SUBTRACT') {
+                current.billing += amount;
+            } else if (entry.transaction_type === 'DAILY_COLLECTION' && entry.mode === 'ADD') {
+                current.collection += amount;
+            }
+        }
+    });
+
+    const result = dateKeys.map(date => {
+        const data = dateMap.get(date)!;
+        return {
+            'Date': date,
+            'Billing (Rent)': data.billing,
+            'Collection': data.collection,
+            'Net Flow': data.collection - data.billing,
+            'Recovery %': data.billing > 0 ? ((data.collection / data.billing) * 100).toFixed(1) + '%' : 'N/A'
+        };
+    });
+
+    // Add Total Row
+    const totalBilling = result.reduce((sum, r) => sum + r['Billing (Rent)'], 0);
+    const totalCollection = result.reduce((sum, r) => sum + r['Collection'], 0);
+
+    result.push({
+        'Date': 'TOTAL',
+        'Billing (Rent)': totalBilling,
+        'Collection': totalCollection,
+        'Net Flow': totalCollection - totalBilling,
+        'Recovery %': totalBilling > 0 ? ((totalCollection / totalBilling) * 100).toFixed(1) + '%' : 'N/A'
+    });
+
+    return result;
+};
+
+/**
+ * Generate Defaulter Report
+ */
+export const generateDefaulterReport = (riders: Rider[], threshold: number = -1000): any[] => {
+    return riders
+        .filter(r => (r.walletAmount || 0) <= threshold)
+        .sort((a, b) => a.walletAmount - b.walletAmount) // Ascending (Most negative first)
+        .map(r => ({
+            'Rider Name': r.riderName,
+            'Triev ID': r.trievId || '-',
+            'Mobile': r.mobileNumber,
+            'Wallet Balance': r.walletAmount,
+            'Status': r.status,
+            'Team Leader': r.teamLeaderName || 'Unassigned',
+            'Days Since Allotment': r.allotmentDate
+                ? Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24))
+                : '-'
+        }));
+};
 
 export interface WalletTransactionSummary {
     amount: number;

@@ -22,6 +22,8 @@ import {
     generateActivityReport,
     generateSystemHealthReport,
     generateTLDailyCollectionReport,
+    generateRevenueReport,
+    generateDefaulterReport,
     getInactiveRiders,
     getNegativeWalletRiders,
     transformRiderData,
@@ -41,6 +43,12 @@ interface ReportFilters {
 // --- Constants ---
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
+interface SummaryStat {
+    label: string;
+    value: string | number;
+    color: string;
+}
+
 const Reports: React.FC = () => {
     // --- State ---
     const [viewMode, setViewMode] = useState<'dashboard' | 'reports'>('dashboard');
@@ -58,10 +66,12 @@ const Reports: React.FC = () => {
         startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
         endDate: format(new Date(), 'yyyy-MM-dd'),
     });
+    const [threshold] = useState(-1000); // Default threshold for defaulters
 
     // Report Generation State
     const [selectedTemplate, setSelectedTemplate] = useState('active_riders');
     const [reportData, setReportData] = useState<any[]>([]);
+    const [reportStats, setReportStats] = useState<SummaryStat[]>([]);
     const [reportGenerated, setReportGenerated] = useState(false);
     const [generating, setGenerating] = useState(false);
 
@@ -208,30 +218,100 @@ const Reports: React.FC = () => {
                 case 'system_health':
                     data = generateSystemHealthReport(riders, teamLeaders, requests);
                     break;
-                case 'tl_daily_collection':
-                    // Fetch logs for the specific date range
-                    // Updated to use wallet_ledger as the source of truth
+                case 'revenue_report': {
+                    // Fetch billing (Rent Charges) and Collections
                     const { data: ledgerEntries } = await supabase
                         .from('wallet_ledger')
-                        .select('amount, mode, type, rider_id, created_at')
+                        .select('amount, mode, transaction_type, transaction_date, created_at')
                         .gte('created_at', startDate.toISOString())
                         .lte('created_at', endDate.toISOString())
-                        .eq('transaction_type', 'DAILY_COLLECTION') // STRICT: Only Rent Collection
-                        .eq('mode', 'ADD'); // Only ADDs (Credits/Collections)
+                        .in('transaction_type', ['SYSTEM_RENT_CHARGE', 'DAILY_COLLECTION']);
 
-                    // Map to expected format with TL ID from riders state
-                    const mappedLogs = (ledgerEntries || []).map((entry: any) => {
-                        const rider = riders.find(r => r.id === entry.rider_id);
-                        return {
-                            amount: entry.amount,
-                            type: 'credit', // normalize for reportUtils expectation
-                            team_leader_id: rider?.teamLeaderId || '',
-                            timestamp: entry.created_at
-                        };
-                    });
+                    if (!ledgerEntries) throw new Error('Failed to fetch revenue data');
 
-                    data = generateTLDailyCollectionReport(mappedLogs, teamLeaders, startDate, endDate, selectedTLs);
+                    const revenueReportData = generateRevenueReport(ledgerEntries, startDate, endDate);
+                    setReportData(revenueReportData);
+
+                    // Summary Stats
+                    const totalBillingRevenue = revenueReportData.find((r: any) => r.Date === 'TOTAL')?.['Billing (Rent)'] || 0;
+                    const totalCollectionRevenue = revenueReportData.find((r: any) => r.Date === 'TOTAL')?.['Collection'] || 0;
+
+                    setReportStats([
+                        { label: 'Total Billed', value: `₹${totalBillingRevenue.toLocaleString()}`, color: 'blue' },
+                        { label: 'Total Collected', value: `₹${totalCollectionRevenue.toLocaleString()}`, color: 'green' },
+                        { label: 'Net Flow', value: `₹${(totalCollectionRevenue - totalBillingRevenue).toLocaleString()}`, color: totalCollectionRevenue - totalBillingRevenue >= 0 ? 'emerald' : 'rose' }
+                    ]);
                     break;
+                }
+
+                case 'defaulter_list': {
+                    // Fetch riders with negative wallet
+                    const { data: defaulterRiders } = await supabase
+                        .from('riders')
+                        .select('*')
+                        .lt('wallet_amount', 0) // Only negative
+                        .order('wallet_amount', { ascending: true }); // Highest debt first
+
+                    if (!defaulterRiders) throw new Error('Failed to fetch defaulter list');
+
+                    // Filter by threshold if provided
+                    const defaulterReportData = generateDefaulterReport(defaulterRiders, threshold);
+                    setReportData(defaulterReportData);
+
+                    // Summary Stats
+                    const totalDebt = defaulterRiders.reduce((sum, r) => sum + Math.abs(r.wallet_amount), 0);
+                    const avgDebt = defaulterRiders.length > 0 ? totalDebt / defaulterRiders.length : 0;
+
+                    setReportStats([
+                        { label: 'Total Defaulters', value: defaulterRiders.length, color: 'rose' },
+                        { label: 'Total Debt', value: `₹${totalDebt.toLocaleString()}`, color: 'red' },
+                        { label: 'Avg Debt', value: `₹${avgDebt.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, color: 'orange' }
+                    ]);
+                    break;
+                }
+
+                case 'tl_daily_collection': {
+                    // Fetch Active Team Leaders
+                    const { data: teamLeaders } = await supabase
+                        .from('users')
+                        .select('id, fullName:full_name')
+                        .eq('role', 'teamLeader')
+                        .eq('status', 'active');
+
+                    // FIX: We must join riders to attribute collection to a TL.
+                    // Rewriting query to include RIDER relationship.
+                    const { data: ledgerWithRiders } = await supabase
+                        .from('wallet_ledger')
+                        .select(`
+                            amount, 
+                            created_at,
+                            rider:riders (
+                                team_leader_id
+                            )
+                        `)
+                        .gte('created_at', startDate.toISOString())
+                        .lte('created_at', endDate.toISOString())
+                        .eq('transaction_type', 'DAILY_COLLECTION')
+                        .eq('mode', 'ADD');
+
+                    if (!ledgerWithRiders || !teamLeaders) throw new Error('Failed to fetch ledger data');
+
+                    const logsForReport = ledgerWithRiders.map((entry: any) => ({
+                        amount: entry.amount,
+                        type: 'credit',
+                        team_leader_id: entry.rider?.team_leader_id,
+                        timestamp: entry.created_at
+                    })).filter(l => l.team_leader_id); // Filter out unassigned
+
+                    data = generateTLDailyCollectionReport(
+                        logsForReport as any[],
+                        teamLeaders.map(tl => ({ ...tl, id: tl.id, fullName: tl.fullName })) as any[],
+                        startDate,
+                        endDate,
+                        selectedTLs
+                    );
+                    break;
+                }
                 default:
                     data = riders.map(transformRiderData);
             }
@@ -511,6 +591,18 @@ const Reports: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Summary Stats Cards */}
+                            {reportGenerated && reportStats.length > 0 && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4">
+                                    {reportStats.map((stat, idx) => (
+                                        <div key={idx} className={`p-4 rounded-xl border border-${stat.color}-500/20 bg-${stat.color}-500/10`}>
+                                            <p className={`text-xs font-bold uppercase text-${stat.color}-500 mb-1`}>{stat.label}</p>
+                                            <p className="text-2xl font-black">{stat.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* Result Table */}
                             {reportGenerated && (
