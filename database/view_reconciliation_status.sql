@@ -1,7 +1,5 @@
--- SMART RECONCILIATION VIEW (FIXED)
--- Adjusts for authorized transactions that happened AFTER the snapshot was taken.
--- 1. Drops existing view to handle schema changes.
--- 2. Preserves 'snapshot_balance' column name for Frontend compatibility.
+-- SMART RECONCILIATION VIEW (FIXED - EXCLUDES AUTO-FIXES)
+-- Prevents "Infinite Increase" loop by ignoring Auto-Reconciliation txns in Expected Balance.
 
 DROP VIEW IF EXISTS public.view_reconciliation_status CASCADE;
 
@@ -28,6 +26,7 @@ ledger_movements AS (
     FROM public.wallet_ledger wl
     JOIN latest_snapshots ls ON wl.rider_id = ls.rider_id
     WHERE wl.created_at > ls.created_at -- Only transactions AFTER the snapshot
+      AND (wl.metadata->>'reconciled_from_snapshot') IS DISTINCT FROM 'true' -- <--- CRITICAL FIX: Ignore Auto-Fixes
     GROUP BY wl.rider_id
 )
 SELECT 
@@ -37,7 +36,7 @@ SELECT
     r.mobile_number,
     r.team_leader_id,
     r.wallet_amount AS system_balance,
-    ls.snapshot_balance AS snapshot_balance, -- Kept original name for Frontend compatibility
+    ls.snapshot_balance AS snapshot_balance,
     COALESCE(lm.movement_since_snapshot, 0) AS authorized_movement,
     (ls.snapshot_balance + COALESCE(lm.movement_since_snapshot, 0)) AS expected_balance,
     ls.snapshot_date,

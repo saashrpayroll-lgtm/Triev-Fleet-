@@ -1,6 +1,6 @@
--- 3. One-Click Reconciliation Fix (SMART VERSION)
+-- 3. One-Click Reconciliation Fix (SMART VERSION - EXCLUDES AUTO-FIXES)
 -- Reconciles rider's balance with (Snapshot + Approved Transactions since Snapshot).
--- Avoids reverting valid collections when "Fix" is clicked.
+-- EXCLUDES previous Auto-Reconciliation transactions to prevent infinite loops.
 
 CREATE OR REPLACE FUNCTION public.reconcile_rider_balance(
     p_rider_id UUID
@@ -30,7 +30,7 @@ BEGIN
     END IF;
 
     -- 2. Calculate Approved Movements Since Snapshot
-    -- (This logic must match view_reconciliation_status)
+    -- CRITICAL FIX: Exclude 'reconciled_from_snapshot' transactions
     SELECT COALESCE(SUM(
         CASE 
             WHEN mode = 'ADD' THEN amount 
@@ -41,7 +41,8 @@ BEGIN
     INTO v_movement_since_snapshot
     FROM public.wallet_ledger 
     WHERE rider_id = p_rider_id 
-      AND created_at > v_snapshot_created_at;
+      AND created_at > v_snapshot_created_at
+      AND (metadata->>'reconciled_from_snapshot') IS DISTINCT FROM 'true'; -- Ignore Auto-Fixes
 
     -- 3. Determine Target Balance
     v_target_balance := v_snapshot_balance + v_movement_since_snapshot;
