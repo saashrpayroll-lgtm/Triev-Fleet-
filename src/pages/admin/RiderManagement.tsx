@@ -121,6 +121,7 @@ const RiderManagement: React.FC = () => {
 
     // Deep Linking Handler
     // Deep Linking Handler
+    // Deep Linking Handler
     useEffect(() => {
         // Handle State (Highlight Rider & Filters)
         const state = location.state as { highlightRiderId?: string, filter?: string, value?: string };
@@ -133,12 +134,30 @@ const RiderManagement: React.FC = () => {
             }
         }
 
-        // Handle Quick Filter from Dashboard (e.g., Team Leader Table)
-        if (state?.filter === 'teamLeader' && state.value) {
-            setAdvancedFilters(prev => ({ ...prev, teamLeader: state.value! }));
-            setShowAdvancedFilters(true);
-            // Clear state to prevent re-filtering on refresh if desired, or keep it. 
-            // Better to keep it for now or rely on the filter state.
+        // Handle Quick Filter from Dashboard
+        if (state?.filter) {
+            if (state.filter === 'teamLeader' && state.value) {
+                setAdvancedFilters(prev => ({ ...prev, teamLeader: state.value! }));
+                setShowAdvancedFilters(true);
+            }
+            // Map Wallet Filters
+            else if (state.filter === 'positive_wallet') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'positive' }));
+                setShowAdvancedFilters(true);
+            }
+            else if (state.filter === 'negative_wallet' || state.filter === 'high_debt') {
+                // 'high_debt' maps to negative for now, could add explicit sort later
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'negative' }));
+                setShowAdvancedFilters(true);
+            }
+            else if (state.filter === 'zero_balance') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'zero' }));
+                setShowAdvancedFilters(true);
+            }
+            // Map Status Filters
+            else if (['active', 'inactive', 'deleted'].includes(state.filter)) {
+                setActiveTab(state.filter as TabType);
+            }
         }
 
         // Handle URL Params (Filters)

@@ -429,7 +429,7 @@ const Dashboard: React.FC = () => {
                     color="fuchsia"
                     trend={{ value: 5, label: 'velocity', direction: 'up' }}
                     subtitle={`${stats.newLeadsToday} New Leads Today`}
-                    onClick={() => navigate('/portal/leads')}
+                    onClick={() => navigate('/portal/leads?status=New')}
                 />
 
                 {/* --- ROW 2: WALLET GRANULARITY --- */}
@@ -478,7 +478,7 @@ const Dashboard: React.FC = () => {
                     color="blue"
                     aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
                     subtitle={`${stats.criticalRequests} High Priority`}
-                    onClick={() => navigate('/portal/requests')}
+                    onClick={() => navigate('/portal/requests?status=pending')}
                 />
 
                 <SmartMetricCard
@@ -487,7 +487,7 @@ const Dashboard: React.FC = () => {
                     icon={Users}
                     color="orange"
                     subtitle={`${stats.activeTLs} Active Leaders`}
-                    onClick={() => navigate('/portal/users', { state: { filter: 'teamLeader' } })}
+                    onClick={() => navigate('/portal/users?role=teamLeader')}
                 />
 
                 <SmartMetricCard
@@ -496,7 +496,7 @@ const Dashboard: React.FC = () => {
                     icon={Sparkles}
                     color="lime"
                     subtitle="Last 30 Days"
-                    onClick={() => navigate('/portal/leads', { state: { filter: 'Convert' } })}
+                    onClick={() => navigate('/portal/leads?status=Convert')}
                 />
 
                 <SmartMetricCard

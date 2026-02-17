@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { Lead, Rider } from '@/types';
 import { AILeadStatsCards } from '@/components/AILeadStatsCards';
@@ -14,6 +15,7 @@ import { logActivity } from '@/utils/activityLog';
 
 const UserLeads: React.FC = () => {
     const { userData } = useSupabaseAuth();
+    const location = useLocation();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -23,7 +25,9 @@ const UserLeads: React.FC = () => {
 
     const [allLeads, setAllLeads] = useState<Lead[]>([]);
     const [allRiders, setAllRiders] = useState<Rider[]>([]);
-    // Removed unused activeFilter state
+
+    // Status Filter State
+    const [statusFilter, setStatusFilter] = useState('all');
 
     useEffect(() => {
         if (!userData?.id) return;
@@ -81,6 +85,21 @@ const UserLeads: React.FC = () => {
             subscription.unsubscribe();
         };
     }, [userData?.id]);
+
+    // Handle URL Params (Status Filter)
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const statusParam = params.get('status');
+        if (statusParam) {
+            setStatusFilter(statusParam);
+        }
+    }, [location.search]);
+
+    // Derived Logic
+    const filteredLeads = useMemo(() => {
+        if (statusFilter === 'all') return leads;
+        return leads.filter(l => l.status === statusFilter);
+    }, [leads, statusFilter]);
 
     // Permission Checks
     const canViewPage = userData?.permissions?.modules?.leads ?? true;
@@ -238,15 +257,31 @@ const UserLeads: React.FC = () => {
                     <h1 className="text-3xl font-bold">My Leads</h1>
                     <p className="text-muted-foreground">Track your sourced leads</p>
                 </div>
-                {canCreate && (
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
-                    >
-                        <Plus size={20} />
-                        Start Sourcing
-                    </button>
-                )}
+                <div className="flex items-center gap-3">
+                    {/* Status Filter UI */}
+                    <div className="relative">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="New">New</option>
+                            <option value="Convert">Convert</option>
+                            <option value="Not Convert">Not Convert</option>
+                        </select>
+                    </div>
+
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                        >
+                            <Plus size={20} />
+                            Start Sourcing
+                        </button>
+                    )}
+                </div>
             </div>
 
             {selectedLeads.size > 0 && (
@@ -284,7 +319,7 @@ const UserLeads: React.FC = () => {
 
             <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
                 <LeadsTable
-                    leads={leads}
+                    leads={filteredLeads}
                     loading={loading}
                     userRole="teamLeader"
                     onDelete={() => { toast.info("Use bulk delete or implement individual delete") }}

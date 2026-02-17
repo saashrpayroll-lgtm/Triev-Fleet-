@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { Request, RequestType, RequestPriority, Rider } from '@/types';
 import { Plus, Search, Filter, CheckCircle, Clock, XCircle, FileText, Sparkles, Loader, Trash2, CheckSquare, Square } from 'lucide-react';
@@ -8,12 +9,21 @@ import { logActivity } from '@/utils/activityLog';
 
 const Requests: React.FC = () => {
     const { userData } = useSupabaseAuth();
+    const location = useLocation();
     const [requests, setRequests] = useState<Request[]>([]);
     const [myRiders, setMyRiders] = useState<Rider[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const statusParam = params.get('status');
+        if (statusParam) {
+            setFilterStatus(statusParam);
+        }
+    }, [location.search]);
 
     // Bulk Selection
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

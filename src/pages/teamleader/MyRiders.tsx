@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { Rider, RiderStatus, RiderFormData, ClientName } from '@/types';
 import { Plus, Search, Filter, Download, Phone, MessageCircle, ChevronLeft, ChevronRight, Trash2, UserX, Loader2, AlertTriangle } from 'lucide-react';
@@ -25,6 +25,7 @@ interface AdvancedFilters {
 const MyRiders: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState<TabType>((searchParams.get('filter') as TabType) || 'all');
     const [riders, setRiders] = useState<Rider[]>([]);
     const [filteredRiders, setFilteredRiders] = useState<Rider[]>([]);
@@ -141,6 +142,31 @@ const MyRiders: React.FC = () => {
     useEffect(() => {
         setCurrentPage(1);
     }, [filteredRiders.length]);
+
+    // Deep Linking Handler for Dashboard Clicks
+    useEffect(() => {
+        const state = location.state as { filter?: string };
+
+        if (state?.filter) {
+            // Map Wallet Filters
+            if (state.filter === 'positive_wallet') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'positive' }));
+                setShowAdvancedFilters(true);
+            }
+            else if (state.filter === 'negative_wallet') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'negative' }));
+                setShowAdvancedFilters(true);
+            }
+            else if (state.filter === 'zero_balance') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'zero' }));
+                setShowAdvancedFilters(true);
+            }
+            // Map Status Filters
+            else if (['active', 'inactive', 'deleted'].includes(state.filter)) {
+                setActiveTab(state.filter as TabType);
+            }
+        }
+    }, [location.state]);
 
     const fetchRiders = async () => {
         if (!userData) return;
