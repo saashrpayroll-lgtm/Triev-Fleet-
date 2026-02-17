@@ -3,7 +3,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, Edit2, X, Calendar } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
@@ -45,6 +45,11 @@ const WalletHistory: React.FC = () => {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
     const [isExporting, setIsExporting] = useState(false);
+
+    // Edit Date State
+    const [editingTransaction, setEditingTransaction] = useState<LedgerEntry | null>(null);
+    const [newDate, setNewDate] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
 
     // Initial Data Load (TLs)
     useEffect(() => {
@@ -203,6 +208,30 @@ const WalletHistory: React.FC = () => {
         } finally {
             toast.dismiss(loadingToast);
             setIsExporting(false);
+        }
+    };
+
+    // Update Date Handler
+    const handleUpdateDate = async () => {
+        if (!editingTransaction || !newDate) return;
+
+        setIsUpdating(true);
+        try {
+            const { error } = await supabase.rpc('update_wallet_transaction_date', {
+                p_transaction_id: editingTransaction.id,
+                p_new_date: new Date(newDate).toISOString()
+            });
+
+            if (error) throw error;
+
+            toast.success('Transaction date updated successfully');
+            setEditingTransaction(null);
+            fetchTransactions(); // Refresh list & stats
+        } catch (error: any) {
+            console.error('Update failed:', error);
+            toast.error(error.message || 'Failed to update date');
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -427,12 +456,29 @@ const WalletHistory: React.FC = () => {
                                     const isSet = t.mode === 'SET';
 
                                     return (
-                                        <tr key={t.id} className="hover:bg-muted/30 transition-colors">
+                                        <tr key={t.id} className="hover:bg-muted/30 transition-colors group">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
                                                     <span className="text-xs text-muted-foreground">{format(parseISO(t.created_at), 'hh:mm a')}</span>
                                                 </div>
+                                                {/* Edit Date Button (Only for Daily Collection & Admin) */}
+                                                {userData?.role === 'admin' && t.transaction_type === 'DAILY_COLLECTION' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingTransaction(t);
+                                                            // Set initial value to current transaction time (local format for input)
+                                                            const date = new Date(t.created_at);
+                                                            // Format: YYYY-MM-DDTHH:mm
+                                                            const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                                                            setNewDate(localIso);
+                                                        }}
+                                                        className="ml-2 p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Edit Date"
+                                                    >
+                                                        <Edit2 size={12} />
+                                                    </button>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 font-medium">{t.riders?.rider_name || 'Unknown'}</td>
                                             <td className="px-6 py-4 text-muted-foreground">
@@ -498,6 +544,70 @@ const WalletHistory: React.FC = () => {
                     </button>
                 </div>
             </GlassCard>
+            {/* Edit Date Modal */}
+            {editingTransaction && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Calendar className="text-primary" size={20} /> Edit Transaction Date
+                            </h3>
+                            <button
+                                onClick={() => setEditingTransaction(null)}
+                                className="p-1 hover:bg-muted rounded-full transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="bg-muted/30 p-4 rounded-lg text-sm space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Rider:</span>
+                                <span className="font-medium">{editingTransaction.riders?.rider_name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Amount:</span>
+                                <span className="font-bold">₹{editingTransaction.amount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Current Date:</span>
+                                <span>{format(parseISO(editingTransaction.created_at), 'dd MMM yyyy, hh:mm a')}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">New Date & Time</label>
+                            <input
+                                type="datetime-local"
+                                value={newDate}
+                                onChange={(e) => setNewDate(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                                style={{ colorScheme: 'light dark' }}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Changing the date will move this transaction in the ledger and update Daily Collection reports accordingly.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setEditingTransaction(null)}
+                                className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+                                disabled={isUpdating}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleUpdateDate}
+                                disabled={isUpdating || !newDate}
+                                className="px-4 py-2 text-sm font-bold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                            >
+                                {isUpdating ? <RefreshCw className="animate-spin" size={16} /> : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };
