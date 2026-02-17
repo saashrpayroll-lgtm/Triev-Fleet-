@@ -352,12 +352,13 @@ export const processRiderImport = async (
             if (newRider) {
                 const openingBalance = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance']));
 
-                // 1. Insert Snapshot
+                // 1. Insert Initial Snapshot (Must be 0 so the Ledger Entry acts as the first movement)
+                // If we set this to 'openingBalance', the Ledger Entry will be added ON TOP of it during reconciliation, causing double counting.
                 await supabase.from('wallet_snapshots').insert({
                     rider_id: newRider.id,
-                    snapshot_balance: openingBalance,
+                    snapshot_balance: 0, // Set to 0
                     snapshot_date: new Date().toISOString(),
-                    source_type: 'RIDER_IMPORT'
+                    source_type: 'RIDER_IMPORT_INIT'
                 });
 
                 // 2. Insert Ledger Entry (CRITICAL FIX for Ghost Balance)
