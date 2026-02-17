@@ -1,5 +1,9 @@
--- Reconciliation View
--- Efficiently fetches riders with wallet mismatches (System vs Snapshot)
+-- SMART RECONCILIATION VIEW (FIXED)
+-- Adjusts for authorized transactions that happened AFTER the snapshot was taken.
+-- 1. Drops existing view to handle schema changes.
+-- 2. Preserves 'snapshot_balance' column name for Frontend compatibility.
+
+DROP VIEW IF EXISTS public.view_reconciliation_status CASCADE;
 
 CREATE OR REPLACE VIEW public.view_reconciliation_status AS
 WITH latest_snapshots AS (
@@ -10,6 +14,21 @@ WITH latest_snapshots AS (
         created_at
     FROM public.wallet_snapshots
     ORDER BY rider_id, snapshot_date DESC, created_at DESC
+),
+ledger_movements AS (
+    SELECT 
+        wl.rider_id,
+        SUM(
+            CASE 
+                WHEN wl.mode = 'ADD' THEN wl.amount 
+                WHEN wl.mode = 'SUBTRACT' THEN -wl.amount 
+                ELSE 0 
+            END
+        ) AS movement_since_snapshot
+    FROM public.wallet_ledger wl
+    JOIN latest_snapshots ls ON wl.rider_id = ls.rider_id
+    WHERE wl.created_at > ls.created_at -- Only transactions AFTER the snapshot
+    GROUP BY wl.rider_id
 )
 SELECT 
     r.id AS rider_id,
@@ -18,12 +37,17 @@ SELECT
     r.mobile_number,
     r.team_leader_id,
     r.wallet_amount AS system_balance,
-    ls.snapshot_balance AS snapshot_balance,
+    ls.snapshot_balance AS snapshot_balance, -- Kept original name for Frontend compatibility
+    COALESCE(lm.movement_since_snapshot, 0) AS authorized_movement,
+    (ls.snapshot_balance + COALESCE(lm.movement_since_snapshot, 0)) AS expected_balance,
     ls.snapshot_date,
-    (ls.snapshot_balance - r.wallet_amount) AS difference -- Positive Diff = Snapshot is higher (Sys needs Credit)
+    -- Difference = Expected - System
+    -- If 0, it means the system balance is exactly what it should be (Snapshot + Transactions).
+    ((ls.snapshot_balance + COALESCE(lm.movement_since_snapshot, 0)) - r.wallet_amount) AS difference
 FROM public.riders r
 JOIN latest_snapshots ls ON r.id = ls.rider_id
-WHERE ABS(ls.snapshot_balance - r.wallet_amount) > 1; -- Threshold of 1 Rupee
+LEFT JOIN ledger_movements lm ON r.id = lm.rider_id
+WHERE ABS((ls.snapshot_balance + COALESCE(lm.movement_since_snapshot, 0)) - r.wallet_amount) > 1; -- Threshold of 1 Rupee
 
 -- Grant access
 GRANT SELECT ON public.view_reconciliation_status TO authenticated;
