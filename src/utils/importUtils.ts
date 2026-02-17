@@ -351,12 +351,31 @@ export const processRiderImport = async (
             // We use 'value' from parsed wallet amount.
             if (newRider) {
                 const openingBalance = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance']));
+
+                // 1. Insert Snapshot
                 await supabase.from('wallet_snapshots').insert({
                     rider_id: newRider.id,
                     snapshot_balance: openingBalance,
                     snapshot_date: new Date().toISOString(),
                     source_type: 'RIDER_IMPORT'
                 });
+
+                // 2. Insert Ledger Entry (CRITICAL FIX for Ghost Balance)
+                if (openingBalance !== 0) {
+                    await LedgerAPI.addTransaction({
+                        riderId: newRider.id,
+                        amount: Math.abs(openingBalance),
+                        type: 'MANUAL_ADJUSTMENT',
+                        mode: openingBalance >= 0 ? 'ADD' : 'SUBTRACT',
+                        description: 'Opening Balance via Import',
+                        metadata: {
+                            source: 'rider_import',
+                            adminName: adminName
+                        },
+                        source: 'IMPORT',
+                        transactionDate: allotmentDate // Use allotment date as transaction date
+                    });
+                }
             }
 
             summary.success++;
