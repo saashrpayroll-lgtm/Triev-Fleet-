@@ -3,7 +3,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, Edit2, X, Calendar } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, Edit2, X, Calendar, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
@@ -235,6 +235,28 @@ const WalletHistory: React.FC = () => {
         }
     };
 
+    // Delete Transaction Handler
+    const handleDeleteTransaction = async (id: string) => {
+        if (!window.confirm('Are you sure you want to delete this transaction? This will automatically update the Rider Wallet Balance and Daily Collections.')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('wallet_ledger')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Transaction deleted successfully');
+            fetchTransactions(); // Refresh list
+        } catch (error: any) {
+            console.error('Delete failed:', error);
+            toast.error('Failed to delete transaction');
+        }
+    };
+
     // Calculate stats for CURRENT PAGE (Global stats would require separate aggregation query)
     const pageCredits = transactions.reduce((acc, t) => t.mode === 'ADD' ? acc + (Number(t.amount) || 0) : acc, 0);
     const pageDebits = transactions.reduce((acc, t) => t.mode === 'SUBTRACT' ? acc + (Number(t.amount) || 0) : acc, 0);
@@ -463,21 +485,32 @@ const WalletHistory: React.FC = () => {
                                                     <span className="text-xs text-muted-foreground">{format(parseISO(t.created_at), 'hh:mm a')}</span>
                                                 </div>
                                                 {/* Edit Date Button (Only for Daily Collection & Admin) */}
-                                                {userData?.role === 'admin' && t.transaction_type === 'DAILY_COLLECTION' && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingTransaction(t);
-                                                            // Set initial value to current transaction time (local format for input)
-                                                            const date = new Date(t.created_at);
-                                                            // Format: YYYY-MM-DDTHH:mm
-                                                            const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-                                                            setNewDate(localIso);
-                                                        }}
-                                                        className="ml-2 p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors opacity-0 group-hover:opacity-100"
-                                                        title="Edit Date"
-                                                    >
-                                                        <Edit2 size={12} />
-                                                    </button>
+                                                {userData?.role === 'admin' && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        {t.transaction_type === 'DAILY_COLLECTION' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingTransaction(t);
+                                                                    // Set initial value to current transaction time (local format for input)
+                                                                    const date = new Date(t.created_at);
+                                                                    // Format: YYYY-MM-DDTHH:mm
+                                                                    const localIso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                                                                    setNewDate(localIso);
+                                                                }}
+                                                                className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                                                title="Edit Date"
+                                                            >
+                                                                <Edit2 size={12} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDeleteTransaction(t.id)}
+                                                            className="p-1 text-muted-foreground hover:text-red-600 hover:bg-red-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                                                            title="Delete Transaction"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 font-medium">{t.riders?.rider_name || 'Unknown'}</td>
