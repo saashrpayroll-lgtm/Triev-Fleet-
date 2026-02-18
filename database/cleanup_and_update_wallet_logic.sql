@@ -7,6 +7,11 @@ DROP INDEX IF EXISTS public.unique_external_txn_id_idx;
 CREATE UNIQUE INDEX IF NOT EXISTS unique_external_txn_id_idx 
 ON public.wallet_ledger (external_transaction_id);
 
+-- 0.1 Ensure 'RESET' is allowed in mode constraint
+ALTER TABLE public.wallet_ledger DROP CONSTRAINT IF EXISTS wallet_ledger_mode_check;
+ALTER TABLE public.wallet_ledger ADD CONSTRAINT wallet_ledger_mode_check 
+CHECK (mode IN ('RESET', 'ADD', 'SUBTRACT', 'SET')); -- Added RESET and SET for safety
+
 -- 1. Drop ALL versions of handle_daily_wallet_update
 DROP FUNCTION IF EXISTS public.handle_daily_wallet_update(UUID, NUMERIC, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS public.handle_daily_wallet_update(UUID, NUMERIC, TIMESTAMPTZ, TEXT);
