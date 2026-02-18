@@ -484,7 +484,12 @@ export const processWalletUpdate = async (
                 externalId: externalId
             });
 
-            // CRITICAL: Check if Database Script is Updated
+            // 1. Check for Explicit SQL Error
+            if (!response || response.success === false) {
+                throw new Error(response?.error || "Database Update Failed (Unknown Error)");
+            }
+
+            // 2. Check for Script Version (Outdated Script)
             if (response.mode !== 'UPSERT') {
                 throw new Error("DATABASE SCRIPT OUTDATED. Please run strict_wallet_logic.sql in Supabase.");
             }
