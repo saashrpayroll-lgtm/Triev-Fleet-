@@ -1,7 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { LedgerAPI } from "@/api/ledger";
 import { toast } from "sonner";
@@ -54,72 +51,69 @@ export function WalletMismatchWidget() {
         };
     }, []);
 
-    if (loading) return <div className="p-4">Loading alerts...</div>;
+    if (loading) return <div className="p-4 text-sm text-gray-500">Loading alerts...</div>;
 
     if (mismatches.length === 0) {
         return (
-            <Card className="border-green-200 bg-green-50/50">
-                <CardContent className="pt-6 flex items-center justify-center gap-2 text-green-700">
+            <div className="rounded-lg border border-green-200 bg-green-50/50 p-6">
+                <div className="flex items-center justify-center gap-2 text-green-700">
                     <CheckCircle className="h-5 w-5" />
                     <span className="font-medium">All Wallets Reconciled</span>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         );
     }
 
     return (
-        <Card className="border-red-200 shadow-sm">
-            <CardHeader className="pb-2 bg-red-50/50">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-red-800 flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4" />
-                        Wallet Reconciliation Alerts ({mismatches.length})
-                    </CardTitle>
-                </div>
-            </CardHeader>
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Rider</TableHead>
-                            <TableHead className="text-right">System Closing</TableHead>
-                            <TableHead className="text-right">Source Opening</TableHead>
-                            <TableHead className="text-right">Diff</TableHead>
-                            <TableHead className="w-[80px]"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
+        <div className="rounded-lg border border-red-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-4 bg-red-50/50 border-b border-red-100 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-red-800 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Wallet Reconciliation Alerts ({mismatches.length})
+                </h3>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-500 font-medium">
+                        <tr>
+                            <th className="px-6 py-3">Rider</th>
+                            <th className="px-6 py-3 text-right">System Closing</th>
+                            <th className="px-6 py-3 text-right">Source Opening</th>
+                            <th className="px-6 py-3 text-right">Diff</th>
+                            <th className="px-6 py-3 w-[100px]"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
                         {mismatches.map((item) => (
-                            <TableRow key={item.id} className="hover:bg-red-50/10">
-                                <TableCell className="font-medium">
+                            <tr key={item.id} className="hover:bg-red-50/10">
+                                <td className="px-6 py-4 font-medium">
                                     <div className="flex flex-col">
-                                        <span>{item.riders?.rider_name || 'Unknown'}</span>
-                                        <span className="text-xs text-muted-foreground">{item.riders?.mobile_number}</span>
+                                        <span className="text-gray-900 font-semibold">{item.riders?.rider_name || 'Unknown'}</span>
+                                        <span className="text-xs text-gray-500">{item.riders?.mobile_number}</span>
                                     </div>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
+                                </td>
+                                <td className="px-6 py-4 text-right text-gray-500">
                                     ₹{item.system_balance}
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
+                                </td>
+                                <td className="px-6 py-4 text-right font-medium text-gray-900">
                                     ₹{item.source_balance}
-                                </TableCell>
-                                <TableCell className="text-right text-red-600 font-bold">
+                                </td>
+                                <td className="px-6 py-4 text-right font-bold text-red-600">
                                     {item.difference > 0 ? '+' : ''}{item.difference}
-                                </TableCell>
-                                <TableCell>
-                                    <Badge
-                                        variant="outline"
-                                        className="cursor-pointer hover:bg-slate-100"
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <button
+                                        className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm"
                                         onClick={() => handleResolve(item.id)}
                                     >
                                         Dismiss
-                                    </Badge>
-                                </TableCell>
-                            </TableRow>
+                                    </button>
+                                </td>
+                            </tr>
                         ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     );
 }
