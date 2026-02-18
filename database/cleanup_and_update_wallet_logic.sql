@@ -1,4 +1,11 @@
--- CLEANUP SCRIPT: Run this to fix "Function signature mismatch" issues.
+-- CLEANUP SCRIPT: Run this to fix "Function signature mismatch" AND "Constraint" issues.
+
+-- 0. Ensure Constraint/Index exists properly for ON CONFLICT
+-- Drop potential partial indexes that cause mismatch
+DROP INDEX IF EXISTS public.unique_external_txn_id_idx;
+-- Create standard unique index (Postgres allows multiple NULLs, so this is safe and works with ON CONFLICT)
+CREATE UNIQUE INDEX IF NOT EXISTS unique_external_txn_id_idx 
+ON public.wallet_ledger (external_transaction_id);
 
 -- 1. Drop ALL versions of handle_daily_wallet_update
 DROP FUNCTION IF EXISTS public.handle_daily_wallet_update(UUID, NUMERIC, TIMESTAMPTZ);
