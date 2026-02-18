@@ -17,6 +17,7 @@ import TLActivityLog from '@/pages/teamleader/ActivityLog';
 import TLReports from '@/pages/teamleader/Reports';
 import TLProfile from '@/pages/teamleader/Profile';
 import TLRequests from '@/pages/teamleader/Requests';
+import CollectionHistory from '@/pages/teamleader/CollectionHistory';
 
 import AdminLeads from '@/pages/admin/AdminLeads';
 import UserLeads from '@/pages/teamleader/UserLeads';
@@ -270,6 +271,7 @@ function AppRoutes() {
           <Route path="profile" element={<TLProfile />} />
           <Route path="requests" element={<TLRequests />} />
           <Route path="wallet-history" element={<WalletHistory />} />
+          <Route path="collections" element={<CollectionHistory />} />
         </Route>
 
         {/* Admin Portal Routes */}
