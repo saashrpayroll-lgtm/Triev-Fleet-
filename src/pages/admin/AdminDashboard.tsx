@@ -12,7 +12,7 @@ import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
 import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
-import { WalletMismatchWidget } from '@/components/WalletMismatchWidget';
+import { WalletSyncWidget } from '@/components/WalletSyncWidget';
 import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
 import TeamLeaderPerformanceTable, { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
 import { startOfWeek, startOfMonth } from 'date-fns';
@@ -360,9 +360,9 @@ const Dashboard: React.FC = () => {
 
 
 
-            {/* Reconciliation Widget (Shows only if issues exist) */}
+            {/* Wallet Sync Widget (Shows only if strictly required) */}
             <div className="mb-4">
-                <WalletMismatchWidget />
+                <WalletSyncWidget />
             </div>
 
             {/* BENTO GRID: 12+ Smart Metrics */}

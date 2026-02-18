@@ -4,7 +4,7 @@ import { LedgerAPI } from "@/api/ledger";
 import { toast } from "sonner";
 import { supabase } from "@/config/supabase";
 
-export function WalletMismatchWidget() {
+export function WalletSyncWidget() {
     const [mismatches, setMismatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
