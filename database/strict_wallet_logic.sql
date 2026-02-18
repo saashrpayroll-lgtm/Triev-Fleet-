@@ -124,9 +124,9 @@ RETURNS JSONB AS $$
 DECLARE
     v_current_system_balance NUMERIC;
     v_diff NUMERIC;
+    v_rows_inserted INT;
 BEGIN
     -- 1. Get Current System Balance (Closing of Previous Day)
-    -- We force calc to be sure
     v_current_system_balance := public.calculate_rider_balance(p_rider_id);
     
     -- 2. Compare
@@ -142,23 +142,44 @@ BEGIN
     END IF;
 
     -- 4. Insert RESET Transaction (Day Opening)
-    -- This sets the new baseline.
-    INSERT INTO public.wallet_ledger (
-        rider_id, transaction_type, mode, amount, description, source_type, transaction_date
-    ) VALUES (
-        p_rider_id, 
-        'DAY_OPENING_BALANCE', 
-        'RESET', 
-        p_new_balance, 
-        'Daily Wallet Update (Source)', 
-        'IMPORT', 
-        p_date
-    );
+    -- We add a unique constraint handling just in case, though for a new day it should be fine.
+    -- If a RESET already exists for this date, we UPDATE it instead of failing.
+    
+    UPDATE public.wallet_ledger 
+    SET amount = p_new_balance,
+        description = 'Daily Wallet Update (Source) - Updated',
+        metadata = jsonb_build_object('updated_at', NOW()),
+        transaction_date = p_date
+    WHERE rider_id = p_rider_id 
+      AND mode = 'RESET' 
+      AND transaction_date::DATE = p_date::DATE;
+
+    GET DIAGNOSTICS v_rows_inserted = ROW_COUNT;
+
+    IF v_rows_inserted = 0 THEN
+        INSERT INTO public.wallet_ledger (
+            rider_id, transaction_type, mode, amount, description, source_type, transaction_date, external_transaction_id
+        ) VALUES (
+            p_rider_id, 
+            'DAY_OPENING_BALANCE', 
+            'RESET', 
+            p_new_balance, 
+            'Daily Wallet Update (Source)', 
+            'IMPORT', 
+            p_date,
+            'RESET_' ||  p_rider_id || '_' || p_date::DATE -- Generate a unique ID for this day's reset
+        );
+    END IF;
 
     RETURN jsonb_build_object(
         'success', true, 
         'mismatch', v_diff <> 0, 
         'diff', v_diff
+    );
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+        'success', false,
+        'error', SQLERRM
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
