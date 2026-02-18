@@ -461,12 +461,12 @@ export const processWalletUpdate = async (
             }
 
             // STRICT WALLET RULE:
-            // "Bulk Wallet Update" = Day Opening Balance (RESET)
-            // We call the strict RPC to handle Reset + Reconcile
+            // "Bulk Wallet Update" is the FINAL TRUTH at the moment of upload.
+            // We set the date to NOW() so that any previous collections/history 
+            // from earlier today are considered "past" and overridden by this new balance.
 
-            const todayMidnight = new Date();
-            todayMidnight.setHours(0, 0, 0, 0); // Start of local day
-            const todayISO = todayMidnight.toISOString(); // Used as Transaction Date for DAY_OPENING_BALANCE
+            // CRITICAL: Use current time, NOT midnight.
+            const todayISO = new Date().toISOString();
 
             await LedgerAPI.processDailyUpdate({
                 riderId: matchData.id,
