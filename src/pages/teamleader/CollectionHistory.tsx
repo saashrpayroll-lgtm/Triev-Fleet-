@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { Calendar, TrendingUp, ArrowLeft, Download } from 'lucide-react';
+import { Calendar, TrendingUp, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
     BarChart,
@@ -96,8 +96,8 @@ const CollectionHistory: React.FC = () => {
                             key={range}
                             onClick={() => setDateRange(range)}
                             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${dateRange === range
-                                    ? 'bg-emerald-500 text-white shadow-sm'
-                                    : 'text-muted-foreground hover:bg-muted'
+                                ? 'bg-emerald-500 text-white shadow-sm'
+                                : 'text-muted-foreground hover:bg-muted'
                                 }`}
                         >
                             Last {range} Days
