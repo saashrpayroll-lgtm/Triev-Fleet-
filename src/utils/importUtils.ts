@@ -489,12 +489,24 @@ export const processWalletUpdate = async (
 
             // Update using LedgerAPI (Handles Snapshot + Reconciliation)
             // 'amount' is the Target Balance from the sheet.
-            await LedgerAPI.processSnapshot({
-                riderId: matchData.id,
-                balance: amount,
-                date: new Date().toISOString(),
-                source: 'WALLET_UPDATE'
+            // Update using LedgerAPI (Handles Snapshot + Reconciliation)
+            // 'amount' is the Target Balance from the sheet.
+            // FIX: We must treat this as the "Opening Balance" for the day (Midnight 00:00:00).
+            // This ensures any Rent Collection imported for the same day (e.g. at 10 AM) is ADDED to this balance, not overwritten.
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0); // Start of local day
+            const todayISO = todayMidnight.toISOString();
+
+            // Direct Insert to override 'created_at' (RPC usually forces now())
+            const { error: snapError } = await supabase.from('wallet_snapshots').insert({
+                rider_id: matchData.id,
+                snapshot_balance: amount,
+                snapshot_date: todayISO.split('T')[0], // YYYY-MM-DD
+                source_type: 'WALLET_UPDATE',
+                created_at: todayISO // Backdate to start of day so subsequent txns are counted
             });
+
+            if (snapError) throw snapError;
 
             // FORCE RECONCILIATION to ensure 100% accuracy immediately
             // This will create a 'MANUAL_ADJUSTMENT' if there is ANY difference.
