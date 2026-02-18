@@ -344,40 +344,13 @@ export const processRiderImport = async (
             };
 
             // 5. Insert New Rider
-            const { data: newRider, error } = await supabase.from('riders').insert(riderData).select('id, wallet_amount').single();
+            const { error } = await supabase.from('riders').insert(riderData);
             if (error) throw error;
 
-            // NEW: Insert Snapshot (Opening Balance)
-            // We use 'value' from parsed wallet amount.
-            if (newRider) {
-                const openingBalance = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance']));
-
-                // 1. Insert Initial Snapshot (Must be 0 so the Ledger Entry acts as the first movement)
-                // If we set this to 'openingBalance', the Ledger Entry will be added ON TOP of it during reconciliation, causing double counting.
-                await supabase.from('wallet_snapshots').insert({
-                    rider_id: newRider.id,
-                    snapshot_balance: 0, // Set to 0
-                    snapshot_date: new Date().toISOString(),
-                    source_type: 'RIDER_IMPORT_INIT'
-                });
-
-                // 2. Insert Ledger Entry (CRITICAL FIX for Ghost Balance)
-                if (openingBalance !== 0) {
-                    await LedgerAPI.addTransaction({
-                        riderId: newRider.id,
-                        amount: Math.abs(openingBalance),
-                        type: 'MANUAL_ADJUSTMENT',
-                        mode: openingBalance >= 0 ? 'ADD' : 'SUBTRACT',
-                        description: 'Opening Balance via Import',
-                        metadata: {
-                            source: 'rider_import',
-                            adminName: adminName
-                        },
-                        source: 'IMPORT',
-                        transactionDate: allotmentDate // Use allotment date as transaction date
-                    });
-                }
-            }
+            // STRICT WALLET RULE:
+            // "New Rider Import" does NOT create wallet transactions.
+            // Wallet Balance will be set by the "Bulk Wallet Update" file (Day Opening Balance).
+            // We just create the rider record here.
 
             summary.success++;
 
@@ -487,30 +460,19 @@ export const processWalletUpdate = async (
                 throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
             }
 
-            // Update using LedgerAPI (Handles Snapshot + Reconciliation)
-            // 'amount' is the Target Balance from the sheet.
-            // Update using LedgerAPI (Handles Snapshot + Reconciliation)
-            // 'amount' is the Target Balance from the sheet.
-            // FIX: We must treat this as the "Opening Balance" for the day (Midnight 00:00:00).
-            // This ensures any Rent Collection imported for the same day (e.g. at 10 AM) is ADDED to this balance, not overwritten.
+            // STRICT WALLET RULE:
+            // "Bulk Wallet Update" = Day Opening Balance (RESET)
+            // We call the strict RPC to handle Reset + Reconcile
+
             const todayMidnight = new Date();
             todayMidnight.setHours(0, 0, 0, 0); // Start of local day
-            const todayISO = todayMidnight.toISOString();
+            const todayISO = todayMidnight.toISOString(); // Used as Transaction Date for DAY_OPENING_BALANCE
 
-            // Direct Insert to override 'created_at' (RPC usually forces now())
-            const { error: snapError } = await supabase.from('wallet_snapshots').insert({
-                rider_id: matchData.id,
-                snapshot_balance: amount,
-                snapshot_date: todayISO.split('T')[0], // YYYY-MM-DD
-                source_type: 'WALLET_UPDATE',
-                created_at: todayISO // Backdate to start of day so subsequent txns are counted
+            await LedgerAPI.processDailyUpdate({
+                riderId: matchData.id,
+                newBalance: amount,
+                date: todayISO
             });
-
-            if (snapError) throw snapError;
-
-            // FORCE RECONCILIATION to ensure 100% accuracy immediately
-            // This will create a 'MANUAL_ADJUSTMENT' if there is ANY difference.
-            await LedgerAPI.reconcileRider(matchData.id);
 
             // Track for Notification
             if (matchData.team_leader_id) {

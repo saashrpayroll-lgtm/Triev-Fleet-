@@ -52,51 +52,12 @@ export const LedgerAPI = {
     },
 
     /**
-     * Calculates the net balance from the ledger (Client-side validation).
-     * Note: Server-side trigger is the source of truth.
+     * Calculates the net balance from the ledger (Strict Reset + Add Model).
+     * Now calls the database function for accuracy.
      */
     calculateBalance: async (riderId: string) => {
-        // Fetch latest SET
-        const { data: setRecord } = await supabase
-            .from('wallet_ledger')
-            .select('amount, created_at')
-            .eq('rider_id', riderId)
-            .eq('mode', 'SET')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-        const baseBalance = setRecord?.amount || 0;
-        const baseDate = setRecord?.created_at || '1970-01-01';
-
-        // Fetch subsequent transactions
-        const { data: transactions } = await supabase
-            .from('wallet_ledger')
-            .select('amount, mode')
-            .eq('rider_id', riderId)
-            .gt('created_at', baseDate);
-
-        const adds = transactions
-            ?.filter(t => t.mode === 'ADD')
-            .reduce((sum, t) => sum + t.amount, 0) || 0;
-
-        const subtracts = transactions
-            ?.filter(t => t.mode === 'SUBTRACT')
-            .reduce((sum, t) => sum + t.amount, 0) || 0;
-
-        return baseBalance + adds - subtracts;
-    },
-
-    /**
-     * Processes a wallet snapshot for reconciliation.
-     * Starts the difference engine on the server.
-     */
-    processSnapshot: async (input: { riderId: string, balance: number, date: string, source: string }) => {
-        const { data, error } = await supabase.rpc('process_wallet_snapshot', {
-            p_rider_id: input.riderId,
-            p_snapshot_balance: input.balance,
-            p_snapshot_date: input.date,
-            p_source_type: input.source
+        const { data, error } = await supabase.rpc('calculate_rider_balance', {
+            p_rider_id: riderId
         });
 
         if (error) throw error;
@@ -104,12 +65,29 @@ export const LedgerAPI = {
     },
 
     /**
-     * Forces reconciliation of a rider's balance with their latest snapshot.
+     * Processes a daily wallet update (Reset + Reconcile).
+     * Used by Bulk Wallet Update import.
      */
-    reconcileRider: async (riderId: string) => {
-        const { data, error } = await supabase.rpc('reconcile_rider_balance', {
-            p_rider_id: riderId
+    processDailyUpdate: async (input: { riderId: string, newBalance: number, date: string }) => {
+        const { data, error } = await supabase.rpc('handle_daily_wallet_update', {
+            p_rider_id: input.riderId,
+            p_new_balance: input.newBalance,
+            p_date: input.date
         });
+
+        if (error) throw error;
+        return data;
+    },
+
+    /**
+     * Fetches mismatches for the Admin Dashboard.
+     */
+    getMismatches: async () => {
+        const { data, error } = await supabase
+            .from('wallet_mismatches')
+            .select('*, riders(rider_name, mobile_number)')
+            .eq('status', 'pending')
+            .order('difference', { ascending: false });
 
         if (error) throw error;
         return data;
