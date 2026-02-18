@@ -477,12 +477,17 @@ export const processWalletUpdate = async (
             const todayDateString = `${year}-${month}-${day}`;
             const externalId = `RESET_${matchData.id}_${todayDateString}`;
 
-            await LedgerAPI.processDailyUpdate({
+            const response: any = await LedgerAPI.processDailyUpdate({
                 riderId: matchData.id,
                 newBalance: amount,
                 date: todayISO,
                 externalId: externalId
             });
+
+            // CRITICAL: Check if Database Script is Updated
+            if (response.mode !== 'UPSERT') {
+                throw new Error("DATABASE SCRIPT OUTDATED. Please run strict_wallet_logic.sql in Supabase.");
+            }
 
             // Track for Notification
             if (matchData.team_leader_id) {
