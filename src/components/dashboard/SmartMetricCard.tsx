@@ -19,6 +19,7 @@ interface SmartMetricCardProps {
     aiInsight?: string; // New prop for AI insights
     loading?: boolean;
     className?: string; // For additional styling
+    progress?: number; // 0-100 for Circular Progress Bar
 }
 
 const colorMap = {
@@ -55,6 +56,43 @@ const iconColorMap: Record<string, string> = {
     fuchsia: 'text-fuchsia-500',
 };
 
+const CircleProgress = ({ value, colorClass }: { value: number; colorClass: string }) => {
+    const radius = 24;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (value / 100) * circumference;
+
+    return (
+        <div className="relative w-16 h-16 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90">
+                {/* Background Circle */}
+                <circle
+                    cx="32"
+                    cy="32"
+                    r={radius}
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    fill="transparent"
+                    className="text-gray-200 dark:text-gray-700/50"
+                />
+                {/* Progress Circle */}
+                <circle
+                    cx="32"
+                    cy="32"
+                    r={radius}
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    className={`${colorClass} transition-all duration-1000 ease-out`}
+                />
+            </svg>
+            <span className={`absolute text-sm font-bold ${colorClass}`}>{Math.round(value)}%</span>
+        </div>
+    );
+};
+
 const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     title,
     value,
@@ -65,7 +103,8 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     subtitle,
     aiInsight,
     loading = false,
-    className
+    className,
+    progress // New Prop
 }) => {
     return (
         <div
@@ -85,10 +124,12 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
             {/* Animated Shine Effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[200%] group-hover:animate-shine z-0 pointer-events-none" />
 
-            {/* Background Icon Decoration */}
-            <div className={`absolute -right-6 -bottom-6 opacity-[0.08] transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 ${iconColorMap[color]}`}>
-                <Icon size={120} />
-            </div>
+            {/* Background Icon Decoration (Hidden if Progress is shown to avoid clutter) */}
+            {!progress && (
+                <div className={`absolute -right-6 -bottom-6 opacity-[0.08] transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 ${iconColorMap[color]}`}>
+                    <Icon size={120} />
+                </div>
+            )}
 
             <div className="relative z-10 flex flex-col justify-between h-full">
                 {/* Header */}
@@ -102,18 +143,23 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                     </div>
 
                     <div className="flex flex-col items-end gap-2">
-                        {trend && (
-                            <div className={`
-                                flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm
-                                ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''}
-                                ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : ''}
-                                ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' : ''}
-                            `}>
-                                {trend.direction === 'up' && <TrendingUp size={12} />}
-                                {trend.direction === 'down' && <TrendingDown size={12} />}
-                                {trend.direction === 'neutral' && <Minus size={12} />}
-                                {Math.abs(trend.value)}%
-                            </div>
+                        {/* Show Progress Circle instead of Trend if available, or both? Let's show Progress on right if exists */}
+                        {progress !== undefined ? (
+                            <CircleProgress value={progress} colorClass={iconColorMap[color]} />
+                        ) : (
+                            trend && (
+                                <div className={`
+                                    flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm
+                                    ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''}
+                                    ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : ''}
+                                    ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' : ''}
+                                `}>
+                                    {trend.direction === 'up' && <TrendingUp size={12} />}
+                                    {trend.direction === 'down' && <TrendingDown size={12} />}
+                                    {trend.direction === 'neutral' && <Minus size={12} />}
+                                    {Math.abs(trend.value)}%
+                                </div>
+                            )
                         )}
 
                         {aiInsight && (
@@ -149,7 +195,7 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                     ) : (
                         subtitle && (
                             <div className="flex items-center gap-1 mt-2">
-                                <div className={`w-1 h-1 rounded-full ${trend?.direction === 'up' ? 'bg-green-500' : 'bg-amber-500'}`} />
+                                <div className={`w-1 h-1 rounded-full ${trend?.direction === 'up' || progress !== undefined ? 'bg-green-500' : 'bg-amber-500'}`} />
                                 <p className="text-[10px] font-bold opacity-70 truncate max-w-[180px]">
                                     {subtitle}
                                 </p>

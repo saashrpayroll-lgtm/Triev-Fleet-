@@ -290,6 +290,7 @@ const Dashboard: React.FC = () => {
                         color="emerald"
                         trend={{ value: 98, label: 'health', direction: 'up' }}
                         subtitle={`${stats.totalRiders} Total Assigned`}
+                        progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
                     />
                 )}
@@ -302,6 +303,7 @@ const Dashboard: React.FC = () => {
                         color="indigo"
                         trend={{ value: 24, label: 'growth', direction: 'up' }}
                         subtitle={`${stats.positiveWallet} Riders Positive`}
+                        progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
                     />
                 )}
@@ -313,6 +315,7 @@ const Dashboard: React.FC = () => {
                     color="emerald"
                     trend={{ value: Math.round((stats.positiveWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'up' }}
                     subtitle="Wallet > 0"
+                    progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'positive_wallet' })}
                 />
 
@@ -323,6 +326,7 @@ const Dashboard: React.FC = () => {
                     color="rose"
                     trend={{ value: Math.round((stats.negativeWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'down' }}
                     subtitle="Wallet < 0"
+                    progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
                 />
 
@@ -336,6 +340,7 @@ const Dashboard: React.FC = () => {
                         color="rose"
                         aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}
                         subtitle={`${stats.negativeWallet} Riders in Debt`}
+                        progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
                     />
                 )}
@@ -348,6 +353,7 @@ const Dashboard: React.FC = () => {
                         color="fuchsia"
                         trend={{ value: 12, label: 'velocity', direction: 'up' }}
                         subtitle={`${stats.convertedLeads} Successful Converts`}
+                        progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
                         onClick={() => handleNavigate('/team-leader/leads?status=New')}
                     />
                 )}

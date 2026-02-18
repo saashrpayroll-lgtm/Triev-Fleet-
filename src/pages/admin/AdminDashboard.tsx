@@ -377,6 +377,7 @@ const Dashboard: React.FC = () => {
                     trend={{ value: 94, label: 'uptime', direction: 'up' }}
                     subtitle="Active Riders Ratio"
                     className="shadow-emerald-500/10"
+                    progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                     onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
                 />
 
@@ -387,6 +388,7 @@ const Dashboard: React.FC = () => {
                     color="indigo"
                     trend={{ value: 12, label: 'revenue', direction: 'up' }}
                     subtitle={`${stats.positiveWalletCount} Positive Wallets`}
+                    progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
                     onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
                 />
 
@@ -399,6 +401,7 @@ const Dashboard: React.FC = () => {
                     color="emerald"
                     subtitle="Wallet > 0"
                     trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
+                    progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
                     onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
                 />
 
@@ -409,6 +412,7 @@ const Dashboard: React.FC = () => {
                     color="rose"
                     subtitle="Wallet < 0"
                     trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
+                    progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
                     onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
                 />
 
@@ -429,6 +433,7 @@ const Dashboard: React.FC = () => {
                     color="fuchsia"
                     trend={{ value: 5, label: 'velocity', direction: 'up' }}
                     subtitle={`${stats.newLeadsToday} New Leads Today`}
+                    progress={stats.conversionRate}
                     onClick={() => navigate('/portal/leads?status=New')}
                 />
 
