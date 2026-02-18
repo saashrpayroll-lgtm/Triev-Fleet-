@@ -10,7 +10,12 @@ ON public.wallet_ledger (external_transaction_id);
 -- 0.1 Ensure 'RESET' is allowed in mode constraint
 ALTER TABLE public.wallet_ledger DROP CONSTRAINT IF EXISTS wallet_ledger_mode_check;
 ALTER TABLE public.wallet_ledger ADD CONSTRAINT wallet_ledger_mode_check 
-CHECK (mode IN ('RESET', 'ADD', 'SUBTRACT', 'SET')); -- Added RESET and SET for safety
+CHECK (mode IN ('RESET', 'ADD', 'SUBTRACT', 'SET')); 
+
+-- 0.2 Ensure 'DAY_OPENING_BALANCE' is allowed in transaction_type constraint
+ALTER TABLE public.wallet_ledger DROP CONSTRAINT IF EXISTS wallet_ledger_transaction_type_check;
+ALTER TABLE public.wallet_ledger ADD CONSTRAINT wallet_ledger_transaction_type_check 
+CHECK (transaction_type IN ('DAY_OPENING_BALANCE', 'DAILY_COLLECTION', 'MANUAL_ADJUSTMENT', 'RENT_COLLECTION', 'SYSTEM_IMPORT', 'BULK_IMPORT'));
 
 -- 1. Drop ALL versions of handle_daily_wallet_update
 DROP FUNCTION IF EXISTS public.handle_daily_wallet_update(UUID, NUMERIC, TIMESTAMPTZ);
