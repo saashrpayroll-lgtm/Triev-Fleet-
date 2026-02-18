@@ -466,12 +466,22 @@ export const processWalletUpdate = async (
             // from earlier today are considered "past" and overridden by this new balance.
 
             // CRITICAL: Use current time, NOT midnight.
-            const todayISO = new Date().toISOString();
+            const today = new Date();
+            const todayISO = today.toISOString();
+
+            // Generate a stable External ID based on LOCAL DATE (YYYY-MM-DD)
+            // This ensures that all uploads for "Today" act on the SAME ledger entry.
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const todayDateString = `${year}-${month}-${day}`;
+            const externalId = `RESET_${matchData.id}_${todayDateString}`;
 
             await LedgerAPI.processDailyUpdate({
                 riderId: matchData.id,
                 newBalance: amount,
-                date: todayISO
+                date: todayISO,
+                externalId: externalId
             });
 
             // Track for Notification

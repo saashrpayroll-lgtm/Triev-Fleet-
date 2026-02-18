@@ -68,11 +68,12 @@ export const LedgerAPI = {
      * Processes a daily wallet update (Reset + Reconcile).
      * Used by Bulk Wallet Update import.
      */
-    processDailyUpdate: async (input: { riderId: string, newBalance: number, date: string }) => {
+    processDailyUpdate: async (input: { riderId: string, newBalance: number, date: string, externalId?: string }) => {
         const { data, error } = await supabase.rpc('handle_daily_wallet_update', {
             p_rider_id: input.riderId,
             p_new_balance: input.newBalance,
-            p_date: input.date
+            p_date: input.date,
+            p_external_id: input.externalId || null
         });
 
         if (error) throw error;

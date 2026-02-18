@@ -115,16 +115,20 @@ EXECUTE FUNCTION public.sync_wallet_balance();
 
 -- 7. Bulk Update Handler (Reconcile & Reset)
 -- Called by ImportUtils during Bulk Wallet Update
+-- 7. Bulk Update Handler (Reconcile & Reset)
+-- Called by ImportUtils during Bulk Wallet Update
 CREATE OR REPLACE FUNCTION public.handle_daily_wallet_update(
     p_rider_id UUID,
     p_new_balance NUMERIC,
-    p_date TIMESTAMPTZ
+    p_date TIMESTAMPTZ,
+    p_external_id TEXT DEFAULT NULL -- Optional, but recommended for stability
 )
 RETURNS JSONB AS $$
 DECLARE
     v_current_system_balance NUMERIC;
     v_diff NUMERIC;
-    v_rows_inserted INT;
+    v_action TEXT;
+    v_ext_id TEXT;
 BEGIN
     -- 1. Get Current System Balance (Closing of Previous Day)
     v_current_system_balance := public.calculate_rider_balance(p_rider_id);
@@ -141,46 +145,43 @@ BEGIN
         );
     END IF;
 
-    -- 4. Insert RESET Transaction (Day Opening)
-    -- This logic handles both INSERT (New Day) and UPDATE (Correction for Same Day).
-    
-    UPDATE public.wallet_ledger 
-    SET amount = p_new_balance,
-        description = 'Daily Wallet Update (Source) - Corrected',
-        metadata = jsonb_build_object('updated_at', NOW()),
-        -- We do NOT update transaction_date to preserve original entry time if needed, 
-        -- but for a reset, the date matters most.
-        transaction_date = p_date 
-    WHERE rider_id = p_rider_id 
-      AND mode = 'RESET' 
-      AND transaction_date::DATE = p_date::DATE;
-
-    GET DIAGNOSTICS v_rows_inserted = ROW_COUNT;
-
-    IF v_rows_inserted = 0 THEN
-        INSERT INTO public.wallet_ledger (
-            rider_id, transaction_type, mode, amount, description, source_type, transaction_date, external_transaction_id
-        ) VALUES (
-            p_rider_id, 
-            'DAY_OPENING_BALANCE', 
-            'RESET', 
-            p_new_balance, 
-            'Daily Wallet Update (Source)', 
-            'IMPORT', 
-            p_date,
-            'RESET_' ||  p_rider_id || '_' || p_date::DATE
-        );
+    -- 4. Generate External ID if not provided (Fallback to old logic)
+    IF p_external_id IS NULL THEN
+        v_ext_id := 'RESET_' ||  p_rider_id || '_' || p_date::DATE;
+    ELSE
+        v_ext_id := p_external_id;
     END IF;
 
-    -- 5. FORCE BALANCE SYNC
-    -- Trigger might not catch all edge cases, so we force update the rider table.
+    -- 5. UPSERT (Insert or Update on Conflict)
+    -- This handles both New Day (Insert) and Correction (Update) robustly.
+    
+    INSERT INTO public.wallet_ledger (
+        rider_id, transaction_type, mode, amount, description, source_type, transaction_date, external_transaction_id
+    ) VALUES (
+        p_rider_id, 
+        'DAY_OPENING_BALANCE', 
+        'RESET', 
+        p_new_balance, 
+        'Daily Wallet Update (Source)', 
+        'IMPORT', 
+        p_date,
+        v_ext_id
+    )
+    ON CONFLICT (external_transaction_id) 
+    DO UPDATE SET 
+        amount = EXCLUDED.amount,
+        description = 'Daily Wallet Update (Source) - Corrected',
+        metadata = jsonb_build_object('updated_at', NOW()),
+        transaction_date = EXCLUDED.transaction_date; -- Update time to match latest upload
+
+    -- 6. FORCE BALANCE SYNC
     PERFORM public.sync_wallet_balance_for_rider(p_rider_id);
 
     RETURN jsonb_build_object(
         'success', true, 
         'mismatch', v_diff <> 0, 
         'diff', v_diff,
-        'action', CASE WHEN v_rows_inserted > 0 THEN 'UPDATED' ELSE 'INSERTED' END
+        'mode', 'UPSERT'
     );
 EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object(
