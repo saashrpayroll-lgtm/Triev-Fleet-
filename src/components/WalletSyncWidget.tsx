@@ -54,10 +54,7 @@ export function WalletSyncWidget() {
     const handleResolveAll = async () => {
         try {
             setLoading(true);
-            const { error } = await supabase
-                .from('wallet_mismatches')
-                .update({ status: 'resolved' })
-                .in('id', mismatches.map(m => m.id));
+            const { error } = await supabase.rpc('resolve_all_wallet_mismatches');
 
             if (error) throw error;
             toast.success("All alerts resolved");
