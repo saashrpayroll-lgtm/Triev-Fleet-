@@ -143,6 +143,19 @@ const MyRiders: React.FC = () => {
         setCurrentPage(1);
     }, [filteredRiders.length]);
 
+    // Handle Query Params for Actions
+    useEffect(() => {
+        if (searchParams.get('action') === 'new' && canAddRider) {
+            setShowAddModal(true);
+            // Optional: Clean up URL
+            setSearchParams(prev => {
+                const newParams = new URLSearchParams(prev);
+                newParams.delete('action');
+                return newParams;
+            });
+        }
+    }, [searchParams, canAddRider]);
+
     // Deep Linking Handler for Dashboard Clicks
     useEffect(() => {
         const state = location.state as { filter?: string };
