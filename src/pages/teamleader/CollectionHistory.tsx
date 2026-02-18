@@ -160,10 +160,10 @@ const CollectionHistory: React.FC = () => {
                                     border: 'none',
                                     color: '#fff'
                                 }}
-                                formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Collected']}
+                                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Collected']}
                             />
                             <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={50}>
-                                {chartData.map((entry, index) => (
+                                {chartData.map((_entry, index) => (
                                     <Cell key={`cell-${index}`} fill="url(#colorGradient)" />
                                 ))}
                             </Bar>
