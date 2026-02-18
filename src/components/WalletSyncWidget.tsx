@@ -51,6 +51,24 @@ export function WalletSyncWidget() {
         };
     }, []);
 
+    const handleResolveAll = async () => {
+        try {
+            setLoading(true);
+            const { error } = await supabase
+                .from('wallet_mismatches')
+                .update({ status: 'resolved' })
+                .in('id', mismatches.map(m => m.id));
+
+            if (error) throw error;
+            toast.success("All alerts resolved");
+            fetchMismatches();
+        } catch (error) {
+            toast.error("Failed to resolve all alerts");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (loading) return <div className="p-4 text-sm text-gray-500">Loading alerts...</div>;
 
     if (mismatches.length === 0) {
@@ -65,22 +83,28 @@ export function WalletSyncWidget() {
     }
 
     return (
-        <div className="rounded-lg border border-red-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-red-50/50 border-b border-red-100 flex items-center justify-between">
+        <div className="rounded-lg border border-red-200 bg-white shadow-sm overflow-hidden flex flex-col max-h-[400px]">
+            <div className="px-6 py-4 bg-red-50/50 border-b border-red-100 flex items-center justify-between shrink-0">
                 <h3 className="text-sm font-medium text-red-800 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4" />
                     Wallet Reconciliation Alerts ({mismatches.length})
                 </h3>
+                <button
+                    onClick={handleResolveAll}
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none shadow-sm transition-colors"
+                >
+                    Dismiss All
+                </button>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 font-medium">
+            <div className="overflow-y-auto">
+                <table className="w-full text-sm text-left relative">
+                    <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0 z-10 shadow-sm">
                         <tr>
-                            <th className="px-6 py-3">Rider</th>
-                            <th className="px-6 py-3 text-right">System Closing</th>
-                            <th className="px-6 py-3 text-right">Source Opening</th>
-                            <th className="px-6 py-3 text-right">Diff</th>
-                            <th className="px-6 py-3 w-[100px]"></th>
+                            <th className="px-6 py-3 bg-gray-50">Rider</th>
+                            <th className="px-6 py-3 text-right bg-gray-50">System Closing</th>
+                            <th className="px-6 py-3 text-right bg-gray-50">Source Opening</th>
+                            <th className="px-6 py-3 text-right bg-gray-50">Diff</th>
+                            <th className="px-6 py-3 w-[100px] bg-gray-50"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
