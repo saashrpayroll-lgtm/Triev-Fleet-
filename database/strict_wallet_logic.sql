@@ -142,14 +142,15 @@ BEGIN
     END IF;
 
     -- 4. Insert RESET Transaction (Day Opening)
-    -- We add a unique constraint handling just in case, though for a new day it should be fine.
-    -- If a RESET already exists for this date, we UPDATE it instead of failing.
+    -- This logic handles both INSERT (New Day) and UPDATE (Correction for Same Day).
     
     UPDATE public.wallet_ledger 
     SET amount = p_new_balance,
-        description = 'Daily Wallet Update (Source) - Updated',
+        description = 'Daily Wallet Update (Source) - Corrected',
         metadata = jsonb_build_object('updated_at', NOW()),
-        transaction_date = p_date
+        -- We do NOT update transaction_date to preserve original entry time if needed, 
+        -- but for a reset, the date matters most.
+        transaction_date = p_date 
     WHERE rider_id = p_rider_id 
       AND mode = 'RESET' 
       AND transaction_date::DATE = p_date::DATE;
@@ -167,14 +168,19 @@ BEGIN
             'Daily Wallet Update (Source)', 
             'IMPORT', 
             p_date,
-            'RESET_' ||  p_rider_id || '_' || p_date::DATE -- Generate a unique ID for this day's reset
+            'RESET_' ||  p_rider_id || '_' || p_date::DATE
         );
     END IF;
+
+    -- 5. FORCE BALANCE SYNC
+    -- Trigger might not catch all edge cases, so we force update the rider table.
+    PERFORM public.sync_wallet_balance_for_rider(p_rider_id);
 
     RETURN jsonb_build_object(
         'success', true, 
         'mismatch', v_diff <> 0, 
-        'diff', v_diff
+        'diff', v_diff,
+        'action', CASE WHEN v_rows_inserted > 0 THEN 'UPDATED' ELSE 'INSERTED' END
     );
 EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object(
@@ -183,3 +189,14 @@ EXCEPTION WHEN OTHERS THEN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Helper to force sync (if trigger fails or is bypassed)
+CREATE OR REPLACE FUNCTION public.sync_wallet_balance_for_rider(p_rider_id UUID)
+RETURNS VOID AS $$
+DECLARE
+    v_new_balance NUMERIC;
+BEGIN
+    v_new_balance := public.calculate_rider_balance(p_rider_id);
+    UPDATE public.riders SET wallet_amount = v_new_balance WHERE id = p_rider_id;
+END;
+$$ LANGUAGE plpgsql;
