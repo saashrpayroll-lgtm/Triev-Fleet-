@@ -66,11 +66,23 @@ export function WalletSyncWidget() {
         }
     };
 
-    if (loading) return <div className="p-4 text-sm text-gray-500">Loading alerts...</div>;
+    const [showSuccess, setShowSuccess] = useState(false);
+
+    useEffect(() => {
+        if (!loading && mismatches.length === 0) {
+            setShowSuccess(true);
+            const timer = setTimeout(() => setShowSuccess(false), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, mismatches.length]);
+
+    if (loading) return null; // Or keep loading indicator if preferred, but usually silent is better for dashboard
 
     if (mismatches.length === 0) {
+        if (!showSuccess) return null; // Hide completely after timeout
+
         return (
-            <div className="rounded-lg border border-green-200 bg-green-50/50 p-6">
+            <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 transition-all duration-500 fade-in-out">
                 <div className="flex items-center justify-center gap-2 text-green-700">
                     <CheckCircle className="h-5 w-5" />
                     <span className="font-medium">All Wallets Reconciled</span>
