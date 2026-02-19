@@ -488,7 +488,7 @@ const Dashboard: React.FC = () => {
 
                 <SmartMetricCard
                     title="Team Strength"
-                    value={stats.totalTLs}
+                    value={stats.totalTLs.toString()}
                     icon={Users}
                     color="orange"
                     subtitle={`${stats.activeTLs} Active Leaders`}
