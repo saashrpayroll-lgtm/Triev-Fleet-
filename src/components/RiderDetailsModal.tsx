@@ -40,6 +40,12 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
     // Wallet State
     const [walletTxns, setWalletTxns] = useState<any[]>([]); // Use any to support both type and transaction_type temporarily
     const [loadingWallet, setLoadingWallet] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(rider.walletAmount);
+
+    useEffect(() => {
+        setWalletBalance(rider.walletAmount);
+    }, [rider]);
+
 
     // Reminder State
     const [showReminder, setShowReminder] = useState(false);
@@ -518,8 +524,38 @@ ${new Date().toLocaleString('en-IN')}`;
                                         <Wallet size={24} />
                                     </div>
                                     <div>
-                                        <p className="text-xs text-muted-foreground">Current Balance</p>
-                                        <p className="text-2xl font-bold">₹{rider.walletAmount.toLocaleString('en-IN')}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs text-muted-foreground">Current Balance</p>
+                                            <button
+                                                onClick={async () => {
+                                                    const toastId = toast.loading("Recalculating...");
+                                                    try {
+                                                        // 1. Force Recalculate
+                                                        const { error: syncError } = await supabase.rpc('sync_wallet_balance_for_rider', { p_rider_id: rider.id });
+                                                        if (syncError) throw syncError;
+
+                                                        // 2. Fetch New Balance
+                                                        const { data: newBalance, error: fetchError } = await supabase.rpc('calculate_rider_balance', { p_rider_id: rider.id });
+                                                        if (fetchError) throw fetchError;
+
+                                                        // 3. Update Local State
+                                                        setWalletBalance(newBalance);
+                                                        toast.success("Balance updated!", { id: toastId });
+
+                                                        // Refresh Ledger too
+                                                        fetchWalletHistory();
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        toast.error("Recalculation failed", { id: toastId });
+                                                    }
+                                                }}
+                                                className="p-1 hover:bg-muted rounded-full transition-colors text-xs text-blue-600 flex items-center gap-1"
+                                                title="Recalculate Balance"
+                                            >
+                                                <RefreshCw size={12} /> Sync
+                                            </button>
+                                        </div>
+                                        <p className="text-2xl font-bold">₹{walletBalance.toLocaleString('en-IN')}</p>
                                     </div>
                                 </div>
                                 <div className="bg-card p-4 rounded-xl border flex items-center gap-4">
