@@ -1061,8 +1061,8 @@ const RiderManagement: React.FC = () => {
                 <div className="flex flex-col gap-1">
                     <span>{rider.mobileNumber}</span>
                     <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleCall(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100" title="Call"><Phone size={14} /></button>
-                        <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-1 rounded hover:bg-green-100" title="WhatsApp"><MessageCircle size={14} /></button>
+                        <button onClick={() => handleCall(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200" title="Call"><Phone size={20} /></button>
+                        <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200" title="WhatsApp"><MessageCircle size={20} /></button>
                     </div>
                 </div>
             )

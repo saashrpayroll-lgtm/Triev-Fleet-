@@ -51,7 +51,7 @@ function ResponsiveTable<T>({
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto rounded-xl border border-border/50 shadow-sm bg-card">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground uppercase text-xs font-semibold">
+                    <thead className="bg-muted/50 text-muted-foreground uppercase text-xs font-bold tracking-wider">
                         <tr>
                             {columns.map((col, idx) => (
                                 <th key={idx} className={`px-6 py-4 ${col.className || ''}`}>

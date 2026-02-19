@@ -913,51 +913,51 @@ const MyRiders: React.FC = () => {
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-muted/50">
+                                <thead className="bg-muted/40 sticky top-0 z-10">
                                     <tr>
-                                        <th className="px-4 py-3 text-left">
+                                        <th className="px-6 py-4 text-left border-b border-border">
                                             <input
                                                 type="checkbox"
                                                 checked={paginatedRiders.length > 0 && paginatedRiders.every(r => selectedRiders.has(r.id))}
                                                 onChange={handleSelectAll}
-                                                className="w-4 h-4 rounded border-input"
+                                                className="w-4 h-4 rounded border-input cursor-pointer"
                                             />
                                         </th>
                                         <th
                                             onClick={() => handleSort('trievId')}
-                                            className="px-4 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-muted transition-colors"
+                                            className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60 transition-colors border-b border-border"
                                         >
                                             Triev ID {sortBy === 'trievId' && (sortOrder === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th
                                             onClick={() => handleSort('riderName')}
-                                            className="px-4 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-muted transition-colors"
+                                            className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60 transition-colors border-b border-border"
                                         >
                                             Rider Name {sortBy === 'riderName' && (sortOrder === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-4 py-3 text-left text-sm font-semibold">Mobile Number</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider border-b border-border">Mobile Number</th>
                                         {/* Hidden columns: Chassis, Client, Status as per user request */}
                                         <th
                                             onClick={() => handleSort('walletAmount')}
-                                            className="px-4 py-3 text-left text-sm font-semibold cursor-pointer hover:bg-muted transition-colors"
+                                            className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60 transition-colors border-b border-border"
                                         >
                                             Wallet {sortBy === 'walletAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-4 py-3 text-right text-sm font-semibold">Actions</th>
+                                        <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider border-b border-border">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border">
+                                <tbody className="divide-y divide-border bg-card">
                                     {paginatedRiders.map((rider) => (
-                                        <tr key={rider.id} className="hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3">
+                                        <tr key={rider.id} className="hover:bg-muted/30 transition-all duration-200 group">
+                                            <td className="px-6 py-4">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedRiders.has(rider.id)}
                                                     onChange={() => handleSelectOne(rider.id)}
-                                                    className="w-4 h-4 rounded border-input"
+                                                    className="w-4 h-4 rounded border-input cursor-pointer"
                                                 />
                                             </td>
-                                            <td className="px-4 py-3 text-sm font-medium">
+                                            <td className="px-6 py-4 text-sm font-medium">
                                                 <button
                                                     onClick={() => setViewingRider(rider)}
                                                     className="text-primary hover:underline hover:font-bold transition-all"
@@ -965,41 +965,41 @@ const MyRiders: React.FC = () => {
                                                     {rider.trievId}
                                                 </button>
                                             </td>
-                                            <td className="px-4 py-3 text-sm">{rider.riderName}</td>
-                                            <td className="px-4 py-3 text-sm">
+                                            <td className="px-6 py-4 text-sm text-foreground/90">{rider.riderName}</td>
+                                            <td className="px-6 py-4 text-sm text-muted-foreground">
                                                 <div className="flex flex-col gap-1">
                                                     <span>{rider.mobileNumber}</span>
                                                     <div className="flex gap-2">
                                                         {riderActionPermissions.canCall && (
                                                             <button
                                                                 onClick={() => handleCall(rider.mobileNumber)}
-                                                                className="text-green-600 hover:text-green-700 transition-colors"
+                                                                className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200"
                                                                 title="Call"
                                                             >
-                                                                <Phone size={14} />
+                                                                <Phone size={20} />
                                                             </button>
                                                         )}
                                                         {riderActionPermissions.canWhatsApp && (
                                                             <button
                                                                 onClick={() => handleWhatsApp(rider.mobileNumber)}
-                                                                className="text-green-600 hover:text-green-700 transition-colors"
+                                                                className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200"
                                                                 title="WhatsApp"
                                                             >
-                                                                <MessageCircle size={14} />
+                                                                <MessageCircle size={20} />
                                                             </button>
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
                                             {/* Hidden Cells: Chassis, Client, Status */}
-                                            <td className="px-4 py-3 text-sm">
+                                            <td className="px-6 py-4 text-sm">
                                                 <span
                                                     className={
                                                         rider.walletAmount > 0
-                                                            ? 'wallet-positive'
+                                                            ? 'wallet-positive font-bold'
                                                             : rider.walletAmount < 0
-                                                                ? 'wallet-negative'
-                                                                : 'wallet-zero'
+                                                                ? 'wallet-negative font-bold'
+                                                                : 'wallet-zero font-medium'
                                                     }
                                                 >
                                                     ₹{rider.walletAmount >= 0 ? '+' : ''}{rider.walletAmount.toLocaleString('en-IN')}
@@ -1014,7 +1014,7 @@ const MyRiders: React.FC = () => {
                                                     </button>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-sm">
+                                            <td className="px-6 py-4 text-sm">
                                                 <div className="flex items-center justify-end">
                                                     <ActionDropdownMenu
                                                         rider={rider}
