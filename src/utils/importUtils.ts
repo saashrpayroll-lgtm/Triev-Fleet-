@@ -312,17 +312,44 @@ export const processRiderImport = async (
                 }
             }
 
-            // 3. SKIP if Duplicate Found
+            // 3. Handle Existing Rider (Update Details, IGNORE Wallet)
             if (matchData) {
-                // console.log(`[Import] Skipping duplicate rider. TrievID: ${trievId}, Mobile: ${mobile}`);
-                summary.skipped = (summary.skipped || 0) + 1;
-                summary.errors.push({
-                    row: rowNum,
-                    identifier: riderName,
-                    reason: "Skipped: Rider already exists (Duplicate Triev ID/Mobile/Chassis)",
-                    data: { trievId, mobile, existingId: matchData.id }
-                });
-                continue; // <--- This SKIP is the key change
+                // User Request: Update Chassis, Client, TL, etc. but NOT Wallet Balance.
+                const updatePayload: any = {};
+                if (chassis) updatePayload.chassis_number = chassis;
+                if (clientName) updatePayload.client_name = clientName;
+                if (teamLeaderId) {
+                    updatePayload.team_leader_id = teamLeaderId;
+                    updatePayload.team_leader_name = assignmentStatus;
+                }
+                const remarks = getValue(['Remarks', 'Remark', 'Note', 'Notes']);
+                if (remarks) updatePayload.remarks = remarks;
+
+                updatePayload.updated_at = new Date().toISOString();
+
+                if (Object.keys(updatePayload).length > 0) {
+                    const { error } = await supabase
+                        .from('riders')
+                        .update(updatePayload)
+                        .eq('id', matchData.id);
+
+                    if (error) {
+                        summary.errors.push({
+                            row: rowNum,
+                            identifier: riderName,
+                            reason: "Update Failed: " + error.message,
+                            data: row
+                        });
+                        summary.failed++;
+                    } else {
+                        // console.log(`[Import] Updated rider ${matchData.id} details.`);
+                        summary.success++; // Count as success (or distinction needed?)
+                        // We count it as success in the overall summary
+                    }
+                } else {
+                    summary.skipped = (summary.skipped || 0) + 1; // No relevant fields to update
+                }
+                continue;
             }
 
             // 4. Prepare Payload (Only for NEW riders)
