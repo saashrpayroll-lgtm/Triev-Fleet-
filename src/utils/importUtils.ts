@@ -70,7 +70,7 @@ export const processRiderImport = async (
     adminId: string, // Kept for interface consistency if needed, or remove if not used in logs anymore
     adminName: string
 ): Promise<ImportSummary> => {
-    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
+    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], updated: 0, skipped: 0 };
 
     // Pre-fetch Users to map Name -> ID (Auto-assign Team Leader)
     const teamLeaderMap = new Map<string, string>(); // Name -> ID
@@ -312,22 +312,25 @@ export const processRiderImport = async (
                 }
             }
 
-            // 3. Handle Existing Rider (Update Details, IGNORE Wallet)
+            // 3. Handle Existing Rider (Update Details, IGNORE Wallet & Team Leader)
             if (matchData) {
-                // User Request: Update Chassis, Client, TL, etc. but NOT Wallet Balance.
+                // User Request: Update Chassis, Client, Remarks.
+                // EXPLICITLY IGNORE: Wallet Balance, Team Leader.
                 const updatePayload: any = {};
+
                 if (chassis) updatePayload.chassis_number = chassis;
                 if (clientName) updatePayload.client_name = clientName;
-                if (teamLeaderId) {
-                    updatePayload.team_leader_id = teamLeaderId;
-                    updatePayload.team_leader_name = assignmentStatus;
-                }
+
+                const clientId = getValue(['Client ID', 'ClientId']);
+                if (clientId) updatePayload.client_id = clientId;
+
                 const remarks = getValue(['Remarks', 'Remark', 'Note', 'Notes']);
                 if (remarks) updatePayload.remarks = remarks;
 
                 updatePayload.updated_at = new Date().toISOString();
 
-                if (Object.keys(updatePayload).length > 0) {
+                // Only update if there are changes
+                if (Object.keys(updatePayload).length > 1) { // > 1 because updated_at is always there
                     const { error } = await supabase
                         .from('riders')
                         .update(updatePayload)
@@ -343,11 +346,11 @@ export const processRiderImport = async (
                         summary.failed++;
                     } else {
                         // console.log(`[Import] Updated rider ${matchData.id} details.`);
-                        summary.success++; // Count as success (or distinction needed?)
-                        // We count it as success in the overall summary
+                        summary.updated = (summary.updated || 0) + 1;
+                        summary.success++;
                     }
                 } else {
-                    summary.skipped = (summary.skipped || 0) + 1; // No relevant fields to update
+                    summary.skipped = (summary.skipped || 0) + 1;
                 }
                 continue;
             }
@@ -397,10 +400,11 @@ export const processRiderImport = async (
         actionType: 'bulkImport',
         targetType: 'system',
         targetId: 'multiple',
-        details: `Imported ${summary.success} riders, ${summary.skipped || 0} skipped, ${summary.failed} failures.`,
+        details: `Imported ${summary.success} riders (${summary.updated || 0} updated), ${summary.skipped || 0} skipped, ${summary.failed} failures.`,
         metadata: {
             adminName,
             success: summary.success,
+            updated: summary.updated || 0,
             skipped: summary.skipped || 0,
             failed: summary.failed
         }
