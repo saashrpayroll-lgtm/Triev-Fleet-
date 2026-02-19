@@ -110,7 +110,7 @@ const WeeklyCollectionChart: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-grow w-full min-h-[200px]">
+            <div className="flex-grow w-full min-h-[200px]" style={{ width: '100%', height: '100%' }}>
                 {loading ? (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>

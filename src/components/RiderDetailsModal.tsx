@@ -104,7 +104,9 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
     };
 
     const fetchTeamLeaderDetails = async () => {
-        if (!rider.teamLeaderId) {
+        // Validate UUID format (Simple check: length and hyphens, or just length > 20)
+        // UUID is 36 chars. If it is "N/A" or empty or short, skip.
+        if (!rider.teamLeaderId || rider.teamLeaderId.length < 30) {
             setLoadingTL(false);
             return;
         }
