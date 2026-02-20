@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Rider, User, RiderStatus, ClientName } from '@/types';
-import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal } from 'lucide-react';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import ExportModal, { ExportFormat } from '@/components/ExportModal';
@@ -17,7 +17,7 @@ import { notifyTeamLeader } from '@/utils/notificationUtils';
 import { logActivity } from '@/utils/activityLog';
 import { useDebounce } from '@/hooks/useDebounce';
 import PaymentReminderModal from '@/components/PaymentReminderModal';
-import BulkReminderModal from '@/components/BulkReminderModal';
+import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import { toast } from 'sonner';
 import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
 
@@ -48,7 +48,7 @@ const RiderManagement: React.FC = () => {
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
     const [reassigningRider, setReassigningRider] = useState<Rider | null>(null);
     const [showBulkAssignTL, setShowBulkAssignTL] = useState(false); // State for Bulk TL Modal
-    const [showBulkReminderModal, setShowBulkReminderModal] = useState(false);
+    const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
 
     // Highlight Logic
     const [highlightedRiderId, setHighlightedRiderId] = useState<string | null>(null);
@@ -786,18 +786,17 @@ const RiderManagement: React.FC = () => {
         }
     };
 
-    const handleBulkSendReminders = async (message: string) => {
-        const selectedRidersList = riders.filter(r => selectedRiders.has(r.id));
-        const negativeBalanceRiders = selectedRidersList.filter(r => r.walletAmount < 0);
+    const handleBulkCommunication = async (message: string) => {
+        const selectedRidersList = filteredRiders.filter(r => selectedRiders.has(r.id));
 
-        if (negativeBalanceRiders.length === 0) {
-            toast.error('No riders with negative balance selected');
+        if (selectedRidersList.length === 0) {
+            toast.error('No riders selected');
             return;
         }
 
         try {
             // Open WhatsApp for each rider
-            for (const rider of negativeBalanceRiders) {
+            for (const rider of selectedRidersList) {
                 const amountStr = rider.walletAmount < 0
                     ? `-${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
                     : Math.abs(rider.walletAmount).toLocaleString('en-IN');
@@ -807,7 +806,7 @@ const RiderManagement: React.FC = () => {
                     .replace('{amount}', amountStr);
 
                 const encodedMessage = encodeURIComponent(personalizedMessage);
-                const cleanNumber = rider.mobileNumber.replace(/\\D/g, '');
+                const cleanNumber = rider.mobileNumber.replace(/\D/g, '');
 
                 // Open WhatsApp in new tab
                 window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
@@ -817,18 +816,18 @@ const RiderManagement: React.FC = () => {
             }
 
             await logActivity({
-                actionType: 'payment_reminder',
+                actionType: 'bulk_communication',
                 targetType: 'rider',
                 targetId: 'multiple',
-                details: `Sent bulk payment reminder to ${negativeBalanceRiders.length} riders`,
+                details: `Sent bulk communication to ${selectedRidersList.length} riders`,
                 performedBy: currentUser?.email
             });
 
-            toast.success(`Opened WhatsApp for ${negativeBalanceRiders.length} rider(s)`);
+            toast.success(`Opened WhatsApp for ${selectedRidersList.length} rider(s)`);
             setSelectedRiders(new Set());
         } catch (error) {
-            console.error('Error sending bulk reminders:', error);
-            toast.error('Failed to send reminders');
+            console.error('Error sending bulk communication:', error);
+            toast.error('Failed to send messages');
         }
     };
 
@@ -1005,7 +1004,7 @@ const RiderManagement: React.FC = () => {
         return [
             { label: 'Set Active', onClick: () => handleBulkStatusChange('active') },
             { label: 'Set Inactive', onClick: () => handleBulkStatusChange('inactive') },
-            { label: 'Send Bulk Reminder', onClick: () => setShowBulkReminderModal(true), icon: <AlertTriangle size={16} /> },
+            { label: 'Bulk Communication (WA)', onClick: () => setShowBulkCommunicationModal(true), icon: <MessageCircle size={16} /> },
             ...commonActions,
             { label: 'Bulk Delete', onClick: handleBulkDelete, variant: 'destructive', icon: <Trash2 size={16} /> }
         ];
@@ -1384,11 +1383,11 @@ const RiderManagement: React.FC = () => {
                 )
             }
             {
-                showBulkReminderModal && (
-                    <BulkReminderModal
-                        riders={riders.filter(r => selectedRiders.has(r.id))}
-                        onClose={() => setShowBulkReminderModal(false)}
-                        onSend={handleBulkSendReminders}
+                showBulkCommunicationModal && (
+                    <BulkCommunicationModal
+                        riders={filteredRiders.filter(r => selectedRiders.has(r.id))}
+                        onClose={() => setShowBulkCommunicationModal(false)}
+                        onSend={handleBulkCommunication}
                     />
                 )
             }

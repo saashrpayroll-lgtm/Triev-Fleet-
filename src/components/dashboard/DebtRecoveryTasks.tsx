@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Rider } from '@/types';
 import { AIService } from '@/services/AIService';
 import { logActivity } from '@/utils/activityLog';
-import { AlertTriangle, RefreshCw, Wallet, CheckCircle2, Send, X, Copy, Zap, Languages } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Wallet, CheckCircle2, Send, X, Copy, Zap, Languages, UserX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -13,22 +13,25 @@ interface DebtRecoveryTasksProps {
 const CRITICAL_THRESHOLD = -300;
 
 const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
-    const [activeTab, setActiveTab] = useState<'critical' | 'warning'>('critical');
+    const [activeTab, setActiveTab] = useState<'critical' | 'warning' | 'inactive'>('critical');
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [recoveryMessage, setRecoveryMessage] = useState<string>('');
     const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
     const [language, setLanguage] = useState<'hindi' | 'english'>('hindi');
 
     // Filter Riders
-    const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD).sort((a, b) => a.walletAmount - b.walletAmount); // Ascending (more negative first)
-    const warningRiders = riders.filter(r => r.walletAmount < 0 && r.walletAmount > CRITICAL_THRESHOLD).sort((a, b) => a.walletAmount - b.walletAmount);
+    const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD && r.status === 'active').sort((a, b) => a.walletAmount - b.walletAmount); // Ascending (more negative first)
+    const warningRiders = riders.filter(r => r.walletAmount < 0 && r.walletAmount > CRITICAL_THRESHOLD && r.status === 'active').sort((a, b) => a.walletAmount - b.walletAmount);
+    const inactiveRiders = riders.filter(r => r.status === 'inactive').sort((a, b) => a.riderName.localeCompare(b.riderName));
 
-    const activeList = activeTab === 'critical' ? criticalRiders : warningRiders;
+    const activeList = activeTab === 'critical' ? criticalRiders : activeTab === 'warning' ? warningRiders : inactiveRiders;
 
     const generateMsg = async (rider: Rider, lang: 'hindi' | 'english') => {
         try {
             let msg = '';
-            if (rider.walletAmount <= CRITICAL_THRESHOLD) {
+            if (activeTab === 'inactive') {
+                msg = await AIService.generateReactivationMessage(rider, lang);
+            } else if (rider.walletAmount <= CRITICAL_THRESHOLD) {
                 msg = await AIService.generateRecoveryMessage(rider, lang);
             } else {
                 msg = await AIService.generatePaymentReminder(rider, lang, 'urgent');
@@ -73,14 +76,18 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
             window.open(url, '_blank');
 
             // 2. Log Activity using the Utility Function
+            const actionType = activeTab === 'inactive' ? 'sent_reactivation_message' :
+                activeTab === 'critical' ? 'sent_recovery_warning' : 'payment_reminder';
+
             await logActivity({
-                actionType: selectedRider.walletAmount <= CRITICAL_THRESHOLD ? 'sent_recovery_warning' : 'payment_reminder',
+                actionType: actionType,
                 targetType: 'rider',
                 targetId: selectedRider.id,
-                details: `Sent ${selectedRider.walletAmount <= CRITICAL_THRESHOLD ? 'EV Recovery Warning' : 'Payment Reminder'} to ${selectedRider.riderName}`,
+                details: `Sent ${activeTab === 'inactive' ? 'Reactivation Message' : activeTab === 'critical' ? 'EV Recovery Warning' : 'Payment Reminder'} to ${selectedRider.riderName}`,
                 metadata: {
                     rider_name: selectedRider.riderName,
                     amount: selectedRider.walletAmount,
+                    status: selectedRider.status,
                     message_preview: recoveryMessage.substring(0, 50) + '...',
                     language: language
                 }
@@ -115,15 +122,19 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                             <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-xl text-red-600">
                                 <AlertTriangle size={20} className="fill-current" />
                             </div>
+                        ) : activeTab === 'inactive' ? (
+                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600">
+                                <UserX size={20} />
+                            </div>
                         ) : (
                             <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-600">
                                 <RefreshCw size={20} />
                             </div>
                         )}
-                        Recovery Assistant
+                        Action Center
                     </h3>
                     <p className="text-muted-foreground text-xs font-medium ml-1">
-                        AI-Powered Debt Collection & Communication
+                        AI-Powered Collections & Retention
                     </p>
                 </div>
 
@@ -141,6 +152,13 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                     >
                         <Wallet size={14} />
                         Dues ({warningRiders.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('inactive')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'inactive' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <UserX size={14} />
+                        Inactive ({inactiveRiders.length})
                     </button>
                 </div>
             </div>
@@ -174,8 +192,8 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
 
                                         {/* Rider Profile Section */}
                                         <div className="flex items-start gap-4 min-w-[200px] md:w-1/3">
-                                            <div className={`mt-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${rider.walletAmount <= CRITICAL_THRESHOLD ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'}`}>
-                                                <Wallet size={28} strokeWidth={2.5} />
+                                            <div className={`mt-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${activeTab === 'inactive' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-600' : rider.walletAmount <= CRITICAL_THRESHOLD ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'}`}>
+                                                {activeTab === 'inactive' ? <UserX size={28} strokeWidth={2.5} /> : <Wallet size={28} strokeWidth={2.5} />}
                                             </div>
                                             <div>
                                                 <h4 className="font-black text-xl text-foreground leading-tight tracking-tight">{rider.riderName}</h4>
@@ -183,9 +201,11 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                     {rider.mobileNumber}
                                                 </p>
                                                 <div className="mt-3 inline-flex flex-col items-start bg-muted/50 rounded-lg px-3 py-1.5 border border-border/50 w-full">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Outstanding Dues</span>
-                                                    <span className={`text-2xl font-black ${rider.walletAmount <= CRITICAL_THRESHOLD ? 'text-red-500' : 'text-orange-500'}`}>
-                                                        {rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">
+                                                        {activeTab === 'inactive' ? 'Status' : 'Outstanding Dues'}
+                                                    </span>
+                                                    <span className={`text-2xl font-black ${activeTab === 'inactive' ? 'text-blue-500 text-lg uppercase' : rider.walletAmount <= CRITICAL_THRESHOLD ? 'text-red-500' : 'text-orange-500'}`}>
+                                                        {activeTab === 'inactive' ? 'Inactive' : rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                                                     </span>
                                                 </div>
                                             </div>
@@ -258,6 +278,11 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                                 ⚠ <b>Action Required:</b> Send mandatory "Hard Recovery" warning.<br />
                                                                 <span className="text-xs opacity-75 font-normal">Message warns about vehicle seizure.</span>
                                                             </p>
+                                                        ) : activeTab === 'inactive' ? (
+                                                            <p className="text-sm font-medium text-blue-600/90 leading-snug">
+                                                                ℹ <b>Retention:</b> Reach out to reactivate rider.<br />
+                                                                <span className="text-xs opacity-75 font-normal">Check in to see if they need help.</span>
+                                                            </p>
                                                         ) : (
                                                             <p className="text-sm font-medium text-orange-600/90 leading-snug">
                                                                 ⚠ <b>Payment Overdue:</b> Send payment reminder.<br />
@@ -273,7 +298,9 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                             group relative overflow-hidden px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 w-full md:w-auto justify-center
                                                             ${activeTab === 'critical'
                                                                 ? 'bg-gradient-to-r from-red-600 to-red-500 hover:to-red-600 text-white shadow-red-500/25'
-                                                                : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:to-orange-500 text-white shadow-orange-500/25'}
+                                                                : activeTab === 'inactive'
+                                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-blue-500/25'
+                                                                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:to-orange-500 text-white shadow-orange-500/25'}
                                                             disabled:opacity-50 disabled:cursor-not-allowed
                                                         `}
                                                     >
@@ -281,6 +308,11 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                             <>
                                                                 <AlertTriangle size={18} className="fill-white/20" />
                                                                 Initiate Recovery
+                                                            </>
+                                                        ) : activeTab === 'inactive' ? (
+                                                            <>
+                                                                <Zap size={18} className={processingId === rider.id ? "animate-spin" : "fill-white/20"} />
+                                                                Message Rider
                                                             </>
                                                         ) : (
                                                             <>
@@ -295,10 +327,10 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                     </div>
                                 </div>
                                 {/* Progress Bar / Severity Indicator */}
-                                <div className={`h-1.5 w-full ${activeTab === 'critical' ? 'bg-red-500/20' : 'bg-orange-500/20'}`}>
+                                <div className={`h-1.5 w-full ${activeTab === 'inactive' ? 'bg-blue-500/20' : activeTab === 'critical' ? 'bg-red-500/20' : 'bg-orange-500/20'}`}>
                                     <div
-                                        className={`h-full ${activeTab === 'critical' ? 'bg-red-500' : 'bg-orange-500'}`}
-                                        style={{ width: `${Math.min(Math.abs(rider.walletAmount) / 100, 100)}%` }}
+                                        className={`h-full ${activeTab === 'inactive' ? 'bg-blue-500' : activeTab === 'critical' ? 'bg-red-500' : 'bg-orange-500'}`}
+                                        style={{ width: `${activeTab === 'inactive' ? '100' : Math.min(Math.abs(rider.walletAmount) / 100, 100)}%` }}
                                     />
                                 </div>
                             </motion.div>

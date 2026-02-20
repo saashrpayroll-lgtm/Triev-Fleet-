@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import PaymentReminderModal from '@/components/PaymentReminderModal';
-import BulkReminderModal from '@/components/BulkReminderModal';
+import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import ExportModal, { ExportFormat } from '@/components/ExportModal';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
@@ -38,7 +38,7 @@ const MyRiders: React.FC = () => {
     const [showExportModal, setShowExportModal] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
-    const [showBulkReminderModal, setShowBulkReminderModal] = useState(false);
+    const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
 
     // Advanced filters
     const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
@@ -633,18 +633,17 @@ const MyRiders: React.FC = () => {
         }
     };
 
-    const handleBulkSendReminders = async (message: string) => {
+    const handleBulkCommunication = async (message: string) => {
         const selectedRidersList = riders.filter(r => selectedRiders.has(r.id));
-        const negativeBalanceRiders = selectedRidersList.filter(r => r.walletAmount < 0);
 
-        if (negativeBalanceRiders.length === 0) {
-            toast.error('No riders with negative balance selected');
+        if (selectedRidersList.length === 0) {
+            toast.error('No riders selected');
             return;
         }
 
         try {
             // Open WhatsApp for each rider
-            for (const rider of negativeBalanceRiders) {
+            for (const rider of selectedRidersList) {
                 const amountStr = rider.walletAmount < 0
                     ? `-${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
                     : Math.abs(rider.walletAmount).toLocaleString('en-IN');
@@ -654,7 +653,7 @@ const MyRiders: React.FC = () => {
                     .replace('{amount}', amountStr);
 
                 const encodedMessage = encodeURIComponent(personalizedMessage);
-                const cleanNumber = rider.mobileNumber.replace(/\\D/g, '');
+                const cleanNumber = rider.mobileNumber.replace(/\D/g, '');
 
                 // Open WhatsApp in new tab
                 window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
@@ -664,17 +663,17 @@ const MyRiders: React.FC = () => {
             }
 
             await logActivity({
-                actionType: 'payment_reminder',
+                actionType: 'bulk_communication',
                 targetType: 'rider',
                 targetId: 'multiple',
-                details: `Sent bulk payment reminder to ${negativeBalanceRiders.length} riders`
+                details: `Sent bulk communication to ${selectedRidersList.length} riders`
             });
 
-            toast.success(`Opened WhatsApp for ${negativeBalanceRiders.length} rider(s)`);
+            toast.success(`Opened WhatsApp for ${selectedRidersList.length} rider(s)`);
             setSelectedRiders(new Set());
         } catch (error) {
-            console.error('Error sending bulk reminders:', error);
-            toast.error('Failed to send reminders');
+            console.error('Error sending bulk communication:', error);
+            toast.error('Failed to send messages');
         }
     };
 
@@ -698,10 +697,10 @@ const MyRiders: React.FC = () => {
 
         if (canBulkSendReminders) {
             actions.push({
-                label: 'Send Bulk Reminder',
-                onClick: () => setShowBulkReminderModal(true),
+                label: 'Bulk Communication (WA)',
+                onClick: () => setShowBulkCommunicationModal(true),
                 variant: 'default',
-                icon: <AlertTriangle size={16} />,
+                icon: <MessageCircle size={16} />,
             });
         }
 
@@ -1123,11 +1122,11 @@ const MyRiders: React.FC = () => {
                 />
             )}
 
-            {showBulkReminderModal && (
-                <BulkReminderModal
+            {showBulkCommunicationModal && (
+                <BulkCommunicationModal
                     riders={riders.filter(r => selectedRiders.has(r.id))}
-                    onClose={() => setShowBulkReminderModal(false)}
-                    onSend={handleBulkSendReminders}
+                    onClose={() => setShowBulkCommunicationModal(false)}
+                    onSend={handleBulkCommunication}
                 />
             )}
         </div>

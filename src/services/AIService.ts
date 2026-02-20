@@ -366,6 +366,31 @@ Return ONLY the final message text ready to send.`;
         return `URGENT: *${name}*, your outstanding dues of *${amountStr}* are critical. Pay immediately or the **Hard Recovery Team** will be assigned to recover the vehicle.`;
     },
 
+    generateReactivationMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
+        const name = rider.riderName;
+        const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
+
+        const prompt = `Generate a polite and encouraging reactivation message for an inactive EV rider.
+Rider Name: ${name}
+
+INSTRUCTIONS:
+1. ${languageInstruction}
+2. Tone: Friendly, encouraging, and supportive.
+3. The message MUST include the Rider Name ("${name}").
+4. Tell them we miss them and encourage them to get back on the road. Ask if they are facing any issues we can help solve.
+5. Keep it concise (2-3 sentences max).
+
+Return ONLY the final message text ready to send.`;
+
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Rider Retention Specialist.");
+        if (text) return cleanText(text);
+
+        if (language === 'hindi') {
+            return `नमस्ते *${name}*, हमने देखा कि आप कुछ समय से इनएक्टिव हैं। हम आपको मिस कर रहे हैं! क्या कोई समस्या है जिसमें हम मदद कर सकते हैं? कृपया संपर्क करें।`;
+        }
+        return `Hello *${name}*, we noticed you've been inactive lately. We miss having you on the road! Are you facing any issues we can help with? Please reach out to us.`;
+    },
+
     parseSearchQuery: async (query: string): Promise<{ role?: string; status?: string; location?: string; keyword?: string; }> => {
         const prompt = `Extract filter parameters from query: "${query}". Return JSON with keys: role, status, location, keyword.`;
         const text = await AIOrchestrator.execute('speed', prompt, "You are a Search Parser. Output JSON only."); // Groq

@@ -3,35 +3,40 @@ import { X, Send, Sparkles, Loader } from 'lucide-react';
 import { Rider } from '@/types';
 import { AIService } from '@/services/AIService';
 
-interface BulkReminderModalProps {
+interface BulkCommunicationModalProps {
     riders: Rider[];
     onClose: () => void;
     onSend: (message: string) => Promise<void>;
 }
 
-const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, onSend }) => {
+const BulkCommunicationModal: React.FC<BulkCommunicationModalProps> = ({ riders, onClose, onSend }) => {
     const [message, setMessage] = useState('');
+    const [messageType, setMessageType] = useState<'reminder' | 'broadcast' | 'reactivation'>('broadcast');
     const [language, setLanguage] = useState<'hindi' | 'english'>('english');
     const [tone, setTone] = useState<'professional' | 'friendly' | 'urgent'>('professional');
     const [aiLoading, setAiLoading] = useState(false);
     const [sending, setSending] = useState(false);
 
-    // Filter only riders with negative balance
-    const negativeBalanceRiders = riders.filter(r => r.walletAmount < 0);
-    const totalDebt = negativeBalanceRiders.reduce((sum, r) => sum + Math.abs(r.walletAmount), 0);
+    // Derived states
+    const totalDebt = riders.reduce((sum, r) => sum + (r.walletAmount < 0 ? Math.abs(r.walletAmount) : 0), 0);
 
     const handleAiGenerate = async () => {
-        if (negativeBalanceRiders.length === 0) return;
+        if (riders.length === 0) return;
 
         setAiLoading(true);
         try {
             // Use the first rider as a sample for AI generation
-            const sampleRider = negativeBalanceRiders[0];
-            const generatedMessage = await AIService.generatePaymentReminder(
-                sampleRider,
-                language,
-                tone
-            );
+            const sampleRider = riders[0];
+            let generatedMessage = '';
+
+            if (messageType === 'reminder') {
+                generatedMessage = await AIService.generatePaymentReminder(sampleRider, language, tone);
+            } else if (messageType === 'reactivation') {
+                generatedMessage = await AIService.generateReactivationMessage(sampleRider, language);
+            } else {
+                generatedMessage = await AIService.generateBulkAnnouncement('Service Update / General Broadcast', 'riders');
+            }
+
             setMessage(generatedMessage);
         } catch (error) {
             console.error('AI generation failed:', error);
@@ -60,9 +65,9 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-border">
                     <div>
-                        <h2 className="text-xl font-bold">Send Bulk Payment Reminder</h2>
+                        <h2 className="text-xl font-bold">Bulk WhatsApp Communication</h2>
                         <p className="text-sm text-muted-foreground mt-1">
-                            {negativeBalanceRiders.length} rider(s) with negative balance selected
+                            {riders.length} rider(s) selected
                         </p>
                     </div>
                     <button
@@ -79,11 +84,12 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                     <div className="bg-muted/50 rounded-lg p-4">
                         <h3 className="font-semibold mb-3">Selected Riders</h3>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {negativeBalanceRiders.map(rider => (
+                            {riders.map(rider => (
                                 <div key={rider.id} className="flex justify-between items-center text-sm">
                                     <span className="font-medium">{rider.riderName}</span>
-                                    <span className="text-red-600 font-semibold">
+                                    <span className={`font-semibold ${rider.walletAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
                                         ₹{Math.abs(rider.walletAmount).toLocaleString('en-IN')}
+                                        {rider.walletAmount < 0 ? ' (Due)' : ''}
                                     </span>
                                 </div>
                             ))}
@@ -95,7 +101,19 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                     </div>
 
                     {/* Message Configuration */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Message Type</label>
+                            <select
+                                value={messageType}
+                                onChange={(e) => setMessageType(e.target.value as any)}
+                                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                            >
+                                <option value="broadcast">General Broadcast</option>
+                                <option value="reminder">Payment Reminder</option>
+                                <option value="reactivation">Reactivation (Inactive)</option>
+                            </select>
+                        </div>
                         <div>
                             <label className="block text-sm font-medium mb-2">Language</label>
                             <select
@@ -124,10 +142,10 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                     {/* Message Input */}
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-medium">Message</label>
+                            <label className="block text-sm font-medium">Message Details</label>
                             <button
                                 onClick={handleAiGenerate}
-                                disabled={aiLoading || negativeBalanceRiders.length === 0}
+                                disabled={aiLoading || riders.length === 0}
                                 className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors disabled:opacity-50"
                             >
                                 {aiLoading ? <Loader size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -138,11 +156,11 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             rows={6}
-                            placeholder="Enter your reminder message here..."
+                            placeholder="Enter your message here... You can use {name} and {amount} as placeholders."
                             className="w-full px-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground resize-none"
                         />
                         <p className="text-xs text-muted-foreground mt-2">
-                            This message will be sent via WhatsApp to all {negativeBalanceRiders.length} selected rider(s)
+                            This message will be sent via WhatsApp to all {riders.length} selected rider(s)
                         </p>
                     </div>
                 </div>
@@ -158,7 +176,7 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                     </button>
                     <button
                         onClick={handleSend}
-                        disabled={!message.trim() || sending || negativeBalanceRiders.length === 0}
+                        disabled={!message.trim() || sending || riders.length === 0}
                         className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-2.5 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {sending ? (
@@ -169,7 +187,7 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
                         ) : (
                             <>
                                 <Send size={18} />
-                                Send to {negativeBalanceRiders.length} Rider(s)
+                                Send to {riders.length} Rider(s)
                             </>
                         )}
                     </button>
@@ -179,4 +197,4 @@ const BulkReminderModal: React.FC<BulkReminderModalProps> = ({ riders, onClose, 
     );
 };
 
-export default BulkReminderModal;
+export default BulkCommunicationModal;

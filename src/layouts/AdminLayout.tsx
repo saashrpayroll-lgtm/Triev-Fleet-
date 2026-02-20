@@ -20,12 +20,64 @@ import {
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import BottomNav from '@/components/layout/BottomNav';
+import { supabase } from '@/config/supabase';
+
+interface NavItem {
+    path: string;
+    icon: any;
+    label: string;
+    visible?: boolean;
+    badge?: number;
+    badgeColor?: string;
+}
+
+interface NavGroup {
+    title: string;
+    items: NavItem[];
+}
 
 const AdminLayout: React.FC = () => {
     const { userData, signOut } = useSupabaseAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    // Live Badges State
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+    React.useEffect(() => {
+        if (!userData) return;
+        fetchCounts();
+
+        // Subscriptions
+        const reqChannel = supabase.channel('requests-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => fetchCounts())
+            .subscribe();
+
+        const notifChannel = supabase.channel('notif-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userData.id}` }, () => fetchCounts())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(reqChannel);
+            supabase.removeChannel(notifChannel);
+        };
+    }, [userData]);
+
+    const fetchCounts = async () => {
+        if (!userData) return;
+        try {
+            const [{ count: reqCount }, { count: notifCount }] = await Promise.all([
+                supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+                supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).eq('is_read', false)
+            ]);
+            setPendingRequestsCount(reqCount || 0);
+            setUnreadNotificationsCount(notifCount || 0);
+        } catch (e) {
+            console.error("Failed to fetch sidebar counts:", e);
+        }
+    };
 
     // DEBUG: Monitor permissions
     // React.useEffect(() => {
@@ -43,23 +95,58 @@ const AdminLayout: React.FC = () => {
         }
     };
 
-    const navItems = [
-        { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
-        { path: '/portal/leads', icon: Target, label: 'Lead Management', visible: userData?.permissions?.modules?.leads ?? true },
-        { path: '/portal/riders', icon: Users, label: 'Rider Management', visible: userData?.permissions?.modules?.riders ?? true },
-        { path: '/portal/users', icon: UserCog, label: 'User Management', visible: userData?.permissions?.modules?.users ?? true },
-        { path: '/portal/analytics', icon: Activity, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
-        { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
-        { path: '/portal/notifications', icon: Bell, label: 'Notifications', visible: userData?.permissions?.modules?.notifications ?? true },
-        { path: '/portal/requests', icon: ShieldAlert, label: 'Request Management', visible: userData?.permissions?.modules?.requests ?? true },
-        { path: '/portal/data', icon: Database, label: 'Data Management', visible: userData?.permissions?.modules?.dataManagement ?? true },
-        { path: '/portal/reports', icon: FileText, label: 'Reports Management', visible: userData?.permissions?.modules?.reports ?? true },
-        { path: '/portal/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
-        { path: '/portal/wallet-history', icon: Database, label: 'Wallet History', visible: userData?.permissions?.modules?.riders ?? true },
-        { path: '/portal/profile', icon: User, label: 'Profile', visible: userData?.permissions?.modules?.profile ?? true },
-    ].filter(item => item.visible);
+    const navGroups: NavGroup[] = [
+        {
+            title: 'Overview',
+            items: [
+                { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/analytics', icon: Activity, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
+                { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
+            ].filter(item => item.visible)
+        },
+        {
+            title: 'Operations',
+            items: [
+                { path: '/portal/riders', icon: Users, label: 'Rider Management', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/portal/leads', icon: Target, label: 'Lead Management', visible: userData?.permissions?.modules?.leads ?? true },
+                {
+                    path: '/portal/requests',
+                    icon: ShieldAlert,
+                    label: 'Requests',
+                    visible: userData?.permissions?.modules?.requests ?? true,
+                    badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+                    badgeColor: 'bg-orange-500 text-white'
+                },
+                {
+                    path: '/portal/notifications',
+                    icon: Bell,
+                    label: 'Notifications',
+                    visible: userData?.permissions?.modules?.notifications ?? true,
+                    badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
+                    badgeColor: 'bg-red-500 text-white'
+                },
+            ].filter(item => item.visible)
+        },
+        {
+            title: 'Financials',
+            items: [
+                { path: '/portal/data', icon: Database, label: 'Data Hub (Imports)', visible: userData?.permissions?.modules?.dataManagement ?? true },
+                { path: '/portal/wallet-history', icon: Database, label: 'Wallet History', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/portal/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
+            ].filter(item => item.visible)
+        },
+        {
+            title: 'System & Admin',
+            items: [
+                { path: '/portal/users', icon: UserCog, label: 'Staff & Users', visible: userData?.permissions?.modules?.users ?? true },
+                { path: '/portal/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
+                { path: '/portal/profile', icon: User, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? true },
+            ].filter(item => item.visible)
+        }
+    ].filter(group => group.items.length > 0);
 
-    // ... existing code ...
+    // Flatten for BottomNav
+    const flatNavItems = navGroups.flatMap(g => g.items);
 
     return (
         <div className="flex h-screen bg-background">
@@ -85,31 +172,52 @@ const AdminLayout: React.FC = () => {
                     </h1>
                 </div>
 
-                <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-x-hidden overflow-y-auto custom-scrollbar">
-                    {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = location.pathname === item.path;
+                <nav className="flex-1 px-3 py-6 space-y-6 overflow-x-hidden overflow-y-auto custom-scrollbar">
+                    {navGroups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="space-y-1">
+                            {sidebarOpen && (
+                                <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">
+                                    {group.title}
+                                </h3>
+                            )}
+                            {group.items.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = location.pathname === item.path;
 
-                        return (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
-                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 font-medium translate-x-1'
-                                    : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-600 hover:shadow-sm dark:hover:bg-violet-900/20 dark:hover:text-violet-400'
-                                    }`}
-                            >
-                                <Icon
-                                    size={20}
-                                    className={`shrink-0 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}
-                                />
-                                <span className={`whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute left-12'}`}>
-                                    {item.label}
-                                </span>
-                                {isActive && <div className="absolute right-0 top-0 h-full w-1 bg-white/20" />}
-                            </Link>
-                        );
-                    })}
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        to={item.path}
+                                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
+                                            ? 'bg-primary/10 text-primary font-medium'
+                                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-900/20 dark:hover:text-violet-400'
+                                            }`}
+                                    >
+                                        <div className={`relative shrink-0 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                                            <Icon size={20} />
+                                            {!sidebarOpen && item.badge !== undefined && (
+                                                <span className={`absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${item.badgeColor}`}>
+                                                    {item.badge > 99 ? '99+' : item.badge}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <span className={`flex-1 whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute left-12'}`}>
+                                            {item.label}
+                                        </span>
+
+                                        {sidebarOpen && item.badge !== undefined && (
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in`}>
+                                                {item.badge > 99 ? '99+' : item.badge}
+                                            </span>
+                                        )}
+
+                                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1/2 w-1 bg-primary rounded-r-full" />}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </nav>
 
                 <div className="p-4 border-t border-border/50 bg-muted/5">
@@ -185,7 +293,7 @@ const AdminLayout: React.FC = () => {
             </div>
 
             {/* Bottom Nav for Mobile */}
-            <BottomNav items={navItems} />
+            <BottomNav items={flatNavItems} />
         </div>
     );
 };

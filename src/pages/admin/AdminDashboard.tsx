@@ -15,6 +15,7 @@ import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
 import { WalletSyncWidget } from '@/components/WalletSyncWidget';
 import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
 import TeamLeaderPerformanceTable, { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
+import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 
@@ -537,10 +538,15 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* TL Performance Table (Admin Only) */}
+            {/* TL Performance Table & System Health (Admin Only) */}
             {!isTL && (
-                <div className="animate-in slide-in-from-bottom duration-700 delay-400">
-                    <TeamLeaderPerformanceTable data={tlStats} />
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400">
+                    <div className="lg:col-span-3">
+                        <TeamLeaderPerformanceTable data={tlStats} />
+                    </div>
+                    <div className="lg:col-span-1">
+                        <SystemHealthWidget />
+                    </div>
                 </div>
             )}
 

@@ -1,11 +1,26 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { LayoutDashboard, Users, FileText, Activity, User, LogOut, Menu, X, HelpCircle, Wallet } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Activity, LogOut, Menu, X, HelpCircle, Wallet } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
 import BottomNav from '@/components/layout/BottomNav';
+import { supabase } from '@/config/supabase';
+
+interface NavItem {
+    path: string;
+    icon: any;
+    label: string;
+    visible?: boolean;
+    badge?: number;
+    badgeColor?: string;
+}
+
+interface NavGroup {
+    title: string;
+    items: NavItem[];
+}
 
 const TeamLeaderLayout: React.FC = () => {
     const { userData, signOut } = useSupabaseAuth();
@@ -13,17 +28,34 @@ const TeamLeaderLayout: React.FC = () => {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
+    // Live Badges State
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+    React.useEffect(() => {
+        if (!userData) return;
+        fetchCounts();
+
+        // Subscriptions
+        const reqChannel = supabase.channel('tl-requests-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `user_id=eq.${userData.id}` }, () => fetchCounts())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(reqChannel);
+        };
+    }, [userData]);
+
+    const fetchCounts = async () => {
+        if (!userData) return;
+        try {
+            const { count: reqCount } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).in('status', ['pending', 'open']); // Track their pending requests
+            setPendingRequestsCount(reqCount || 0);
+        } catch (e) {
+            console.error("Failed to fetch TL sidebar counts:", e);
+        }
+    };
+
     // DEBUG: Monitor permissions
-    // React.useEffect(() => {
-    //     if (userData) {
-    //         // console.group('TeamLeaderLayout Permission Check');
-    //         // console.log('User ID:', userData.id);
-    //         // console.log('Role:', userData.role);
-    //         // console.log('Raw Permissions:', userData.permissions);
-    //         // console.log('Modules Access:', userData.permissions?.modules);
-    //         // console.groupEnd();
-    //     }
-    // }, [userData]);
 
     const handleLogout = async () => {
         try {
@@ -34,20 +66,40 @@ const TeamLeaderLayout: React.FC = () => {
         }
     };
 
-    const navItems = [
-        { path: '/team-leader', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
-        { path: '/team-leader/leads', icon: Users, label: 'My Leads', visible: userData?.permissions?.modules?.leads ?? true },
-        { path: '/team-leader/riders', icon: Users, label: 'My Riders', visible: userData?.permissions?.modules?.riders ?? true },
-        { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
-        { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
-        { path: '/team-leader/requests', icon: HelpCircle, label: 'My Requests', visible: userData?.permissions?.modules?.requests ?? true },
-        { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet History', visible: userData?.permissions?.wallet?.viewHistory ?? true },
-        { path: '/team-leader/profile', icon: User, label: 'Profile', visible: true }, // Profile should always be accessible
-    ].filter(item => {
-        // Double check against pure undefined if keys missing
-        if (item.visible === undefined) return true;
-        return item.visible;
-    });
+    const navGroups: NavGroup[] = [
+        {
+            title: 'Overview',
+            items: [
+                { path: '/team-leader', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        },
+        {
+            title: 'My Team',
+            items: [
+                { path: '/team-leader/riders', icon: Users, label: 'My Riders', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/team-leader/leads', icon: Users, label: 'My Leads', visible: userData?.permissions?.modules?.leads ?? true },
+                {
+                    path: '/team-leader/requests',
+                    icon: HelpCircle,
+                    label: 'My Requests',
+                    visible: userData?.permissions?.modules?.requests ?? true,
+                    badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+                    badgeColor: 'bg-orange-500 text-white'
+                },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        },
+        {
+            title: 'Financials & Logs',
+            items: [
+                { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet History', visible: userData?.permissions?.wallet?.viewHistory ?? true },
+                { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
+                { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        }
+    ].filter(group => group.items.length > 0);
+
+    // Flatten for BottomNav
+    const flatNavItems = navGroups.flatMap(g => g.items);
 
     return (
         <div className="flex h-screen bg-background">
@@ -70,25 +122,54 @@ const TeamLeaderLayout: React.FC = () => {
                     </button>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                    {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = location.pathname === item.path;
+                <nav className="flex-1 px-3 py-6 space-y-6 overflow-y-auto custom-scrollbar">
+                    {navGroups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="space-y-1 relative">
+                            {sidebarOpen && (
+                                <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">
+                                    {group.title}
+                                </h3>
+                            )}
+                            {group.items.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = location.pathname === item.path;
 
-                        return (
-                            <Link
-                                key={item.path}
-                                to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-md transition-all ${isActive
-                                    ? 'bg-primary text-primary-foreground shadow-md'
-                                    : 'hover:bg-accent text-muted-foreground hover:text-foreground'
-                                    }`}
-                            >
-                                <Icon size={20} />
-                                {sidebarOpen && <span className="font-medium">{item.label}</span>}
-                            </Link>
-                        );
-                    })}
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        to={item.path}
+                                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
+                                            ? 'bg-primary/10 text-primary font-medium'
+                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                            }`}
+                                    >
+                                        <div className={`relative shrink-0 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                                            <Icon size={20} />
+                                            {!sidebarOpen && item.badge !== undefined && (
+                                                <span className={`absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${item.badgeColor}`}>
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {sidebarOpen && (
+                                            <span className="flex-1 whitespace-nowrap transition-all duration-300">
+                                                {item.label}
+                                            </span>
+                                        )}
+
+                                        {sidebarOpen && item.badge !== undefined && (
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in`}>
+                                                {item.badge}
+                                            </span>
+                                        )}
+
+                                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1/2 w-1 bg-primary rounded-r-full" />}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </nav>
 
                 <div className="p-4 border-t border-border">
@@ -147,7 +228,7 @@ const TeamLeaderLayout: React.FC = () => {
             </div>
 
             {/* Bottom Nav */}
-            <BottomNav items={navItems} />
+            <BottomNav items={flatNavItems} />
         </div>
     );
 };
