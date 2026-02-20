@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import {
-    Users, UserCheck, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText
+    Users, UserCheck, UserX, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText
 } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -100,9 +100,9 @@ const Dashboard: React.FC = () => {
                 deletedRiders: myRiders.filter(r => r.status === 'deleted').length,
 
                 // Wallet Stats
-                positiveWallet: myRiders.filter(r => r.walletAmount > 0).length,
-                negativeWallet: myRiders.filter(r => r.walletAmount < 0).length,
-                zeroWallet: myRiders.filter(r => r.walletAmount === 0).length,
+                positiveWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount > 0).length,
+                negativeWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length,
+                zeroWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount === 0).length,
                 totalPositiveAmount: myRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0),
                 totalNegativeAmount: myRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0),
 
@@ -285,7 +285,7 @@ const Dashboard: React.FC = () => {
                 {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
                     <SmartMetricCard
                         title="Fleet Strength"
-                        value={stats.activeRiders}
+                        value={String(stats.activeRiders)}
                         icon={UserCheck}
                         color="emerald"
                         trend={{ value: 98, label: 'health', direction: 'up' }}
@@ -294,6 +294,17 @@ const Dashboard: React.FC = () => {
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
                     />
                 )}
+
+                <SmartMetricCard
+                    title="Churn Rider Monitor"
+                    value={String(stats.inactiveRiders + stats.deletedRiders)}
+                    icon={UserX}
+                    color="slate"
+                    trend={{ value: Math.round(((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100) || 0, label: 'churn rate', direction: 'down' }}
+                    subtitle={`${stats.inactiveRiders} Inactive | ${stats.deletedRiders} Deleted`}
+                    progress={stats.totalRiders > 0 ? ((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100 : 0}
+                    onClick={() => handleNavigate('/team-leader/riders', { filter: 'inactive' })}
+                />
 
                 {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
                     <SmartMetricCard
@@ -310,7 +321,7 @@ const Dashboard: React.FC = () => {
 
                 <SmartMetricCard
                     title="Positive Riders"
-                    value={stats.positiveWallet}
+                    value={String(stats.positiveWallet)}
                     icon={Users}
                     color="emerald"
                     trend={{ value: Math.round((stats.positiveWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'up' }}
@@ -321,7 +332,7 @@ const Dashboard: React.FC = () => {
 
                 <SmartMetricCard
                     title="Negative Riders"
-                    value={stats.negativeWallet}
+                    value={String(stats.negativeWallet)}
                     icon={Users}
                     color="rose"
                     trend={{ value: Math.round((stats.negativeWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'down' }}
