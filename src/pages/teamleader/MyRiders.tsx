@@ -26,7 +26,7 @@ const MyRiders: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
-    const [activeTab, setActiveTab] = useState<TabType>((searchParams.get('filter') as TabType) || 'all');
+    const [activeTab, setActiveTab] = useState<TabType>((searchParams.get('filter') as TabType) || 'active');
     const [riders, setRiders] = useState<Rider[]>([]);
     const [filteredRiders, setFilteredRiders] = useState<Rider[]>([]);
     const [loading, setLoading] = useState(true);
@@ -226,7 +226,7 @@ const MyRiders: React.FC = () => {
         let filtered = [...riders];
 
         // Filter by tab
-        if (activeTab !== 'all') {
+        if (activeTab && activeTab !== 'all') {
             filtered = filtered.filter(r => r.status === activeTab);
         }
 
@@ -755,17 +755,6 @@ const MyRiders: React.FC = () => {
             {/* Tabs */}
             <div className="border-b border-border">
                 <div className="flex gap-6">
-                    <button
-                        onClick={() => handleTabChange('all')}
-                        className={`pb-3 px-1 font-medium transition-all relative ${activeTab === 'all'
-                            ? 'text-primary'
-                            : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        All
-                        {activeTab === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
-                    </button>
-
                     <button
                         onClick={() => handleTabChange('active')}
                         className={`pb-3 px-1 font-medium transition-all relative ${activeTab === 'active'
