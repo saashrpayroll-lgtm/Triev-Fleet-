@@ -281,7 +281,7 @@ const Dashboard: React.FC = () => {
             {/* BENTO GRID: Premium Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
-                {/* Rider Stats */}
+                {/* --- ROW 1: MISSION CRITICAL & OPS --- */}
                 {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
                     <SmartMetricCard
                         title="Fleet Strength"
@@ -308,6 +308,21 @@ const Dashboard: React.FC = () => {
                     isCurrency={false}
                 />
 
+                {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
+                    <SmartMetricCard
+                        title="Lead Pipeline"
+                        value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}%`}
+                        icon={Sparkles}
+                        color="fuchsia"
+                        trend={{ value: 12, label: 'velocity', direction: 'up' }}
+                        subtitle={`${stats.convertedLeads} Successful Converts`}
+                        progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
+                        onClick={() => handleNavigate('/team-leader/leads?status=New')}
+                        isCurrency={false}
+                    />
+                )}
+
+                {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
                 {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
                     <SmartMetricCard
                         title="Revenue Collected"
@@ -321,6 +336,9 @@ const Dashboard: React.FC = () => {
                     />
                 )}
 
+                <TodaysCollectionCard teamLeaderId={userData.id} />
+
+                {/* --- ROW 3: RIDER WALLET HEALTH (COUNTS) --- */}
                 <SmartMetricCard
                     title="Positive Riders"
                     value={String(stats.positiveWallet)}
@@ -345,8 +363,6 @@ const Dashboard: React.FC = () => {
                     isCurrency={false}
                 />
 
-                <TodaysCollectionCard teamLeaderId={userData.id} />
-
                 {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
                     <SmartMetricCard
                         title="Payment Dues"
@@ -359,21 +375,6 @@ const Dashboard: React.FC = () => {
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
                     />
                 )}
-
-                {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
-                    <SmartMetricCard
-                        title="Lead Pipeline"
-                        value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}%`}
-                        icon={Sparkles}
-                        color="fuchsia"
-                        trend={{ value: 12, label: 'velocity', direction: 'up' }}
-                        subtitle={`${stats.convertedLeads} Successful Converts`}
-                        progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
-                        onClick={() => handleNavigate('/team-leader/leads?status=New')}
-                        isCurrency={false}
-                    />
-                )}
-
             </div>
 
             {/* RECOVERY TASKS SECTION (New) */}
