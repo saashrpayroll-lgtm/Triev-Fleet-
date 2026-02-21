@@ -16,7 +16,7 @@ WITH CHECK (auth.uid() = user_id);
 
 -- Create a bulletproof RPC function to mark all notifications as read
 -- This function runs with SECURITY DEFINER, meaning it bypasses RLS and executes with creator privileges.
--- This guarantees that marking all as read will never fail due to RLS edge cases or URL length limits.
+-- This guarantees that marking all as read will never fail due to RLS edge cases.
 CREATE OR REPLACE FUNCTION mark_all_notifications_read(p_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
@@ -25,8 +25,7 @@ AS $$
 BEGIN
   UPDATE public.notifications
   SET 
-    is_read = true, 
-    read_at = now()
+    is_read = true
   WHERE 
     user_id = p_user_id 
     AND is_read = false;

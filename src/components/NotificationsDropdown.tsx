@@ -99,7 +99,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
 
             const { error } = await supabase
                 .from('notifications')
-                .update({ is_read: true, read_at: new Date().toISOString() }) // FIXED: snake_case
+                .update({ is_read: true })
                 .eq('id', notificationId);
 
             if (error) {
@@ -125,10 +125,9 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
 
             if (rpcError) {
                 console.warn("RPC failed, falling back to standard update...", rpcError);
-                // Update ALL unread notifications for this user in DB using explicit IDs
                 const { error } = await supabase
                     .from('notifications')
-                    .update({ is_read: true, read_at: new Date().toISOString() })
+                    .update({ is_read: true })
                     .in('id', unreadIds);
 
                 if (error) throw error;
