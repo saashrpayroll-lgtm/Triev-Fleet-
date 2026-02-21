@@ -111,12 +111,14 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
         if (unreadCount === 0) return;
 
         try {
-            // Update ALL unread notifications for this user in DB
+            const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+            if (unreadIds.length === 0) return;
+
+            // Update ALL unread notifications for this user in DB using explicit IDs
             const { error } = await supabase
                 .from('notifications')
                 .update({ is_read: true, read_at: new Date().toISOString() })
-                .eq('user_id', userId)
-                .eq('is_read', false);
+                .in('id', unreadIds);
 
             if (error) throw error;
 
