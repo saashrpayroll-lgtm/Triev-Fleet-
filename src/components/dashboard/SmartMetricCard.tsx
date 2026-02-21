@@ -20,6 +20,7 @@ interface SmartMetricCardProps {
     loading?: boolean;
     className?: string; // For additional styling
     progress?: number; // 0-100 for Circular Progress Bar
+    isCurrency?: boolean;
 }
 
 const colorMap = {
@@ -104,7 +105,8 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     aiInsight,
     loading = false,
     className,
-    progress // New Prop
+    progress, // New Prop
+    isCurrency = true // Default to true to prevent breaking existing usages
 }) => {
     return (
         <div
@@ -181,7 +183,7 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                     ) : (
                         <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
                             {typeof value === 'number'
-                                ? `₹${value.toLocaleString('en-IN')}`
+                                ? (isCurrency ? `₹${value.toLocaleString('en-IN')}` : value.toLocaleString('en-IN'))
                                 : safeRender(value)}
                         </h3>
                     )}

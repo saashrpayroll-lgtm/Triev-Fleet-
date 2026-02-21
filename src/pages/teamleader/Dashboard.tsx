@@ -292,6 +292,7 @@ const Dashboard: React.FC = () => {
                         subtitle={`${stats.totalRiders} Total Assigned`}
                         progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
+                        isCurrency={false}
                     />
                 )}
 
@@ -304,6 +305,7 @@ const Dashboard: React.FC = () => {
                     subtitle={`${stats.inactiveRiders} Inactive | ${stats.deletedRiders} Deleted`}
                     progress={stats.totalRiders > 0 ? ((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'inactive' })}
+                    isCurrency={false}
                 />
 
                 {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
@@ -328,6 +330,7 @@ const Dashboard: React.FC = () => {
                     subtitle="Wallet > 0"
                     progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'positive_wallet' })}
+                    isCurrency={false}
                 />
 
                 <SmartMetricCard
@@ -339,6 +342,7 @@ const Dashboard: React.FC = () => {
                     subtitle="Wallet < 0"
                     progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
+                    isCurrency={false}
                 />
 
                 <TodaysCollectionCard teamLeaderId={userData.id} />
@@ -366,6 +370,7 @@ const Dashboard: React.FC = () => {
                         subtitle={`${stats.convertedLeads} Successful Converts`}
                         progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
                         onClick={() => handleNavigate('/team-leader/leads?status=New')}
+                        isCurrency={false}
                     />
                 )}
 

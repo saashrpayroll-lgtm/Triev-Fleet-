@@ -369,7 +369,7 @@ const Dashboard: React.FC = () => {
             {/* BENTO GRID: 12+ Smart Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
 
-                {/* --- ROW 1: MISSION CRITICAL --- */}
+                {/* --- ROW 1: MISSION CRITICAL & OPS --- */}
                 <SmartMetricCard
                     title="System Health"
                     value={`${stats.activeRiders}/${stats.totalRiders}`}
@@ -380,8 +380,43 @@ const Dashboard: React.FC = () => {
                     className="shadow-emerald-500/10"
                     progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                     onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
+                    isCurrency={false}
                 />
 
+                <SmartMetricCard
+                    title="Team Strength"
+                    value={stats.totalTLs.toString()}
+                    icon={Users}
+                    color="orange"
+                    subtitle={`${stats.activeTLs} Active Leaders`}
+                    onClick={() => navigate('/portal/users?role=teamLeader')}
+                    isCurrency={false}
+                />
+
+                <SmartMetricCard
+                    title="Pending Ops"
+                    value={stats.pendingRequests}
+                    icon={Inbox}
+                    color="blue"
+                    aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
+                    subtitle={`${stats.criticalRequests} High Priority`}
+                    onClick={() => navigate('/portal/requests?status=pending')}
+                    isCurrency={false}
+                />
+
+                <SmartMetricCard
+                    title="Growth Engine"
+                    value={`${stats.conversionRate}%`}
+                    icon={UserPlus}
+                    color="fuchsia"
+                    trend={{ value: 5, label: 'velocity', direction: 'up' }}
+                    subtitle={`${stats.newLeadsToday} New Leads Today`}
+                    progress={stats.conversionRate}
+                    onClick={() => navigate('/portal/leads?status=New')}
+                    isCurrency={false}
+                />
+
+                {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
                 <SmartMetricCard
                     title="Total Collections"
                     value={stats.totalCollection}
@@ -396,66 +431,12 @@ const Dashboard: React.FC = () => {
                 <TodaysCollectionCard />
 
                 <SmartMetricCard
-                    title="Positive Riders"
-                    value={stats.positiveWalletCount}
-                    icon={TrendingUp}
-                    color="emerald"
-                    subtitle="Wallet > 0"
-                    trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
-                    progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
-                />
-
-                <SmartMetricCard
-                    title="Negative Riders"
-                    value={stats.negativeWalletCount}
-                    icon={TrendingDown}
-                    color="rose"
-                    subtitle="Wallet < 0"
-                    trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
-                    progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                />
-
-                <SmartMetricCard
-                    title="Outstanding Risk"
-                    value={stats.outstandingDues}
-                    icon={AlertTriangle}
-                    color="rose"
-                    aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
-                    subtitle={`${stats.negativeWalletCount} Negative Wallets`}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                />
-
-                <SmartMetricCard
-                    title="Growth Engine"
-                    value={`${stats.conversionRate}%`}
-                    icon={UserPlus}
-                    color="fuchsia"
-                    trend={{ value: 5, label: 'velocity', direction: 'up' }}
-                    subtitle={`${stats.newLeadsToday} New Leads Today`}
-                    progress={stats.conversionRate}
-                    onClick={() => navigate('/portal/leads?status=New')}
-                />
-
-                {/* --- ROW 2: WALLET GRANULARITY --- */}
-                <SmartMetricCard
-                    title="Zero Balance"
-                    value={stats.zeroWalletCount}
-                    icon={Coins}
-                    color="amber"
-                    subtitle="Dormant Wallets"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
-                />
-
-                <SmartMetricCard
-                    title="Highly Indebted"
-                    value={stats.highDebtCount}
-                    icon={TrendingDown}
-                    color="red"
-                    className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
-                    subtitle="Debt > ₹3000"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
+                    title="Net Liquidity"
+                    value={stats.netBalance}
+                    icon={Smartphone}
+                    color="violet"
+                    subtitle="Total System Value"
+                    onClick={() => navigate('/portal/riders')}
                 />
 
                 <SmartMetricCard
@@ -467,33 +448,62 @@ const Dashboard: React.FC = () => {
                     onClick={() => navigate('/portal/riders')}
                 />
 
+                {/* --- ROW 3: RIDER WALLET HEALTH (COUNTS) --- */}
                 <SmartMetricCard
-                    title="Net Liquidity"
-                    value={stats.netBalance}
-                    icon={Smartphone}
-                    color="violet"
-                    subtitle="Total System Value"
-                    onClick={() => navigate('/portal/riders')}
-                />
-
-                {/* --- ROW 3: OPS & TEAM --- */}
-                <SmartMetricCard
-                    title="Pending Ops"
-                    value={stats.pendingRequests}
-                    icon={Inbox}
-                    color="blue"
-                    aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
-                    subtitle={`${stats.criticalRequests} High Priority`}
-                    onClick={() => navigate('/portal/requests?status=pending')}
+                    title="Positive Riders"
+                    value={stats.positiveWalletCount}
+                    icon={TrendingUp}
+                    color="emerald"
+                    subtitle="Wallet > 0"
+                    trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
+                    progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
+                    isCurrency={false}
                 />
 
                 <SmartMetricCard
-                    title="Team Strength"
-                    value={stats.totalTLs.toString()}
-                    icon={Users}
-                    color="orange"
-                    subtitle={`${stats.activeTLs} Active Leaders`}
-                    onClick={() => navigate('/portal/users?role=teamLeader')}
+                    title="Negative Riders"
+                    value={stats.negativeWalletCount}
+                    icon={TrendingDown}
+                    color="rose"
+                    subtitle="Wallet < 0"
+                    trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
+                    progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                    isCurrency={false}
+                />
+
+                <SmartMetricCard
+                    title="Zero Balance"
+                    value={stats.zeroWalletCount}
+                    icon={Coins}
+                    color="amber"
+                    subtitle="Dormant Wallets"
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
+                    isCurrency={false}
+                />
+
+                <SmartMetricCard
+                    title="Highly Indebted"
+                    value={stats.highDebtCount}
+                    icon={TrendingDown}
+                    color="red"
+                    className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
+                    subtitle="Debt > ₹3000"
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
+                    isCurrency={false}
+                />
+
+                {/* --- ROW 4: SYSTEM RISK & CHURN --- */}
+                <SmartMetricCard
+                    title="Outstanding Risk"
+                    value={stats.outstandingDues}
+                    icon={AlertTriangle}
+                    color="rose"
+                    aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
+                    subtitle={`${stats.negativeWalletCount} Negative Wallets`}
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                    isCurrency={true}
                 />
 
                 <SmartMetricCard
@@ -503,6 +513,7 @@ const Dashboard: React.FC = () => {
                     color="lime"
                     subtitle="Last 30 Days"
                     onClick={() => navigate('/portal/leads?status=Convert')}
+                    isCurrency={false}
                 />
 
                 <SmartMetricCard
@@ -512,8 +523,8 @@ const Dashboard: React.FC = () => {
                     color="slate"
                     subtitle={`${stats.deletedRiders} Permanently Deleted`}
                     onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                    isCurrency={false}
                 />
-
             </div>
 
             {/* Charts & Activity Grid */}
