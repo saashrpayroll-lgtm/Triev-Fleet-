@@ -68,9 +68,11 @@ const logImportHistory = async (
 export const processRiderImport = async (
     fileData: any[],
     adminId: string, // Kept for interface consistency if needed, or remove if not used in logs anymore
-    adminName: string
+    adminName: string,
+    strictMirror = false // New parameter for Google Sheets Sync
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], updated: 0, skipped: 0 };
+    const processedRiderIds = new Set<string>();
 
     // Pre-fetch Users to map Name -> ID (Auto-assign Team Leader)
     const teamLeaderMap = new Map<string, string>(); // Name -> ID
@@ -362,9 +364,11 @@ export const processRiderImport = async (
                         // console.log(`[Import] Updated rider ${matchData.id} details.`);
                         summary.updated = (summary.updated || 0) + 1;
                         summary.success++;
+                        processedRiderIds.add(matchData.id);
                     }
                 } else {
                     summary.skipped = (summary.skipped || 0) + 1;
+                    processedRiderIds.add(matchData.id); // It's still processed/in the sheet
                 }
                 continue;
             }
@@ -388,8 +392,11 @@ export const processRiderImport = async (
             };
 
             // 5. Insert New Rider
-            const { error } = await supabase.from('riders').insert(riderData);
+            const { error, data: insertedRider } = await supabase.from('riders').insert(riderData).select('id').single();
             if (error) throw error;
+            if (insertedRider) {
+                processedRiderIds.add(insertedRider.id);
+            }
 
             // STRICT WALLET RULE:
             // "New Rider Import" does NOT create wallet transactions.
@@ -406,6 +413,51 @@ export const processRiderImport = async (
                 reason: err.message || "Unknown error",
                 data: row
             });
+        }
+    }
+
+    // --- STRICT MIRROR CLEANUP ---
+    if (strictMirror && processedRiderIds.size > 0 && summary.success > (fileData.length * 0.1)) {
+        // Safety guard: Ensure at least some success before wiping out data
+        try {
+            const { data: activeRiders, error: activeError } = await supabase
+                .from('riders')
+                .select('id, status')
+                .in('status', ['active']);
+
+            if (!activeError && activeRiders) {
+                const idsToDeactivate = activeRiders
+                    .filter(r => !processedRiderIds.has(r.id))
+                    .map(r => r.id);
+
+                if (idsToDeactivate.length > 0) {
+                    console.log(`[Strict Mirror] Deactivating ${idsToDeactivate.length} riders missing from Google Sheet`);
+
+                    // Bulk update to deleted status
+                    const { error: deactivateError } = await supabase
+                        .from('riders')
+                        .update({
+                            status: 'deleted',
+                            remarks: 'Auto-removed via Strict Mirror Sync (Not found in Sheet)',
+                            updated_at: new Date().toISOString()
+                        })
+                        .in('id', idsToDeactivate);
+
+                    if (deactivateError) {
+                        console.error("[Strict Mirror] Failed to bulk deactivate riders:", deactivateError);
+                    } else {
+                        summary.success += idsToDeactivate.length; // Count cleanup as success operations
+                        summary.errors.push({
+                            row: 0,
+                            identifier: 'Strict Mirror Cleanup',
+                            reason: `Successfully deactivated ${idsToDeactivate.length} riders not found in the Google Sheet.`,
+                            data: {}
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("[Strict Mirror] Cleanup failed:", err);
         }
     }
 

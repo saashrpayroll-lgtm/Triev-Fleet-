@@ -1,5 +1,5 @@
 import { ImportSummary } from '@/types';
-import { processRiderImport, processWalletUpdate } from './importUtils';
+import { processRiderImport, processWalletUpdate, processRentCollectionImport } from './importUtils';
 
 // Google Sheets API configuration would typically go here
 // For client-side, we might need an API key or OAuth token
@@ -145,16 +145,20 @@ export const syncGoogleSheet = async (
     config: GoogleSheetConfig,
     adminId: string,
     adminName: string,
-    mode: 'rider' | 'wallet'
+    mode: 'rider' | 'wallet' | 'rent_collection',
+    strictMirror: boolean = false
 ): Promise<ImportSummary> => {
     try {
         const rawData = await fetchGoogleSheetData(config);
         const parsedData = parseGoogleSheetData(rawData);
 
         if (mode === 'rider') {
-            return await processRiderImport(parsedData, adminId, adminName);
+            // Pass strictMirror explicitly for Rider sync:
+            return await processRiderImport(parsedData, adminId, adminName, strictMirror);
         } else if (mode === 'wallet') {
             return await processWalletUpdate(parsedData, adminId, adminName);
+        } else if (mode === 'rent_collection') {
+            return await processRentCollectionImport(parsedData, adminId, adminName);
         } else {
             throw new Error("Invalid sync mode selected.");
         }

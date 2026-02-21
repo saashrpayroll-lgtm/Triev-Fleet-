@@ -14,8 +14,9 @@ import RiderAuditModal from '@/components/RiderAuditModal';
 const DataManagement: React.FC = () => {
     const { userData } = useSupabaseAuth();
     // Persistent Settings
-    const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z10000', apiKey: '', enabled: false });
+    const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z10000', apiKey: '', enabled: false, strictMirror: false });
     const [walletConfig, setWalletConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C10000', apiKey: '', enabled: false });
+    const [rentConfig, setRentConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C10000', apiKey: '', enabled: false });
 
     // Legacy state for UI (optional, or we replace usage)
     const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'rent_collection' | 'gsheets' | 'history' | 'help'>('import');
@@ -30,10 +31,12 @@ const DataManagement: React.FC = () => {
     // Refs for interval
     const riderConfigRef = React.useRef(riderConfig);
     const walletConfigRef = React.useRef(walletConfig);
+    const rentConfigRef = React.useRef(rentConfig);
     const isSyncingRef = React.useRef(isSyncing);
 
     useEffect(() => { riderConfigRef.current = riderConfig; }, [riderConfig]);
     useEffect(() => { walletConfigRef.current = walletConfig; }, [walletConfig]);
+    useEffect(() => { rentConfigRef.current = rentConfig; }, [rentConfig]);
     useEffect(() => { isSyncingRef.current = isSyncing; }, [isSyncing]);
 
     // Fetch Settings on Mount
@@ -43,7 +46,7 @@ const DataManagement: React.FC = () => {
                 const { data } = await supabase
                     .from('system_settings')
                     .select('key, value')
-                    .in('key', ['rider_import_config', 'wallet_update_config']);
+                    .in('key', ['rider_import_config', 'wallet_update_config', 'rent_collection_sync_config']);
 
                 if (data) {
                     data.forEach(setting => {
@@ -65,6 +68,9 @@ const DataManagement: React.FC = () => {
                             }
                             setWalletConfig({ ...walletConfig, ...val });
                         }
+                        if (setting.key === 'rent_collection_sync_config') {
+                            setRentConfig({ ...rentConfig, ...setting.value });
+                        }
                     });
                 }
             } catch (err) {
@@ -75,8 +81,8 @@ const DataManagement: React.FC = () => {
     }, []);
 
     // Save Settings Helper (Debounce or Call explicitly)
-    const saveSettings = async (type: 'rider' | 'wallet', newConfig: any) => {
-        const key = type === 'rider' ? 'rider_import_config' : 'wallet_update_config';
+    const saveSettings = async (type: 'rider' | 'wallet' | 'rent_collection', newConfig: any) => {
+        const key = type === 'rider' ? 'rider_import_config' : type === 'wallet' ? 'wallet_update_config' : 'rent_collection_sync_config';
         try {
             await supabase.from('system_settings').upsert({
                 key,
@@ -121,7 +127,16 @@ const DataManagement: React.FC = () => {
                         console.log("Auto-syncing Wallet Data...");
                         handleGoogleSync(null, true, 'wallet', walletConfigRef.current);
                     }
-                }, 5000); // 5s stagger
+                }, 4000); // 4s stagger
+            }
+
+            if (rentConfigRef.current.enabled && rentConfigRef.current.sheetId) {
+                setTimeout(() => {
+                    if (!isSyncingRef.current) {
+                        console.log("Auto-syncing Rent Collection...");
+                        handleGoogleSync(null, true, 'rent_collection', rentConfigRef.current);
+                    }
+                }, 8000); // 8s stagger
             }
 
         }, 10000); // 10 seconds
@@ -165,7 +180,7 @@ const DataManagement: React.FC = () => {
 
 
 
-    const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, mode: 'rider' | 'wallet', config: any) => {
+    const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, mode: 'rider' | 'wallet' | 'rent_collection', config: any) => {
         if (e) e.preventDefault();
         if (!userData || isSyncingRef.current) return;
 
@@ -202,7 +217,7 @@ const DataManagement: React.FC = () => {
                 sheetId: config.sheetId,
                 range: formattedRange,
                 apiKey: config.apiKey || undefined
-            }, userData.id, userData.fullName, mode);
+            }, userData.id, userData.fullName, mode, config.strictMirror || false);
 
             setLastSyncTime(new Date());
 
@@ -566,6 +581,32 @@ const DataManagement: React.FC = () => {
                                         </label>
                                     </div>
 
+                                    <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/30 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-semibold text-sm text-red-600 dark:text-red-400">Strict Mirror Mode</h4>
+                                            <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-1 leading-tight">
+                                                DANGER: Enabling this will automatically deactivate any Rider in the system that is <strong>NOT</strong> present in the sync sheet. The sheet becomes the master list.
+                                            </p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                            <input
+                                                type="checkbox"
+                                                checked={riderConfig.strictMirror}
+                                                onChange={(e) => {
+                                                    const newVal = e.target.checked;
+                                                    if (newVal) {
+                                                        if (!confirm("WARNING: Strict Mirror Mode will DEACTIVATE any riders not found in the Google Sheet during sync. Are you sure you want to enable this?")) return;
+                                                    }
+                                                    const newConfig = { ...riderConfig, strictMirror: newVal };
+                                                    setRiderConfig(newConfig);
+                                                    saveSettings('rider', newConfig);
+                                                }}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                                        </label>
+                                    </div>
+
                                     <button
                                         onClick={(e) => handleGoogleSync(e, false, 'rider', riderConfig)}
                                         disabled={isSyncing}
@@ -650,6 +691,83 @@ const DataManagement: React.FC = () => {
                                     >
                                         {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
                                         Sync Wallets Now
+                                    </button>
+                                </div>
+                            </div>
+                        </GlassCard>
+
+                        {/* Rent Collection Sync Settings */}
+                        <GlassCard className="p-8 border-l-4 border-l-purple-500">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                                        <RefreshCw className="text-purple-500" /> Rent Collection Sync Config
+                                    </h2>
+                                    <p className="text-muted-foreground mt-1">Configure Google Sheet for automated Rent Collections.</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => saveSettings('rent_collection', rentConfig)}
+                                        className="text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
+                                    >
+                                        Save Config
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Sheet ID</label>
+                                        <input
+                                            type="text"
+                                            value={rentConfig.sheetId}
+                                            onChange={e => setRentConfig({ ...rentConfig, sheetId: e.target.value })}
+                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-purple-500/50 font-mono text-sm"
+                                            placeholder="e.g., 1BxiMvs0..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Range</label>
+                                        <input
+                                            type="text"
+                                            value={rentConfig.range}
+                                            onChange={e => setRentConfig({ ...rentConfig, range: e.target.value })}
+                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-purple-500/50 font-mono text-sm"
+                                            placeholder="Sheet1!A1:C1000"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 flex flex-col justify-end">
+                                    <div className="bg-muted/20 p-4 rounded-xl border border-muted/50 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="font-semibold text-sm">Auto-Sync (10s)</h4>
+                                            <p className="text-xs text-muted-foreground">Automatically pull every 10 seconds.</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={rentConfig.enabled}
+                                                onChange={(e) => {
+                                                    const newVal = e.target.checked;
+                                                    const newConfig = { ...rentConfig, enabled: newVal };
+                                                    setRentConfig(newConfig);
+                                                    saveSettings('rent_collection', newConfig);
+                                                }}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        </label>
+                                    </div>
+
+                                    <button
+                                        onClick={(e) => handleGoogleSync(e, false, 'rent_collection', rentConfig)}
+                                        disabled={isSyncing}
+                                        className="w-full bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
+                                        Sync Collections Now
                                     </button>
                                 </div>
                             </div>
