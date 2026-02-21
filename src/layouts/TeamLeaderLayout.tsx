@@ -186,7 +186,7 @@ const TeamLeaderLayout: React.FC = () => {
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden mb-24 md:mb-0">
                 {/* Header */}
-                <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+                <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-[9990]">
                     <div>
                         <h2 className="text-lg md:text-2xl font-semibold flex items-center gap-2">
                             {/* Mobile Logo */}

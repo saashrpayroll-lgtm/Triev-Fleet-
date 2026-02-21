@@ -93,16 +93,22 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
 
     const handleMarkAsRead = async (notificationId: string) => {
         try {
+            // Optimistic update
+            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+
             const { error } = await supabase
                 .from('notifications')
                 .update({ is_read: true, read_at: new Date().toISOString() }) // FIXED: snake_case
                 .eq('id', notificationId);
 
-            if (error) console.error('Error marking read:', error);
-
-            // Optimistic update
-            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            if (error) {
+                console.error('Error marking read:', error);
+                // Revert optimistic update
+                setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: false } : n));
+                setUnreadCount(prev => prev + 1);
+                toast.error("Could not mark as read");
+            }
 
         } catch (error) { console.error('Error marking read:', error); }
     };
@@ -114,22 +120,28 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
             const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
             if (unreadIds.length === 0) return;
 
-            // Update ALL unread notifications for this user in DB using explicit IDs
-            const { error } = await supabase
-                .from('notifications')
-                .update({ is_read: true, read_at: new Date().toISOString() })
-                .in('id', unreadIds);
+            // Try the RPC first (bypasses RLS issues and URL limits)
+            const { error: rpcError } = await supabase.rpc('mark_all_notifications_read', { p_user_id: userId });
 
-            if (error) throw error;
+            if (rpcError) {
+                console.warn("RPC failed, falling back to standard update...", rpcError);
+                // Update ALL unread notifications for this user in DB using explicit IDs
+                const { error } = await supabase
+                    .from('notifications')
+                    .update({ is_read: true, read_at: new Date().toISOString() })
+                    .in('id', unreadIds);
+
+                if (error) throw error;
+            }
 
             // Optimistic update for local state
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             setUnreadCount(0);
             toast.success("All notifications marked as read");
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error marking all read:', error);
-            toast.error("Failed to mark all as read");
+            toast.error(`Database Error: ${error.message || 'Check RLS policies'}`);
         }
     };
 
@@ -232,7 +244,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-3 w-[400px] bg-card/95 backdrop-blur-sm border border-border/50 rounded-xl shadow-2xl z-50 flex flex-col max-h-[85vh] animate-in fade-in slide-in-from-top-2 origin-top-right">
+                <div className="absolute right-0 mt-3 w-[400px] bg-card/95 backdrop-blur-sm border border-border/50 rounded-xl shadow-2xl z-[9999] flex flex-col max-h-[85vh] animate-in fade-in slide-in-from-top-2 origin-top-right">
                     {/* Header */}
                     <div className="p-4 border-b border-border/50 flex items-center justify-between bg-muted/30 rounded-t-xl">
                         <div className="flex items-center gap-2">
