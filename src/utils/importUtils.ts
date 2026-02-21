@@ -312,20 +312,34 @@ export const processRiderImport = async (
                 }
             }
 
-            // 3. Handle Existing Rider (Update Details, IGNORE Wallet & Team Leader)
+            // 3. Handle Existing Rider (Fully Smart Update)
             if (matchData) {
-                // User Request: Update Chassis, Client, Remarks.
-                // EXPLICITLY IGNORE: Wallet Balance, Team Leader.
                 const updatePayload: any = {};
 
+                // Smart mapping for all available fields based on input row
+                if (riderName) updatePayload.rider_name = riderName;
+                if (trievId && trievId !== matchData.triev_id) updatePayload.triev_id = trievId;
+                if (mobile && mobile !== matchData.mobile_number) updatePayload.mobile_number = mobile;
+
                 if (chassis) updatePayload.chassis_number = chassis;
-                if (clientName) updatePayload.client_name = clientName;
+                if (clientName && clientName !== 'Other') updatePayload.client_name = clientName;
 
                 const clientId = getValue(['Client ID', 'ClientId']);
                 if (clientId) updatePayload.client_id = clientId;
 
                 const remarks = getValue(['Remarks', 'Remark', 'Note', 'Notes']);
                 if (remarks) updatePayload.remarks = remarks;
+
+                if (allotmentDate) updatePayload.allotment_date = allotmentDate;
+
+                if (teamLeaderId) {
+                    updatePayload.team_leader_id = teamLeaderId;
+                    updatePayload.team_leader_name = assignmentStatus;
+                } else if (teamLeaderName) {
+                    // Update name even if ID wasn't perfectly matched, for manual correction later
+                    updatePayload.team_leader_name = teamLeaderName;
+                    updatePayload.team_leader_id = null; // Clear if it changed to an unrecognized name
+                }
 
                 updatePayload.updated_at = new Date().toISOString();
 
