@@ -108,17 +108,20 @@ const CollectionHistory: React.FC = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Collection ({dateRange} Days)</p>
-                    <h3 className="text-2xl font-bold mt-1 text-emerald-500">₹{totalCollected.toLocaleString()}</h3>
+                <div className="bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border transition-colors rounded-xl p-5 shadow-sm relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Collection ({dateRange} Days)</p>
+                    <h3 className="text-3xl font-bold mt-2 text-emerald-500">₹{totalCollected.toLocaleString()}</h3>
                 </div>
-                <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Average Daily</p>
-                    <h3 className="text-2xl font-bold mt-1 text-blue-500">₹{Math.round(averageDaily).toLocaleString()}</h3>
+                <div className="bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border transition-colors rounded-xl p-5 shadow-sm relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Average Daily</p>
+                    <h3 className="text-3xl font-bold mt-2 text-blue-500">₹{Math.round(averageDaily).toLocaleString()}</h3>
                 </div>
-                <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Best Day</p>
-                    <h3 className="text-2xl font-bold mt-1 text-purple-500">
+                <div className="bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border transition-colors rounded-xl p-5 shadow-sm relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Best Day</p>
+                    <h3 className="text-3xl font-bold mt-2 text-purple-500">
                         {history.length > 0
                             ? `₹${Math.max(...history.map(h => Number(h.total_collection) || 0)).toLocaleString()}`
                             : '₹0'}
@@ -138,29 +141,34 @@ const CollectionHistory: React.FC = () => {
                     </div>
                 ) : history.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
+                        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 10, bottom: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} stroke="hsl(var(--muted-foreground))" />
                             <XAxis
                                 dataKey="date"
-                                tick={{ fontSize: 10, fill: '#888' }}
+                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                                 axisLine={false}
                                 tickLine={false}
+                                tickMargin={10}
                             />
                             <YAxis
-                                tick={{ fontSize: 10, fill: '#888' }}
+                                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
                                 axisLine={false}
                                 tickLine={false}
                                 tickFormatter={(value) => `₹${value / 1000}k`}
+                                tickMargin={10}
                             />
                             <Tooltip
-                                cursor={{ fill: 'transparent' }}
+                                cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
                                 contentStyle={{
-                                    backgroundColor: 'rgba(0,0,0,0.8)',
+                                    backgroundColor: 'hsl(var(--card))',
                                     borderRadius: '8px',
-                                    border: 'none',
-                                    color: '#fff'
+                                    border: '1px solid hsl(var(--border))',
+                                    color: 'hsl(var(--foreground))',
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                 }}
+                                itemStyle={{ color: 'hsl(var(--foreground))' }}
                                 formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Collected']}
+                                labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: '4px' }}
                             />
                             <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={50}>
                                 {chartData.map((_entry, index) => (
@@ -189,31 +197,34 @@ const CollectionHistory: React.FC = () => {
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/50 text-muted-foreground font-medium">
+                        <thead className="bg-muted/50 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
                             <tr>
-                                <th className="px-6 py-3">Date</th>
-                                <th className="px-6 py-3">Collection Amount</th>
-                                <th className="px-6 py-3">Reference</th>
+                                <th className="px-6 py-4 rounded-tl-lg">Date</th>
+                                <th className="px-6 py-4">Collection Amount</th>
+                                <th className="px-6 py-4 rounded-tr-lg text-right">Reference</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
                             {[...history].reverse().map((item, idx) => (
-                                <tr key={idx} className="hover:bg-muted/30 transition-colors">
-                                    <td className="px-6 py-3 font-medium">
+                                <tr key={idx} className="hover:bg-muted/30 transition-colors group">
+                                    <td className="px-6 py-4 font-medium text-foreground">
                                         {format(parseISO(item.date), 'PPP')}
                                     </td>
-                                    <td className="px-6 py-3 font-mono text-emerald-500 font-semibold">
+                                    <td className="px-6 py-4 font-mono text-emerald-500 font-bold bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors">
                                         ₹{Number(item.total_collection).toLocaleString()}
                                     </td>
-                                    <td className="px-6 py-3 text-muted-foreground text-xs">
-                                        Auto-Synced
+                                    <td className="px-6 py-4 text-muted-foreground text-xs text-right">
+                                        <span className="bg-muted px-2.5 py-1 rounded-full text-[10px] font-medium border border-border">Auto-Synced</span>
                                     </td>
                                 </tr>
                             ))}
                             {history.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={3} className="px-6 py-8 text-center text-muted-foreground">
-                                        No entries found
+                                    <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center justify-center gap-2">
+                                            <Calendar className="w-8 h-8 opacity-20" />
+                                            <p>No collection entries found for this period.</p>
+                                        </div>
                                     </td>
                                 </tr>
                             )}
