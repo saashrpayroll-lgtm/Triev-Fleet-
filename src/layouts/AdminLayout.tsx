@@ -152,7 +152,7 @@ const AdminLayout: React.FC = () => {
         <div className="flex h-screen bg-background">
             {/* Sidebar - Hidden on Mobile, Visible on Desktop */}
             <aside
-                className={`hidden md:flex ${sidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border/50 transition-all duration-300 ease-in-out flex-col shadow-xl z-20 relative`}
+                className={`hidden md:flex ${sidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border/50 transition-all duration-300 ease-in-out flex-col shadow-xl z-[10000] relative`}
             >
                 {/* ... existing sidebar content ... */}
                 {/* Toggle Button */}

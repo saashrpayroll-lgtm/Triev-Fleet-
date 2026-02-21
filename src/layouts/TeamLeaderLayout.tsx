@@ -106,7 +106,7 @@ const TeamLeaderLayout: React.FC = () => {
             {/* Sidebar - Hidden on Mobile */}
             <aside
                 className={`hidden md:flex ${sidebarOpen ? 'w-64' : 'w-20'
-                    } bg-card border-r border-border transition-all duration-300 flex-col shadow-lg z-20`}
+                    } bg-card border-r border-border transition-all duration-300 flex-col shadow-lg z-[10000]`}
             >
                 <div className="p-4 border-b border-border flex items-center justify-between bg-primary/5">
                     {sidebarOpen && (
