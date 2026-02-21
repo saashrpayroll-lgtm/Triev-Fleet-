@@ -87,7 +87,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                 </div>
 
                 {/* List */}
-                <div className="max-h-[400px] overflow-y-auto custom-scrollbar p-0">
+                <div className="max-h-[400px] overflow-auto custom-scrollbar p-0">
                     {loading ? (
                         <div className="p-8 text-center text-muted-foreground">Loading history...</div>
                     ) : history.length === 0 ? (

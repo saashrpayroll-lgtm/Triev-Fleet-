@@ -149,7 +149,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 </div>
             </div>
 
-            <div className="overflow-y-auto flex-1 custom-scrollbar">
+            <div className="overflow-auto flex-1 custom-scrollbar">
                 <table className="w-full text-sm relative">
                     <thead className="sticky top-0 z-10 bg-card shadow-sm">
                         <tr className="text-left border-b">

@@ -240,48 +240,50 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                             <p className="text-green-600">No extra active riders in database.</p>
                                         </div>
                                     ) : (
-                                        <div className="border rounded-xl overflow-hidden max-h-[400px] overflow-y-auto bg-card">
-                                            <table className="w-full text-sm text-left">
-                                                <thead className="bg-muted sticky top-0 z-10">
-                                                    <tr>
-                                                        <th className="px-4 py-3 w-[40px]">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedExtraIds.size === results.extraRiders.length && results.extraRiders.length > 0}
-                                                                onChange={toggleSelectAll}
-                                                                className="rounded border-gray-300"
-                                                            />
-                                                        </th>
-                                                        <th className="px-4 py-3 font-medium">Name</th>
-                                                        <th className="px-4 py-3 font-medium">Mobile</th>
-                                                        <th className="px-4 py-3 font-medium">Triev ID</th>
-                                                        <th className="px-4 py-3 font-medium">Current TL</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-border">
-                                                    {results.extraRiders.map(rider => (
-                                                        <tr key={rider.id} className={`hover:bg-accent/50 ${selectedExtraIds.has(rider.id) ? 'bg-red-50/50' : ''}`}>
-                                                            <td className="px-4 py-3">
+                                        <div className="border rounded-xl overflow-hidden bg-card">
+                                            <div className="max-h-[400px] overflow-auto">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="bg-muted sticky top-0 z-10">
+                                                        <tr>
+                                                            <th className="px-4 py-3 w-[40px]">
                                                                 <input
                                                                     type="checkbox"
-                                                                    checked={selectedExtraIds.has(rider.id)}
-                                                                    onChange={() => {
-                                                                        const newSet = new Set(selectedExtraIds);
-                                                                        if (newSet.has(rider.id)) newSet.delete(rider.id);
-                                                                        else newSet.add(rider.id);
-                                                                        setSelectedExtraIds(newSet);
-                                                                    }}
-                                                                    className="rounded border-gray-300 text-destructive focus:ring-destructive"
+                                                                    checked={selectedExtraIds.size === results.extraRiders.length && results.extraRiders.length > 0}
+                                                                    onChange={toggleSelectAll}
+                                                                    className="rounded border-gray-300"
                                                                 />
-                                                            </td>
-                                                            <td className="px-4 py-3 font-medium text-destructive">{rider.rider_name}</td>
-                                                            <td className="px-4 py-3">{rider.mobile_number}</td>
-                                                            <td className="px-4 py-3 font-mono text-xs">{rider.triev_id}</td>
-                                                            <td className="px-4 py-3 text-xs text-muted-foreground">{rider.team_leader_name || '-'}</td>
+                                                            </th>
+                                                            <th className="px-4 py-3 font-medium">Name</th>
+                                                            <th className="px-4 py-3 font-medium">Mobile</th>
+                                                            <th className="px-4 py-3 font-medium">Triev ID</th>
+                                                            <th className="px-4 py-3 font-medium">Current TL</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-border">
+                                                        {results.extraRiders.map(rider => (
+                                                            <tr key={rider.id} className={`hover:bg-accent/50 ${selectedExtraIds.has(rider.id) ? 'bg-red-50/50' : ''}`}>
+                                                                <td className="px-4 py-3">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedExtraIds.has(rider.id)}
+                                                                        onChange={() => {
+                                                                            const newSet = new Set(selectedExtraIds);
+                                                                            if (newSet.has(rider.id)) newSet.delete(rider.id);
+                                                                            else newSet.add(rider.id);
+                                                                            setSelectedExtraIds(newSet);
+                                                                        }}
+                                                                        className="rounded border-gray-300 text-destructive focus:ring-destructive"
+                                                                    />
+                                                                </td>
+                                                                <td className="px-4 py-3 font-medium text-destructive">{rider.rider_name}</td>
+                                                                <td className="px-4 py-3">{rider.mobile_number}</td>
+                                                                <td className="px-4 py-3 font-mono text-xs">{rider.triev_id}</td>
+                                                                <td className="px-4 py-3 text-xs text-muted-foreground">{rider.team_leader_name || '-'}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

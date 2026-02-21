@@ -105,7 +105,7 @@ export function WalletSyncWidget() {
                     Dismiss All
                 </button>
             </div>
-            <div className="overflow-y-auto">
+            <div className="overflow-auto">
                 <table className="w-full text-sm text-left relative">
                     <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0 z-10 shadow-sm">
                         <tr>
