@@ -468,7 +468,7 @@ const AdminLeads: React.FC = () => {
     return (
         <div className="space-y-6 pb-20 relative">
             {/* Bulk Actions */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4 pointer-events-none">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl px-4 pointer-events-none">
                 <div className="pointer-events-auto">
                     <BulkActionsBar
                         selectedCount={selectedIds.length}
@@ -592,7 +592,7 @@ const AdminLeads: React.FC = () => {
             </div>
             {/* Add/Edit Lead Modal */}
             {(showAddModal || editingLead) && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4">
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[20000] flex items-center justify-center p-0 md:p-4">
                     <div className="w-full h-full md:h-auto max-w-2xl">
                         <LeadForm
                             initialData={editingLead || undefined}

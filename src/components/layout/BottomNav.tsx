@@ -39,7 +39,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ items }) => {
     return (
         <>
             {/* Bottom Bar */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-[55] pb-safe">
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-[60] pb-safe">
                 <div className="flex items-center justify-around h-16 px-2">
                     {mainItems.map((item) => {
                         const Icon = item.icon;

@@ -97,7 +97,7 @@ const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[20000] p-4 animate-in fade-in duration-200">
             <div className="bg-card rounded-xl max-w-md w-full shadow-2xl overflow-hidden border border-border">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b bg-muted/30">

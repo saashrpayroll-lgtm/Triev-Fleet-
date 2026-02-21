@@ -116,7 +116,13 @@ function ResponsiveTable<T>({
 
                         {/* Actions Row for Mobile */}
                         {actions && (
-                            <div className="mt-4 pt-3 border-t border-border/50 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div
+                                className="mt-4 pt-3 border-t border-border/50 flex justify-end gap-2 relative z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                }}
+                            >
                                 {actions(row)}
                             </div>
                         )}

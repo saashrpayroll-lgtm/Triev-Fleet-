@@ -153,7 +153,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
     };
 
     return (
-        <div className="fixed z-50 inset-0 overflow-y-auto">
+        <div className="fixed z-[20000] inset-0 overflow-y-auto">
             <div className="flex items-center justify-center min-h-screen p-4">
                 <div
                     className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"

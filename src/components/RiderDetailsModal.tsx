@@ -277,7 +277,7 @@ ${new Date().toLocaleString('en-IN')}`;
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
             <div className="bg-background rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] md:h-auto md:max-h-[85vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
 
                 {/* Header */}

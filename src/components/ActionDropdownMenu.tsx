@@ -103,7 +103,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
             {isOpen && menuPosition && (
                 <div
                     ref={dropdownRef}
-                    className="fixed w-64 bg-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 animate-in zoom-in-95 duration-200 overflow-hidden ring-1 ring-black/5"
+                    className="fixed w-64 bg-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[20001] animate-in zoom-in-95 duration-200 overflow-hidden ring-1 ring-black/5"
                     style={{
                         top: `${menuPosition.top}px`,
                         right: `${menuPosition.right}px`

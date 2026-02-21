@@ -285,7 +285,7 @@ const UserLeads: React.FC = () => {
             </div>
 
             {selectedLeads.size > 0 && (
-                <div className="absolute inset-0 z-10">
+                <div className="absolute inset-0 z-[100]">
                     <BulkActionsBar
                         selectedCount={selectedLeads.size}
                         totalCount={leads.length}
@@ -297,7 +297,7 @@ const UserLeads: React.FC = () => {
             )}
 
             {showAddModal && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[20000] flex items-center justify-center p-4">
                     <div className="max-h-[90vh] overflow-y-auto w-full max-w-2xl">
                         <LeadForm
                             onSuccess={() => { setShowAddModal(false); }}
