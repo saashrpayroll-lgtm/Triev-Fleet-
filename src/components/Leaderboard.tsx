@@ -100,7 +100,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
 
     const rankConfig = (rank: number) => {
-        const uniformHeight = 'min-h-[400px] md:min-h-[430px]';
+        const uniformHeight = 'h-[430px] md:h-[460px]';
         const uniformWidth = 'w-full md:w-[340px]';
 
         if (rank === 1) return {
@@ -178,7 +178,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             className={`relative flex flex-col rounded-[2rem] border cursor-pointer
                                 w-full ${desktopOrder} ${cfg.zIndex} ${cfg.glow} ${cfg.border}
                                 md:w-auto md:${cfg.width.replace('w-full ', '')}
-                                min-h-[320px] ${cfg.height}
+                                ${cfg.height}
                                 transition-all duration-500`}
                         >
                             {/* Dark solid base — ensures card is always dark regardless of system theme */}
@@ -211,7 +211,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             <div className="relative z-10 flex flex-col items-center w-full h-full pt-12 pb-4 px-4">
 
                                 {/* Avatar */}
-                                <div className={`relative flex-shrink-0 ${isFirst ? 'mt-5' : 'mt-3'} mb-2`}>
+                                <div className="relative flex-shrink-0 mt-5 mb-2">
                                     <div className={`absolute -inset-2 rounded-full border-2 animate-ping opacity-20 ${cfg.ringColor}`} />
                                     <div className="w-[72px] h-[72px] rounded-full overflow-hidden
                                         bg-gradient-to-br from-white/25 to-white/5 backdrop-blur-sm
