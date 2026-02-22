@@ -105,40 +105,40 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
         const uniformWidth = 'md:w-[320px]';
 
         if (rank === 1) return {
-            cardBg: 'bg-gradient-to-b from-yellow-500/30 via-yellow-900/20 to-slate-950/98',
-            border: 'border-yellow-400/60 shadow-[0_0_15px_rgba(234,179,8,0.3)]',
-            glow: 'shadow-[0_0_100px_-20px_rgba(255,200,0,0.4),0_40px_80px_-30px_rgba(255,200,0,0.2)]',
+            cardBg: 'bg-gradient-to-b from-yellow-500/35 via-yellow-900/20 to-slate-950/98',
+            border: 'border-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.5)]',
+            glow: 'shadow-[0_0_120px_-30px_rgba(255,200,0,0.5),0_40px_80px_-30px_rgba(255,200,0,0.3)]',
             nameColor: 'text-yellow-300',
             badgeBg: 'bg-yellow-500/40 border-yellow-400/50 text-yellow-100',
             height: goldHeight,
             width: uniformWidth,
             zIndex: 'z-30',
             ringColor: 'border-yellow-400/40',
-            statsBg: 'bg-black/60 border-yellow-500/30 backdrop-blur-md',
+            statsBg: 'bg-black/70 border-yellow-500/30 backdrop-blur-md',
         };
         if (rank === 2) return {
-            cardBg: 'bg-gradient-to-b from-slate-400/25 via-slate-800/20 to-slate-950/98',
-            border: 'border-slate-300/50 shadow-[0_0_15px_rgba(200,200,220,0.2)]',
-            glow: 'shadow-[0_0_70px_-20px_rgba(200,200,220,0.3)]',
+            cardBg: 'bg-gradient-to-b from-slate-400/30 via-slate-800/20 to-slate-950/98',
+            border: 'border-slate-300 shadows-[0_0_15px_rgba(255,255,255,0.3)]',
+            glow: 'shadow-[0_0_80px_-20px_rgba(200,200,220,0.4)]',
             nameColor: 'text-slate-100',
             badgeBg: 'bg-slate-400/30 border-slate-300/40 text-slate-100',
             height: standardHeight,
             width: uniformWidth,
             zIndex: 'z-20',
             ringColor: 'border-slate-300/30',
-            statsBg: 'bg-black/60 border-slate-400/20 backdrop-blur-md',
+            statsBg: 'bg-black/70 border-slate-400/20 backdrop-blur-md',
         };
         return {
-            cardBg: 'bg-gradient-to-b from-orange-600/25 via-orange-900/15 to-slate-950/98',
-            border: 'border-orange-500/50 shadow-[0_0_15px_rgba(205,127,50,0.2)]',
-            glow: 'shadow-[0_0_70px_-20px_rgba(205,127,50,0.3)]',
+            cardBg: 'bg-gradient-to-b from-orange-600/30 via-orange-900/15 to-slate-950/98',
+            border: 'border-orange-500 shadow-[0_0_15px_rgba(205,127,50,0.3)]',
+            glow: 'shadow-[0_0_80px_-20px_rgba(205,127,50,0.4)]',
             nameColor: 'text-orange-200',
             badgeBg: 'bg-orange-500/30 border-orange-400/40 text-orange-100',
             height: standardHeight,
             width: uniformWidth,
             zIndex: 'z-10',
             ringColor: 'border-orange-400/30',
-            statsBg: 'bg-black/60 border-orange-500/20 backdrop-blur-md',
+            statsBg: 'bg-black/70 border-orange-500/20 backdrop-blur-md',
         };
     };
 
@@ -233,16 +233,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
                             {/* Crown/Trophy — floats above card */}
                             <motion.div
-                                animate={{ y: [0, -8, 0] }}
-                                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                                className={`absolute -top-12 left-1/2 -translate-x-1/2 z-20 ${isFirst ? 'scale-125' : 'scale-110'}`}
+                                animate={{ y: [0, -6, 0] }}
+                                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                                className={`absolute -top-11 left-1/2 -translate-x-1/2 z-20 ${isFirst ? 'scale-125' : 'scale-110'}`}
                             >
                                 {rank === 1 ? (
-                                    <Crown size={72} className="text-yellow-400 drop-shadow-[0_0_25px_rgba(234,179,8,1)] fill-yellow-400/40" strokeWidth={1.5} />
+                                    <Crown size={80} className="text-yellow-400 drop-shadow-[0_0_20px_rgba(234,179,8,1)] fill-yellow-400/10" strokeWidth={2} />
                                 ) : rank === 2 ? (
-                                    <Trophy size={64} className="text-slate-200 drop-shadow-[0_0_20px_rgba(255,255,255,0.6)] fill-slate-300/20" strokeWidth={1.5} />
+                                    <Trophy size={72} className="text-slate-100 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] fill-slate-200/5" strokeWidth={1.8} />
                                 ) : (
-                                    <Trophy size={60} className="text-orange-400 drop-shadow-[0_0_20px_rgba(205,127,50,0.6)] fill-orange-400/25" strokeWidth={1.5} />
+                                    <Trophy size={64} className="text-orange-400 drop-shadow-[0_0_15px_rgba(205,127,50,0.6)] fill-orange-400/10" strokeWidth={1.8} />
                                 )}
                             </motion.div>
 
