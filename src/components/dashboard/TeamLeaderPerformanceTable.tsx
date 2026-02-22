@@ -18,6 +18,7 @@ export interface TLSnapshot {
     wallet: {
         total: number;
         positiveCount: number;
+        positiveAmount: number;
         negativeCount: number;
         negativeAmount: number;
     };
@@ -216,18 +217,22 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
 
                                 <td className="p-4">
                                     <div className="space-y-1.5">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-100 italic">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100 italic whitespace-nowrap">
+                                                {tl.wallet.positiveCount} POSITIVE
+                                            </span>
+                                            <span className="text-[10px] font-black bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-100 italic whitespace-nowrap">
                                                 {tl.wallet.negativeCount} NEGATIVE
                                             </span>
                                             {tl.criticalDebtCount > 0 && (
-                                                <span className="bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse shadow-sm">
+                                                <span className="bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse shadow-sm whitespace-nowrap">
                                                     {tl.criticalDebtCount} CRITICAL
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-xs font-bold text-rose-500/80">
-                                            Risk: ₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}
+                                        <div className="flex items-center justify-between gap-2 text-xs font-bold">
+                                            <span className="text-emerald-500">Vol: ₹{tl.wallet.positiveAmount.toLocaleString()}</span>
+                                            <span className="text-rose-500">Risk: ₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </td>

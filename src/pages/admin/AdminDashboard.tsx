@@ -294,9 +294,10 @@ const Dashboard: React.FC = () => {
             const wallet = tlRiders.reduce((acc, r) => ({
                 total: acc.total + r.walletAmount,
                 positiveCount: acc.positiveCount + (r.walletAmount > 0 ? 1 : 0),
+                positiveAmount: acc.positiveAmount + (r.walletAmount > 0 ? r.walletAmount : 0),
                 negativeCount: acc.negativeCount + (r.walletAmount < 0 && r.status === 'active' ? 1 : 0),
                 negativeAmount: acc.negativeAmount + (r.walletAmount < 0 && r.status === 'active' ? r.walletAmount : 0)
-            }), { total: 0, positiveCount: 0, negativeCount: 0, negativeAmount: 0 });
+            }), { total: 0, positiveCount: 0, positiveAmount: 0, negativeCount: 0, negativeAmount: 0 });
 
             const converted = tlLeads.filter(l => l.status === 'Convert').length;
             const churnLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
