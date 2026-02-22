@@ -112,7 +112,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             badgeBg: 'bg-yellow-500/30 border-yellow-400/50 text-yellow-200',
             height: goldHeight,
             width: uniformWidth,
-            zIndex: 'z-20',
+            zIndex: 'z-0',
             ringColor: 'border-yellow-400/30',
             statsBg: 'bg-black/50 border-yellow-500/20',
         };
@@ -124,7 +124,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             badgeBg: 'bg-slate-400/25 border-slate-300/40 text-slate-200',
             height: standardHeight,
             width: uniformWidth,
-            zIndex: 'z-10',
+            zIndex: 'z-0',
             ringColor: 'border-slate-300/20',
             statsBg: 'bg-black/50 border-slate-400/15',
         };
