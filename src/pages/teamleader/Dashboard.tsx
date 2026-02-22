@@ -522,19 +522,27 @@ const Dashboard: React.FC = () => {
 
                 <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[3.4rem] p-8 md:p-12 border border-white/20">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20 shadow-inner">
-                                    <Star size={32} className="text-primary fill-primary/20 animate-pulse" />
-                                </div>
-                                <div>
-                                    <h2 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
+                        <div className="group cursor-default">
+                            <div className="flex items-center gap-5">
+                                <motion.div
+                                    whileHover={{ rotate: [0, -10, 10, 0] }}
+                                    className="p-4 bg-gradient-to-br from-primary/20 to-violet-500/20 rounded-3xl border border-primary/30 shadow-[0_0_25px_rgba(99,102,241,0.2)]"
+                                >
+                                    <Star size={40} className="text-primary fill-primary/30 drop-shadow-[0_0_15px_rgba(99,102,241,0.6)] animate-pulse" />
+                                </motion.div>
+                                <div className="space-y-1">
+                                    <h2 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-slate-600 to-slate-400 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
                                         Fleet Champions
                                     </h2>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                        Live Performance Sync
-                                    </p>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping opacity-50" />
+                                        </div>
+                                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 group-hover:text-primary transition-colors">
+                                            Live Performance Network
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

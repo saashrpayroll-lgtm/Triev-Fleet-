@@ -574,16 +574,24 @@ const Dashboard: React.FC = () => {
 
                 <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[2.8rem] p-8 md:p-10 border border-white/20">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 px-4">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-yellow-500/10 rounded-2xl border border-yellow-500/20">
-                                    <Trophy size={28} className="text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
+                        <div className="space-y-1.5 group cursor-default">
+                            <div className="flex items-center gap-4">
+                                <motion.div
+                                    whileHover={{ rotate: [0, -10, 10, 0] }}
+                                    className="p-3 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-2xl border border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]"
+                                >
+                                    <Trophy size={32} className="text-yellow-500 drop-shadow-[0_0_12px_rgba(234,179,8,0.6)]" />
+                                </motion.div>
+                                <div>
+                                    <h2 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
+                                        Fleet Champions
+                                    </h2>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/50 group-hover:text-emerald-500/60 transition-colors">Neural Intelligence Sync 1.0</p>
+                                    </div>
                                 </div>
-                                <h2 className="text-3xl font-black tracking-tighter bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
-                                    Fleet Champions
-                                </h2>
                             </div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-muted-foreground/60">Top Performers Synchronized Live</p>
                         </div>
 
                         <button
