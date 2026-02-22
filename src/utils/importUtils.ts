@@ -558,23 +558,28 @@ export const processWalletUpdate = async (
             }
 
             // -------------------------------------------------
+            // SKIP LOGIC: If balance is exactly the same, skip processing.
+            // This prevents redundant history entries and satisfies user request.
+            // -------------------------------------------------
+            const previousBalance = matchData.wallet_amount ?? null;
+            if (previousBalance === amount) {
+                summary.skipped = (summary.skipped || 0) + 1;
+                // processedRiderIds.add(matchData.id); // If we tracked processed IDs here, we'd add it.
+                continue;
+            }
+
+            // -------------------------------------------------
             // TIMESTAMP FIX: Always update riders.updated_at
             // Rules:
             //   Balance CHANGED  → update balance (done by processDailyUpdate) + touch timestamp
-            //   Balance SAME     → skip balance write, but STILL touch timestamp
+            //   Balance SAME     → (SKIPPED ABOVE)
             //   Either way       → ledger entry created_at refreshed to NOW()
             // -------------------------------------------------
 
-            const previousBalance = matchData.wallet_amount ?? null;
-            const balanceChanged = previousBalance !== amount;
-            const nowISO = new Date().toISOString();
-
-            // Stable External ID keyed to LOCAL DATE (YYYY-MM-DD)
-            // All uploads within the same calendar day act on the SAME ledger entry.
-            // The created_at will be refreshed to NOW() after every upload (timestamp fix).
-            const nowDate = new Date();
-            const todayStr = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-${String(nowDate.getDate()).padStart(2, '0')}`;
+            const checkDate = new Date();
+            const todayStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
             const externalId = `RESET_${matchData.id}_${todayStr}`;
+            const nowISO = new Date().toISOString();
 
             const response: any = await LedgerAPI.processDailyUpdate({
                 riderId: matchData.id,
@@ -602,13 +607,14 @@ export const processWalletUpdate = async (
 
             // 4. Also refresh the ledger entry's created_at to NOW() so the
             //    exact time of the most recent bulk upload is always recorded.
+            //    FIX: Column name is external_transaction_id (not external_id)
             await supabase
                 .from('wallet_ledger')
                 .update({ created_at: nowISO })
-                .eq('external_id', externalId);
+                .eq('external_transaction_id', externalId);
 
-            // Track for Notification (only if balance actually changed)
-            if (balanceChanged && matchData.team_leader_id) {
+            // Track for Notification (balance always changed if we reach here due to skip logic)
+            if (matchData.team_leader_id) {
                 tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
             }
 
@@ -649,10 +655,11 @@ export const processWalletUpdate = async (
         actionType: 'walletUpdated', // Fixed actionType to match schema ('walletUpdated' is better than 'Wallet Bulk Update')
         targetType: 'system',
         targetId: 'multiple',
-        details: `Updated wallets for ${summary.success} riders, ${summary.failed} failures.`,
+        details: `Updated wallets for ${summary.success} riders, ${summary.skipped || 0} skipped, ${summary.failed} failures.`,
         metadata: {
             adminName,
             success: summary.success,
+            skipped: summary.skipped || 0,
             failed: summary.failed
         }
     }).catch(console.error);
