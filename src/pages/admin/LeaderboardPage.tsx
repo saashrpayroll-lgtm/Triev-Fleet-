@@ -45,7 +45,7 @@ const LeaderboardPage: React.FC = () => {
                 // Fetch TLs
                 const { data: usersData } = await supabase
                     .from('users')
-                    .select('id, full_name, mobile, email, status, role')
+                    .select('id, full_name, mobile, email, status, role, profile_pic_url')
                     .eq('role', 'teamLeader');
                 if (usersData) {
                     const mapped = usersData.map((u: any) => ({
@@ -54,7 +54,8 @@ const LeaderboardPage: React.FC = () => {
                         mobile: u.mobile,
                         email: u.email,
                         status: u.status,
-                        role: u.role
+                        role: u.role,
+                        profilePicUrl: u.profile_pic_url || undefined
                     })) as User[];
                     setTeamLeaders(mapped);
                 }

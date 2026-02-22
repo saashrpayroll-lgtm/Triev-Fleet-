@@ -78,7 +78,8 @@ const Dashboard: React.FC = () => {
                     fullName:full_name,
                     email,
                     status,
-                    role
+                    role,
+                    profilePicUrl:profile_pic_url
                 `).eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('team_leader_id, total_collection, date')
             ]);

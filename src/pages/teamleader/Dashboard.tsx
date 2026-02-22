@@ -113,12 +113,13 @@ const Dashboard: React.FC = () => {
             setStats(newStats);
 
             // 3. Global Leaderboard Data
-            const { data: tlsData } = await supabase.from('users').select('id, full_name, email, role').eq('role', 'teamLeader');
+            const { data: tlsData } = await supabase.from('users').select('id, full_name, email, role, profile_pic_url').eq('role', 'teamLeader');
             const allTls = (tlsData || []).map((u: any) => ({
                 id: u.id,
                 fullName: u.full_name,
                 email: u.email,
-                role: u.role
+                role: u.role,
+                profilePicUrl: u.profile_pic_url || undefined
             })) as User[];
 
             const { data: allRidersData } = await supabase.from('riders').select('id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date');

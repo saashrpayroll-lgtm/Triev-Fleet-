@@ -69,6 +69,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                 fullName: tl.fullName || (tl as any).full_name || 'Unknown',
                 email: tl.email,
                 role: tl.role,
+                profilePicUrl: tl.profilePicUrl || (tl as any).profile_pic_url || null,
                 score,
                 isTrending,
                 stats: {
@@ -207,10 +208,29 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 {/* Avatar */}
                                 <div className={`relative flex-shrink-0 ${isFirst ? 'mt-5' : 'mt-3'} mb-2`}>
                                     <div className={`absolute -inset-2 rounded-full border-2 animate-ping opacity-20 ${cfg.ringColor}`} />
-                                    <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-2xl font-black text-white
+                                    <div className="w-[72px] h-[72px] rounded-full overflow-hidden
                                         bg-gradient-to-br from-white/25 to-white/5 backdrop-blur-sm
-                                        border-2 border-white/30 shadow-xl flex-shrink-0">
-                                        {tl.fullName ? tl.fullName.charAt(0).toUpperCase() : '?'}
+                                        border-2 border-white/30 shadow-xl flex-shrink-0 flex items-center justify-center">
+                                        {tl.profilePicUrl ? (
+                                            <img
+                                                src={tl.profilePicUrl}
+                                                alt={tl.fullName}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    // On broken image, fall back to initial letter
+                                                    const target = e.currentTarget;
+                                                    target.style.display = 'none';
+                                                    const parent = target.parentElement;
+                                                    if (parent) {
+                                                        parent.innerHTML = `<span class="text-2xl font-black text-white">${tl.fullName ? tl.fullName.charAt(0).toUpperCase() : '?'}</span>`;
+                                                    }
+                                                }}
+                                            />
+                                        ) : (
+                                            <span className="text-2xl font-black text-white">
+                                                {tl.fullName ? tl.fullName.charAt(0).toUpperCase() : '?'}
+                                            </span>
+                                        )}
                                     </div>
                                     {/* Rank badge */}
                                     <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${cfg.badgeBg} shadow-lg whitespace-nowrap`}>
@@ -331,8 +351,22 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 rounded-2xl px-5 py-3 transition-all cursor-default shadow-sm"
                         >
                             <span className="text-sm font-black text-slate-400 dark:text-white/30 w-6 text-center">{idx + 4}</span>
-                            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-black text-slate-700 dark:text-white border border-slate-200 dark:border-white/20 flex-shrink-0">
-                                {tl.fullName.charAt(0).toUpperCase()}
+                            <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-black text-slate-700 dark:text-white border border-slate-200 dark:border-white/20 flex-shrink-0">
+                                {tl.profilePicUrl ? (
+                                    <img
+                                        src={tl.profilePicUrl}
+                                        alt={tl.fullName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            const t = e.currentTarget;
+                                            t.style.display = 'none';
+                                            const p = t.parentElement;
+                                            if (p) p.innerHTML = `<span class="text-sm font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`;
+                                        }}
+                                    />
+                                ) : (
+                                    tl.fullName.charAt(0).toUpperCase()
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
