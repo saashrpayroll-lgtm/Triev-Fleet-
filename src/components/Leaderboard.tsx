@@ -105,40 +105,40 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
         const uniformWidth = 'md:w-[320px]';
 
         if (rank === 1) return {
-            cardBg: 'bg-gradient-to-b from-yellow-500/35 via-yellow-900/20 to-slate-950/98',
-            border: 'border-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.5)]',
-            glow: 'shadow-[0_0_120px_-30px_rgba(255,200,0,0.5),0_40px_80px_-30px_rgba(255,200,0,0.3)]',
-            nameColor: 'text-yellow-300',
-            badgeBg: 'bg-yellow-500/40 border-yellow-400/50 text-yellow-100',
+            cardBg: 'bg-gradient-to-b from-yellow-500/35 via-yellow-900/25 to-slate-950/98',
+            border: 'border-yellow-400/70 shadow-[0_0_20px_rgba(234,179,8,0.4)]',
+            glow: 'shadow-[0_0_120px_-30px_rgba(255,200,0,0.5),0_40px_80px_-30px_rgba(255,200,0,0.25)]',
+            nameColor: 'text-yellow-200 font-extrabold',
+            badgeBg: 'bg-yellow-500 border-yellow-400 text-black',
             height: goldHeight,
             width: uniformWidth,
             zIndex: 'z-30',
-            ringColor: 'border-yellow-400/40',
-            statsBg: 'bg-black/70 border-yellow-500/30 backdrop-blur-md',
+            ringColor: 'border-yellow-400/50',
+            statsBg: 'bg-black/40 border-yellow-500/20 backdrop-blur-xl',
         };
         if (rank === 2) return {
-            cardBg: 'bg-gradient-to-b from-slate-400/30 via-slate-800/20 to-slate-950/98',
-            border: 'border-slate-300 shadows-[0_0_15px_rgba(255,255,255,0.3)]',
-            glow: 'shadow-[0_0_80px_-20px_rgba(200,200,220,0.4)]',
-            nameColor: 'text-slate-100',
-            badgeBg: 'bg-slate-400/30 border-slate-300/40 text-slate-100',
+            cardBg: 'bg-gradient-to-b from-slate-400/30 via-slate-800/25 to-slate-950/98',
+            border: 'border-slate-300/60 shadow-[0_0_20px_rgba(200,200,220,0.25)]',
+            glow: 'shadow-[0_0_80px_-30px_rgba(200,200,220,0.4)]',
+            nameColor: 'text-white font-extrabold',
+            badgeBg: 'bg-slate-500 border-slate-400 text-white',
             height: standardHeight,
             width: uniformWidth,
             zIndex: 'z-20',
-            ringColor: 'border-slate-300/30',
-            statsBg: 'bg-black/70 border-slate-400/20 backdrop-blur-md',
+            ringColor: 'border-slate-300/40',
+            statsBg: 'bg-black/40 border-slate-400/15 backdrop-blur-xl',
         };
         return {
-            cardBg: 'bg-gradient-to-b from-orange-600/30 via-orange-900/15 to-slate-950/98',
-            border: 'border-orange-500 shadow-[0_0_15px_rgba(205,127,50,0.3)]',
-            glow: 'shadow-[0_0_80px_-20px_rgba(205,127,50,0.4)]',
-            nameColor: 'text-orange-200',
-            badgeBg: 'bg-orange-500/30 border-orange-400/40 text-orange-100',
+            cardBg: 'bg-gradient-to-b from-orange-600/30 via-orange-900/20 to-slate-950/98',
+            border: 'border-orange-500/60 shadow-[0_0_20px_rgba(205,127,50,0.25)]',
+            glow: 'shadow-[0_0_80px_-30px_rgba(205,127,50,0.4)]',
+            nameColor: 'text-orange-100 font-extrabold',
+            badgeBg: 'bg-orange-600 border-orange-500 text-white',
             height: standardHeight,
             width: uniformWidth,
             zIndex: 'z-10',
-            ringColor: 'border-orange-400/30',
-            statsBg: 'bg-black/70 border-orange-500/20 backdrop-blur-md',
+            ringColor: 'border-orange-400/40',
+            statsBg: 'bg-black/40 border-orange-500/15 backdrop-blur-xl',
         };
     };
 
@@ -233,23 +233,26 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
                             {/* Crown/Trophy — floats above card */}
                             <motion.div
-                                animate={{ y: [0, -6, 0] }}
-                                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                                className={`absolute -top-11 left-1/2 -translate-x-1/2 z-20 ${isFirst ? 'scale-125' : 'scale-110'}`}
+                                animate={{ y: [0, -12, 0] }}
+                                transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                                className={`absolute -top-14 left-1/2 -translate-x-1/2 z-20 ${isFirst ? 'scale-125' : 'scale-110'}`}
                             >
                                 {rank === 1 ? (
-                                    <Crown size={80} className="text-yellow-400 drop-shadow-[0_0_20px_rgba(234,179,8,1)] fill-yellow-400/10" strokeWidth={2} />
+                                    <Crown size={80} className="text-yellow-400 drop-shadow-[0_0_30px_rgba(234,179,8,1)] fill-yellow-400" strokeWidth={2} />
                                 ) : rank === 2 ? (
-                                    <Trophy size={72} className="text-slate-100 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] fill-slate-200/5" strokeWidth={1.8} />
+                                    <Trophy size={72} className="text-slate-100 drop-shadow-[0_0_25px_rgba(255,255,255,0.7)] fill-slate-200" strokeWidth={2} />
                                 ) : (
-                                    <Trophy size={64} className="text-orange-400 drop-shadow-[0_0_15px_rgba(205,127,50,0.6)] fill-orange-400/10" strokeWidth={1.8} />
+                                    <Trophy size={68} className="text-orange-300 drop-shadow-[0_0_25px_rgba(205,127,50,0.7)] fill-orange-400" strokeWidth={2} />
                                 )}
                             </motion.div>
 
                             {/* AI Live Badge */}
-                            <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 border border-white/10">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shadow-[0_0_8px_rgba(129,140,248,1)]" />
-                                <span className="text-[9px] font-black tracking-[0.2em] text-indigo-200 uppercase">AI Live</span>
+                            <div className="absolute top-5 right-5 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/80 border border-white/20 shadow-2xl">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                                </span>
+                                <span className="text-[10px] font-black tracking-widest text-white uppercase italic">AI LIVE</span>
                             </div>
 
                             {/* Card Content — using fixed layout instead of mt-auto to keep stats grid consistent */}
@@ -283,24 +286,25 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                         )}
                                     </div>
                                     {/* Rank badge */}
-                                    <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${cfg.badgeBg} shadow-[0_4px_12px_rgba(0,0,0,0.5)] whitespace-nowrap`}>
-                                        {rank === 1 ? 'Master Rank #1' : `Rank #${rank}`}
+                                    <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] border ${cfg.badgeBg} shadow-[0_8px_16px_rgba(0,0,0,0.6)] whitespace-nowrap`}>
+                                        {rank === 1 ? 'MASTER RANK #1' : `RANK #${rank}`}
                                     </div>
                                 </div>
 
                                 {/* Name & Email */}
                                 <div className="text-center mt-5 mb-2 w-full flex-shrink-0">
-                                    <h3 className={`font-black text-lg tracking-tight truncate px-1 ${cfg.nameColor} drop-shadow-lg`}>
+                                    <h3 className={`text-2xl font-black text-center mb-1 drop-shadow-sm ${cfg.nameColor}`}>
                                         {safeRender(tl.fullName)}
                                     </h3>
-                                    <p className="text-[9px] text-white/40 font-medium truncate">{tl.email}</p>
+                                    <p className="text-[11px] font-medium text-white/60 mb-6 text-center line-clamp-1 max-w-[200px]">
+                                        {tl.email}
+                                    </p>
                                 </div>
-
                                 {/* AI Score */}
-                                <div className="flex-shrink-0 flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-5 py-2.5 rounded-2xl shadow-2xl mb-2">
-                                    <Sparkles size={16} className="text-indigo-400 animate-pulse flex-shrink-0" />
-                                    <span className={`text-xl font-black tracking-tight ${cfg.nameColor}`}>{tl.score.toLocaleString()}</span>
-                                    <span className="text-[10px] font-black text-white/50 uppercase tracking-widest ml-1">pts</span>
+                                <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/25 px-6 py-3 rounded-2xl shadow-2xl mb-4">
+                                    <Sparkles size={18} className="text-indigo-400 animate-pulse flex-shrink-0" />
+                                    <span className={`text-2xl font-black tracking-tight ${cfg.nameColor}`}>{tl.score.toLocaleString()}</span>
+                                    <span className="text-[11px] font-black text-white/70 uppercase tracking-widest ml-1">pts</span>
                                 </div>
 
                                 {/* Trending badge */}
@@ -318,7 +322,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 <div className="flex-1" />
 
                                 {/* Stats Grid — fixed height, always at bottom */}
-                                <div className={`w-full flex-shrink-0 rounded-[1.5rem] p-3 border ${cfg.statsBg} shadow-inner`}>
+                                <div className={`w-full flex-shrink-0 rounded-[2rem] p-4 border ${cfg.statsBg} shadow-inner bg-black/40`}>
                                     <TooltipProvider delayDuration={0}>
                                         <div className="grid grid-cols-2 gap-2">
                                             <Tooltip>

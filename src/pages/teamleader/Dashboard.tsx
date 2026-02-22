@@ -522,28 +522,31 @@ const Dashboard: React.FC = () => {
 
                 <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[3.4rem] p-8 md:p-12 border border-white/20">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10">
-                        <div className="group cursor-default">
-                            <div className="flex items-center gap-5">
+                        <div className="group cursor-default space-y-5">
+                            <div className="flex items-center gap-6">
                                 <motion.div
                                     whileHover={{ rotate: [0, -10, 10, 0] }}
                                     className="p-4 bg-gradient-to-br from-primary/20 to-violet-500/20 rounded-3xl border border-primary/30 shadow-[0_0_25px_rgba(99,102,241,0.2)]"
                                 >
-                                    <Star size={40} className="text-primary fill-primary/30 drop-shadow-[0_0_15px_rgba(99,102,241,0.6)] animate-pulse" />
+                                    <Star size={44} className="text-primary fill-primary/30 drop-shadow-[0_0_15px_rgba(99,102,241,0.6)] animate-pulse" />
                                 </motion.div>
                                 <div className="space-y-1">
                                     <h2 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-slate-600 to-slate-400 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
                                         Fleet Champions
                                     </h2>
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping opacity-50" />
-                                        </div>
-                                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-muted-foreground/40 group-hover:text-primary transition-colors">
-                                            Live Performance Network
-                                        </p>
-                                    </div>
+                                    <p className="text-[12px] font-black uppercase tracking-[0.4em] text-muted-foreground/30">
+                                        Live Performance Network
+                                    </p>
                                 </div>
+                            </div>
+
+                            {/* Neural Sync Pill - Matching Screenshot */}
+                            <div className="flex items-center gap-2 px-4 py-2 bg-black border border-white/10 rounded-full w-fit shadow-2xl">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                                </span>
+                                <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase italic">Neural Realtime Sync</span>
                             </div>
                         </div>
                     </div>

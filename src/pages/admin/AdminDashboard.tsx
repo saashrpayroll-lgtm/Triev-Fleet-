@@ -574,23 +574,31 @@ const Dashboard: React.FC = () => {
 
                 <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[2.8rem] p-8 md:p-10 border border-white/20">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 px-4">
-                        <div className="space-y-1.5 group cursor-default">
-                            <div className="flex items-center gap-4">
+                        <div className="space-y-4 group cursor-default">
+                            <div className="flex items-center gap-5">
                                 <motion.div
                                     whileHover={{ rotate: [0, -10, 10, 0] }}
-                                    className="p-3 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-2xl border border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]"
+                                    className="p-3.5 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-2xl border border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]"
                                 >
-                                    <Trophy size={32} className="text-yellow-500 drop-shadow-[0_0_12px_rgba(234,179,8,0.6)]" />
+                                    <Trophy size={40} className="text-yellow-500 drop-shadow-[0_0_12px_rgba(234,179,8,0.6)]" />
                                 </motion.div>
                                 <div>
-                                    <h2 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
+                                    <h2 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
                                         Fleet Champions
                                     </h2>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/50 group-hover:text-emerald-500/60 transition-colors">Neural Intelligence Sync 1.0</p>
-                                    </div>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 mt-1">
+                                        Live Performance Network
+                                    </p>
                                 </div>
+                            </div>
+
+                            {/* Neural Sync Pill - Matching Screenshot */}
+                            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-black border border-white/10 rounded-full w-fit shadow-2xl">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                                </span>
+                                <span className="text-[10px] font-black tracking-[0.2em] text-white uppercase italic">Neural Realtime Sync</span>
                             </div>
                         </div>
 
