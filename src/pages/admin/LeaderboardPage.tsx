@@ -169,12 +169,12 @@ const LeaderboardPage: React.FC = () => {
                     avgRiderAge: Math.round(avgRiderAge),
                     churn: churnCount
                 }
-            } as ScoredTL;
+            } as any;
         });
 
         // Sorting
-        return list.sort((a, b) => {
-            const getVal = (item: ScoredTL, key: string) => {
+        const sorted = list.sort((a, b) => {
+            const getVal = (item: any, key: string) => {
                 if (key === 'score') return item.score;
                 if (key === 'wallet') return item.stats.wallet;
                 if (key === 'riders') return item.stats.active;
@@ -187,7 +187,12 @@ const LeaderboardPage: React.FC = () => {
             const valB = getVal(b, sortConfig.key);
 
             return sortConfig.direction === 'desc' ? valB - valA : valA - valB;
-        }).map((item, index) => ({ ...item, rank: index + 1 }));
+        });
+
+        return sorted.map((item, index) => ({
+            ...item,
+            rank: index + 1
+        })) as ScoredTL[];
     }, [teamLeaders, riders, leads, collections, sortConfig]);
 
     const filteredList = scoredList.filter(tl =>

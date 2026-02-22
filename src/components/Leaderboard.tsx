@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import { User, Rider, Lead } from '@/types';
-import { Trophy, Crown, TrendingUp, Wallet, Users, Zap, ArrowRight, Star, Sparkles } from 'lucide-react';
+import {
+    Trophy, Crown, Zap, Sparkles, Users, Wallet,
+    ArrowRight, Star
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { safeRender } from '@/utils/safeRender';
@@ -160,13 +163,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             whileHover={{ y: -20, scale: 1.05 }}
                             transition={{ delay: positionIndex * 0.2, duration: 0.8, type: 'spring', damping: 15 }}
                             onClick={handleCardClick}
-                            className={`relative rounded-[2.8rem] p-[2px] flex flex-col justify-end cursor-pointer group ${heightClass} transition-all duration-500 ${glowColor}`}
+                            className={`relative rounded - [2.8rem] p - [2px] flex flex - col justify - end cursor - pointer group ${heightClass} transition - all duration - 500 ${glowColor} `}
                         >
                             {/* Animated Background Border */}
                             <div className="absolute inset-0 rounded-[2.8rem] bg-gradient-to-t from-white/25 via-white/5 to-transparent pointer-events-none" />
 
                             {/* Main Card Content (Glassmorphism) */}
-                            <div className={`absolute inset-0 rounded-[2.7rem] backdrop-blur-[40px] border-t border-white/30 overflow-hidden flex flex-col items-center pt-14 pb-8 px-6 ${cardBackground}`}>
+                            <div className={`absolute inset - 0 rounded - [2.7rem] backdrop - blur - [40px] border - t border - white / 30 overflow - hidden flex flex - col items - center pt - 14 pb - 8 px - 6 ${cardBackground} `}>
 
                                 {/* Inner Glow */}
                                 <div className="absolute top-0 inset-x-0 h-56 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
@@ -189,22 +192,22 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 </div>
 
                                 {/* Avatar Section */}
-                                <div className={`relative mb-8 mt-6 transition-all duration-700 group-hover:scale-115 ${isFirst ? 'scale-135' : 'scale-115'}`}>
-                                    <div className={`w-28 h-28 rounded-full bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-[60px] shadow-2xl flex items-center justify-center text-5xl font-black border-2 border-white/40 text-white`}>
+                                <div className={`relative mb - 8 mt - 6 transition - all duration - 700 group - hover: scale - 115 ${isFirst ? 'scale-135' : 'scale-115'} `}>
+                                    <div className={`w - 28 h - 28 rounded - full bg - gradient - to - br from - white / 30 to - white / 10 backdrop - blur - [60px] shadow - 2xl flex items - center justify - center text - 5xl font - black border - 2 border - white / 40 text - white`}>
                                         {tl.fullName ? tl.fullName.charAt(0).toUpperCase() : '?'}
 
                                         {/* Dynamic Pulse Ring around avatar */}
-                                        <div className={`absolute inset-0 rounded-full border-4 border-white/20 animate-ping opacity-30`} />
+                                        <div className={`absolute inset - 0 rounded - full border - 4 border - white / 20 animate - ping opacity - 30`} />
                                     </div>
 
-                                    <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-6 py-2 rounded-full text-[12px] font-black shadow-2xl uppercase tracking-[0.2em] border border-white/30 backdrop-blur-2xl ${aiBadgeColor}`}>
+                                    <div className={`absolute - bottom - 3 left - 1 / 2 - translate - x - 1 / 2 px - 6 py - 2 rounded - full text - [12px] font - black shadow - 2xl uppercase tracking - [0.2em] border border - white / 30 backdrop - blur - 2xl ${aiBadgeColor} `}>
                                         RANK #{rank}
                                     </div>
                                 </div>
 
                                 {/* Name & Intelligence Score */}
                                 <div className="text-center mt-4 mb-8 w-full z-10 px-2">
-                                    <h3 className={`font-black text-3xl tracking-tighter mb-3 truncate px-2 ${metallicText} drop-shadow-2xl`}>
+                                    <h3 className={`font - black text - 3xl tracking - tighter mb - 3 truncate px - 2 ${metallicText} drop - shadow - 2xl`}>
                                         {safeRender(tl.fullName)}
                                     </h3>
 
