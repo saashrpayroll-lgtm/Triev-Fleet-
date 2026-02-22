@@ -100,8 +100,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
 
     const rankConfig = (rank: number) => {
-        const standardHeight = 'h-[480px]';
-        const goldHeight = 'h-[540px]';
+        const standardHeight = 'h-[520px]';
+        const goldHeight = 'h-[580px]';
         const uniformWidth = 'md:w-[320px]';
 
         if (rank === 1) return {
@@ -181,8 +181,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
     return (
         <div className="relative overflow-visible pb-10">
-            {/* Neural Realtime Sync Indicator — inside flow on mobile, floats on desktop */}
-            <div className="flex justify-center mb-6 md:mb-0 md:absolute md:-top-6 md:left-14 z-40">
+            {/* Neural Realtime Sync Indicator — inside flow on mobile, floats on desktop top-right */}
+            <div className="flex justify-center mb-6 md:mb-0 md:absolute md:-top-6 md:right-14 z-40">
                 <div className="flex items-center gap-3 px-5 py-2 rounded-full bg-slate-900 dark:bg-slate-950/90 backdrop-blur-2xl border border-white/20 shadow-lg">
                     <div className="relative">
                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
