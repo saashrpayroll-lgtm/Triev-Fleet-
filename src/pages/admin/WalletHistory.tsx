@@ -3,7 +3,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import GlassCard from '@/components/GlassCard';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, Edit2, X, Calendar, Trash2 } from 'lucide-react';
+import { History, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, Wallet, Download, Filter, ChevronLeft, ChevronRight, User, AlertCircle, Edit2, X, Calendar, Trash2, ShieldAlert, CheckSquare, Square } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
@@ -50,6 +50,10 @@ const WalletHistory: React.FC = () => {
     const [editingTransaction, setEditingTransaction] = useState<LedgerEntry | null>(null);
     const [newDate, setNewDate] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isCleaning, setIsCleaning] = useState(false);
+
+    // Multi-Selection for Bulk Delete
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Initial Data Load (TLs)
     useEffect(() => {
@@ -257,6 +261,67 @@ const WalletHistory: React.FC = () => {
         }
     };
 
+    // Maintenance Cleanup (RPC)
+    const handleCleanup = async () => {
+        if (!window.confirm('This will delete all redundant "DAY OPENING BALANCE" entries older than today. Only the most recent record for each rider will be kept. Proceed?')) {
+            return;
+        }
+
+        setIsCleaning(true);
+        const loadingToast = toast.loading('Performing cleanup...');
+        try {
+            const { data, error } = await supabase.rpc('cleanup_wallet_ledger');
+            if (error) throw error;
+
+            toast.success(`Cleanup successful: ${data.deleted_count} records removed`, { id: loadingToast });
+            fetchTransactions();
+        } catch (error: any) {
+            console.error('Cleanup failed:', error);
+            toast.error('Cleanup failed: ' + error.message, { id: loadingToast });
+        } finally {
+            setIsCleaning(false);
+        }
+    };
+
+    // Bulk Delete
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected transactions? This cannot be undone and will affect rider balances.`)) {
+            return;
+        }
+
+        const loadingToast = toast.loading(`Deleting ${selectedIds.length} transactions...`);
+        try {
+            const { error } = await supabase
+                .from('wallet_ledger')
+                .delete()
+                .in('id', selectedIds);
+
+            if (error) throw error;
+
+            toast.success('Bulk deletion successful', { id: loadingToast });
+            setSelectedIds([]);
+            fetchTransactions();
+        } catch (error: any) {
+            console.error('Bulk delete failed:', error);
+            toast.error('Failed to delete transactions', { id: loadingToast });
+        }
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === transactions.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(transactions.map(t => t.id));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
     // Calculate stats for CURRENT PAGE (Global stats would require separate aggregation query)
     const pageCredits = transactions.reduce((acc, t) => t.mode === 'ADD' ? acc + (Number(t.amount) || 0) : acc, 0);
     const pageDebits = transactions.reduce((acc, t) => t.mode === 'SUBTRACT' ? acc + (Number(t.amount) || 0) : acc, 0);
@@ -285,6 +350,16 @@ const WalletHistory: React.FC = () => {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {userData?.role === 'admin' && (
+                        <button
+                            onClick={handleCleanup}
+                            disabled={isCleaning || loading}
+                            className="px-4 py-2 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest"
+                            title="Auto-cleanup Redundant Opening Balances"
+                        >
+                            <ShieldAlert size={16} /> Cleanup Openings
+                        </button>
+                    )}
                     <button onClick={() => fetchTransactions()} className="p-2 hover:bg-muted rounded-full transition-colors" title="Refresh">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                     </button>
@@ -425,8 +500,19 @@ const WalletHistory: React.FC = () => {
             <GlassCard className="overflow-hidden">
                 <div className="overflow-x-auto min-h-[400px]">
                     <div className="flex items-center justify-between p-4 border-b bg-muted/20">
-                        <div className="text-sm text-muted-foreground">
-                            Showing <span className="font-medium text-foreground">{transactions.length}</span> of <span className="font-medium text-foreground">{totalCount}</span> entries
+                        <div className="text-sm text-muted-foreground flex items-center gap-4">
+                            <span>Showing <span className="font-medium text-foreground">{transactions.length}</span> of <span className="font-medium text-foreground">{totalCount}</span> entries</span>
+                            {selectedIds.length > 0 && (
+                                <div className="flex items-center gap-3 animate-in slide-in-from-left-2">
+                                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold text-xs">{selectedIds.length} Selected</span>
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        className="text-red-600 hover:text-red-700 font-black text-xs uppercase tracking-tighter flex items-center gap-1 border-b border-red-600/30"
+                                    >
+                                        <Trash2 size={14} /> Bulk Delete
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">Rows:</span>
@@ -445,6 +531,15 @@ const WalletHistory: React.FC = () => {
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs uppercase bg-muted/50 text-muted-foreground font-semibold">
                             <tr>
+                                <th className="px-6 py-4 w-10">
+                                    <button onClick={toggleSelectAll} className="p-1 hover:bg-primary/10 rounded-md transition-colors text-muted-foreground">
+                                        {selectedIds.length === transactions.length && transactions.length > 0 ? (
+                                            <CheckSquare size={18} className="text-primary" />
+                                        ) : (
+                                            <Square size={18} />
+                                        )}
+                                    </button>
+                                </th>
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Rider</th>
                                 <th className="px-6 py-4">Team Leader</th>
@@ -478,7 +573,16 @@ const WalletHistory: React.FC = () => {
                                     const isSet = t.mode === 'SET';
 
                                     return (
-                                        <tr key={t.id} className="hover:bg-muted/30 transition-colors group">
+                                        <tr key={t.id} className={`hover:bg-muted/30 transition-colors group ${selectedIds.includes(t.id) ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}>
+                                            <td className="px-6 py-4">
+                                                <button onClick={() => toggleSelect(t.id)} className="p-1 hover:bg-primary/10 rounded-md transition-colors text-muted-foreground">
+                                                    {selectedIds.includes(t.id) ? (
+                                                        <CheckSquare size={18} className="text-primary" />
+                                                    ) : (
+                                                        <Square size={18} />
+                                                    )}
+                                                </button>
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
@@ -504,7 +608,10 @@ const WalletHistory: React.FC = () => {
                                                             </button>
                                                         )}
                                                         <button
-                                                            onClick={() => handleDeleteTransaction(t.id)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteTransaction(t.id);
+                                                            }}
                                                             className="p-1 text-muted-foreground hover:text-red-600 hover:bg-red-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100"
                                                             title="Delete Transaction"
                                                         >
@@ -513,7 +620,7 @@ const WalletHistory: React.FC = () => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 font-medium">{t.riders?.rider_name || 'Unknown'}</td>
+                                            <td className="px-6 py-4 font-medium" onClick={() => toggleSelect(t.id)}>{t.riders?.rider_name || 'Unknown'}</td>
                                             <td className="px-6 py-4 text-muted-foreground">
                                                 {t.riders?.users?.full_name ? (
                                                     <span className="flex items-center gap-1">

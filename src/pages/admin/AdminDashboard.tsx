@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone
+    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 
@@ -561,23 +562,47 @@ const Dashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* Leaderboard Section */}
-            <div className="animate-in slide-in-from-bottom duration-700 delay-500">
-                <Leaderboard
-                    teamLeaders={rawData.teamLeaders}
-                    riders={rawData.riders}
-                    leads={rawData.leads}
-                    collections={tlCollections}
-                    action={
+            {/* Premium AI Leaderboard Section */}
+            <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+                className="relative mt-8 rounded-[3rem] p-1 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 shadow-2xl overflow-hidden"
+            >
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+                <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[2.8rem] p-8 md:p-10 border border-white/20">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 px-4">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-yellow-500/10 rounded-2xl border border-yellow-500/20">
+                                    <Trophy size={28} className="text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
+                                </div>
+                                <h2 className="text-3xl font-black tracking-tighter bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
+                                    Fleet Champions
+                                </h2>
+                            </div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-muted-foreground/60">Top Performers Synchronized Live</p>
+                        </div>
+
                         <button
                             onClick={() => navigate('/portal/leaderboard')}
-                            className="text-[10px] text-muted-foreground hover:text-primary transition-colors font-medium flex items-center gap-1 bg-muted/30 px-2.5 py-1 rounded-full border border-transparent hover:border-primary/20"
+                            className="group relative flex items-center gap-3 px-8 py-4 bg-slate-900 dark:bg-white rounded-2xl font-black text-xs uppercase tracking-widest text-white dark:text-slate-950 shadow-2xl hover:scale-105 active:scale-95 transition-all"
                         >
-                            View Full Leaderboard
+                            <span className="relative z-10">Expand Rankings</span>
+                            <ArrowRight size={18} className="relative z-10 group-hover:translate-x-1 transition-transform" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
                         </button>
-                    }
-                />
-            </div>
+                    </div>
+
+                    <Leaderboard
+                        teamLeaders={rawData.teamLeaders}
+                        riders={rawData.riders}
+                        leads={rawData.leads}
+                        collections={tlCollections}
+                    />
+                </div>
+            </motion.div>
         </div>
     );
 };

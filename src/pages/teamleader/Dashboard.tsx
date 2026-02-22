@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import {
-    Users, UserCheck, UserX, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText
+    Users, UserCheck, UserX, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText, ArrowRight
 } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -511,35 +511,63 @@ const Dashboard: React.FC = () => {
                 ))}
             </div>
 
-            {/* Top Performers Leaderboard (Moved to Bottom) */}
+            {/* Premium AI Leaderboard Section */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="bg-card/50 backdrop-blur-sm border rounded-[1.5rem] p-4 shadow-lg relative overflow-hidden"
+                transition={{ duration: 0.8 }}
+                className="relative mt-12 rounded-[3.5rem] p-1 bg-gradient-to-br from-primary/20 via-violet-500/20 to-indigo-500/20 shadow-2xl overflow-hidden"
             >
-                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                    <Star size={120} />
-                </div>
-                <div className="mb-1 relative z-10">
-                    {/* Header removed as requested */}
-                </div>
-                <div className="relative z-10">
-                    {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
-                        <ComponentErrorBoundary name="Leaderboard">
-                            <Leaderboard
-                                teamLeaders={leaderboardData.teamLeaders}
-                                riders={leaderboardData.riders}
-                                leads={leaderboardData.leads}
-                                collections={tlCollections}
-                                disableClick={true}
-                            />
-                        </ComponentErrorBoundary>
-                    ) : (
-                        <div className="p-6 text-center text-muted-foreground border border-dashed rounded-2xl">
-                            Leaderboard is restricted
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+                <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[3.4rem] p-8 md:p-12 border border-white/20">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20 shadow-inner">
+                                    <Star size={32} className="text-primary fill-primary/20 animate-pulse" />
+                                </div>
+                                <div>
+                                    <h2 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
+                                        Fleet Champions
+                                    </h2>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                        Live Performance Sync
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                    )}
+
+                        <button
+                            onClick={() => handleNavigate('/portal/leaderboard')}
+                            className="group relative flex items-center gap-4 px-10 py-5 bg-primary rounded-3xl font-black text-xs uppercase tracking-[0.2em] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                        >
+                            <span className="relative z-10">View Full Rankings</span>
+                            <ArrowRight size={20} className="relative z-10 group-hover:translate-x-1.5 transition-transform" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl shadow-[0_15px_35px_-10px_rgba(124,58,237,0.5)]" />
+                        </button>
+                    </div>
+
+                    <div className="relative z-10">
+                        {(userData.permissions?.dashboard?.statsCards?.leaderboard ?? true) ? (
+                            <ComponentErrorBoundary name="Leaderboard">
+                                <Leaderboard
+                                    teamLeaders={leaderboardData.teamLeaders}
+                                    riders={leaderboardData.riders}
+                                    leads={leaderboardData.leads}
+                                    collections={tlCollections}
+                                    disableClick={true}
+                                />
+                            </ComponentErrorBoundary>
+                        ) : (
+                            <div className="p-20 text-center text-muted-foreground border-4 border-dashed rounded-[3rem] bg-slate-500/5">
+                                <Shield className="mx-auto mb-4 opacity-10" size={64} />
+                                <p className="font-black uppercase tracking-widest text-sm italic">Leaderboard Intelligence Restricted</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </motion.div>
         </div>

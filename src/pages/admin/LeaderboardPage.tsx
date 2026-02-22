@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { User, Rider, Lead } from '@/types';
-import { Trophy, Users, Search, ArrowUpDown } from 'lucide-react';
+import { Trophy, Users, Search, ArrowUpDown, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 import Leaderboard from '@/components/Leaderboard';
 
 interface ScoredTL extends User {
@@ -187,138 +188,198 @@ const LeaderboardPage: React.FC = () => {
     if (loading) return <div className="p-10 text-center">Loading Leaderboard...</div>;
 
     return (
-        <div className="space-y-8 pb-10">
-            <div>
-                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-yellow-500 to-amber-600 bg-clip-text text-transparent flex items-center gap-3">
-                    <Trophy className="text-yellow-500" /> Live Performance Leaderboard
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                    Real-time ranking based on Active Fleet, Wallet Health, and Lead Conversions.
-                </p>
-            </div>
+        <div className="space-y-6 pb-12 max-w-[1440px] mx-auto px-4 md:px-8 font-jakarta flex flex-col min-h-[calc(100vh-64px)]">
+            {/* Real-time Header Module */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-slate-900/5 backdrop-blur-3xl p-6 rounded-[2rem] border border-slate-200/50 dark:border-white/5 shadow-inner"
+            >
+                <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <Trophy className="text-yellow-500 w-10 h-10 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" strokeWidth={1.5} />
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+                                className="absolute -inset-1 border-2 border-dashed border-yellow-500/20 rounded-full"
+                            />
+                        </div>
+                        <div>
+                            <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
+                                Live Performance Leaderboard
+                            </h1>
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
+                                    Neural Engine Synchronization: Active
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-            <Leaderboard teamLeaders={teamLeaders} riders={riders} leads={leads} collections={collections} />
-
-            <div className="bg-card border rounded-xl overflow-hidden shadow-sm">
-                <div className="p-4 border-b bg-muted/40 flex flex-col md:flex-row gap-4 justify-between items-center">
-                    <h3 className="font-semibold flex items-center gap-2">
-                        <Users size={18} /> All Team Leaders ({filteredList.length})
-                    </h3>
-                    <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                    <div className="relative flex-grow md:w-80 group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                         <input
                             type="text"
-                            placeholder="Search..."
-                            className="w-full pl-9 pr-4 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            placeholder="Filter by name or identity..."
+                            className="w-full pl-12 pr-6 py-3.5 text-sm bg-white/60 dark:bg-slate-900/40 backdrop-blur-2xl border-2 border-transparent focus:border-primary/20 rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all shadow-xl font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                 </div>
+            </motion.div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+            {/* Premium Podium Component */}
+            <div className="animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
+                <Leaderboard teamLeaders={teamLeaders} riders={riders} leads={leads} collections={collections} disableClick={true} />
+            </div>
+
+            {/* rankings Table Container (Scrollable) */}
+            <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex-grow flex flex-col bg-white/40 dark:bg-slate-950/40 backdrop-blur-3xl border border-white/20 dark:border-white/5 rounded-[2.5rem] shadow-2xl overflow-hidden min-h-[500px]"
+            >
+                <div className="p-8 border-b border-white/10 flex justify-between items-center bg-white/20 dark:bg-slate-900/40">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-primary/10 rounded-xl">
+                            <Users size={20} className="text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black tracking-tight text-slate-800 dark:text-white">Full Rankings</h3>
+                            <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">{filteredList.length} Leaders Identified</p>
+                        </div>
+                    </div>
+
+                    <button className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95">
+                        Export Intelligence
+                    </button>
+                </div>
+
+                <div className="overflow-auto relative flex-grow scrollbar-hide">
+                    <table className="w-full text-sm text-left border-separate border-spacing-y-2 px-6 pb-6">
+                        <thead className="bg-transparent text-muted-foreground/60 font-black uppercase tracking-[0.15em] text-[10px] sticky top-0 z-10 backdrop-blur-md">
                             <tr>
-                                <th className="px-4 py-3 text-center">Rank</th>
-                                <th className="px-4 py-3">Team Leader</th>
-                                <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('score')}>
-                                    <div className="flex items-center gap-1">AI Score <ArrowUpDown size={12} /></div>
+                                <th className="px-6 py-4 text-center first:rounded-l-2xl">Rank</th>
+                                <th className="px-6 py-4">Intelligence Operator</th>
+                                <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('score')}>
+                                    <div className="flex items-center gap-1.5">AI Impact <ArrowUpDown size={14} /></div>
                                 </th>
-                                <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('riders')}>
-                                    <div className="flex items-center gap-1">Fleet Health <ArrowUpDown size={12} /></div>
+                                <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('riders')}>
+                                    <div className="flex items-center gap-1.5">Fleet Efficiency <ArrowUpDown size={14} /></div>
                                 </th>
-                                <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('wallet')}>
-                                    <div className="flex items-center gap-1">Wallet <ArrowUpDown size={12} /></div>
+                                <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('wallet')}>
+                                    <div className="flex items-center gap-1.5">Revenue Health <ArrowUpDown size={14} /></div>
                                 </th>
-                                <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('collection')}>
-                                    <div className="flex items-center gap-1">Collection <ArrowUpDown size={12} /></div>
-                                </th>
-                                <th className="px-4 py-3 cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('leads')}>
-                                    <div className="flex items-center gap-1">Lead Conv. <ArrowUpDown size={12} /></div>
-                                </th>
+                                <th className="px-6 py-4 last:rounded-r-2xl">Collection Velocity</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y">
-                            {filteredList.map((tl) => (
-                                <tr key={tl.id} className="hover:bg-muted/20 transition-colors group">
-                                    <td className="px-4 py-3 text-center font-bold text-muted-foreground">
-                                        {tl.rank <= 3 ? (
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto ${tl.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
-                                                tl.rank === 2 ? 'bg-gray-100 text-gray-700' :
-                                                    'bg-orange-100 text-orange-700'
-                                                }`}>
-                                                {tl.rank}
-                                            </div>
-                                        ) : `#${tl.rank}`}
+                        <tbody className="space-y-4">
+                            {filteredList.map((tl, idx) => (
+                                <motion.tr
+                                    key={tl.id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.1 * idx }}
+                                    className="group hover:scale-[1.005] transition-all duration-300"
+                                >
+                                    <td className="px-6 py-4 text-center whitespace-nowrap bg-white/60 dark:bg-slate-900/40 rounded-l-[1.5rem] border-y border-l border-white/20 dark:border-white/5">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto text-sm font-black shadow-inner
+                                            ${tl.rank === 1 ? 'bg-yellow-400/20 text-yellow-600 border border-yellow-400/30' :
+                                                tl.rank === 2 ? 'bg-slate-200/40 text-slate-500 border border-slate-300/30' :
+                                                    tl.rank === 3 ? 'bg-orange-400/20 text-orange-600 border border-orange-400/30' :
+                                                        'bg-slate-100/40 text-slate-400 border border-slate-200/20'}
+                                        `}>
+                                            {tl.rank}
+                                        </div>
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                                {(tl.fullName || '?').charAt(0)}
+
+                                    <td className="px-6 py-4 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-violet-600/20 flex items-center justify-center text-primary font-black text-lg border border-primary/20 shadow-inner">
+                                                {(tl.fullName || '?').charAt(0).toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="font-semibold text-foreground">{tl.fullName || 'Unknown'}</div>
-                                                <div className="text-xs text-muted-foreground">{tl.mobile || 'N/A'}</div>
+                                                <div className="font-black text-slate-800 dark:text-white tracking-tight">{tl.fullName || 'Unknown Operator'}</div>
+                                                <div className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">{tl.mobile || 'Confidential'}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <span className="text-lg font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                                            {tl.score}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3">
+
+                                    <td className="px-6 py-4 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
                                         <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold">{tl.stats.active}</span>
-                                                <span className="text-muted-foreground text-xs">/ {tl.stats.total}</span>
+                                            <span className="text-xl font-black bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent italic">
+                                                {tl.score.toLocaleString()}
+                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                                <span className="text-[9px] font-black text-primary/60 uppercase tracking-tighter">Impact Score</span>
                                             </div>
-                                            {/* Progress Bar for Active % */}
-                                            <div className="w-20 h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
-                                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${tl.stats.activePercentage}%` }} />
-                                            </div>
-                                            <span className="text-[10px] text-green-600 font-medium mt-0.5">{Math.round(tl.stats.activePercentage)}% Active</span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3">
+
+                                    <td className="px-6 py-4 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
+                                        <div className="space-y-2 min-w-[120px]">
+                                            <div className="flex justify-between items-end">
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-sm font-black text-slate-800 dark:text-white">{tl.stats.active}</span>
+                                                    <span className="text-[10px] font-bold text-muted-foreground">/ {tl.stats.total}</span>
+                                                </div>
+                                                <span className="text-[10px] font-black text-emerald-500">{Math.round(tl.stats.activePercentage)}%</span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${tl.stats.activePercentage}%` }}
+                                                    className="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                                                />
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td className="px-6 py-4 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
                                         <div className="flex flex-col">
-                                            <div className={`font-bold ${tl.stats.wallet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                            <div className={`text-sm font-black ${tl.stats.wallet >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                                 ₹{tl.stats.wallet.toLocaleString('en-IN')}
                                             </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                Avg: ₹{Math.round(tl.stats.avgWallet).toLocaleString('en-IN')}
+                                            <div className="text-[10px] font-bold text-muted-foreground/60 flex items-center gap-1">
+                                                AVG: ₹{Math.round(tl.stats.avgWallet).toLocaleString('en-IN')}
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <div className="font-bold text-green-600">
-                                            ₹{(tl.stats.collection || 0).toLocaleString('en-IN')}
+
+                                    <td className="px-6 py-4 bg-white/60 dark:bg-slate-900/40 rounded-r-[1.5rem] border-y border-r border-white/20 dark:border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex flex-col flex-grow">
+                                                <div className="text-sm font-black text-slate-800 dark:text-white">₹{(tl.stats.collection || 0).toLocaleString('en-IN')}</div>
+                                                <div className="text-[9px] font-black text-emerald-500/80 uppercase tracking-tighter">Total Inbound</div>
+                                            </div>
+                                            <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                                <TrendingUp size={16} className="text-emerald-500" />
+                                            </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold">{tl.stats.leads.converted}</span>
-                                                <span className="text-muted-foreground text-xs">/ {tl.stats.leads.total}</span>
-                                            </div>
-                                            <div className="w-20 h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
-                                                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${tl.stats.leads.conversionRate}%` }} />
-                                            </div>
-                                            <span className="text-[10px] text-blue-600 font-medium mt-0.5">{Math.round(tl.stats.leads.conversionRate)}% Conv.</span>
-                                        </div>
-                                    </td>
-                                </tr>
+                                </motion.tr>
                             ))}
                         </tbody>
                     </table>
+
                     {filteredList.length === 0 && (
-                        <div className="p-8 text-center text-muted-foreground">
-                            No Team Leaders found.
+                        <div className="py-32 text-center overflow-hidden relative">
+                            <div className="absolute inset-0 opacity-5 -z-10 flex items-center justify-center">
+                                <Search size={400} />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-400 tracking-tighter uppercase italic">No Matches Detected</h2>
+                            <p className="text-sm font-bold text-slate-500/60 mt-1">Refine your search parameters to identify leaders.</p>
                         </div>
                     )}
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };
