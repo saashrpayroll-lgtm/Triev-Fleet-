@@ -128,6 +128,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 'requests.': 'modules.requests',
                 'wallet.': 'modules.dataManagement',
                 'notifications.': 'modules.notifications',
+                'profile.': 'modules.profile',
             };
 
             for (const [prefix, modulePath] of Object.entries(moduleMapping)) {
@@ -179,6 +180,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 'requests.': 'modules.requests',
                 'wallet.': 'modules.dataManagement',
                 'notifications.': 'modules.notifications',
+                'profile.': 'modules.profile',
             };
 
             // Check if any of the modified paths trigger a module enable
@@ -253,6 +255,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'mod_activity', label: 'Activity Module', description: 'Show Activity Log in sidebar', risk: 'low', path: 'modules.activityLog' },
                 { id: 'mod_notif', label: 'Notifications Module', description: 'Show Notifications in sidebar', risk: 'low', path: 'modules.notifications' },
                 { id: 'mod_req', label: 'Requests Module', description: 'Show Requests in sidebar', risk: 'low', path: 'modules.requests' },
+                { id: 'mod_profile', label: 'Profile Page', description: 'Show Profile page in TL sidebar (allows TL to view & update their profile)', risk: 'low', path: 'modules.profile' },
             ]
         },
         {
@@ -344,6 +347,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             label: 'Profile Permissions',
             icon: UserCog,
             permissions: [
+                { id: 'prof_view', label: 'View Profile Page', description: 'Access own profile page (requires Modules → Profile Page to be enabled)', risk: 'low', path: 'profile.view' },
                 { id: 'prof_edit', label: 'Edit Personal Details', description: 'Change name, email, etc.', risk: 'medium', path: 'profile.editPersonalDetails' },
                 { id: 'prof_bank', label: 'Edit Bank Details', description: 'Update bank info', risk: 'high', path: 'profile.editBankDetails' },
                 { id: 'prof_pass', label: 'Change Password', description: 'Change own password', risk: 'medium', path: 'profile.changePassword' },

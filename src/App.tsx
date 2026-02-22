@@ -268,7 +268,11 @@ function AppRoutes() {
           <Route path="riders" element={<MyRiders />} />
           <Route path="activity-log" element={<TLActivityLog />} />
           <Route path="reports" element={<TLReports />} />
-          <Route path="profile" element={<TLProfile />} />
+          <Route path="profile" element={
+            userData?.permissions?.modules?.profile
+              ? <TLProfile />
+              : <Navigate to="/team-leader" replace />
+          } />
           <Route path="requests" element={<TLRequests />} />
           <Route path="wallet-history" element={<WalletHistory />} />
           <Route path="collections" element={<CollectionHistory />} />

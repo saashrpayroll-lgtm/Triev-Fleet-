@@ -253,15 +253,17 @@ const Profile: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Actions */}
+                            {/* Actions — only show Edit if permission granted */}
                             <div className="pt-4 flex flex-wrap gap-4 justify-center md:justify-start">
-                                <button
-                                    onClick={() => setIsEditing(!isEditing)}
-                                    className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-colors shadow-lg shadow-white/10 flex items-center gap-2"
-                                >
-                                    <UserCog size={18} />
-                                    {isEditing ? 'Cancel Editing' : 'Edit Profile'}
-                                </button>
+                                {userData.permissions?.profile?.editPersonalDetails && (
+                                    <button
+                                        onClick={() => setIsEditing(!isEditing)}
+                                        className="px-8 py-3 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-colors shadow-lg shadow-white/10 flex items-center gap-2"
+                                    >
+                                        <UserCog size={18} />
+                                        {isEditing ? 'Cancel Editing' : 'Edit Profile'}
+                                    </button>
+                                )}
                                 <button className="px-8 py-3 bg-white/5 text-white font-bold rounded-xl hover:bg-white/10 transition-colors border border-white/10 flex items-center gap-2">
                                     <LogOut size={18} />
                                     Sign Out
@@ -291,26 +293,31 @@ const Profile: React.FC = () => {
                                 className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
                             />
                         </div>
-                        <div className="space-y-4">
-                            <label className="block text-sm font-bold text-zinc-700">Change Password</label>
-                            <input
-                                type="password"
-                                placeholder="New Password"
-                                value={formData.newPassword}
-                                onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
-                                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
-                            />
-                        </div>
-                        <div className="space-y-4">
-                            <label className="block text-sm font-bold text-zinc-700">Confirm Password</label>
-                            <input
-                                type="password"
-                                placeholder="Confirm New Password"
-                                value={formData.confirmPassword}
-                                onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
-                            />
-                        </div>
+                        {/* Only show password section if changePassword permission is granted */}
+                        {userData?.permissions?.profile?.changePassword && (
+                            <div className="space-y-4">
+                                <label className="block text-sm font-bold text-zinc-700">Change Password</label>
+                                <input
+                                    type="password"
+                                    placeholder="New Password"
+                                    value={formData.newPassword}
+                                    onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
+                                />
+                            </div>
+                        )}
+                        {userData?.permissions?.profile?.changePassword && (
+                            <div className="space-y-4">
+                                <label className="block text-sm font-bold text-zinc-700">Confirm Password</label>
+                                <input
+                                    type="password"
+                                    placeholder="Confirm New Password"
+                                    value={formData.confirmPassword}
+                                    onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all font-medium"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="p-6 bg-zinc-50 flex justify-end gap-3 border-t border-zinc-100">

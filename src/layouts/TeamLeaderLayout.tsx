@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { LayoutDashboard, Users, FileText, Activity, LogOut, Menu, X, HelpCircle, Wallet } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Activity, LogOut, Menu, X, HelpCircle, Wallet, UserCog } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
@@ -94,6 +94,12 @@ const TeamLeaderLayout: React.FC = () => {
                 { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet History', visible: userData?.permissions?.wallet?.viewHistory ?? true },
                 { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
                 { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        },
+        {
+            title: 'Account',
+            items: [
+                { path: '/team-leader/profile', icon: UserCog, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? false },
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
         }
     ].filter(group => group.items.length > 0);
@@ -214,9 +220,28 @@ const TeamLeaderLayout: React.FC = () => {
                                 <p className="font-medium text-sm">{safeRender(userData?.fullName, 'Leader')}</p>
                                 <p className="text-xs text-muted-foreground capitalize">{safeRender(userData?.role)}</p>
                             </div>
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
-                                {safeRender(userData?.fullName || 'L').charAt(0).toUpperCase()}
-                            </div>
+                            {/* Clickable avatar → Profile page (only if profile module enabled) */}
+                            {userData?.permissions?.modules?.profile ? (
+                                <Link
+                                    to="/team-leader/profile"
+                                    title="My Profile"
+                                    className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-primary/30 hover:border-primary transition-all flex items-center justify-center flex-shrink-0 relative group"
+                                >
+                                    {userData?.profilePicUrl ? (
+                                        <img src={userData.profilePicUrl} alt="avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
+                                            {safeRender(userData?.fullName || 'L').charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                    {/* Hover hint */}
+                                    <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold bg-foreground text-background px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Profile</span>
+                                </Link>
+                            ) : (
+                                <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
+                                    {safeRender(userData?.fullName || 'L').charAt(0).toUpperCase()}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </header>
