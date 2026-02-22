@@ -100,8 +100,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
 
     const rankConfig = (rank: number) => {
-        const uniformHeight = 'h-[430px] md:h-[460px]';
-        const uniformWidth = 'w-full md:w-[340px]';
+        const standardHeight = 'h-[420px] md:h-[450px]';
+        const standardWidth = 'w-full md:w-[290px]';
+        const goldHeight = 'h-[480px] md:h-[520px]';
+        const goldWidth = 'w-full md:w-[320px]';
 
         if (rank === 1) return {
             cardBg: 'bg-gradient-to-b from-yellow-500/25 via-yellow-900/20 to-slate-950/95',
@@ -109,8 +111,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             glow: 'shadow-[0_0_80px_-10px_rgba(255,200,0,0.5),0_30px_60px_-20px_rgba(255,200,0,0.3)]',
             nameColor: 'text-yellow-300',
             badgeBg: 'bg-yellow-500/30 border-yellow-400/50 text-yellow-200',
-            height: uniformHeight,
-            width: uniformWidth,
+            height: goldHeight,
+            width: goldWidth,
             zIndex: 'z-20',
             ringColor: 'border-yellow-400/30',
             statsBg: 'bg-black/50 border-yellow-500/20',
@@ -121,8 +123,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             glow: 'shadow-[0_0_50px_-15px_rgba(200,200,220,0.4)]',
             nameColor: 'text-slate-200',
             badgeBg: 'bg-slate-400/25 border-slate-300/40 text-slate-200',
-            height: uniformHeight,
-            width: uniformWidth,
+            height: standardHeight,
+            width: standardWidth,
             zIndex: 'z-10',
             ringColor: 'border-slate-300/20',
             statsBg: 'bg-black/50 border-slate-400/15',
@@ -133,8 +135,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             glow: 'shadow-[0_0_50px_-15px_rgba(200,100,50,0.4)]',
             nameColor: 'text-orange-300',
             badgeBg: 'bg-orange-500/25 border-orange-400/40 text-orange-200',
-            height: uniformHeight,
-            width: uniformWidth,
+            height: standardHeight,
+            width: standardWidth,
             zIndex: 'z-0',
             ringColor: 'border-orange-400/20',
             statsBg: 'bg-black/50 border-orange-500/15',
@@ -172,7 +174,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             key={tl.id}
                             initial={{ opacity: 0, y: 40, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            whileHover={{ y: -6, scale: 1.01 }}
+                            whileHover={{ y: -15, scale: 1.05, transition: { duration: 0.3 } }}
                             transition={{ delay: mobileIdx * 0.12, duration: 0.6, type: 'spring', damping: 18 }}
                             onClick={handleCardClick}
                             className={`relative flex flex-col rounded-[2rem] border cursor-pointer
@@ -211,7 +213,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             <div className="relative z-10 flex flex-col items-center w-full h-full pt-12 pb-4 px-4">
 
                                 {/* Avatar */}
-                                <div className="relative flex-shrink-0 mt-5 mb-2">
+                                <div className={`relative flex-shrink-0 ${isFirst ? 'mt-8' : 'mt-5'} mb-2`}>
                                     <div className={`absolute -inset-2 rounded-full border-2 animate-ping opacity-20 ${cfg.ringColor}`} />
                                     <div className="w-[72px] h-[72px] rounded-full overflow-hidden
                                         bg-gradient-to-br from-white/25 to-white/5 backdrop-blur-sm
