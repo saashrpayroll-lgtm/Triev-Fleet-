@@ -166,10 +166,10 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                             <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('criticalDebtCount')}>
                                 Risk & Critical Dues
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground bg-card">
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('dailyCollection')}>
                                 Collections (D/W/T)
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground bg-card">
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('leadsToday')}>
                                 Leads Performance
                             </th>
                             <th className="p-4 font-medium text-muted-foreground text-right bg-card">Actions</th>
