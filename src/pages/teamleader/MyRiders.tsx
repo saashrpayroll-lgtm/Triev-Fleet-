@@ -40,40 +40,31 @@ const MyRiders: React.FC = () => {
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
 
-    // Advanced filters
     const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
         client: 'all',
         walletRange: 'all',
     });
 
-    // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-
-    // Sorting
     const [sortBy, setSortBy] = useState<keyof Rider>('createdAt');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-    // Permission Checks
     const canViewPage = userData?.permissions?.modules?.riders ?? true;
     const canAddRider = userData?.permissions?.riders?.create ?? true;
     const canExport = userData?.permissions?.riders?.export ?? true;
     const canDelete = userData?.permissions?.riders?.delete ?? true;
 
-    // Pass specific permissions to dropdown
     const riderActionPermissions = {
         view: userData?.permissions?.riders?.view ?? true,
         edit: userData?.permissions?.riders?.edit ?? true,
         statusChange: userData?.permissions?.riders?.statusChange ?? true,
         softDelete: userData?.permissions?.riders?.delete ?? true,
         hardDelete: userData?.permissions?.riders?.hardDelete ?? false,
-        canCall: userData?.permissions?.riders?.call ?? true,     // Updated to granular permission
-        canWhatsApp: userData?.permissions?.riders?.whatsapp ?? true, // Updated to granular permission
+        canCall: userData?.permissions?.riders?.call ?? true,
+        canWhatsApp: userData?.permissions?.riders?.whatsapp ?? true,
     };
 
-
-
-    // Mappers
     const mapRiderFromDB = (data: any): Rider => ({
         id: data.id,
         trievId: data.triev_id,
@@ -108,25 +99,20 @@ const MyRiders: React.FC = () => {
         if (rider.status !== undefined) payload.status = rider.status;
         if (rider.teamLeaderId !== undefined) payload.team_leader_id = rider.teamLeaderId;
         if (rider.teamLeaderName !== undefined) payload.team_leader_name = rider.teamLeaderName;
-
         if (rider.updatedAt !== undefined) payload.updated_at = rider.updatedAt;
         if (rider.deletedAt !== undefined) payload.deleted_at = rider.deletedAt;
-        // created_at is automatic or manual
         if (rider.createdAt !== undefined) payload.created_at = rider.createdAt;
         return payload;
     };
 
-
     useEffect(() => {
-        if (userData?.id && canViewPage) {
-            fetchRiders();
-        }
+        if (userData?.id && canViewPage) fetchRiders();
     }, [userData?.id, canViewPage]);
 
     if (!canViewPage) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center p-8 bg-muted/30 rounded-lg">
+                <div className="text-center p-8 bg-muted/30 rounded-2xl border border-border">
                     <UserX size={48} className="mx-auto mb-4 text-muted-foreground" />
                     <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
                     <p className="text-muted-foreground">You do not have permission to view the Riders page.</p>
@@ -135,64 +121,32 @@ const MyRiders: React.FC = () => {
         );
     }
 
-    useEffect(() => {
-        filterRiders();
-    }, [riders, activeTab, searchTerm, advancedFilters, sortBy, sortOrder]);
+    useEffect(() => { filterRiders(); }, [riders, activeTab, searchTerm, advancedFilters, sortBy, sortOrder]);
+    useEffect(() => { setCurrentPage(1); }, [filteredRiders.length]);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [filteredRiders.length]);
-
-    // Handle Query Params for Actions
     useEffect(() => {
         if (searchParams.get('action') === 'new' && canAddRider) {
             setShowAddModal(true);
-            // Optional: Clean up URL
-            setSearchParams(prev => {
-                const newParams = new URLSearchParams(prev);
-                newParams.delete('action');
-                return newParams;
-            });
+            setSearchParams(prev => { const p = new URLSearchParams(prev); p.delete('action'); return p; });
         }
     }, [searchParams, canAddRider]);
 
-    // Deep Linking Handler for Dashboard Clicks
     useEffect(() => {
         const state = location.state as { filter?: string };
-
         if (state?.filter) {
-            // Map Wallet Filters
-            if (state.filter === 'positive_wallet') {
-                setAdvancedFilters(prev => ({ ...prev, walletRange: 'positive' }));
-                setShowAdvancedFilters(true);
-            }
-            else if (state.filter === 'negative_wallet') {
-                setAdvancedFilters(prev => ({ ...prev, walletRange: 'negative' }));
-                setShowAdvancedFilters(true);
-            }
-            else if (state.filter === 'zero_balance') {
-                setAdvancedFilters(prev => ({ ...prev, walletRange: 'zero' }));
-                setShowAdvancedFilters(true);
-            }
-            // Map Status Filters
-            else if (['active', 'inactive', 'deleted'].includes(state.filter)) {
-                setActiveTab(state.filter as TabType);
-            }
+            if (state.filter === 'positive_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'positive' })); setShowAdvancedFilters(true); }
+            else if (state.filter === 'negative_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'negative' })); setShowAdvancedFilters(true); }
+            else if (state.filter === 'zero_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'zero' })); setShowAdvancedFilters(true); }
+            else if (['active', 'inactive', 'deleted'].includes(state.filter)) setActiveTab(state.filter as TabType);
         }
     }, [location.state]);
 
     const fetchRiders = async () => {
         if (!userData) return;
-
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('riders')
-                .select('*')
-                .eq('team_leader_id', userData.id); // snake_case
-
+            const { data, error } = await supabase.from('riders').select('*').eq('team_leader_id', userData.id);
             if (error) throw error;
-
             setRiders(data?.map(mapRiderFromDB) || []);
         } catch (error) {
             console.error('Error fetching riders:', error);
@@ -201,79 +155,42 @@ const MyRiders: React.FC = () => {
         }
     };
 
-    // Real-time Subscription
     useEffect(() => {
         if (!userData?.id) return;
-
-        const channel = supabase
-            .channel('my-riders-list')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'riders',
-                filter: `team_leader_id=eq.${userData.id}`
-            }, () => {
-                fetchRiders();
-            })
+        const channel = supabase.channel('my-riders-list')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id=eq.${userData.id}` }, () => fetchRiders())
             .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => { supabase.removeChannel(channel); };
     }, [userData?.id]);
 
     const filterRiders = () => {
         let filtered = [...riders];
-
-        // Filter by tab
-        if (activeTab && activeTab !== 'all') {
-            filtered = filtered.filter(r => r.status === activeTab);
-        }
-
-        // Filter by search term
+        if (activeTab && activeTab !== 'all') filtered = filtered.filter(r => r.status === activeTab);
         if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
+            const s = searchTerm.toLowerCase();
             filtered = filtered.filter(r =>
-                (r.riderName || '').toLowerCase().includes(searchLower) ||
-                (r.trievId || '').toLowerCase().includes(searchLower) ||
+                (r.riderName || '').toLowerCase().includes(s) ||
+                (r.trievId || '').toLowerCase().includes(s) ||
                 (r.mobileNumber || '').includes(searchTerm) ||
-                (r.chassisNumber && r.chassisNumber.toLowerCase().includes(searchLower))
+                (r.chassisNumber && r.chassisNumber.toLowerCase().includes(s))
             );
         }
-
-        // Advanced filters
-        if (advancedFilters.client !== 'all') {
-            filtered = filtered.filter(r => r.clientName === advancedFilters.client);
-        }
-
+        if (advancedFilters.client !== 'all') filtered = filtered.filter(r => r.clientName === advancedFilters.client);
         if (advancedFilters.walletRange !== 'all') {
             filtered = filtered.filter(r => {
-                const amount = r.walletAmount || 0;
-                if (advancedFilters.walletRange === 'positive') return amount > 0;
-                if (advancedFilters.walletRange === 'negative') return amount < 0;
-                if (advancedFilters.walletRange === 'zero') return amount === 0;
+                const a = r.walletAmount || 0;
+                if (advancedFilters.walletRange === 'positive') return a > 0;
+                if (advancedFilters.walletRange === 'negative') return a < 0;
+                if (advancedFilters.walletRange === 'zero') return a === 0;
                 return true;
             });
         }
-
-        // Sorting
         filtered.sort((a, b) => {
-            const aValue = a[sortBy];
-            const bValue = b[sortBy];
-
-            if (typeof aValue === 'number' && typeof bValue === 'number') {
-                return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-            }
-
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-                return sortOrder === 'asc'
-                    ? aValue.localeCompare(bValue)
-                    : bValue.localeCompare(aValue);
-            }
-
+            const av = a[sortBy]; const bv = b[sortBy];
+            if (typeof av === 'number' && typeof bv === 'number') return sortOrder === 'asc' ? av - bv : bv - av;
+            if (typeof av === 'string' && typeof bv === 'string') return sortOrder === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
             return 0;
         });
-
         setFilteredRiders(filtered);
     };
 
@@ -283,45 +200,15 @@ const MyRiders: React.FC = () => {
         setSelectedRiders(new Set());
     };
 
-    const generateTrievId = () => {
-        const timestamp = Date.now().toString().slice(-6);
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        return `TR${timestamp}${random}`;
-    };
-
-    // Local logActivity removed in favor of imported utility from '@/utils/activityLog'
+    const generateTrievId = () => `TR${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
 
     const handleAddRider = async (formData: RiderFormData) => {
         if (!userData) return;
-
         try {
-            const newRiderApp = {
-                ...formData,
-                clientName: formData.clientName as ClientName, // Cast string to ClientName
-                trievId: formData.trievId || generateTrievId(),
-                teamLeaderId: userData.id,
-                teamLeaderName: userData.fullName,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                status: 'active' as RiderStatus,
-                walletAmount: formData.walletAmount ?? 0,
-            };
-
-            const dbPayload = mapRiderToDB(newRiderApp);
-
-            const { data, error } = await supabase.from('riders').insert(dbPayload).select().single();
+            const newRiderApp = { ...formData, clientName: formData.clientName as ClientName, trievId: formData.trievId || generateTrievId(), teamLeaderId: userData.id, teamLeaderName: userData.fullName, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'active' as RiderStatus, walletAmount: formData.walletAmount ?? 0 };
+            const { data, error } = await supabase.from('riders').insert(mapRiderToDB(newRiderApp)).select().single();
             if (error) throw error;
-
-            if (data) {
-                const createdRider = mapRiderFromDB(data);
-                await logActivity({
-                    actionType: 'create',
-                    targetType: 'rider',
-                    targetId: createdRider.id,
-                    details: `Added new rider: ${createdRider.riderName} (${createdRider.trievId})`
-                });
-            }
-
+            if (data) { const cr = mapRiderFromDB(data); await logActivity({ actionType: 'create', targetType: 'rider', targetId: cr.id, details: `Added new rider: ${cr.riderName} (${cr.trievId})` }); }
             toast.success('Rider added successfully');
             await fetchRiders();
             setShowAddModal(false);
@@ -333,544 +220,282 @@ const MyRiders: React.FC = () => {
 
     const handleEditRider = async (formData: RiderFormData) => {
         if (!editingRider) return;
-
         try {
-            const updatePayload = mapRiderToDB({
-                ...formData,
-                clientName: formData.clientName as ClientName, // Cast string to ClientName
-                updatedAt: new Date().toISOString(),
-            });
-
-            const { error } = await supabase
-                .from('riders')
-                .update(updatePayload)
-                .eq('id', editingRider.id);
-
+            const { error } = await supabase.from('riders').update(mapRiderToDB({ ...formData, clientName: formData.clientName as ClientName, updatedAt: new Date().toISOString() })).eq('id', editingRider.id);
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'update',
-                targetType: 'rider',
-                targetId: editingRider.id,
-                details: `Updated rider: ${formData.riderName} (${formData.trievId})`
-            });
-
+            await logActivity({ actionType: 'update', targetType: 'rider', targetId: editingRider.id, details: `Updated rider: ${formData.riderName} (${formData.trievId})` });
             toast.success('Rider updated successfully');
             await fetchRiders();
             setEditingRider(null);
-        } catch (error) {
-            console.error('Error updating rider:', error);
-            toast.error('Failed to update rider. Please try again.');
-        }
+        } catch (error) { console.error('Error updating rider:', error); toast.error('Failed to update rider.'); }
     };
 
     const handleDeleteRider = async (rider: Rider) => {
         if (!confirm(`Are you sure you want to delete ${rider.riderName}?`)) return;
-
         try {
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    status: 'deleted',
-                    deleted_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', rider.id);
-
+            const { error } = await supabase.from('riders').update({ status: 'deleted', deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', rider.id);
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'delete',
-                targetType: 'rider',
-                targetId: rider.id,
-                details: `Deleted rider: ${rider.riderName} (${rider.trievId})`
-            });
-
+            await logActivity({ actionType: 'delete', targetType: 'rider', targetId: rider.id, details: `Deleted rider: ${rider.riderName} (${rider.trievId})` });
             toast.success('Rider moved to trash');
             await fetchRiders();
-        } catch (error) {
-            console.error('Error deleting rider:', error);
-            toast.error('Failed to delete rider');
-        }
+        } catch (error) { console.error('Error deleting rider:', error); toast.error('Failed to delete rider'); }
     };
 
     const handleRestoreRider = async (rider: Rider) => {
         try {
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    status: 'active',
-                    deleted_at: null,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', rider.id);
-
+            const { error } = await supabase.from('riders').update({ status: 'active', deleted_at: null, updated_at: new Date().toISOString() }).eq('id', rider.id);
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'update',
-                targetType: 'rider',
-                targetId: rider.id,
-                details: `Restored rider: ${rider.riderName} (${rider.trievId})`
-            });
-
+            await logActivity({ actionType: 'update', targetType: 'rider', targetId: rider.id, details: `Restored rider: ${rider.riderName} (${rider.trievId})` });
             toast.success('Rider restored');
             await fetchRiders();
-        } catch (error) {
-            console.error('Error restoring rider:', error);
-            toast.error('Failed to restore rider');
-        }
+        } catch (error) { console.error('Error restoring rider:', error); toast.error('Failed to restore rider'); }
     };
 
     const handlePermanentDelete = async (rider: Rider) => {
         if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system. This action CANNOT be undone. Are you absolutely sure?`)) return;
-
         try {
-            // Soft delete flag update as per request logic preserved
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    permanently_deleted: true, // snake_case
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', rider.id);
-
+            const { error } = await supabase.from('riders').update({ permanently_deleted: true, updated_at: new Date().toISOString() }).eq('id', rider.id);
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'delete',
-                targetType: 'rider',
-                targetId: rider.id,
-                details: `Permanently deleted rider: ${rider.riderName} (${rider.trievId})`
-            });
-
+            await logActivity({ actionType: 'delete', targetType: 'rider', targetId: rider.id, details: `Permanently deleted rider: ${rider.riderName} (${rider.trievId})` });
             toast.success('Rider permanently deleted');
             await fetchRiders();
-        } catch (error) {
-            console.error('Error permanently deleting rider:', error);
-            toast.error('Failed to permanently delete rider');
-        }
+        } catch (error) { console.error('Error permanently deleting rider:', error); toast.error('Failed to permanently delete rider'); }
     };
 
     const handleStatusChange = async (rider: Rider, newStatus: RiderStatus) => {
         try {
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    status: newStatus,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', rider.id);
-
+            const { error } = await supabase.from('riders').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', rider.id);
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'update',
-                targetType: 'rider',
-                targetId: rider.id,
-                details: `Changed status to ${newStatus}: ${rider.riderName} (${rider.trievId})`
-            });
-
+            await logActivity({ actionType: 'update', targetType: 'rider', targetId: rider.id, details: `Changed status to ${newStatus}: ${rider.riderName} (${rider.trievId})` });
             toast.success(`Status updated to ${newStatus}`);
             await fetchRiders();
-        } catch (error) {
-            console.error('Error changing status:', error);
-            toast.error('Failed to change status');
-        }
+        } catch (error) { console.error('Error changing status:', error); toast.error('Failed to change status'); }
     };
 
     const handleSelectAll = () => {
-        if (selectedRiders.size === paginatedRiders.length) {
-            setSelectedRiders(new Set());
-        } else {
-            const allIds = new Set(paginatedRiders.map(r => r.id));
-            setSelectedRiders(allIds);
-        }
+        if (selectedRiders.size === paginatedRiders.length) setSelectedRiders(new Set());
+        else setSelectedRiders(new Set(paginatedRiders.map(r => r.id)));
     };
 
     const handleSelectOne = (riderId: string) => {
-        const newSelected = new Set(selectedRiders);
-        if (newSelected.has(riderId)) {
-            newSelected.delete(riderId);
-        } else {
-            newSelected.add(riderId);
-        }
-        setSelectedRiders(newSelected);
+        const s = new Set(selectedRiders);
+        if (s.has(riderId)) s.delete(riderId); else s.add(riderId);
+        setSelectedRiders(s);
     };
 
     const handleBulkStatusChange = async (newStatus: RiderStatus) => {
         if (selectedRiders.size === 0) return;
-
-        if (!confirm(`Change status of ${selectedRiders.size} rider(s) to ${newStatus}?`)) {
-            return;
-        }
-
+        if (!confirm(`Change status of ${selectedRiders.size} rider(s) to ${newStatus}?`)) return;
         try {
-            const idsToCheck = Array.from(selectedRiders);
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    status: newStatus,
-                    updated_at: new Date().toISOString(),
-                })
-                .in('id', idsToCheck);
-
+            const { error } = await supabase.from('riders').update({ status: newStatus, updated_at: new Date().toISOString() }).in('id', Array.from(selectedRiders));
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'bulk_update',
-                targetType: 'rider',
-                targetId: 'multiple',
-                details: `Changed status of ${selectedRiders.size} riders to ${newStatus}`
-            });
-
+            await logActivity({ actionType: 'bulk_update', targetType: 'rider', targetId: 'multiple', details: `Changed status of ${selectedRiders.size} riders to ${newStatus}` });
             toast.success('Riders updated successfully');
             setSelectedRiders(new Set());
             await fetchRiders();
-        } catch (error) {
-            console.error('Error in bulk status change:', error);
-            toast.error('Failed to update riders. Please try again.');
-        }
+        } catch (error) { console.error('Error in bulk status change:', error); toast.error('Failed to update riders.'); }
     };
 
     const handleBulkDelete = async () => {
         if (selectedRiders.size === 0) return;
-
-        if (!confirm(`Delete ${selectedRiders.size} rider(s)? This will set their status to deleted.`)) {
-            return;
-        }
-
+        if (!confirm(`Delete ${selectedRiders.size} rider(s)?`)) return;
         try {
-            const idsToCheck = Array.from(selectedRiders);
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    status: 'deleted',
-                    deleted_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                })
-                .in('id', idsToCheck);
-
+            const { error } = await supabase.from('riders').update({ status: 'deleted', deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).in('id', Array.from(selectedRiders));
             if (error) throw error;
-
-            await logActivity({
-                actionType: 'bulk_delete',
-                targetType: 'rider',
-                targetId: 'multiple',
-                details: `Deleted ${selectedRiders.size} riders`
-            });
-
+            await logActivity({ actionType: 'bulk_delete', targetType: 'rider', targetId: 'multiple', details: `Deleted ${selectedRiders.size} riders` });
             toast.success('Riders deleted successfully');
             setSelectedRiders(new Set());
             await fetchRiders();
-        } catch (error) {
-            console.error('Error in bulk delete:', error);
-            toast.error('Failed to delete riders. Please try again.');
-        }
+        } catch (error) { console.error('Error in bulk delete:', error); toast.error('Failed to delete riders.'); }
     };
 
     const handleExport = async (format: ExportFormat) => {
-        const ridersToExport = filteredRiders.filter(r =>
-            selectedRiders.size === 0 || selectedRiders.has(r.id)
-        );
-
+        const ridersToExport = filteredRiders.filter(r => selectedRiders.size === 0 || selectedRiders.has(r.id));
         const filename = `riders_${activeTab}_${new Date().toISOString().split('T')[0]}`;
-
         try {
-            if (format === 'csv') {
-                exportRidersToCSV(ridersToExport, filename);
-            } else if (format === 'excel') {
-                exportRidersToExcel(ridersToExport, filename);
-            } else if (format === 'pdf') {
-                exportRidersToPDF(ridersToExport, filename, `Riders Report - ${activeTab.toUpperCase()}`);
-            }
-
-            await logActivity({
-                actionType: 'export',
-                targetType: 'rider',
-                targetId: 'multiple',
-                details: `Exported ${ridersToExport.length} riders as ${format.toUpperCase()}`
-            });
-        } catch (error) {
-            console.error('Export error:', error);
-            throw error;
-        }
+            if (format === 'csv') exportRidersToCSV(ridersToExport, filename);
+            else if (format === 'excel') exportRidersToExcel(ridersToExport, filename);
+            else if (format === 'pdf') exportRidersToPDF(ridersToExport, filename, `Riders Report - ${activeTab.toUpperCase()}`);
+            await logActivity({ actionType: 'export', targetType: 'rider', targetId: 'multiple', details: `Exported ${ridersToExport.length} riders as ${format.toUpperCase()}` });
+        } catch (error) { console.error('Export error:', error); throw error; }
     };
 
-    const handleCall = (phoneNumber: string) => {
-        window.location.href = `tel:${phoneNumber}`;
-    };
-
-    const handleWhatsApp = (phoneNumber: string) => {
-        const cleanNumber = phoneNumber.replace(/\D/g, '');
-        window.open(`https://wa.me/${cleanNumber}`, '_blank');
-    };
+    const handleCall = (phoneNumber: string) => { window.location.href = `tel:${phoneNumber}`; };
+    const handleWhatsApp = (phoneNumber: string) => { const c = phoneNumber.replace(/\D/g, ''); window.open(`https://wa.me/${c}`, '_blank'); };
 
     const handleSendReminder = async (message: string) => {
         if (!reminderRider) return;
-
-        // Log the activity
-        await logActivity({
-            actionType: 'sent_reminder',
-            targetType: 'rider',
-            targetId: reminderRider.id,
-            details: `Sent payment reminder to ${reminderRider.riderName}`
-        });
-
-        // Open WhatsApp
-        const encodedMessage = encodeURIComponent(message);
-        window.open(`https://wa.me/${reminderRider.mobileNumber}?text=${encodedMessage}`, '_blank');
-
+        await logActivity({ actionType: 'sent_reminder', targetType: 'rider', targetId: reminderRider.id, details: `Sent payment reminder to ${reminderRider.riderName}` });
+        window.open(`https://wa.me/${reminderRider.mobileNumber}?text=${encodeURIComponent(message)}`, '_blank');
         setReminderRider(null);
     };
 
     const handleSort = (column: keyof Rider) => {
-        if (sortBy === column) {
-            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortBy(column);
-            setSortOrder('asc');
-        }
+        if (sortBy === column) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        else { setSortBy(column); setSortOrder('asc'); }
     };
 
     const handleBulkCommunication = async (message: string) => {
-        const selectedRidersList = riders.filter(r => selectedRiders.has(r.id));
-
-        if (selectedRidersList.length === 0) {
-            toast.error('No riders selected');
-            return;
-        }
-
+        const list = riders.filter(r => selectedRiders.has(r.id));
+        if (list.length === 0) { toast.error('No riders selected'); return; }
         try {
-            // Open WhatsApp for each rider
-            for (const rider of selectedRidersList) {
-                const amountStr = rider.walletAmount < 0
-                    ? `-${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
-                    : Math.abs(rider.walletAmount).toLocaleString('en-IN');
-
-                const personalizedMessage = message
-                    .replace('{name}', rider.riderName)
-                    .replace('{amount}', amountStr);
-
-                const encodedMessage = encodeURIComponent(personalizedMessage);
-                const cleanNumber = rider.mobileNumber.replace(/\D/g, '');
-
-                // Open WhatsApp in new tab
-                window.open(`https://wa.me/${cleanNumber}?text=${encodedMessage}`, '_blank');
-
-                // Small delay between opening tabs
-                await new Promise(resolve => setTimeout(resolve, 500));
+            for (const rider of list) {
+                const amtStr = rider.walletAmount < 0 ? `-${Math.abs(rider.walletAmount).toLocaleString('en-IN')}` : Math.abs(rider.walletAmount).toLocaleString('en-IN');
+                const msg = message.replace('{name}', rider.riderName).replace('{amount}', amtStr);
+                window.open(`https://wa.me/${rider.mobileNumber.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                await new Promise(r => setTimeout(r, 500));
             }
-
-            await logActivity({
-                actionType: 'bulk_communication',
-                targetType: 'rider',
-                targetId: 'multiple',
-                details: `Sent bulk communication to ${selectedRidersList.length} riders`
-            });
-
-            toast.success(`Opened WhatsApp for ${selectedRidersList.length} rider(s)`);
+            await logActivity({ actionType: 'bulk_communication', targetType: 'rider', targetId: 'multiple', details: `Sent bulk communication to ${list.length} riders` });
+            toast.success(`Opened WhatsApp for ${list.length} rider(s)`);
             setSelectedRiders(new Set());
-        } catch (error) {
-            console.error('Error sending bulk communication:', error);
-            toast.error('Failed to send messages');
-        }
+        } catch (error) { console.error('Error sending bulk communication:', error); toast.error('Failed to send messages'); }
     };
 
     const canBulkStatusChange = userData?.permissions?.riders?.bulkActions?.statusChange ?? false;
     const canBulkDelete = userData?.permissions?.riders?.bulkActions?.delete ?? false;
-    const canBulkSendReminders = userData?.permissions?.riders?.bulkActions?.sendReminders ?? true; // Default true for all
+    const canBulkSendReminders = userData?.permissions?.riders?.bulkActions?.sendReminders ?? true;
 
     const getBulkActions = () => {
         const actions = [];
-
         if (canBulkStatusChange) {
-            actions.push({
-                label: 'Change to Active',
-                onClick: () => handleBulkStatusChange('active'),
-            });
-            actions.push({
-                label: 'Change to Inactive',
-                onClick: () => handleBulkStatusChange('inactive'),
-            });
+            actions.push({ label: 'Set Active', onClick: () => handleBulkStatusChange('active') });
+            actions.push({ label: 'Set Inactive', onClick: () => handleBulkStatusChange('inactive') });
         }
-
-        if (canBulkSendReminders) {
-            actions.push({
-                label: 'Bulk Communication (WA)',
-                onClick: () => setShowBulkCommunicationModal(true),
-                variant: 'default',
-                icon: <MessageCircle size={16} />,
-            });
-        }
-
-        if (canBulkDelete) {
-            actions.push({
-                label: 'Delete Selected',
-                onClick: handleBulkDelete,
-                variant: 'destructive',
-                icon: <Trash2 size={16} />,
-            });
-        }
-
+        if (canBulkSendReminders) actions.push({ label: 'Bulk WhatsApp', onClick: () => setShowBulkCommunicationModal(true), variant: 'default', icon: <MessageCircle size={16} /> });
+        if (canBulkDelete) actions.push({ label: 'Delete Selected', onClick: handleBulkDelete, variant: 'destructive', icon: <Trash2 size={16} /> });
         return actions;
     };
 
-    // Pagination constants
     const totalPages = Math.ceil(filteredRiders.length / pageSize);
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedRiders = filteredRiders.slice(startIndex, startIndex + pageSize);
 
     const availableExportColumns = [
-        { key: 'trievId', label: 'Triev ID' },
-        { key: 'riderName', label: 'Rider Name' },
-        { key: 'mobileNumber', label: 'Mobile Number' },
-        { key: 'chassisNumber', label: 'Chassis Number' },
-        { key: 'clientName', label: 'Client Name' },
-        { key: 'walletAmount', label: 'Wallet Amount' },
-        { key: 'status', label: 'Status' },
-        { key: 'teamLeaderName', label: 'Team Leader' },
+        { key: 'trievId', label: 'Triev ID' }, { key: 'riderName', label: 'Rider Name' },
+        { key: 'mobileNumber', label: 'Mobile Number' }, { key: 'chassisNumber', label: 'Chassis Number' },
+        { key: 'clientName', label: 'Client Name' }, { key: 'walletAmount', label: 'Wallet Amount' },
+        { key: 'status', label: 'Status' }, { key: 'teamLeaderName', label: 'Team Leader' },
         { key: 'remarks', label: 'Remarks' }
     ];
 
+    // ─── Status config for badges
+    const statusCfg = (status: string) => {
+        if (status === 'active') return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800';
+        if (status === 'inactive') return 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800';
+        return 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800';
+    };
+    const statusDot = (status: string) => {
+        if (status === 'active') return 'bg-emerald-500 animate-pulse';
+        if (status === 'inactive') return 'bg-amber-500';
+        return 'bg-rose-500';
+    };
+
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
+        <div className="space-y-5">
+            {/* ── Header ── */}
+            <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
-                    <h1 className="text-3xl font-bold">My Riders</h1>
-                    <p className="text-muted-foreground mt-1">Manage your assigned riders</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">My Riders</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">
+                        Manage your riders •{' '}
+                        <span className="font-semibold text-primary">{riders.length} total</span>
+                    </p>
                 </div>
                 {canAddRider && (
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-medium"
+                        className="bg-primary text-primary-foreground px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 font-bold text-sm"
                     >
-                        <Plus size={20} />
-                        Add New Rider
+                        <Plus size={18} /> Add Rider
                     </button>
                 )}
             </div>
 
-            {/* Tabs */}
-            <div className="border-b border-border">
-                <div className="flex gap-6">
-                    <button
-                        onClick={() => handleTabChange('active')}
-                        className={`pb-3 px-1 font-medium transition-all relative ${activeTab === 'active'
-                            ? 'text-primary'
-                            : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        Active
-                        {activeTab === 'active' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
-                    </button>
-
-                    <button
-                        onClick={() => handleTabChange('inactive')}
-                        className={`pb-3 px-1 font-medium transition-all relative ${activeTab === 'inactive'
-                            ? 'text-primary'
-                            : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        Inactive
-                        {activeTab === 'inactive' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
-                    </button>
-
-                    {canDelete && (
+            {/* ── Tab Bar ── */}
+            <div className="flex gap-1 p-1 bg-muted/60 backdrop-blur-sm rounded-2xl border border-border/50 w-fit overflow-x-auto">
+                {(['active', 'inactive', ...(canDelete ? ['deleted'] : [])] as TabType[]).map((tab) => {
+                    const cnt = riders.filter(r => r.status === tab).length;
+                    const tabColors: Record<string, string> = {
+                        active: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/40 dark:text-emerald-400',
+                        inactive: 'text-amber-600 bg-amber-50 dark:bg-amber-900/40 dark:text-amber-400',
+                        deleted: 'text-rose-600 bg-rose-50 dark:bg-rose-900/40 dark:text-rose-400',
+                    };
+                    return (
                         <button
-                            onClick={() => handleTabChange('deleted')}
-                            className={`pb-3 px-1 font-medium transition-all relative ${activeTab === 'deleted'
-                                ? 'text-primary'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
+                            key={tab}
+                            onClick={() => handleTabChange(tab)}
+                            className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === tab ? 'bg-background shadow-md text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                            Trash
-                            {activeTab === 'deleted' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
+                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${tabColors[tab]}`}>{cnt}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* ── Search + Filter Row ── */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
+                    <input
+                        type="text"
+                        placeholder="Search by name, Triev ID, mobile, chassis..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background text-sm transition-all"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className={`px-4 py-2.5 border rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${showAdvancedFilters ? 'bg-primary/10 border-primary/30 text-primary' : 'border-input hover:bg-accent'}`}
+                    >
+                        <Filter size={16} />
+                        <span className="hidden sm:inline">Filter</span>
+                    </button>
+                    {canExport && (
+                        <button
+                            onClick={() => setShowExportModal(true)}
+                            className="px-4 py-2.5 border border-input rounded-xl hover:bg-accent transition-colors flex items-center gap-2 text-sm font-medium"
+                        >
+                            <Download size={16} />
+                            <span className="hidden sm:inline">Export</span>
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Search and Filters */}
-            <div className="flex items-center gap-4">
-                <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Search by name, Triev ID, mobile, or chassis number..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-                    />
-                </div>
-                <button
-                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    className={`px-4 py-2.5 border border-input rounded-lg hover:bg-accent transition-colors flex items-center gap-2 ${showAdvancedFilters ? 'bg-accent' : ''}`}
-                >
-                    <Filter size={20} />
-                    Advanced Filter
-                </button>
-                {canExport && (
-                    <button
-                        onClick={() => setShowExportModal(true)}
-                        className="px-4 py-2.5 border border-input rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
-                    >
-                        <Download size={20} />
-                        Export
-                    </button>
-                )}
-            </div>
-
-            {/* Advanced Filters Panel */}
+            {/* ── Advanced Filters ── */}
             {showAdvancedFilters && (
-                <div className="bg-muted/50 border border-border rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Client</label>
-                            <select
-                                value={advancedFilters.client}
-                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as ClientName | 'all' })}
-                                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-                            >
-                                <option value="all">All Clients</option>
-                                <option value="Zomato">Zomato</option>
-                                <option value="Zepto">Zepto</option>
-                                <option value="Blinkit">Blinkit</option>
-                                <option value="Uber">Uber</option>
-                                <option value="Porter">Porter</option>
-                                <option value="Rapido">Rapido</option>
-                                <option value="Swiggy">Swiggy</option>
-                                <option value="FLK">FLK</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Wallet Range</label>
-                            <select
-                                value={advancedFilters.walletRange}
-                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
-                                className="w-full px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-                            >
-                                <option value="all">All Wallets</option>
-                                <option value="positive">Positive Balance</option>
-                                <option value="negative">Negative Balance</option>
-                                <option value="zero">Zero Balance</option>
-                            </select>
-                        </div>
-                        <div className="flex items-end">
-                            <button
-                                onClick={() => setAdvancedFilters({ client: 'all', walletRange: 'all' })}
-                                className="px-4 py-2 border border-input rounded-lg hover:bg-accent transition-colors w-full"
-                            >
-                                Reset Filters
-                            </button>
-                        </div>
+                <div className="bg-muted/40 border border-border rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-1.5">Client</label>
+                        <select value={advancedFilters.client} onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as any })}
+                            className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <option value="all">All Clients</option>
+                            {['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-1.5">Wallet</label>
+                        <select value={advancedFilters.walletRange} onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
+                            className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <option value="all">All Wallets</option>
+                            <option value="positive">Positive Balance</option>
+                            <option value="negative">Negative Balance</option>
+                            <option value="zero">Zero Balance</option>
+                        </select>
+                    </div>
+                    <div className="flex items-end">
+                        <button onClick={() => setAdvancedFilters({ client: 'all', walletRange: 'all' })}
+                            className="w-full px-4 py-2.5 border border-input rounded-xl hover:bg-accent transition-colors text-sm font-medium">
+                            Reset Filters
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Bulk Actions Bar */}
+            {/* ── Bulk Actions Bar ── */}
             {selectedRiders.size > 0 && (
                 <BulkActionsBar
                     selectedCount={selectedRiders.size}
@@ -881,129 +506,246 @@ const MyRiders: React.FC = () => {
                 />
             )}
 
-            {/* Riders Table */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
+            {/* ── Quick Stats ── */}
+            {!loading && riders.length > 0 && (
+                <div className="grid grid-cols-3 gap-3">
+                    {[
+                        { label: 'Active', count: riders.filter(r => r.status === 'active').length, cls: 'border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/10', txt: 'text-emerald-600 dark:text-emerald-400' },
+                        { label: 'Inactive', count: riders.filter(r => r.status === 'inactive').length, cls: 'border-l-amber-500 bg-amber-50/60 dark:bg-amber-900/10', txt: 'text-amber-600 dark:text-amber-400' },
+                        { label: 'Deleted', count: riders.filter(r => r.status === 'deleted').length, cls: 'border-l-rose-500 bg-rose-50/60 dark:bg-rose-900/10', txt: 'text-rose-600 dark:text-rose-400' },
+                    ].map(s => (
+                        <div key={s.label} className={`rounded-2xl border-l-4 px-4 py-3 border border-border/50 ${s.cls}`}>
+                            <p className={`text-xl font-black ${s.txt}`}>{s.count}</p>
+                            <p className="text-xs text-muted-foreground font-semibold">{s.label}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Main Table / Card Panel ── */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                 {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <Loader2 className="animate-spin text-primary" size={48} />
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                        <Loader2 className="animate-spin text-primary" size={40} />
+                        <p className="text-sm text-muted-foreground font-medium">Loading riders...</p>
                     </div>
                 ) : filteredRiders.length === 0 ? (
-                    <div className="text-center py-12">
-                        <p className="text-muted-foreground mb-4">
-                            {searchTerm
-                                ? 'No riders found matching your search.'
-                                : riders.length === 0
-                                    ? 'No riders yet. Click "Add New Rider" to get started.'
-                                    : `No ${activeTab} riders.`}
+                    <div className="text-center py-20 px-6">
+                        <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto mb-4">
+                            <UserX size={28} className="text-muted-foreground" />
+                        </div>
+                        <p className="font-bold text-foreground mb-1">
+                            {searchTerm ? 'No riders match your search' : `No ${activeTab} riders`}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            {riders.length === 0 ? 'Click "Add Rider" to get started.' : 'Try adjusting your filters.'}
                         </p>
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
+                        {/* ── Desktop Table ── */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-muted/40 sticky top-0 z-10">
+                                <thead className="bg-muted/40 border-b border-border">
                                     <tr>
-                                        <th className="px-6 py-4 text-left border-b border-border">
-                                            <input
-                                                type="checkbox"
+                                        <th className="px-5 py-3.5 text-left w-10">
+                                            <input type="checkbox"
                                                 checked={paginatedRiders.length > 0 && paginatedRiders.every(r => selectedRiders.has(r.id))}
                                                 onChange={handleSelectAll}
-                                                className="w-4 h-4 rounded border-input cursor-pointer"
-                                            />
+                                                className="w-4 h-4 rounded accent-primary cursor-pointer" />
                                         </th>
-                                        <th
-                                            onClick={() => handleSort('trievId')}
-                                            className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60 transition-colors border-b border-border"
-                                        >
-                                            Triev ID {sortBy === 'trievId' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th
-                                            onClick={() => handleSort('riderName')}
-                                            className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60 transition-colors border-b border-border"
-                                        >
-                                            Rider Name {sortBy === 'riderName' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider border-b border-border">Mobile Number</th>
-                                        {/* Hidden columns: Chassis, Client, Status as per user request */}
-                                        <th
-                                            onClick={() => handleSort('walletAmount')}
-                                            className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/60 transition-colors border-b border-border"
-                                        >
-                                            Wallet {sortBy === 'walletAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider border-b border-border">Actions</th>
+                                        {[
+                                            { label: 'Triev ID', key: 'trievId' },
+                                            { label: 'Rider', key: 'riderName' },
+                                            { label: 'Mobile', key: null },
+                                            { label: 'Client', key: 'clientName' },
+                                            { label: 'Wallet', key: 'walletAmount' },
+                                            { label: 'Allotment', key: 'allotmentDate' },
+                                            { label: 'Status', key: 'status' },
+                                        ].map(col => (
+                                            <th key={col.label}
+                                                onClick={() => col.key && handleSort(col.key as keyof Rider)}
+                                                className={`px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider text-muted-foreground ${col.key ? 'cursor-pointer hover:bg-muted/60 hover:text-primary transition-colors select-none' : ''}`}>
+                                                <span className="flex items-center gap-1">
+                                                    {col.label}
+                                                    {col.key && sortBy === col.key && <span className="text-primary text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>}
+                                                </span>
+                                            </th>
+                                        ))}
+                                        <th className="px-5 py-3.5 text-right text-[10px] font-black uppercase tracking-wider text-muted-foreground">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-border bg-card">
+                                <tbody className="divide-y divide-border/50">
                                     {paginatedRiders.map((rider) => (
-                                        <tr key={rider.id} className="hover:bg-muted/30 transition-all duration-200 group">
-                                            <td className="px-6 py-4">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedRiders.has(rider.id)}
-                                                    onChange={() => handleSelectOne(rider.id)}
-                                                    className="w-4 h-4 rounded border-input cursor-pointer"
-                                                />
+                                        <tr key={rider.id}
+                                            className={`hover:bg-muted/25 transition-all duration-150 ${selectedRiders.has(rider.id) ? 'bg-primary/5' : ''}`}>
+                                            <td className="px-5 py-4">
+                                                <input type="checkbox" checked={selectedRiders.has(rider.id)} onChange={() => handleSelectOne(rider.id)}
+                                                    className="w-4 h-4 rounded accent-primary cursor-pointer" />
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-medium">
-                                                <button
-                                                    onClick={() => setViewingRider(rider)}
-                                                    className="text-primary hover:underline hover:font-bold transition-all"
-                                                >
+                                            <td className="px-5 py-4">
+                                                <button onClick={() => setViewingRider(rider)} className="text-primary font-black text-sm hover:underline hover:text-primary/80 transition-colors">
                                                     {rider.trievId}
                                                 </button>
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-foreground/90">{rider.riderName}</td>
-                                            <td className="px-6 py-4 text-sm text-muted-foreground">
-                                                <div className="flex flex-col gap-1">
-                                                    <span>{rider.mobileNumber}</span>
-                                                    <div className="flex gap-2">
+                                            <td className="px-5 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-sm flex-shrink-0">
+                                                        {(rider.riderName || '?').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-sm text-foreground truncate max-w-[140px]">{rider.riderName}</p>
+                                                        <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{rider.chassisNumber || '—'}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm text-foreground/80 whitespace-nowrap">{rider.mobileNumber}</span>
+                                                    <div className="flex gap-1">
                                                         {riderActionPermissions.canCall && (
-                                                            <button
-                                                                onClick={() => handleCall(rider.mobileNumber)}
-                                                                className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200"
-                                                                title="Call"
-                                                            >
-                                                                <Phone size={20} />
+                                                            <button onClick={() => handleCall(rider.mobileNumber)} className="p-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors" title="Call">
+                                                                <Phone size={13} />
                                                             </button>
                                                         )}
                                                         {riderActionPermissions.canWhatsApp && (
-                                                            <button
-                                                                onClick={() => handleWhatsApp(rider.mobileNumber)}
-                                                                className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200"
-                                                                title="WhatsApp"
-                                                            >
-                                                                <MessageCircle size={20} />
+                                                            <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="p-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors" title="WhatsApp">
+                                                                <MessageCircle size={13} />
                                                             </button>
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
-                                            {/* Hidden Cells: Chassis, Client, Status */}
-                                            <td className="px-6 py-4 text-sm">
-                                                <span
-                                                    className={
-                                                        rider.walletAmount > 0
-                                                            ? 'wallet-positive font-bold'
-                                                            : rider.walletAmount < 0
-                                                                ? 'wallet-negative font-bold'
-                                                                : 'wallet-zero font-medium'
-                                                    }
-                                                >
-                                                    ₹{rider.walletAmount >= 0 ? '+' : ''}{rider.walletAmount.toLocaleString('en-IN')}
-                                                </span>
-                                                {rider.walletAmount < 0 && (
-                                                    <button
-                                                        onClick={() => setReminderRider(rider)}
-                                                        className="ml-2 p-1.5 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-full shadow hover:shadow-lg hover:from-red-600 hover:to-pink-700 transition-all transform hover:-translate-y-0.5"
-                                                        title="Send Payment Reminder"
-                                                    >
-                                                        <AlertTriangle size={12} />
-                                                    </button>
-                                                )}
+                                            <td className="px-5 py-4">
+                                                {rider.clientName ? (
+                                                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap">
+                                                        {rider.clientName}
+                                                    </span>
+                                                ) : <span className="text-muted-foreground text-xs">—</span>}
                                             </td>
-                                            <td className="px-6 py-4 text-sm">
-                                                <div className="flex items-center justify-end">
+                                            <td className="px-5 py-4">
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                    <span className={`text-sm font-black ${rider.walletAmount > 0 ? 'text-emerald-600 dark:text-emerald-400' : rider.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
+                                                        {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
+                                                    </span>
+                                                    {rider.walletAmount < 0 && (
+                                                        <button onClick={() => setReminderRider(rider)} className="p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
+                                                            <AlertTriangle size={10} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-4 text-sm text-muted-foreground whitespace-nowrap">
+                                                {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full border ${statusCfg(rider.status)}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(rider.status)}`} />
+                                                    {rider.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-right">
+                                                <ActionDropdownMenu
+                                                    rider={rider}
+                                                    onView={() => setViewingRider(rider)}
+                                                    onEdit={() => setEditingRider(rider)}
+                                                    onStatusChange={(status) => handleStatusChange(rider, status)}
+                                                    onDelete={() => handleDeleteRider(rider)}
+                                                    onRestore={() => handleRestoreRider(rider)}
+                                                    onPermanentDelete={() => handlePermanentDelete(rider)}
+                                                    userRole="teamLeader"
+                                                    permissions={riderActionPermissions}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* ── Mobile Card View ── */}
+                        <div className="md:hidden">
+                            <div className="px-4 py-3 bg-muted/30 flex items-center justify-between border-b border-border/50">
+                                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-muted-foreground">
+                                    <input type="checkbox"
+                                        checked={paginatedRiders.length > 0 && paginatedRiders.every(r => selectedRiders.has(r.id))}
+                                        onChange={handleSelectAll}
+                                        className="w-4 h-4 rounded accent-primary" />
+                                    Select all
+                                </label>
+                                <span className="text-xs text-muted-foreground">{filteredRiders.length} riders</span>
+                            </div>
+                            <div className="divide-y divide-border/50">
+                                {paginatedRiders.map((rider) => (
+                                    <div key={rider.id} className={`p-4 transition-colors ${selectedRiders.has(rider.id) ? 'bg-primary/5' : 'hover:bg-muted/20'}`}>
+                                        <div className="flex items-start gap-3">
+                                            <input type="checkbox" checked={selectedRiders.has(rider.id)} onChange={() => handleSelectOne(rider.id)}
+                                                className="w-4 h-4 rounded accent-primary mt-1.5 flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                {/* Card Header */}
+                                                <div className="flex items-start justify-between gap-2 mb-3">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-lg flex-shrink-0">
+                                                            {(rider.riderName || '?').charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <button onClick={() => setViewingRider(rider)} className="font-black text-sm text-foreground block truncate max-w-[160px] text-left hover:text-primary transition-colors">
+                                                                {rider.riderName}
+                                                            </button>
+                                                            <button onClick={() => setViewingRider(rider)} className="text-xs text-primary font-bold">{rider.trievId}</button>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border flex-shrink-0 ${statusCfg(rider.status)}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${statusDot(rider.status)}`} />
+                                                        {rider.status}
+                                                    </span>
+                                                </div>
+
+                                                {/* Details Grid */}
+                                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                                    <div className="bg-muted/40 rounded-xl p-2.5">
+                                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Mobile</p>
+                                                        <p className="text-sm font-bold text-foreground">{rider.mobileNumber}</p>
+                                                    </div>
+                                                    <div className="bg-muted/40 rounded-xl p-2.5">
+                                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Wallet</p>
+                                                        <p className={`text-sm font-black ${rider.walletAmount > 0 ? 'text-emerald-600' : rider.walletAmount < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
+                                                            {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
+                                                        </p>
+                                                    </div>
+                                                    {rider.clientName && (
+                                                        <div className="bg-muted/40 rounded-xl p-2.5">
+                                                            <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Client</p>
+                                                            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{rider.clientName}</p>
+                                                        </div>
+                                                    )}
+                                                    {rider.allotmentDate && (
+                                                        <div className="bg-muted/40 rounded-xl p-2.5">
+                                                            <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Allotment</p>
+                                                            <p className="text-sm font-bold text-foreground">
+                                                                {new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div className="flex items-center gap-2">
+                                                    {riderActionPermissions.canCall && (
+                                                        <button onClick={() => handleCall(rider.mobileNumber)} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors active:scale-95">
+                                                            <Phone size={13} /> Call
+                                                        </button>
+                                                    )}
+                                                    {riderActionPermissions.canWhatsApp && (
+                                                        <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors active:scale-95">
+                                                            <MessageCircle size={13} /> WA
+                                                        </button>
+                                                    )}
+                                                    {rider.walletAmount < 0 && (
+                                                        <button onClick={() => setReminderRider(rider)} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition-colors active:scale-95">
+                                                            <AlertTriangle size={13} /> Remind
+                                                        </button>
+                                                    )}
                                                     <ActionDropdownMenu
                                                         rider={rider}
                                                         onView={() => setViewingRider(rider)}
@@ -1016,107 +758,62 @@ const MyRiders: React.FC = () => {
                                                         permissions={riderActionPermissions}
                                                     />
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
-                        {/* Pagination */}
-                        <div className="border-t border-border px-4 py-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Rows per page:</span>
-                                <select
-                                    value={pageSize}
-                                    onChange={(e) => {
-                                        setPageSize(Number(e.target.value));
-                                        setCurrentPage(1);
-                                    }}
-                                    className="px-2 py-1 border border-input rounded bg-background text-sm"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={25}>25</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                                <span className="text-sm text-muted-foreground ml-4">
-                                    Showing {startIndex + 1}-{Math.min(startIndex + pageSize, filteredRiders.length)} of {filteredRiders.length}
+                        {/* ── Pagination ── */}
+                        <div className="border-t border-border px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/20">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">Rows:</span>
+                                    <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                                        className="px-2 py-1.5 border border-input rounded-lg bg-background text-xs">
+                                        {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                    {startIndex + 1}–{Math.min(startIndex + pageSize, filteredRiders.length)} of <strong>{filteredRiders.length}</strong>
                                 </span>
                             </div>
-
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-2 border border-input rounded hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <ChevronLeft size={16} />
+                            <div className="flex items-center gap-1.5">
+                                <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}
+                                    className="px-2 py-1.5 border border-input rounded-lg hover:bg-accent transition-colors disabled:opacity-40 text-xs font-bold">«</button>
+                                <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
+                                    className="p-1.5 border border-input rounded-lg hover:bg-accent transition-colors disabled:opacity-40">
+                                    <ChevronLeft size={15} />
                                 </button>
-                                <span className="text-sm text-muted-foreground">
-                                    Page {currentPage} of {totalPages}
+                                <span className="text-xs text-muted-foreground px-1">
+                                    <strong>{currentPage}</strong> / <strong>{totalPages}</strong>
                                 </span>
-                                <button
-                                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="p-2 border border-input rounded hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <ChevronRight size={16} />
+                                <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}
+                                    className="p-1.5 border border-input rounded-lg hover:bg-accent transition-colors disabled:opacity-40">
+                                    <ChevronRight size={15} />
                                 </button>
+                                <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}
+                                    className="px-2 py-1.5 border border-input rounded-lg hover:bg-accent transition-colors disabled:opacity-40 text-xs font-bold">»</button>
                             </div>
                         </div>
                     </>
                 )}
             </div>
 
-            {/* Modals */}
-            {showAddModal && (
-                <AddRiderForm
-                    onClose={() => setShowAddModal(false)}
-                    onSubmit={handleAddRider}
-                />
-            )}
-
-            {editingRider && (
-                <AddRiderForm
-                    onClose={() => setEditingRider(null)}
-                    onSubmit={handleEditRider}
-                    initialData={editingRider as unknown as RiderFormData}
-                    isEdit
-                />
-            )}
-
-            {viewingRider && (
-                <RiderDetailsModal
-                    rider={viewingRider}
-                    onClose={() => setViewingRider(null)}
-                />
-            )}
-
-            {reminderRider && (
-                <PaymentReminderModal
-                    rider={reminderRider}
-                    onClose={() => setReminderRider(null)}
-                    onSend={handleSendReminder}
-                />
-            )}
-
+            {/* ── Modals ── */}
+            {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} />}
+            {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider as unknown as RiderFormData} isEdit />}
+            {viewingRider && <RiderDetailsModal rider={viewingRider} onClose={() => setViewingRider(null)} />}
+            {reminderRider && <PaymentReminderModal rider={reminderRider} onClose={() => setReminderRider(null)} onSend={handleSendReminder} />}
             {showExportModal && (
-                <ExportModal
-                    isOpen={showExportModal}
-                    onClose={() => setShowExportModal(false)}
-                    onExport={handleExport}
+                <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} onExport={handleExport}
                     availableColumns={availableExportColumns}
-                    title={`Export ${selectedRiders.size > 0 ? `${selectedRiders.size} Selected` : 'All'} Riders`}
-                />
+                    title={`Export ${selectedRiders.size > 0 ? `${selectedRiders.size} Selected` : 'All'} Riders`} />
             )}
-
             {showBulkCommunicationModal && (
-                <BulkCommunicationModal
-                    riders={riders.filter(r => selectedRiders.has(r.id))}
-                    onClose={() => setShowBulkCommunicationModal(false)}
-                    onSend={handleBulkCommunication}
-                />
+                <BulkCommunicationModal riders={riders.filter(r => selectedRiders.has(r.id))}
+                    onClose={() => setShowBulkCommunicationModal(false)} onSend={handleBulkCommunication} />
             )}
         </div>
     );
