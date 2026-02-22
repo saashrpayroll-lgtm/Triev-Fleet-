@@ -5,6 +5,7 @@ import { supabase } from '@/config/supabase';
 import { Rider, RiderStatus, RiderFormData, ClientName } from '@/types';
 import { Plus, Search, Filter, Download, Phone, MessageCircle, ChevronLeft, ChevronRight, Trash2, UserX, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import PaymentReminderModal from '@/components/PaymentReminderModal';
@@ -158,7 +159,7 @@ const MyRiders: React.FC = () => {
     useEffect(() => {
         if (!userData?.id) return;
         const channel = supabase.channel('my-riders-list')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id=eq.${userData.id}` }, () => fetchRiders())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id = eq.${userData.id} ` }, () => fetchRiders())
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [userData?.id]);
@@ -200,7 +201,7 @@ const MyRiders: React.FC = () => {
         setSelectedRiders(new Set());
     };
 
-    const generateTrievId = () => `TR${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    const generateTrievId = () => `TR${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')} `;
 
     const handleAddRider = async (formData: RiderFormData) => {
         if (!userData) return;
@@ -214,7 +215,7 @@ const MyRiders: React.FC = () => {
             setShowAddModal(false);
         } catch (error: any) {
             console.error('Error adding rider:', error);
-            toast.error(`Failed to add rider: ${error.message || 'Unknown error'}`);
+            toast.error(`Failed to add rider: ${error.message || 'Unknown error'} `);
         }
     };
 
@@ -252,7 +253,7 @@ const MyRiders: React.FC = () => {
     };
 
     const handlePermanentDelete = async (rider: Rider) => {
-        if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system. This action CANNOT be undone. Are you absolutely sure?`)) return;
+        if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system.This action CANNOT be undone.Are you absolutely sure ? `)) return;
         try {
             const { error } = await supabase.from('riders').update({ permanently_deleted: true, updated_at: new Date().toISOString() }).eq('id', rider.id);
             if (error) throw error;
@@ -267,7 +268,7 @@ const MyRiders: React.FC = () => {
             const { error } = await supabase.from('riders').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', rider.id);
             if (error) throw error;
             await logActivity({ actionType: 'update', targetType: 'rider', targetId: rider.id, details: `Changed status to ${newStatus}: ${rider.riderName} (${rider.trievId})` });
-            toast.success(`Status updated to ${newStatus}`);
+            toast.success(`Status updated to ${newStatus} `);
             await fetchRiders();
         } catch (error) { console.error('Error changing status:', error); toast.error('Failed to change status'); }
     };
@@ -289,7 +290,7 @@ const MyRiders: React.FC = () => {
         try {
             const { error } = await supabase.from('riders').update({ status: newStatus, updated_at: new Date().toISOString() }).in('id', Array.from(selectedRiders));
             if (error) throw error;
-            await logActivity({ actionType: 'bulk_update', targetType: 'rider', targetId: 'multiple', details: `Changed status of ${selectedRiders.size} riders to ${newStatus}` });
+            await logActivity({ actionType: 'bulk_update', targetType: 'rider', targetId: 'multiple', details: `Changed status of ${selectedRiders.size} riders to ${newStatus} ` });
             toast.success('Riders updated successfully');
             setSelectedRiders(new Set());
             await fetchRiders();
@@ -298,7 +299,7 @@ const MyRiders: React.FC = () => {
 
     const handleBulkDelete = async () => {
         if (selectedRiders.size === 0) return;
-        if (!confirm(`Delete ${selectedRiders.size} rider(s)?`)) return;
+        if (!confirm(`Delete ${selectedRiders.size} rider(s) ? `)) return;
         try {
             const { error } = await supabase.from('riders').update({ status: 'deleted', deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }).in('id', Array.from(selectedRiders));
             if (error) throw error;
@@ -311,21 +312,26 @@ const MyRiders: React.FC = () => {
 
     const handleExport = async (format: ExportFormat) => {
         const ridersToExport = filteredRiders.filter(r => selectedRiders.size === 0 || selectedRiders.has(r.id));
-        const filename = `riders_${activeTab}_${new Date().toISOString().split('T')[0]}`;
+        const filename = `riders_${activeTab}_${new Date().toISOString().split('T')[0]} `;
         try {
             if (format === 'csv') exportRidersToCSV(ridersToExport, filename);
             else if (format === 'excel') exportRidersToExcel(ridersToExport, filename);
-            else if (format === 'pdf') exportRidersToPDF(ridersToExport, filename, `Riders Report - ${activeTab.toUpperCase()}`);
-            await logActivity({ actionType: 'export', targetType: 'rider', targetId: 'multiple', details: `Exported ${ridersToExport.length} riders as ${format.toUpperCase()}` });
+            else if (format === 'pdf') exportRidersToPDF(ridersToExport, filename, `Riders Report - ${activeTab.toUpperCase()} `);
+            await logActivity({ actionType: 'export', targetType: 'rider', targetId: 'multiple', details: `Exported ${ridersToExport.length} riders as ${format.toUpperCase()} ` });
         } catch (error) { console.error('Export error:', error); throw error; }
     };
 
-    const handleCall = (phoneNumber: string) => { window.location.href = `tel:${phoneNumber}`; };
-    const handleWhatsApp = (phoneNumber: string) => { const c = phoneNumber.replace(/\D/g, ''); window.open(`https://wa.me/${c}`, '_blank'); };
+    const handleCall = (phoneNumber: string) => {
+        window.open(getCallLink(phoneNumber), '_self');
+    };
+
+    const handleWhatsApp = (phoneNumber: string) => {
+        window.open(getWhatsAppLink(phoneNumber), '_blank');
+    };
 
     const handleSendReminder = async (message: string) => {
         if (!reminderRider) return;
-        await logActivity({ actionType: 'sent_reminder', targetType: 'rider', targetId: reminderRider.id, details: `Sent payment reminder to ${reminderRider.riderName}` });
+        await logActivity({ actionType: 'sent_reminder', targetType: 'rider', targetId: reminderRider.id, details: `Sent payment reminder to ${reminderRider.riderName} ` });
         window.open(`https://wa.me/${reminderRider.mobileNumber}?text=${encodeURIComponent(message)}`, '_blank');
         setReminderRider(null);
     };

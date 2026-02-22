@@ -391,7 +391,14 @@ const LeadForm: React.FC<LeadFormProps> = ({ onSuccess, onCancel, initialData })
                                     required
                                     type="tel"
                                     value={formData.mobileNumber}
-                                    onChange={e => setFormData({ ...formData, mobileNumber: e.target.value })}
+                                    onChange={e => {
+                                        let val = e.target.value;
+                                        if (!val.startsWith('+91')) {
+                                            // If they try to delete the prefix, force it back
+                                            val = '+91' + val.replace(/^\+?9?1?/, '');
+                                        }
+                                        setFormData({ ...formData, mobileNumber: val });
+                                    }}
                                     onBlur={handleMobileBlur}
                                     className={`${inputClasses} pl-10 ${mobileError ? 'border-red-500/50 focus:border-red-500' : ''}`}
                                     placeholder="+91"

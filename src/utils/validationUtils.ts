@@ -11,13 +11,15 @@ export const validatePhoneNumber = (phone: string): boolean => {
 };
 
 /**
- * Format phone number to E.164 format
+ * Format phone number to E.164 format (+91 prefix)
  */
 export const formatPhoneNumber = (phone: string): string => {
+    if (!phone) return '+91';
+
     // Remove all non-digit characters
     const digits = phone.replace(/\D/g, '');
 
-    // If starts with 91, add +
+    // If starts with 91 and has 12 digits, format as +91XXXXXXXXXX
     if (digits.startsWith('91') && digits.length === 12) {
         return `+${digits}`;
     }
@@ -27,7 +29,33 @@ export const formatPhoneNumber = (phone: string): string => {
         return `+91${digits}`;
     }
 
-    return phone;
+    // If it already starts with +91 but has more/fewer digits, or other cases, 
+    // try to keep the +91 prefix and let validation handle the length.
+    if (phone.startsWith('+91')) {
+        return '+91' + phone.slice(3).replace(/\D/g, '');
+    }
+
+    return `+91${digits}`;
+};
+
+/**
+ * Standardized WhatsApp link generation
+ */
+export const getWhatsAppLink = (phone: string): string => {
+    const digits = (phone || '').replace(/\D/g, '');
+    // Ensure we take the last 10 digits and prefix with 91 for WhatsApp
+    const cleanNumber = digits.length >= 10 ? digits.slice(-10) : digits;
+    return `https://wa.me/91${cleanNumber}`;
+};
+
+/**
+ * Standardized Call link generation
+ */
+export const getCallLink = (phone: string): string => {
+    const digits = (phone || '').replace(/\D/g, '');
+    // Use E.164 format for tel: links
+    const cleanNumber = digits.length >= 10 ? digits.slice(-10) : digits;
+    return `tel:+91${cleanNumber}`;
 };
 
 /**

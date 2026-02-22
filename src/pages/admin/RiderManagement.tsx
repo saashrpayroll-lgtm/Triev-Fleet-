@@ -19,6 +19,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import PaymentReminderModal from '@/components/PaymentReminderModal';
 import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import { toast } from 'sonner';
+import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted';
@@ -744,12 +745,11 @@ const RiderManagement: React.FC = () => {
     };
 
     const handleCall = (phoneNumber: string) => {
-        window.location.href = `tel:${phoneNumber}`;
+        window.open(getCallLink(phoneNumber), '_self');
     };
 
     const handleWhatsApp = (phoneNumber: string) => {
-        const cleanNumber = phoneNumber.replace(/\D/g, '');
-        window.open(`https://wa.me/${cleanNumber}`, '_blank');
+        window.open(getWhatsAppLink(phoneNumber), '_blank');
     };
 
     const handleExport = async (format: ExportFormat) => {

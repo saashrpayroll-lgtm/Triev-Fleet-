@@ -6,6 +6,7 @@ import {
     ChevronDown, CheckSquare, Square, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 
 interface AdminLeadTableProps {
     leads: Lead[];
@@ -215,8 +216,8 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                                                 <div className="flex items-center gap-1 mt-0.5">
                                                     <span className="text-[10px] font-mono text-muted-foreground">{lead.mobileNumber}</span>
                                                     <div className="flex gap-0.5" onClick={e => e.stopPropagation()}>
-                                                        <a href={`tel:${lead.mobileNumber}`} className="p-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 rounded transition-colors" title="Call"><Phone size={10} /></a>
-                                                        <a href={`https://wa.me/91${lead.mobileNumber?.replace(/\D/g, '').slice(-10)}`} target="_blank" rel="noreferrer" className="p-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 rounded transition-colors" title="WhatsApp"><MessageCircle size={10} /></a>
+                                                        <a href={getCallLink(lead.mobileNumber)} className="p-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 rounded transition-colors" title="Call"><Phone size={10} /></a>
+                                                        <a href={getWhatsAppLink(lead.mobileNumber)} target="_blank" rel="noreferrer" className="p-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 rounded transition-colors" title="WhatsApp"><MessageCircle size={10} /></a>
                                                     </div>
                                                 </div>
                                             </div>
@@ -367,10 +368,10 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                             {/* Card Footer Actions */}
                             <div className="border-t border-border/50 flex items-center justify-between px-3 py-2">
                                 <div className="flex gap-1">
-                                    <a href={`tel:${lead.mobileNumber}`} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-lg text-[10px] font-bold transition-colors active:scale-95">
+                                    <a href={getCallLink(lead.mobileNumber)} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-lg text-[10px] font-bold transition-colors active:scale-95">
                                         <Phone size={11} /> Call
                                     </a>
-                                    <a href={`https://wa.me/91${lead.mobileNumber?.replace(/\D/g, '').slice(-10)}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg text-[10px] font-bold transition-colors active:scale-95">
+                                    <a href={getWhatsAppLink(lead.mobileNumber)} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg text-[10px] font-bold transition-colors active:scale-95">
                                         <MessageCircle size={11} /> WA
                                     </a>
                                     <button onClick={() => onView(lead)} className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/20 text-violet-600 rounded-lg text-[10px] font-bold transition-colors active:scale-95">

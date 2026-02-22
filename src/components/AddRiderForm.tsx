@@ -46,6 +46,7 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
         register,
         handleSubmit,
         watch,
+        setValue,
         formState: { errors },
     } = useForm<any>({
         resolver: zodResolver(riderSchema),
@@ -198,7 +199,14 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
                                     Mobile Number <span className="text-destructive">*</span>
                                 </label>
                                 <input
-                                    {...register('mobileNumber')}
+                                    {...register('mobileNumber', {
+                                        onChange: (e) => {
+                                            const val = e.target.value;
+                                            if (!val.startsWith('+91')) {
+                                                setValue('mobileNumber', '+91' + val.replace(/^\+?9?1?/, ''));
+                                            }
+                                        }
+                                    })}
                                     type="text"
                                     placeholder="+919876543210"
                                     className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background ${errors.mobileNumber ? 'border-destructive' : 'border-input'

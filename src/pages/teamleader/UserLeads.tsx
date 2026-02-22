@@ -6,6 +6,7 @@ import { AILeadStatsCards } from '@/components/AILeadStatsCards';
 import LeadsTable from '@/components/LeadsTable';
 import LeadForm from '@/components/LeadForm';
 import LeadDetailModal from '@/components/LeadDetailModal';
+import { formatPhoneNumber } from '@/utils/validationUtils';
 import { Plus } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -215,9 +216,7 @@ const UserLeads: React.FC = () => {
 
     // AI Status Logic
     const normalizeMobile = (phone: string | null | undefined): string => {
-        if (!phone) return '';
-        const digits = phone.replace(/\D/g, '');
-        return digits.length > 10 ? digits.slice(-10) : digits;
+        return formatPhoneNumber(phone || '');
     };
 
     const { riderMobileSet, leadMobileCounts } = useMemo(() => {

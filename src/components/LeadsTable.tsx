@@ -4,6 +4,7 @@ import {
     MapPin, Phone, MessageCircle, Edit2, Trash2,
     CheckSquare, Square, Eye, ChevronDown
 } from 'lucide-react';
+import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 
 interface LeadsTableProps {
     leads: Lead[];
@@ -154,10 +155,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                         <div className="min-w-0">
                                             <p className="font-bold text-sm text-foreground truncate max-w-[130px]">{String(lead.riderName || 'Unknown')}</p>
                                             <div className="flex items-center gap-1.5 mt-1">
-                                                <a href={`tel:${lead.mobileNumber}`} className="p-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition-colors" title="Call">
+                                                <a href={getCallLink(lead.mobileNumber)} className="p-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition-colors" title="Call">
                                                     <Phone size={11} />
                                                 </a>
-                                                <a href={`https://wa.me/${String(lead.mobileNumber || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="p-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition-colors" title="WhatsApp">
+                                                <a href={getWhatsAppLink(lead.mobileNumber)} target="_blank" rel="noreferrer" className="p-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition-colors" title="WhatsApp">
                                                     <MessageCircle size={11} />
                                                 </a>
                                                 <span className="text-[10px] text-muted-foreground">{lead.mobileNumber}</span>
@@ -349,11 +350,11 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-2">
-                                        <a href={`tel:${lead.mobileNumber}`}
+                                        <a href={getCallLink(lead.mobileNumber)}
                                             className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors active:scale-95">
                                             <Phone size={13} /> Call
                                         </a>
-                                        <a href={`https://wa.me/${String(lead.mobileNumber || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                                        <a href={getWhatsAppLink(lead.mobileNumber)} target="_blank" rel="noreferrer"
                                             className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors active:scale-95">
                                             <MessageCircle size={13} /> WA
                                         </a>

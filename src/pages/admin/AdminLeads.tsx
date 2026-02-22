@@ -15,6 +15,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
+import { formatPhoneNumber } from '@/utils/validationUtils';
 
 const AdminLeads: React.FC = () => {
     const { userData: currentUser } = useSupabaseAuth();
@@ -71,18 +72,18 @@ const AdminLeads: React.FC = () => {
         const fetchData = async () => {
             // 1. Fetch Riders
             const { data: riderData } = await supabase.from('riders').select(`
-                id, mobileNumber:mobile_number, trievId:triev_id, riderName:rider_name
-            `);
+id, mobileNumber: mobile_number, trievId: triev_id, riderName: rider_name
+    `);
             if (riderData) setRiders(riderData as any);
 
             // 2. Fetch Leads
             const { data: leadData } = await supabase.from('leads').select(`
-                id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
-                city, status, score, category, source, createdAt:created_at,
-                drivingLicense:driving_license, clientInterested:client_interested,
-                location, createdBy:created_by, createdByName:created_by_name,
+id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
+    city, status, score, category, source, createdAt: created_at,
+        drivingLicense: driving_license, clientInterested: client_interested,
+            location, createdBy: created_by, createdByName: created_by_name,
                 remarks
-            `).order('id', { ascending: false });
+                    `).order('id', { ascending: false });
 
             if (leadData) {
                 const leadsData = leadData as any[];
@@ -216,7 +217,7 @@ const AdminLeads: React.FC = () => {
     };
 
     const handleBulkDelete = async () => {
-        if (!confirm(`Are you sure you want to delete ${selectedIds.length} leads?`)) return;
+        if (!confirm(`Are you sure you want to delete ${selectedIds.length} leads ? `)) return;
 
         try {
             const { error } = await supabase.from('leads').delete().in('id', selectedIds);
@@ -337,7 +338,7 @@ const AdminLeads: React.FC = () => {
                 actionType: 'leadDeleted',
                 targetType: 'lead',
                 targetId: String(lead.leadId),
-                details: `Permanently deleted lead #${lead.leadId}`,
+                details: `Permanently deleted lead #${lead.leadId} `,
                 performedBy: currentUser?.email
             }).catch(console.error);
 
@@ -355,7 +356,7 @@ const AdminLeads: React.FC = () => {
                 actionType: 'statusChanged',
                 targetType: 'lead',
                 targetId: String(lead.leadId),
-                details: `Changed lead #${lead.leadId} status to ${newStatus}`,
+                details: `Changed lead #${lead.leadId} status to ${newStatus} `,
                 performedBy: currentUser?.email
             }).catch(console.error);
 
@@ -389,9 +390,7 @@ const AdminLeads: React.FC = () => {
 
     // Helper to normalize mobile numbers
     const normalizeMobile = (phone: string | null | undefined): string => {
-        if (!phone) return '';
-        const digits = phone.replace(/\D/g, '');
-        return digits.length > 10 ? digits.slice(-10) : digits;
+        return formatPhoneNumber(phone || '');
     };
 
     // Pre-calculate sets for filtering
@@ -417,10 +416,10 @@ const AdminLeads: React.FC = () => {
         if (!mobile) return;
 
         if (status === 'Match') {
-            navigate(`/portal/riders?highlight=${mobile}`);
+            navigate(`/ portal / riders ? highlight = ${mobile} `);
         } else if (status === 'Duplicate') {
             setSearchTerm(mobile);
-            toast.info(`Showing duplicates for: ${mobile}`);
+            toast.info(`Showing duplicates for: ${mobile} `);
         }
     };
 
@@ -470,7 +469,7 @@ const AdminLeads: React.FC = () => {
 
     const handleAIRecommend = async (lead: Lead) => {
         const recommendation = await AIService.getLeadRecommendations(lead);
-        alert(`AI Recommendation for ${lead.riderName}:\n\n${recommendation}`);
+        alert(`AI Recommendation for ${lead.riderName}: \n\n${recommendation} `);
     };
 
     return (
@@ -539,10 +538,10 @@ const AdminLeads: React.FC = () => {
                 </div>
                 <button
                     onClick={() => setShowFilterModal(true)}
-                    className={`px-4 py-3 border rounded-xl flex items-center gap-2 text-sm font-medium transition-colors ${Object.values(filterConfig).some(v => Array.isArray(v) ? v.length > 0 : v)
+                    className={`px - 4 py - 3 border rounded - xl flex items - center gap - 2 text - sm font - medium transition - colors ${Object.values(filterConfig).some(v => Array.isArray(v) ? v.length > 0 : v)
                         ? 'bg-primary/10 border-primary text-primary'
                         : 'bg-background hover:bg-accent border-input'
-                        }`}
+                        } `}
                 >
                     <SlidersHorizontal size={18} /> Filters
                 </button>
@@ -567,14 +566,14 @@ const AdminLeads: React.FC = () => {
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`pb-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === tab
+                            className={`pb - 3 text - sm font - medium border - b - 2 transition - all flex items - center gap - 2 ${activeTab === tab
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
-                                }`}
+                                } `}
                         >
                             {tab}
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === tab ? 'bg-primary/10' : 'bg-muted'
-                                }`}>
+                            <span className={`px - 2 py - 0.5 rounded - full text - xs ${activeTab === tab ? 'bg-primary/10' : 'bg-muted'
+                                } `}>
                                 {getTabCount(tab)}
                             </span>
                         </button>
@@ -625,10 +624,10 @@ const AdminLeads: React.FC = () => {
                                     <button
                                         key={page}
                                         onClick={() => setCurrentPage(page)}
-                                        className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors ${page === currentPage
-                                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                                : 'hover:bg-accent text-muted-foreground'
-                                            }`}
+                                        className={`w - 8 h - 8 text - xs font - bold rounded - lg transition - colors ${page === currentPage
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'hover:bg-accent text-muted-foreground'
+                                            } `}
                                     >
                                         {page}
                                     </button>
