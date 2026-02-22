@@ -98,8 +98,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
         }
     };
 
-    // Visual order: Silver (index 1) left, Gold (index 0) center, Bronze (index 2) right
-    const podiumOrder = [1, 0, 2];
 
     const rankConfig = (rank: number) => {
         if (rank === 1) return {
@@ -141,9 +139,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
     };
 
     return (
-        <div className="relative overflow-visible mt-16 mb-10">
-            {/* Neural Realtime Sync Indicator */}
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-14 z-40">
+        <div className="relative overflow-visible pb-10">
+            {/* Neural Realtime Sync Indicator — inside flow on mobile, floats on desktop */}
+            <div className="flex justify-center mb-6 md:mb-0 md:absolute md:-top-6 md:left-14 z-40">
                 <div className="flex items-center gap-3 px-5 py-2 rounded-full bg-slate-900 dark:bg-slate-950/90 backdrop-blur-2xl border border-white/20 shadow-lg">
                     <div className="relative">
                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -153,27 +151,31 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                 </div>
             </div>
 
-            {/* Podium Cards — always dark background regardless of theme */}
-            <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-6 px-4 pb-10 pt-4">
-                {podiumOrder.map((positionIndex) => {
-                    const tl = top3[positionIndex];
+            {/* Podium Cards: stacked on mobile (Gold first), side-by-side on desktop (Silver|Gold|Bronze) */}
+            <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 md:gap-6 px-2 md:px-4 pt-4 pb-6">
+                {/* Mobile order: show #1 first, then #2, then #3 */}
+                {[0, 1, 2].map((mobileIdx) => {
+                    // On desktop the visual order is [1,0,2]; we handle that with md:order-* below
+                    const tl = top3[mobileIdx];
                     if (!tl) return null;
-
-                    const rank = positionIndex + 1;
+                    const rank = mobileIdx + 1;
                     const cfg = rankConfig(rank);
                     const isFirst = rank === 1;
+                    // Desktop visual re-ordering
+                    const desktopOrder = mobileIdx === 0 ? 'md:order-2' : mobileIdx === 1 ? 'md:order-1' : 'md:order-3';
 
                     return (
                         <motion.div
                             key={tl.id}
-                            initial={{ opacity: 0, y: 60, scale: 0.9 }}
+                            initial={{ opacity: 0, y: 40, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                            whileHover={{ y: -10, scale: 1.02 }}
-                            transition={{ delay: positionIndex * 0.15, duration: 0.7, type: 'spring', damping: 18 }}
+                            whileHover={{ y: -6, scale: 1.01 }}
+                            transition={{ delay: mobileIdx * 0.12, duration: 0.6, type: 'spring', damping: 18 }}
                             onClick={handleCardClick}
-                            // Force dark card background using explicit dark colors so text is ALWAYS visible regardless of app theme
                             className={`relative flex flex-col rounded-[2rem] border cursor-pointer
-                                ${cfg.height} ${cfg.width} ${cfg.zIndex} ${cfg.glow} ${cfg.border}
+                                w-full ${desktopOrder} ${cfg.zIndex} ${cfg.glow} ${cfg.border}
+                                md:w-auto md:${cfg.width.replace('w-full ', '')}
+                                min-h-[320px] ${cfg.height}
                                 transition-all duration-500`}
                         >
                             {/* Dark solid base — ensures card is always dark regardless of system theme */}

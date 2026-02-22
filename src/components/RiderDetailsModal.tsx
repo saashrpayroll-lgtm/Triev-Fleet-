@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Rider, ActivityLog } from '@/types';
-import { X, Phone, MessageCircle, History, AlertTriangle, ShieldCheck, Building2, Bike, UserCheck, Share2, Calendar, Download, Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw, Smartphone } from 'lucide-react';
+import { X, Phone, MessageCircle, History, AlertTriangle, ShieldCheck, Building2, Bike, UserCheck, Share2, Calendar, Download, Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw } from 'lucide-react';
+
 import { AIService } from '@/services/AIService';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -276,369 +277,328 @@ ${new Date().toLocaleString('en-IN')}`;
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
-            <div className="bg-background rounded-t-xl md:rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] md:h-auto md:max-h-[85vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
 
-                {/* Header */}
-                <div className="flex-none p-6 border-b bg-gradient-to-r from-primary/10 to-purple-500/10">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold bg-primary text-primary-foreground uppercase shadow-lg">
-                                {rider.riderName.charAt(0)}
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold">{rider.riderName}</h2>
-                                <p className="text-muted-foreground text-sm font-mono flex items-center gap-2">
-                                    <span>{rider.trievId}</span>
-                                    <span>•</span>
-                                    <span>{rider.mobileNumber}</span>
-                                    <span className="mx-2 text-border">|</span>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${rider.status === 'active' ? 'bg-green-100 text-green-700' : rider.status === 'inactive' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                        {rider.status}
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-                        <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
-                            <X size={24} />
-                        </button>
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
+            <div className="bg-background w-full max-w-4xl flex flex-col rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200">
+
+                {/* ── HERO HEADER ── */}
+                <div className="flex-none relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-violet-900 text-white">
+                    {/* Decorative blobs */}
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-36 h-36 bg-violet-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
+
+                    {/* Mobile drag handle */}
+                    <div className="md:hidden flex justify-center pt-3 pb-0">
+                        <div className="w-10 h-1 rounded-full bg-white/25" />
                     </div>
 
-                    {/* Tabs */}
-                    <div className="flex gap-6 mt-6 border-b border-primary/20">
-                        <button
-                            onClick={() => setActiveTab('profile')}
-                            className={`pb-2 px-1 text-sm font-semibold transition-colors relative ${activeTab === 'profile' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            Profile Overview
-                            {activeTab === 'profile' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('wallet')}
-                            className={`pb-2 px-1 text-sm font-semibold transition-colors relative ${activeTab === 'wallet' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <span className="flex items-center gap-2">
-                                Wallet Ledger
-                                {rider.walletAmount < 0 && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                            </span>
-                            {activeTab === 'wallet' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />}
-                        </button>
+                    <div className="relative px-5 pt-3 pb-0 md:pt-5">
+                        <div className="flex items-start gap-4">
+                            {/* Avatar + score ring */}
+                            <div className="relative flex-shrink-0 mt-1">
+                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 backdrop-blur border-2 border-white/20 flex items-center justify-center text-3xl font-black uppercase shadow-xl">
+                                    {rider.riderName.charAt(0)}
+                                </div>
+                                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-slate-900 shadow-lg ${score.score >= 70 ? 'bg-emerald-500' : score.score >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                                    }`}>
+                                    {score.score}
+                                </div>
+                            </div>
+
+                            {/* Name / meta */}
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-xl md:text-2xl font-black truncate leading-tight">{rider.riderName}</h2>
+                                <p className="text-white/50 text-xs font-mono mt-0.5 truncate">{rider.trievId} · {rider.mobileNumber}</p>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${rider.status === 'active' ? 'bg-emerald-400/20 border-emerald-300/40 text-emerald-300'
+                                        : rider.status === 'inactive' ? 'bg-amber-400/20 border-amber-300/40 text-amber-300'
+                                            : 'bg-red-400/20 border-red-300/40 text-red-300'
+                                        }`}>{rider.status}</span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-white/10 border border-white/15 truncate max-w-[120px]">{rider.clientName}</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${walletBalance < 0 ? 'bg-red-400/20 border-red-300/40 text-red-300' : 'bg-emerald-400/20 border-emerald-300/40 text-emerald-300'
+                                        }`}>₹{walletBalance.toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+
+                            {/* Close */}
+                            <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Quick actions — horizontal scroll */}
+                        <div className="flex gap-2 mt-4 overflow-x-auto scrollbar-hide pb-1">
+                            {[
+                                { label: 'Call', icon: <Phone size={13} />, onClick: () => handleAction('call'), cls: 'bg-white/10 hover:bg-white/20' },
+                                { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
+                                ...(rider.walletAmount < 0 ? [{ label: 'Reminder', icon: <AlertTriangle size={13} />, onClick: () => { setShowReminder(true); setAiMessage(''); }, cls: 'bg-red-500/25 hover:bg-red-500/40' }] : []),
+                                { label: 'Share', icon: <Share2 size={13} />, onClick: handleShareCard, cls: 'bg-blue-500/25 hover:bg-blue-500/40' },
+                                { label: 'Download', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-violet-500/25 hover:bg-violet-500/40' },
+                            ].map(({ label, icon, onClick, cls }) => (
+                                <button key={label} onClick={onClick}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${cls}`}>
+                                    {icon}{label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex gap-6 mt-4 border-b border-white/15">
+                            {(['profile', 'wallet'] as const).map(tab => (
+                                <button key={tab} onClick={() => setActiveTab(tab)}
+                                    className={`pb-2.5 px-1 text-sm font-bold transition-colors relative capitalize ${activeTab === tab ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
+                                    {tab === 'wallet' ? (
+                                        <span className="flex items-center gap-2">Wallet Ledger {rider.walletAmount < 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}</span>
+                                    ) : 'Profile Overview'}
+                                    {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-t-full" />}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-6 bg-muted/10">
-                    {activeTab === 'profile' ? (
-                        <div className="grid lg:grid-cols-3 gap-6" ref={cardRef}>
-                            {/* Left Column: Rider Info */}
-                            <div className="lg:col-span-2 space-y-4">
-                                {/* Client Information */}
-                                <div className="p-4 bg-card border rounded-xl shadow-sm">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Building2 size={18} className="text-blue-600" />
-                                        <h3 className="font-semibold text-sm">Client Information</h3>
+                {/* ── CONTENT ── */}
+                <div className="flex-1 overflow-y-auto" ref={cardRef}>
+
+                    {/* ── PROFILE TAB ── */}
+                    {activeTab === 'profile' && (
+                        <div className="p-4 space-y-3">
+
+                            {/* Info cards — 2 col on mobile, 3 on desktop */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {/* Client */}
+                                <div className="bg-card border border-border rounded-2xl p-3.5">
+                                    <div className="flex items-center gap-1.5 mb-2.5">
+                                        <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0"><Building2 size={12} className="text-blue-600" /></div>
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Client</p>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <p className="text-muted-foreground text-xs">Client Name</p>
-                                            <p className="font-medium">{rider.clientName}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-muted-foreground text-xs">Client ID</p>
-                                            <p className="font-medium font-mono text-xs">{rider.clientId || 'N/A'}</p>
-                                        </div>
-                                    </div>
+                                    <p className="font-bold text-sm text-foreground truncate capitalize">{rider.clientName}</p>
+                                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">{rider.clientId || '—'}</p>
                                 </div>
 
-                                {/* Vehicle Information */}
-                                <div className="p-4 bg-card border rounded-xl shadow-sm">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Bike size={18} className="text-orange-600" />
-                                        <h3 className="font-semibold text-sm">Vehicle Information</h3>
+                                {/* Vehicle */}
+                                <div className="bg-card border border-border rounded-2xl p-3.5">
+                                    <div className="flex items-center gap-1.5 mb-2.5">
+                                        <div className="w-6 h-6 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0"><Bike size={12} className="text-orange-600" /></div>
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Vehicle</p>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <p className="text-muted-foreground text-xs">Chassis Number</p>
-                                            <p className="font-medium font-mono text-xs">{rider.chassisNumber || 'N/A'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-muted-foreground text-xs flex items-center gap-1">
-                                                <Calendar size={12} /> Allotment Date
-                                            </p>
-                                            <p className="font-medium">
-                                                {rider.allotmentDate
-                                                    ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                                                    : 'N/A'}
-                                            </p>
-                                        </div>
-                                    </div>
+                                    <p className="font-bold text-sm font-mono text-foreground truncate">{rider.chassisNumber || 'N/A'}</p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No date'}
+                                    </p>
                                 </div>
 
-                                {/* Team Leader Information */}
-                                <div className="p-4 bg-card border rounded-xl shadow-sm">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <UserCheck size={18} className="text-purple-600" />
-                                        <h3 className="font-semibold text-sm">Team Leader</h3>
+                                {/* Team Leader — spans 2 cols on mobile */}
+                                <div className="col-span-2 md:col-span-1 bg-card border border-border rounded-2xl p-3.5">
+                                    <div className="flex items-center gap-1.5 mb-2.5">
+                                        <div className="w-6 h-6 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0"><UserCheck size={12} className="text-violet-600" /></div>
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Team Leader</p>
                                     </div>
                                     {loadingTL ? (
-                                        <p className="text-sm text-muted-foreground">Loading...</p>
+                                        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                                     ) : (
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div>
-                                                <p className="text-muted-foreground text-xs">Name</p>
-                                                <p className="font-medium">{teamLeader?.fullName || 'N/A'}</p>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-sm text-foreground truncate">{teamLeader?.fullName || 'N/A'}</p>
+                                                <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{teamLeader?.mobile || 'N/A'}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-muted-foreground text-xs">Mobile</p>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-medium">{teamLeader?.mobile || 'N/A'}</p>
-                                                    {teamLeader?.mobile && teamLeader.mobile !== 'N/A' && (
-                                                        <button onClick={() => handleAction('call_tl')} className="p-1 hover:bg-green-100 rounded-full transition-colors" title="Call Team Leader">
-                                                            <Phone size={14} className="text-green-600" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            {teamLeader?.mobile && teamLeader.mobile !== 'N/A' && (
+                                                <button onClick={() => handleAction('call_tl')} className="p-2 bg-violet-100 dark:bg-violet-900/30 text-violet-600 rounded-xl hover:bg-violet-200 transition-colors flex-shrink-0">
+                                                    <Phone size={13} />
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Financial & Performance */}
-                                <div className="p-4 bg-card border rounded-xl shadow-sm">
-                                    <h3 className="font-semibold text-sm mb-3">Financial & Performance</h3>
-                                    <div className="flex items-center justify-around">
-                                        <div className="text-center">
-                                            <p className="text-xs text-muted-foreground mb-1">Wallet Balance</p>
-                                            <p className={`text-3xl font-bold ${rider.walletAmount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                ₹{rider.walletAmount.toLocaleString('en-IN')}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                {rider.walletAmount < 0 ? '⚠️ Negative' : rider.walletAmount > 0 ? '✅ Positive' : '➖ Zero'}
-                                            </p>
-                                        </div>
-                                        <div className="h-16 w-[1px] bg-border"></div>
-                                        <div className="text-center">
-                                            <p className="text-xs text-muted-foreground mb-1">Performance Score</p>
-                                            <p className="text-3xl font-bold text-primary">{score.score}</p>
-                                            <p className={`text-xs font-bold ${score.color} mt-1`}>{score.label}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => handleAction('call')} className="flex items-center justify-center gap-2 p-3 rounded-lg border border-green-200 bg-white hover:bg-green-600 hover:border-green-600 text-green-700 hover:text-white transition-all font-medium group shadow-sm">
-                                        <Phone size={18} className="text-green-600 group-hover:text-white" />
-                                        <span className="group-hover:text-white">Call Rider</span>
-                                    </button>
-                                    <button onClick={() => handleAction('whatsapp')} className="flex items-center justify-center gap-2 p-3 rounded-lg border border-green-200 bg-white hover:bg-green-600 hover:border-green-600 text-green-700 hover:text-white transition-all font-medium group shadow-sm">
-                                        <MessageCircle size={18} className="text-green-600 group-hover:text-white" />
-                                        <span className="group-hover:text-white">WhatsApp</span>
-                                    </button>
-
-                                    {rider.walletAmount < 0 && (
-                                        <button onClick={() => { setShowReminder(true); setAiMessage(''); }} className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-red-500 via-rose-500 to-pink-600 text-white shadow-md hover:shadow-xl hover:from-red-600 hover:via-rose-600 hover:to-pink-700 transition-all font-bold">
-                                            <AlertTriangle size={18} />
-                                            Send Payment Reminder
-                                        </button>
-                                    )}
-
-                                    <button onClick={handleShareCard} className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold">
-                                        <Share2 size={18} />
-                                        Share Card
-                                    </button>
-                                    <button onClick={handleDownloadCard} className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transition-all font-bold">
-                                        <Download size={18} />
-                                        Download
-                                    </button>
-                                </div>
-
-                                {/* Reminder Generator */}
-                                {showReminder && (
-                                    <div className="p-4 bg-muted/30 rounded-lg border animate-in slide-in-from-top-2">
-                                        <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                                            <ShieldCheck size={16} className="text-primary" /> AI Reminder Generator
-                                        </h4>
-                                        <div className="flex gap-2 mb-3">
-                                            <select value={reminderLang} onChange={(e) => setReminderLang(e.target.value as any)} className="text-sm p-1.5 rounded border bg-background text-foreground border-input focus:ring-2 focus:ring-primary/20 outline-none">
-                                                <option value="hindi">Hindi</option>
-                                                <option value="english">English</option>
-                                            </select>
-                                            <button onClick={generateAiReminder} disabled={generating} className="text-xs bg-primary text-primary-foreground px-3 py-1 rounded hover:bg-primary/90 transition-colors">
-                                                {generating ? 'Generating...' : 'Generate New'}
-                                            </button>
-                                        </div>
-                                        <textarea value={aiMessage} onChange={(e) => setAiMessage(e.target.value)} placeholder="Click generate to create a message..." rows={3} className="w-full text-sm p-2 rounded border bg-background text-foreground border-input mb-2 focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground" />
-                                        {aiMessage && (
-                                            <button onClick={() => handleAction('reminder', aiMessage)} className="w-full py-2 bg-green-500 text-white rounded font-medium text-sm hover:bg-green-600">
-                                                Send via WhatsApp
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Right Column: Interaction History */}
-                            <div className="bg-card border rounded-xl overflow-hidden flex flex-col h-[600px] shadow-sm">
-                                <div className="p-4 border-b bg-muted/40 font-semibold flex items-center gap-2">
-                                    <History size={18} />
-                                    Interaction History
+                            {/* Financials */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className={`rounded-2xl p-3.5 border ${walletBalance < 0 ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30' : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/30'}`}>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <Wallet size={13} className={walletBalance < 0 ? 'text-red-600' : 'text-emerald-600'} />
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Wallet</p>
+                                    </div>
+                                    <p className={`text-2xl font-black ${walletBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                        ₹{Math.abs(walletBalance).toLocaleString('en-IN')}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{walletBalance < 0 ? '⚠️ Negative' : walletBalance > 0 ? '✅ Positive' : '➖ Zero'}</p>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                    {loadingHistory ? (
-                                        <div className="text-center py-8 text-muted-foreground">Loading history...</div>
-                                    ) : history.length === 0 ? (
-                                        <div className="text-center py-12 text-muted-foreground/60 italic">
-                                            <p>No recent interactions recorded.</p>
-                                            <p className="text-xs mt-1">Calls and reminders sent from here will appear above.</p>
-                                        </div>
-                                    ) : (
-                                        history.map(log => (
-                                            <div key={log.id} className="flex gap-3 text-sm group">
-                                                <div className="mt-1">
-                                                    {log.actionType === 'call_rider' && <div className="p-1.5 bg-blue-100 text-blue-600 rounded-full"><Phone size={12} /></div>}
-                                                    {log.actionType === 'whatsapp_rider' && <div className="p-1.5 bg-green-100 text-green-600 rounded-full"><MessageCircle size={12} /></div>}
-                                                    {log.actionType === 'sent_reminder' && <div className="p-1.5 bg-red-100 text-red-600 rounded-full"><AlertTriangle size={12} /></div>}
-                                                </div>
-                                                <div className="flex-1 pb-3 border-b border-dashed group-last:border-0">
-                                                    <div className="flex justify-between">
-                                                        <p className="font-medium text-foreground">{log.details}</p>
-                                                        <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                                                            {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">By {log.userName}</p>
-                                                </div>
-                                            </div>
-                                        ))
+                                <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <ShieldCheck size={13} className="text-primary" />
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">AI Score</p>
+                                    </div>
+                                    <p className="text-2xl font-black text-primary">{score.score}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
+                                    <p className={`text-[10px] font-bold mt-0.5 ${score.color}`}>{score.label}</p>
+                                </div>
+                            </div>
+
+                            {/* AI Reminder panel */}
+                            {showReminder && (
+                                <div className="bg-muted/30 rounded-2xl border border-border p-4 animate-in slide-in-from-top-2">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h4 className="font-bold text-sm flex items-center gap-2"><ShieldCheck size={14} className="text-primary" /> AI Reminder</h4>
+                                        <button onClick={() => setShowReminder(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
+                                    </div>
+                                    <div className="flex gap-2 mb-2">
+                                        <select value={reminderLang} onChange={e => setReminderLang(e.target.value as any)}
+                                            className="flex-1 text-sm p-2 rounded-xl border bg-background border-input focus:ring-2 focus:ring-primary/20 outline-none">
+                                            <option value="hindi">Hindi</option>
+                                            <option value="english">English</option>
+                                        </select>
+                                        <button onClick={generateAiReminder} disabled={generating}
+                                            className="px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                                            {generating ? '...' : '✨ Generate'}
+                                        </button>
+                                    </div>
+                                    <textarea value={aiMessage} onChange={e => setAiMessage(e.target.value)}
+                                        placeholder="Click generate..." rows={3}
+                                        className="w-full text-sm p-3 rounded-xl border bg-background border-input mb-2 focus:ring-2 focus:ring-primary/20 outline-none resize-none placeholder:text-muted-foreground" />
+                                    {aiMessage && (
+                                        <button onClick={() => handleAction('reminder', aiMessage)}
+                                            className="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors">
+                                            📱 Send via WhatsApp
+                                        </button>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Interaction History */}
+                            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                                <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-center gap-2">
+                                    <History size={14} className="text-muted-foreground" />
+                                    <h3 className="font-bold text-sm">Interaction History</h3>
+                                    {loadingHistory && <div className="ml-auto w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+                                </div>
+                                <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
+                                    {loadingHistory ? (
+                                        <div className="py-6 text-center text-sm text-muted-foreground">Loading...</div>
+                                    ) : history.length === 0 ? (
+                                        <div className="py-8 flex flex-col items-center text-muted-foreground gap-2">
+                                            <History size={24} className="opacity-25" />
+                                            <p className="text-sm">No interactions yet</p>
+                                        </div>
+                                    ) : history.map(log => (
+                                        <div key={log.id} className="flex gap-3 px-4 py-2.5 hover:bg-muted/20">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                {log.actionType === 'call_rider' && <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full"><Phone size={10} className="text-blue-600" /></div>}
+                                                {log.actionType === 'whatsapp_rider' && <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-full"><MessageCircle size={10} className="text-emerald-600" /></div>}
+                                                {log.actionType === 'sent_reminder' && <div className="p-1.5 bg-red-100 dark:bg-red-900/30 rounded-full"><AlertTriangle size={10} className="text-red-600" /></div>}
+                                                {!['call_rider', 'whatsapp_rider', 'sent_reminder'].includes(log.actionType) && <div className="p-1.5 bg-muted rounded-full"><Calendar size={10} /></div>}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-semibold text-foreground truncate">{log.details}</p>
+                                                <p className="text-[10px] text-muted-foreground">By {log.userName} · {log.timestamp ? new Date(log.timestamp).toLocaleDateString('en-IN') : ''}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
+                    )}
 
-                    ) : (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            {/* Wallet Tab Content */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                <div className="bg-card p-4 rounded-xl border flex items-center gap-4">
-                                    <div className="p-3 bg-primary/10 text-primary rounded-full">
-                                        <Wallet size={24} />
+                    {/* ── WALLET TAB ── */}
+                    {activeTab === 'wallet' && (
+                        <div className="p-4 space-y-3">
+                            {/* Balance row */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-card border border-border rounded-2xl p-3.5">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Balance</p>
+                                        <button onClick={async () => {
+                                            const tid = toast.loading('Recalculating...');
+                                            try {
+                                                await supabase.rpc('sync_wallet_balance_for_rider', { p_rider_id: rider.id });
+                                                const { data } = await supabase.rpc('calculate_rider_balance', { p_rider_id: rider.id });
+                                                setWalletBalance(data);
+                                                toast.success('Balance updated!', { id: tid });
+                                                fetchWalletHistory();
+                                            } catch {
+                                                toast.error('Failed', { id: tid });
+                                            }
+                                        }} className="p-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-500 hover:bg-blue-100 transition-colors">
+                                            <RefreshCw size={11} />
+                                        </button>
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-xs text-muted-foreground">Current Balance</p>
-                                            <button
-                                                onClick={async () => {
-                                                    const toastId = toast.loading("Recalculating...");
-                                                    try {
-                                                        // 1. Force Recalculate
-                                                        const { error: syncError } = await supabase.rpc('sync_wallet_balance_for_rider', { p_rider_id: rider.id });
-                                                        if (syncError) throw syncError;
-
-                                                        // 2. Fetch New Balance
-                                                        const { data: newBalance, error: fetchError } = await supabase.rpc('calculate_rider_balance', { p_rider_id: rider.id });
-                                                        if (fetchError) throw fetchError;
-
-                                                        // 3. Update Local State
-                                                        setWalletBalance(newBalance);
-                                                        toast.success("Balance updated!", { id: toastId });
-
-                                                        // Refresh Ledger too
-                                                        fetchWalletHistory();
-                                                    } catch (err) {
-                                                        console.error(err);
-                                                        toast.error("Recalculation failed", { id: toastId });
-                                                    }
-                                                }}
-                                                className="p-1 hover:bg-muted rounded-full transition-colors text-xs text-blue-600 flex items-center gap-1"
-                                                title="Recalculate Balance"
-                                            >
-                                                <RefreshCw size={12} /> Sync
-                                            </button>
-                                        </div>
-                                        <p className="text-2xl font-bold">₹{walletBalance.toLocaleString('en-IN')}</p>
-                                    </div>
+                                    <p className={`text-xl font-black ${walletBalance < 0 ? 'text-red-600' : 'text-emerald-600'}`}>₹{walletBalance.toLocaleString('en-IN')}</p>
                                 </div>
-                                <div className="bg-card p-4 rounded-xl border flex items-center gap-4">
-                                    <div className="p-3 bg-green-100 text-green-600 rounded-full">
-                                        <Smartphone size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Last Transaction</p>
-                                        <p className="text-sm font-medium">
-                                            {walletTxns.length > 0 ? format(parseISO(walletTxns[0].created_at), 'dd MMM yyyy') : 'No history'}
-                                        </p>
-                                    </div>
+                                <div className="bg-card border border-border rounded-2xl p-3.5">
+                                    <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-2">Last Txn</p>
+                                    <p className="text-sm font-bold text-foreground">{walletTxns.length > 0 ? format(parseISO(walletTxns[0].created_at), 'dd MMM yy') : '—'}</p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{walletTxns.length} entries</p>
                                 </div>
                             </div>
 
-                            <div className="bg-card border rounded-xl overflow-hidden shadow-sm">
-                                <div className="p-4 border-b bg-muted/40 font-semibold flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <History size={18} />
-                                        <span>Transaction Ledger</span>
-                                    </div>
-                                    <button onClick={fetchWalletHistory} className="p-1.5 hover:bg-white rounded-full transition-colors">
-                                        <RefreshCw size={16} className={loadingWallet ? "animate-spin" : ""} />
+                            {/* Ledger */}
+                            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                                <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-center justify-between">
+                                    <div className="flex items-center gap-2"><History size={14} className="text-muted-foreground" /><h3 className="font-bold text-sm">Transaction Ledger</h3></div>
+                                    <button onClick={fetchWalletHistory} className="p-1.5 rounded-lg hover:bg-accent transition-colors">
+                                        <RefreshCw size={13} className={loadingWallet ? 'animate-spin' : ''} />
                                     </button>
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="text-xs uppercase bg-muted/30 text-muted-foreground font-semibold">
-                                            <tr>
-                                                <th className="px-6 py-3">Date</th>
-                                                <th className="px-6 py-3">Type</th>
-                                                <th className="px-6 py-3">Mode</th>
-                                                <th className="px-6 py-3 text-right">Amount</th>
-                                                <th className="px-6 py-3">Description</th>
-                                            </tr>
+                                {/* Desktop table */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/20 border-b border-border/50">
+                                            <tr>{['Date', 'Type', 'Mode', 'Amount', 'Description'].map(h => <th key={h} className={`px-4 py-2.5 text-[9px] font-black uppercase tracking-wider text-muted-foreground text-left ${h === 'Amount' ? 'text-right' : ''}`}>{h}</th>)}</tr>
                                         </thead>
-                                        <tbody className="divide-y divide-border/50">
+                                        <tbody className="divide-y divide-border/40">
                                             {loadingWallet ? (
-                                                <tr>
-                                                    <td colSpan={5} className="text-center py-12 text-muted-foreground">Loading ledger...</td>
-                                                </tr>
+                                                <tr><td colSpan={5} className="text-center py-10 text-muted-foreground text-sm">Loading...</td></tr>
                                             ) : walletTxns.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={5} className="text-center py-12 text-muted-foreground">No wallet transactions found.</td>
-                                                </tr>
-                                            ) : (
-                                                walletTxns.map((t) => {
-                                                    const isCredit = t.mode === 'ADD';
-                                                    const isDebit = t.mode === 'SUBTRACT';
-                                                    return (
-                                                        <tr key={t.id} className="hover:bg-muted/10">
-                                                            <td className="px-6 py-3 whitespace-nowrap">
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-medium">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
-                                                                    <span className="text-xs text-muted-foreground">{format(parseISO(t.created_at), 'hh:mm a')}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-3">
-                                                                <span className="bg-muted px-2 py-0.5 rounded textxs font-mono">
-                                                                    {t.transaction_type ? t.transaction_type.replace(/_/g, ' ') : (t.type ? t.type.replace(/_/g, ' ') : 'Unknown')}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-3">
-                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${isCredit ? 'bg-green-100 text-green-700' : isDebit ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                                                                    {isCredit ? <ArrowUpRight size={10} /> : isDebit ? <ArrowDownLeft size={10} /> : <RefreshCw size={10} />}
-                                                                    {t.mode}
-                                                                </span>
-                                                            </td>
-                                                            <td className={`px-6 py-3 text-right font-bold ${isCredit ? 'text-green-600' : isDebit ? 'text-red-600' : 'text-blue-600'}`}>
-                                                                {isCredit ? '+' : isDebit ? '-' : ''}₹{t.amount.toLocaleString()}
-                                                            </td>
-                                                            <td className="px-6 py-3 text-muted-foreground max-w-xs truncate" title={t.description}>
-                                                                {t.description}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
+                                                <tr><td colSpan={5} className="text-center py-10 text-muted-foreground text-sm">No transactions.</td></tr>
+                                            ) : walletTxns.map(t => {
+                                                const isC = t.mode === 'ADD', isD = t.mode === 'SUBTRACT';
+                                                return (
+                                                    <tr key={t.id} className="hover:bg-muted/20 transition-colors">
+                                                        <td className="px-4 py-3">
+                                                            <p className="font-medium">{format(parseISO(t.created_at), 'dd MMM yy')}</p>
+                                                            <p className="text-[10px] text-muted-foreground">{format(parseISO(t.created_at), 'hh:mm a')}</p>
+                                                        </td>
+                                                        <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-lg bg-muted text-xs font-mono">{(t.transaction_type || t.type || 'Unknown').replace(/_/g, ' ')}</span></td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${isC ? 'bg-emerald-100 text-emerald-700' : isD ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                {isC ? <ArrowUpRight size={9} /> : isD ? <ArrowDownLeft size={9} /> : <RefreshCw size={9} />} {t.mode}
+                                                            </span>
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-right font-black ${isC ? 'text-emerald-600' : isD ? 'text-red-600' : 'text-blue-600'}`}>
+                                                            {isC ? '+' : isD ? '-' : ''}₹{t.amount?.toLocaleString()}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate text-xs" title={t.description}>{t.description}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
+                                </div>
+
+                                {/* Mobile ledger rows */}
+                                <div className="md:hidden divide-y divide-border/40">
+                                    {loadingWallet ? (
+                                        <div className="py-8 flex justify-center"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+                                    ) : walletTxns.length === 0 ? (
+                                        <div className="py-8 text-center text-sm text-muted-foreground">No transactions.</div>
+                                    ) : walletTxns.map(t => {
+                                        const isC = t.mode === 'ADD', isD = t.mode === 'SUBTRACT';
+                                        return (
+                                            <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${isC ? 'bg-emerald-100 dark:bg-emerald-900/30' : isD ? 'bg-red-100 dark:bg-red-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                                                    {isC ? <ArrowUpRight size={14} className="text-emerald-600" /> : isD ? <ArrowDownLeft size={14} className="text-red-600" /> : <RefreshCw size={14} className="text-blue-600" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-foreground truncate">{(t.transaction_type || t.type || 'Unknown').replace(/_/g, ' ')}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{format(parseISO(t.created_at), 'dd MMM yy, hh:mm a')}</p>
+                                                </div>
+                                                <p className={`font-black text-sm flex-shrink-0 ${isC ? 'text-emerald-600' : isD ? 'text-red-600' : 'text-blue-600'}`}>
+                                                    {isC ? '+' : isD ? '-' : ''}₹{t.amount?.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVertical, Eye, Edit, Repeat, Trash2, RotateCcw, XCircle } from 'lucide-react';
+import { MoreVertical, Eye, Edit, Repeat, Trash2, RotateCcw, XCircle, X } from 'lucide-react';
 import { Rider } from '@/types';
 
 interface ActionPermissions {
@@ -24,210 +24,212 @@ interface ActionDropdownMenuProps {
     permissions?: ActionPermissions;
 }
 
+const WalletIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
+);
+
 const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
-    rider,
-    onView,
-    onEdit,
-    onStatusChange,
-    onDelete,
-    onReassign,
-    onRestore,
-    onPermanentDelete,
-    onAdjustWallet,
+    rider, onView, onEdit, onStatusChange, onDelete,
+    onReassign, onRestore, onPermanentDelete, onAdjustWallet,
     userRole,
-    permissions = {
-        view: true,
-        edit: true,
-        statusChange: true,
-        softDelete: true,
-        hardDelete: true
-    }
+    permissions = { view: true, edit: true, statusChange: true, softDelete: true, hardDelete: true }
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+    const [isMobile, setIsMobile] = useState(false);
+    const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
-    const toggleMenu = () => {
-        if (!isOpen && buttonRef.current) {
+    // Detect mobile
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+
+    const open = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!isMobile && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
-            setMenuPosition({
-                top: rect.bottom + 8, // Add a small gap
-                right: window.innerWidth - rect.right
-            });
+            setMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
         }
-        setIsOpen(!isOpen);
+        setIsOpen(true);
     };
 
+    const close = () => setIsOpen(false);
+
+    // Close on outside click / scroll
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-                buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
+        if (!isOpen) return;
+        const onOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+                buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
+                close();
             }
         };
-
-        const handleScroll = () => {
-            if (isOpen) setIsOpen(false);
-        };
-
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-            window.addEventListener('scroll', handleScroll, true); // Capture phase to detect all scrolling
-            window.addEventListener('resize', handleScroll);
-        }
-
+        const onScroll = () => close();
+        document.addEventListener('mousedown', onOutside);
+        if (!isMobile) window.addEventListener('scroll', onScroll, true);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            window.removeEventListener('scroll', handleScroll, true);
-            window.removeEventListener('resize', handleScroll);
+            document.removeEventListener('mousedown', onOutside);
+            window.removeEventListener('scroll', onScroll, true);
         };
-    }, [isOpen]);
+    }, [isOpen, isMobile]);
 
     const isDeleted = rider.status === 'deleted';
+    const can = (a: keyof ActionPermissions) => permissions[a] !== false;
 
-    // Helper to check permission
-    const can = (action: keyof ActionPermissions) => permissions[action] !== false;
+    // Shared action handler — always close menu and stop propagation
+    const act = (fn: () => void) => (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        close();
+        // Defer so menu closes before modal opens (prevents focus-trap clash)
+        setTimeout(fn, 50);
+    };
+
+    const MenuItems = () => (
+        <div className="py-1 px-1 space-y-0.5">
+            {/* Rider name row */}
+            <div className="px-3 py-2 border-b border-border/50 mb-1">
+                <p className="text-xs font-black text-foreground truncate">{rider.riderName}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">{rider.trievId}</p>
+            </div>
+
+            {/* View */}
+            {can('view') && (
+                <button onClick={act(onView)} className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
+                    <Eye size={15} className="text-muted-foreground group-hover:text-primary" /> View Details
+                </button>
+            )}
+            {/* Edit */}
+            {!isDeleted && can('edit') && (
+                <button onClick={act(onEdit)} className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
+                    <Edit size={15} className="text-muted-foreground group-hover:text-primary" /> Edit Rider
+                </button>
+            )}
+            {/* Wallet Adjust */}
+            {!isDeleted && onAdjustWallet && (
+                <button onClick={act(onAdjustWallet)} className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
+                    <WalletIcon /> Adjust Wallet
+                </button>
+            )}
+
+            {/* Status Change */}
+            {!isDeleted && can('statusChange') && (
+                <div className="my-1">
+                    <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-muted-foreground font-black">Set Status</div>
+                    <div className="grid grid-cols-2 gap-1 px-1">
+                        {rider.status !== 'active' && (
+                            <button onClick={act(() => onStatusChange('active'))}
+                                className="px-2 py-2 hover:bg-green-500/10 hover:text-green-600 rounded-lg border border-transparent hover:border-green-200 transition-colors flex items-center justify-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                                <span className="text-xs font-bold">Active</span>
+                            </button>
+                        )}
+                        {rider.status !== 'inactive' && (
+                            <button onClick={act(() => onStatusChange('inactive'))}
+                                className="px-2 py-2 hover:bg-amber-500/10 hover:text-amber-600 rounded-lg border border-transparent hover:border-amber-200 transition-colors flex items-center justify-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                                <span className="text-xs font-bold">Inactive</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Re-assign */}
+            {userRole === 'admin' && !isDeleted && onReassign && (
+                <button onClick={act(onReassign)} className="w-full px-3 py-2.5 text-left hover:bg-blue-500/10 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
+                    <Repeat size={15} className="text-muted-foreground group-hover:text-blue-600" /> Transfer Rider
+                </button>
+            )}
+
+            <div className="my-1 border-t border-border/50" />
+
+            {/* Delete / Restore */}
+            {!isDeleted ? (
+                can('softDelete') && (
+                    <button onClick={act(onDelete)} className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3 text-sm font-medium">
+                        <Trash2 size={15} /> Delete Rider
+                    </button>
+                )
+            ) : (
+                <>
+                    {onRestore && can('softDelete') && (
+                        <button onClick={act(onRestore)} className="w-full px-3 py-2.5 text-left hover:bg-green-500/10 text-green-600 rounded-lg transition-colors flex items-center gap-3 text-sm font-medium">
+                            <RotateCcw size={15} /> Restore
+                        </button>
+                    )}
+                    {onPermanentDelete && can('hardDelete') && (
+                        <button onClick={act(onPermanentDelete)} className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3 text-sm font-medium">
+                            <XCircle size={15} /> Delete Permanently
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
+    );
 
     return (
         <div className="relative">
             <button
                 ref={buttonRef}
-                onClick={(e) => { e.stopPropagation(); toggleMenu(); }}
+                onClick={open}
                 className="p-2 hover:bg-accent rounded-lg transition-colors"
                 title="Actions"
             >
                 <MoreVertical size={18} />
             </button>
 
-            {isOpen && menuPosition && (
-                <div
-                    ref={dropdownRef}
-                    className="fixed w-64 bg-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-[20001] animate-in zoom-in-95 duration-200 overflow-hidden ring-1 ring-black/5"
-                    style={{
-                        top: `${menuPosition.top}px`,
-                        right: `${menuPosition.right}px`
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="p-1">
-                        {/* View Details */}
-                        {can('view') && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onView(); setIsOpen(false); }}
-                                className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group"
-                            >
-                                <Eye size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                <span className="font-medium text-sm">View Details</span>
-                            </button>
-                        )}
+            {isOpen && (
+                <>
+                    {/* ── MOBILE: Full-screen bottom sheet ── */}
+                    {isMobile && (
+                        <div
+                            className="fixed inset-0 z-[30000] flex flex-col justify-end"
+                            onMouseDown={e => { if (e.target === e.currentTarget) close(); }}
+                        >
+                            {/* Backdrop */}
+                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={close} />
 
-                        {/* Edit Rider - Only for non-deleted */}
-                        {!isDeleted && can('edit') && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEdit(); setIsOpen(false); }}
-                                className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group"
+                            {/* Sheet */}
+                            <div
+                                ref={menuRef}
+                                className="relative z-10 bg-card rounded-t-3xl shadow-2xl border-t border-border animate-in slide-in-from-bottom-4 duration-200 pb-safe"
+                                onClick={e => e.stopPropagation()}
                             >
-                                <Edit size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                <span className="font-medium text-sm">Edit Rider</span>
-                            </button>
-                        )}
-
-                        {/* Wallet Adjustment */}
-                        {!isDeleted && onAdjustWallet && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onAdjustWallet(); setIsOpen(false); }}
-                                className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group"
-                            >
-                                <div className="text-muted-foreground group-hover:text-primary transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
+                                {/* Drag handle */}
+                                <div className="flex justify-center pt-3 pb-1">
+                                    <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
                                 </div>
-                                <span className="font-medium text-sm">Adjust Wallet</span>
-                            </button>
-                        )}
-
-                        {/* Status Change Submenu - Only for non-deleted */}
-                        {!isDeleted && can('statusChange') && (
-                            <div className="my-1">
-                                <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                                    Set Status
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-1 px-1">
-                                    {rider.status !== 'active' && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onStatusChange('active'); setIsOpen(false); }}
-                                            className="px-2 py-2 hover:bg-green-500/10 hover:text-green-600 rounded-md transition-colors flex items-center gap-2 justify-center border border-transparent hover:border-green-200"
-                                        >
-                                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm" />
-                                            <span className="text-xs font-semibold">Active</span>
-                                        </button>
-                                    )}
-
-                                    {rider.status !== 'inactive' && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onStatusChange('inactive'); setIsOpen(false); }}
-                                            className="px-2 py-2 hover:bg-amber-500/10 hover:text-amber-600 rounded-md transition-colors flex items-center gap-2 justify-center border border-transparent hover:border-amber-200"
-                                        >
-                                            <div className="w-2 h-2 rounded-full bg-amber-500 shadow-sm" />
-                                            <span className="text-xs font-semibold">Inactive</span>
-                                        </button>
-                                    )}
+                                {/* Close */}
+                                <button onClick={close} className="absolute top-3 right-4 p-1.5 rounded-full hover:bg-muted transition-colors">
+                                    <X size={18} className="text-muted-foreground" />
+                                </button>
+                                <div className="max-h-[75vh] overflow-y-auto pb-6">
+                                    <MenuItems />
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Re-assign - Only for admin and non-deleted */}
-                        {userRole === 'admin' && !isDeleted && onReassign && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onReassign(); setIsOpen(false); }}
-                                className="w-full px-3 py-2.5 text-left hover:bg-blue-500/10 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-3 group"
-                            >
-                                <Repeat size={16} className="text-muted-foreground group-hover:text-blue-600 transition-colors" />
-                                <span className="font-medium text-sm">Transfer Rider</span>
-                            </button>
-                        )}
-
-                        <div className="my-1 border-t border-border/50"></div>
-
-                        {/* Delete or Restore based on status */}
-                        {!isDeleted ? (
-                            can('softDelete') && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onDelete(); setIsOpen(false); }}
-                                    className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3"
-                                >
-                                    <Trash2 size={16} />
-                                    <span className="font-medium text-sm">Delete Rider</span>
-                                </button>
-                            )
-                        ) : (
-                            <>
-                                {/* Restore */}
-                                {onRestore && can('softDelete') && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onRestore(); setIsOpen(false); }}
-                                        className="w-full px-3 py-2.5 text-left hover:bg-green-500/10 text-green-600 rounded-lg transition-colors flex items-center gap-3"
-                                    >
-                                        <RotateCcw size={16} />
-                                        <span className="font-medium text-sm">Restore</span>
-                                    </button>
-                                )}
-
-                                {/* Permanent Delete */}
-                                {onPermanentDelete && can('hardDelete') && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onPermanentDelete(); setIsOpen(false); }}
-                                        className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3"
-                                    >
-                                        <XCircle size={16} />
-                                        <span className="font-medium text-sm">Delete Permanently</span>
-                                    </button>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
+                    {/* ── DESKTOP: Floating dropdown ── */}
+                    {!isMobile && menuPos && (
+                        <div
+                            ref={menuRef}
+                            className="fixed w-60 bg-card border border-border rounded-2xl shadow-2xl z-[20001] animate-in zoom-in-95 duration-150 overflow-hidden"
+                            style={{ top: menuPos.top, right: menuPos.right }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <MenuItems />
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
