@@ -89,11 +89,12 @@ const Reports: React.FC = () => {
 
             switch (selectedTemplate) {
                 case 'active_riders':
-                    const activeRiders = generateRiderListReport(riders, {
-                        status: filters.status !== 'all' ? filters.status : undefined,
+                    // Explicitly filter for active riders only
+                    const activeRiderList = riders.filter(r => r.status === 'active');
+                    const filteredActive = generateRiderListReport(activeRiderList, {
                         client: filters.client !== 'all' ? filters.client : undefined,
                     });
-                    data = activeRiders.map(transformRiderData);
+                    data = filteredActive.map(transformRiderData);
                     break;
 
                 case 'wallet_summary':
@@ -144,8 +145,13 @@ const Reports: React.FC = () => {
                     break;
 
                 case 'negative_wallet':
-                    const negativeRiders = riders.filter(r => r.walletAmount < 0).sort((a, b) => a.walletAmount - b.walletAmount);
+                    const negativeRiders = riders.filter(r => (r.walletAmount || 0) < 0).sort((a, b) => a.walletAmount - b.walletAmount);
                     data = negativeRiders.map(transformRiderData);
+                    break;
+
+                case 'positive_wallet':
+                    const positiveRiders = riders.filter(r => (r.walletAmount || 0) > 0).sort((a, b) => b.walletAmount - a.walletAmount);
+                    data = positiveRiders.map(transformRiderData);
                     break;
 
                 case 'daily_collection':
@@ -317,7 +323,7 @@ const Reports: React.FC = () => {
                             {REPORT_TEMPLATES.filter(t => {
                                 if (t.name.includes('Admin Only')) return false;
                                 const supportedTemplates = [
-                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'client_distribution', 'daily_collection'
+                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'positive_wallet', 'client_distribution', 'daily_collection'
                                 ];
                                 return supportedTemplates.includes(t.id);
                             }).map((template) => (

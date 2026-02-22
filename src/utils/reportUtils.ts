@@ -173,6 +173,12 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
         parameters: ['threshold'],
     },
     {
+        id: 'positive_wallet',
+        name: 'Positive Wallet Report',
+        description: 'Riders with positive wallet balances',
+        parameters: ['threshold'],
+    },
+    {
         id: 'team_leader_performance',
         name: 'Team Leader Performance',
         description: 'Performance metrics for all team leaders',
@@ -393,28 +399,12 @@ export const generateTeamLeaderPerformanceReport = (
 };
 
 /**
- * Get riders with negative wallet balance
+ * Get riders with positive wallet balance
  */
-export const getNegativeWalletRiders = (riders: Rider[], threshold: number = 0): Rider[] => {
+export const getPositiveWalletRiders = (riders: Rider[], threshold: number = 0): Rider[] => {
     return riders
-        .filter(r => r.walletAmount < threshold)
-        .sort((a, b) => a.walletAmount - b.walletAmount);
-};
-
-/**
- * Get inactive riders for a date range
- */
-export const getInactiveRiders = (riders: Rider[], daysSince: number = 30): Rider[] => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysSince);
-
-    return riders.filter(r => {
-        if (r.status !== 'inactive') return false;
-        if (!r.updatedAt) return false;
-
-        const lastUpdate = new Date(r.updatedAt);
-        return lastUpdate < cutoffDate;
-    });
+        .filter(r => (r.walletAmount || 0) > threshold)
+        .sort((a, b) => b.walletAmount - a.walletAmount);
 };
 
 /**

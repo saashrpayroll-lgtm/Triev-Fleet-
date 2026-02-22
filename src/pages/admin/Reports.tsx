@@ -24,8 +24,6 @@ import {
     generateTLDailyCollectionReport,
     generateRevenueReport,
     generateDefaulterReport,
-    getInactiveRiders,
-    getNegativeWalletRiders,
     transformRiderData,
     ActivityLogEntry,
 } from '@/utils/reportUtils';
@@ -182,16 +180,25 @@ const Reports: React.FC = () => {
         try {
             switch (selectedTemplate) {
                 case 'active_riders':
-                    const activeRiders = generateRiderListReport(riders, { status: 'active', client: filters.client !== 'all' ? filters.client : undefined });
-                    data = activeRiders.map(transformRiderData);
+                    // Explicitly filter for active riders only
+                    const activeRiderList = riders.filter(r => r.status === 'active');
+                    const filteredActive = generateRiderListReport(activeRiderList, {
+                        client: filters.client !== 'all' ? filters.client : undefined
+                    });
+                    data = filteredActive.map(transformRiderData);
                     break;
                 case 'inactive_riders':
-                    const inactiveRiders = getInactiveRiders(riders);
+                    // Filter for all inactive riders, not just 30+ days
+                    const inactiveRiders = riders.filter(r => r.status === 'inactive');
                     data = inactiveRiders.map(transformRiderData);
                     break;
                 case 'negative_wallet':
-                    const negativeRiders = getNegativeWalletRiders(riders, 0);
+                    const negativeRiders = riders.filter(r => (r.walletAmount || 0) < 0).sort((a, b) => a.walletAmount - b.walletAmount);
                     data = negativeRiders.map(transformRiderData);
+                    break;
+                case 'positive_wallet':
+                    const positiveRiders = riders.filter(r => (r.walletAmount || 0) > 0).sort((a, b) => b.walletAmount - a.walletAmount);
+                    data = positiveRiders.map(transformRiderData);
                     break;
                 case 'wallet_summary':
                     const walletSummary = generateWalletSummaryReport(riders);
