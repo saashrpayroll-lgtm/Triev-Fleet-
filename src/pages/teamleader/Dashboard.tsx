@@ -540,13 +540,13 @@ const Dashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Neural Sync Pill - Matching Screenshot */}
-                            <div className="flex items-center gap-2 px-4 py-2 bg-black border border-white/10 rounded-full w-fit shadow-2xl">
+                            {/* Neural Sync Pill - Refined Position */}
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/90 border border-white/20 rounded-full w-fit shadow-xl">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
                                 </span>
-                                <span className="text-[11px] font-black tracking-[0.2em] text-white uppercase italic">Neural Realtime Sync</span>
+                                <span className="text-[10px] font-black tracking-[0.2em] text-white uppercase italic">Neural Realtime Sync</span>
                             </div>
                         </div>
                     </div>
