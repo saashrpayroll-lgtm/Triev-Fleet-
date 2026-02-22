@@ -37,7 +37,8 @@ const Dashboard: React.FC = () => {
         teamLeaders: [] as User[]
     });
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
-    const [ftdCollections, setFtdCollections] = useState<Record<string, number>>({});
+    const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
+    const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
 
     // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
@@ -91,7 +92,8 @@ const Dashboard: React.FC = () => {
 
             // Process Collections
             const collections: Record<string, number> = {};
-            const ftdMap: Record<string, number> = {};
+            const dayMap: Record<string, number> = {};
+            const weekMap: Record<string, number> = {};
 
             const today = new Date();
             const year = today.getFullYear();
@@ -99,7 +101,12 @@ const Dashboard: React.FC = () => {
             const day = String(today.getDate()).padStart(2, '0');
             const todayStr = `${year}-${month}-${day}`;
 
-            // 1. Add Historical Data
+            // Week logic
+            const d = new Date();
+            const dayNum = d.getDay();
+            const diff = d.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
+            const weekStart = new Date(d.setDate(diff)).toISOString().split('T')[0];
+
             const dailyData = dailyRes.data || [];
             dailyData.forEach((d: any) => {
                 const tlId = d.team_leader_id;
@@ -108,16 +115,20 @@ const Dashboard: React.FC = () => {
                 // Total Collection (All Time)
                 collections[tlId] = (collections[tlId] || 0) + amt;
 
-                // FTD Collection (Today Only)
+                // Daily Collection
                 if (d.date === todayStr) {
-                    ftdMap[tlId] = (ftdMap[tlId] || 0) + amt;
+                    dayMap[tlId] = (dayMap[tlId] || 0) + amt;
+                }
+
+                // Weekly Collection
+                if (d.date >= weekStart) {
+                    weekMap[tlId] = (weekMap[tlId] || 0) + amt;
                 }
             });
 
-            // 2. Add Recent Transactions (Today) - REMOVED
-            // logic is now handled by DB Trigger updating daily_collections automatically.
             setTlCollections(collections);
-            setFtdCollections(ftdMap);
+            setDailyCollections(dayMap);
+            setWeeklyCollections(weekMap);
 
             setRawData({
                 riders: ridersRes.data as Rider[] || [],
@@ -272,6 +283,7 @@ const Dashboard: React.FC = () => {
     // --- TL Performance Stats ---
     const tlStats: TLSnapshot[] = useMemo(() => {
         const { teamLeaders, riders, leads } = rawData;
+        const todayStart = new Date().setHours(0, 0, 0, 0);
 
         return teamLeaders.map(tl => {
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
@@ -282,12 +294,21 @@ const Dashboard: React.FC = () => {
             const wallet = tlRiders.reduce((acc, r) => ({
                 total: acc.total + r.walletAmount,
                 positiveCount: acc.positiveCount + (r.walletAmount > 0 ? 1 : 0),
-                negativeCount: acc.negativeCount + (r.walletAmount < 0 ? 1 : 0),
-                negativeAmount: acc.negativeAmount + (r.walletAmount < 0 ? r.walletAmount : 0)
+                negativeCount: acc.negativeCount + (r.walletAmount < 0 && r.status === 'active' ? 1 : 0),
+                negativeAmount: acc.negativeAmount + (r.walletAmount < 0 && r.status === 'active' ? r.walletAmount : 0)
             }), { total: 0, positiveCount: 0, negativeCount: 0, negativeAmount: 0 });
 
             const converted = tlLeads.filter(l => l.status === 'Convert').length;
+            const churnLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
+            const leadsToday = tlLeads.filter(l => new Date(l.createdAt).getTime() >= todayStart).length;
+            const criticalDebtCount = tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length;
+
             const conversionRate = tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0;
+
+            // Activity Pulse Detection
+            const lastLeadTime = tlLeads.length > 0 ? Math.max(...tlLeads.map(l => new Date(l.createdAt).getTime())) : 0;
+            const lastRiderUpdate = tlRiders.length > 0 ? Math.max(...tlRiders.map(r => new Date(r.updatedAt || r.createdAt).getTime())) : 0;
+            const lastActivity = new Date(Math.max(lastLeadTime, lastRiderUpdate)).toISOString();
 
             return {
                 id: tl.id,
@@ -302,10 +323,16 @@ const Dashboard: React.FC = () => {
                     conversionRate
                 },
                 status: tl.status,
-                totalCollection: tlCollections[tl.id] || 0 // Use Total Collection (All Time/Month) instead of FTD
+                totalCollection: tlCollections[tl.id] || 0,
+                dailyCollection: dailyCollections[tl.id] || 0,
+                weeklyCollection: weeklyCollections[tl.id] || 0,
+                leadsToday,
+                churnLeads,
+                criticalDebtCount,
+                lastActivity
             };
         });
-    }, [rawData, tlCollections, ftdCollections]);
+    }, [rawData, tlCollections, dailyCollections, weeklyCollections]);
 
     // --- Render Loading ---
     if (loading) {

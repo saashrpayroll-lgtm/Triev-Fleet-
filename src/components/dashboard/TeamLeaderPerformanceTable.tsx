@@ -27,7 +27,13 @@ export interface TLSnapshot {
         conversionRate: number;
     };
     status: string;
-    totalCollection: number; // New field
+    totalCollection: number;
+    dailyCollection: number;
+    weeklyCollection: number;
+    leadsToday: number;
+    churnLeads: number;
+    criticalDebtCount: number;
+    lastActivity?: string;
 }
 
 interface TeamLeaderPerformanceTableProps {
@@ -36,7 +42,7 @@ interface TeamLeaderPerformanceTableProps {
 
 const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({ data }) => {
     const navigate = useNavigate();
-    const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff' | 'totalCollection', direction: 'asc' | 'desc' } | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff', direction: 'asc' | 'desc' } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [historyModalData, setHistoryModalData] = useState<{ id: string, name: string } | null>(null);
@@ -71,9 +77,9 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 if (sortConfig.key === 'walletDiff' as any) {
                     aValue = a.wallet.total;
                     bValue = b.wallet.total;
-                } else if (sortConfig.key === 'totalCollection' as any) {
-                    aValue = a.totalCollection;
-                    bValue = b.totalCollection;
+                } else {
+                    aValue = a[sortConfig.key as keyof TLSnapshot];
+                    bValue = b[sortConfig.key as keyof TLSnapshot];
                 }
 
                 if (aValue < bValue) {
@@ -157,14 +163,14 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                             <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('activeRiders')}>
                                 Riders (Active)
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('walletDiff')}>
-                                Wallet Health
-                            </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('totalCollection')}>
-                                Collection
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('criticalDebtCount')}>
+                                Risk & Critical Dues
                             </th>
                             <th className="p-4 font-medium text-muted-foreground bg-card">
-                                Lead Conversion
+                                Collections (D/W/T)
+                            </th>
+                            <th className="p-4 font-medium text-muted-foreground bg-card">
+                                Leads Performance
                             </th>
                             <th className="p-4 font-medium text-muted-foreground text-right bg-card">Actions</th>
                         </tr>
@@ -174,22 +180,34 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                             <tr key={tl.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                                 <td className="p-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
-                                            {tl.name.charAt(0)}
+                                        <div className="relative">
+                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold overflow-hidden border border-indigo-200">
+                                                {tl.name.charAt(0)}
+                                            </div>
+                                            {/* Live Activity Pulse */}
+                                            {tl.lastActivity && (new Date().getTime() - new Date(tl.lastActivity).getTime() < 30 * 60 * 1000) && (
+                                                <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-white"></span>
+                                                </span>
+                                            )}
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-foreground">{tl.name}</p>
-                                            <p className="text-xs text-muted-foreground">{tl.email}</p>
+                                            <p className="font-semibold text-foreground flex items-center gap-1.5">
+                                                {tl.name}
+                                                {tl.leadsToday > 2 && <span className="bg-orange-100 text-orange-600 text-[8px] px-1 rounded-sm font-black uppercase tracking-tighter">Hot Sourcing</span>}
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">{tl.email}</p>
                                         </div>
                                     </div>
                                 </td>
 
                                 <td className="p-4">
                                     <div className="flex flex-col">
-                                        <span className="font-bold text-lg">{tl.activeRiders} <span className="text-xs font-normal text-muted-foreground">/ {tl.totalRiders}</span></span>
-                                        <div className="w-24 h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
+                                        <span className="font-bold text-base">{tl.activeRiders} <span className="text-xs font-normal text-muted-foreground">/ {tl.totalRiders}</span></span>
+                                        <div className="w-20 h-1 bg-muted rounded-full mt-1.5 overflow-hidden">
                                             <div
-                                                className="h-full bg-emerald-500 rounded-full"
+                                                className="h-full bg-indigo-500 rounded-full"
                                                 style={{ width: `${tl.totalRiders > 0 ? (tl.activeRiders / tl.totalRiders) * 100 : 0}%` }}
                                             />
                                         </div>
@@ -197,43 +215,68 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                 </td>
 
                                 <td className="p-4">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-100 italic">
+                                                {tl.wallet.negativeCount} NEGATIVE
+                                            </span>
+                                            {tl.criticalDebtCount > 0 && (
+                                                <span className="bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse shadow-sm">
+                                                    {tl.criticalDebtCount} CRITICAL
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs font-bold text-rose-500/80">
+                                            Risk: ₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td className="p-4">
                                     <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-xs">
-                                            <span className="text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">{tl.wallet.positiveCount} Positive</span>
-                                            <span className="text-rose-600 font-medium bg-rose-50 px-1.5 py-0.5 rounded">{tl.wallet.negativeCount} Negative</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Today</span>
+                                            <span className="text-sm font-black text-emerald-600">₹{tl.dailyCollection.toLocaleString()}</span>
                                         </div>
-                                        <div className="text-xs font-medium text-muted-foreground">
-                                            Risk: <span className="text-rose-500">₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
+                                        <div className="flex justify-between items-center gap-4 border-t border-muted/50 pt-1">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-muted-foreground font-medium uppercase">Weekly</span>
+                                                <span className="text-[11px] font-bold text-foreground/80">₹{tl.weeklyCollection.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col text-right">
+                                                <span className="text-[8px] text-muted-foreground font-medium uppercase">Total</span>
+                                                <span className="text-[11px] font-bold text-foreground/60">₹{tl.totalCollection.toLocaleString()}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
 
                                 <td className="p-4">
-                                    <div className="font-bold text-green-600">
-                                        ₹{tl.totalCollection.toLocaleString()}
-                                    </div>
-                                </td>
-
-                                <td className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative w-10 h-10">
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative w-9 h-9 flex-shrink-0">
                                             <svg className="w-full h-full transform -rotate-90">
-                                                <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-muted/30" />
+                                                <circle cx="18" cy="18" r="15" stroke="currentColor" strokeWidth="3" fill="transparent" className="text-muted/20" />
                                                 <circle
-                                                    cx="20" cy="20" r="16"
-                                                    stroke="currentColor" strokeWidth="4" fill="transparent"
-                                                    strokeDasharray={100}
-                                                    strokeDashoffset={100 - tl.leads.conversionRate}
-                                                    className="text-fuchsia-500"
+                                                    cx="18" cy="18" r="15"
+                                                    stroke="currentColor" strokeWidth="3" fill="transparent"
+                                                    strokeDasharray={94}
+                                                    strokeDashoffset={94 - (94 * tl.leads.conversionRate) / 100}
+                                                    className="text-indigo-500 transition-all duration-1000"
                                                 />
                                             </svg>
-                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">
+                                            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black">
                                                 {tl.leads.conversionRate}%
                                             </span>
                                         </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            <p>{tl.leads.converted} Converted</p>
-                                            <p>{tl.leads.total - tl.leads.converted} Pipeline</p>
+                                        <div className="text-[10px] space-y-0.5">
+                                            <p className="flex justify-between gap-3 italic">
+                                                <span className="text-muted-foreground">Today:</span>
+                                                <span className="font-black text-indigo-600">+{tl.leadsToday}</span>
+                                            </p>
+                                            <p className="flex justify-between gap-3 italic">
+                                                <span className="text-muted-foreground">Churn:</span>
+                                                <span className="font-bold text-rose-500">{tl.churnLeads}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </td>
