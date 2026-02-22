@@ -28,6 +28,8 @@ const AdminLeads: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'All' | LeadStatus>('All');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshKey, setRefreshKey] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const LEADS_PAGE_SIZE = 25;
 
     // AI Stats Filter (Quick Filter)
     const [activeFilter, setActiveFilter] = useState<'genuine' | 'duplicate' | 'match' | null>(null);
@@ -194,6 +196,12 @@ const AdminLeads: React.FC = () => {
             return true;
         });
     }, [leads, searchTerm, activeTab, activeFilter, filterConfig]);
+
+    // Reset to page 1 whenever filters change
+    React.useEffect(() => { setCurrentPage(1); }, [filteredLeads.length]);
+
+    const totalLeadPages = Math.ceil(filteredLeads.length / LEADS_PAGE_SIZE);
+    const paginatedLeads = filteredLeads.slice((currentPage - 1) * LEADS_PAGE_SIZE, currentPage * LEADS_PAGE_SIZE);
 
     const availableCities = useMemo(() => Array.from(new Set(leads.map(l => l.city).filter(Boolean))), [leads]);
 
@@ -574,10 +582,20 @@ const AdminLeads: React.FC = () => {
                 </div>
             </div>
 
-            {/* Table */}
+            {/* Table + Pagination */}
             <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                {/* Results count bar */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/10">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                        Showing <span className="text-foreground font-black">{Math.min((currentPage - 1) * LEADS_PAGE_SIZE + 1, filteredLeads.length)}</span>–<span className="text-foreground font-black">{Math.min(currentPage * LEADS_PAGE_SIZE, filteredLeads.length)}</span> of <span className="text-foreground font-black">{filteredLeads.length}</span> leads
+                    </p>
+                    {selectedIds.length > 0 && (
+                        <span className="text-xs font-black text-primary">{selectedIds.length} selected</span>
+                    )}
+                </div>
+
                 <AdminLeadTable
-                    leads={filteredLeads}
+                    leads={paginatedLeads}
                     loading={loading}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
@@ -589,6 +607,43 @@ const AdminLeads: React.FC = () => {
                     getLeadAIStatus={getLeadAIStatus}
                     onAIStatusClick={handleAIStatusClick}
                 />
+
+                {/* Pagination footer */}
+                {totalLeadPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-border/50">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 text-xs font-bold border border-input rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                            ← Prev
+                        </button>
+                        <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, totalLeadPages) }, (_, i) => {
+                                const page = totalLeadPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalLeadPages - 2 ? totalLeadPages - 4 + i : currentPage - 2 + i;
+                                return (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors ${page === currentPage
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'hover:bg-accent text-muted-foreground'
+                                            }`}
+                                    >
+                                        {page}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalLeadPages, p + 1))}
+                            disabled={currentPage === totalLeadPages}
+                            className="px-3 py-1.5 text-xs font-bold border border-input rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Next →
+                        </button>
+                    </div>
+                )}
             </div>
             {/* Add/Edit Lead Modal */}
             {(showAddModal || editingLead) && (
