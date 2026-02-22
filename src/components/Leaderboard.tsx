@@ -100,10 +100,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
 
     const rankConfig = (rank: number) => {
-        const standardHeight = 'h-[420px] md:h-[450px]';
-        const standardWidth = 'w-full md:w-[290px]';
-        const goldHeight = 'h-[480px] md:h-[520px]';
-        const goldWidth = 'w-full md:w-[320px]';
+        const standardHeight = 'h-[420px] md:h-[470px]';
+        const goldHeight = 'h-[480px] md:h-[530px]';
+        const uniformWidth = 'w-full md:w-[340px]';
 
         if (rank === 1) return {
             cardBg: 'bg-gradient-to-b from-yellow-500/25 via-yellow-900/20 to-slate-950/95',
@@ -112,7 +111,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             nameColor: 'text-yellow-300',
             badgeBg: 'bg-yellow-500/30 border-yellow-400/50 text-yellow-200',
             height: goldHeight,
-            width: goldWidth,
+            width: uniformWidth,
             zIndex: 'z-20',
             ringColor: 'border-yellow-400/30',
             statsBg: 'bg-black/50 border-yellow-500/20',
@@ -124,7 +123,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             nameColor: 'text-slate-200',
             badgeBg: 'bg-slate-400/25 border-slate-300/40 text-slate-200',
             height: standardHeight,
-            width: standardWidth,
+            width: uniformWidth,
             zIndex: 'z-10',
             ringColor: 'border-slate-300/20',
             statsBg: 'bg-black/50 border-slate-400/15',
@@ -136,11 +135,48 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             nameColor: 'text-orange-300',
             badgeBg: 'bg-orange-500/25 border-orange-400/40 text-orange-200',
             height: standardHeight,
-            width: standardWidth,
+            width: uniformWidth,
             zIndex: 'z-0',
             ringColor: 'border-orange-400/20',
             statsBg: 'bg-black/50 border-orange-500/15',
         };
+    };
+
+    const RadialProgress = ({ value, color, size = 32 }: { value: number; color: string; size?: number }) => {
+        const radius = size / 2 - 2;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (value / 100) * circumference;
+
+        return (
+            <div className="relative" style={{ width: size, height: size }}>
+                <svg className="transform -rotate-90" width={size} height={size}>
+                    <circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="transparent"
+                        className="text-white/5"
+                    />
+                    <circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        stroke={color}
+                        strokeWidth="2"
+                        fill="transparent"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={offset}
+                        strokeLinecap="round"
+                        className="transition-all duration-1000 ease-out"
+                    />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[7px] font-black text-white">{value}%</span>
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -279,16 +315,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                     <TooltipProvider delayDuration={0}>
                                         <div className="grid grid-cols-2 gap-2">
                                             <Tooltip>
-                                                <TooltipTrigger className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl hover:bg-white/10 transition-all w-full">
-                                                    <Users size={15} className="text-blue-400 flex-shrink-0" strokeWidth={2.5} />
-                                                    <span className="text-xs font-black text-white leading-none">
-                                                        {tl.stats.activeRiders}<span className="text-white/40 text-[9px]">/{tl.stats.totalRiders}</span>
+                                                <TooltipTrigger className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl hover:bg-white/10 transition-all w-full">
+                                                    <RadialProgress value={tl.stats.efficiency} color="#3b82f6" />
+                                                    <span className="text-[10px] font-black text-white leading-none mt-1">
+                                                        {tl.stats.activeRiders}<span className="text-white/40 text-[8px]">/{tl.stats.totalRiders}</span>
                                                     </span>
-                                                    <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide">Active</span>
+                                                    <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide">Efficiency</span>
                                                 </TooltipTrigger>
                                                 <TooltipContent side="top" className="font-bold bg-slate-950 text-[11px] border-white/20 p-3 rounded-xl shadow-2xl">
                                                     <p>Active / Total Riders (+20 pts each)</p>
-                                                    <p className="text-yellow-400 mt-1">{tl.stats.efficiency}% efficiency</p>
+                                                    <p className="text-blue-400 mt-1">{tl.stats.efficiency}% efficiency score</p>
                                                 </TooltipContent>
                                             </Tooltip>
 
@@ -308,12 +344,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                             </Tooltip>
 
                                             <Tooltip>
-                                                <TooltipTrigger className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl hover:bg-white/10 transition-all w-full">
-                                                    <Zap size={15} className="text-yellow-400 flex-shrink-0" strokeWidth={2.5} />
-                                                    <span className="text-xs font-black text-white leading-none">
-                                                        {tl.stats.convertedLeads}<span className="text-white/40 text-[9px]">/{tl.stats.leadsTotal}</span>
+                                                <TooltipTrigger className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl hover:bg-white/10 transition-all w-full">
+                                                    <RadialProgress value={tl.stats.conversionRate} color="#eab308" />
+                                                    <span className="text-[10px] font-black text-white leading-none mt-1">
+                                                        {tl.stats.convertedLeads}<span className="text-white/40 text-[8px]">/{tl.stats.leadsTotal}</span>
                                                     </span>
-                                                    <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide">Converted</span>
+                                                    <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide">Conversion</span>
                                                 </TooltipTrigger>
                                                 <TooltipContent side="top" className="font-bold bg-slate-950 text-[11px] border-white/20 p-3 rounded-xl shadow-2xl">
                                                     <p>Lead Conversion (+40 pts each)</p>
