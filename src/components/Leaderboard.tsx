@@ -100,8 +100,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
 
     const rankConfig = (rank: number) => {
-        const standardHeight = 'h-[440px]';
-        const goldHeight = 'h-[500px]';
+        const standardHeight = 'h-[480px]';
+        const goldHeight = 'h-[540px]';
         const uniformWidth = 'md:w-[320px]';
 
         if (rank === 1) return {
@@ -193,7 +193,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             </div>
 
             {/* Podium Cards: stacked on mobile (Gold first), side-by-side on desktop (Silver|Gold|Bronze) */}
-            <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 md:gap-6 px-2 md:px-4 pt-4 pb-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 md:gap-6 px-2 md:px-4 pt-4 pb-12">
                 {/* Mobile order: show #1 first, then #2, then #3 */}
                 {[0, 1, 2].map((mobileIdx) => {
                     // On desktop the visual order is [1,0,2]; we handle that with md:order-* below
@@ -259,7 +259,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                             <div className="relative z-10 flex flex-col items-center w-full h-full pt-12 pb-4 px-4">
 
                                 {/* Avatar */}
-                                <div className={`relative flex-shrink-0 ${isFirst ? 'mt-8' : 'mt-5'} mb-2`}>
+                                <div className={`relative flex-shrink-0 ${isFirst ? 'mt-4' : 'mt-2'} mb-2`}>
                                     <div className={`absolute -inset-2 rounded-full border-2 animate-ping opacity-20 ${cfg.ringColor}`} />
                                     <div className="w-[72px] h-[72px] rounded-full overflow-hidden
                                         bg-gradient-to-br from-white/25 to-white/5 backdrop-blur-sm
@@ -292,16 +292,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                 </div>
 
                                 {/* Name & Email */}
-                                <div className="text-center mt-5 mb-2 w-full flex-shrink-0">
+                                <div className="text-center mt-4 mb-1 w-full flex-shrink-0">
                                     <h3 className={`text-2xl font-black text-center mb-1 drop-shadow-sm ${cfg.nameColor}`}>
                                         {safeRender(tl.fullName)}
                                     </h3>
-                                    <p className="text-[11px] font-medium text-white/60 mb-6 text-center line-clamp-1 max-w-[200px]">
+                                    <p className="text-[11px] font-medium text-white/60 mb-3 text-center line-clamp-1 max-w-[200px]">
                                         {tl.email}
                                     </p>
                                 </div>
                                 {/* AI Score */}
-                                <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/25 px-6 py-3 rounded-2xl shadow-2xl mb-4">
+                                <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/25 px-6 py-3 rounded-2xl shadow-2xl mb-2">
                                     <Sparkles size={18} className="text-indigo-400 animate-pulse flex-shrink-0" />
                                     <span className={`text-2xl font-black tracking-tight ${cfg.nameColor}`}>{tl.score.toLocaleString()}</span>
                                     <span className="text-[11px] font-black text-white/70 uppercase tracking-widest ml-1">pts</span>
@@ -391,7 +391,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
             {/* Ranked List (4th place onwards) — theme-aware styling */}
             {scoredTLs.length > 3 && (
-                <div className="mt-6 px-2 md:px-6 space-y-1.5">
+                <div className="mt-12 px-2 md:px-6 space-y-1.5">
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/30 text-center mb-3">Other Rankings</p>
                     {scoredTLs.slice(3).map((tl, idx) => (
                         <motion.div
