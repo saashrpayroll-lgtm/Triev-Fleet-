@@ -105,35 +105,50 @@ const LeaderboardPage: React.FC = () => {
         };
     }, []);
 
-    // Scoring Logic
+    // Scoring Logic (standardized with Leaderboard component)
     const scoredList: ScoredTL[] = useMemo(() => {
+        const now = new Date();
         const list = teamLeaders.map(tl => {
-            // Riders
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
             const activeCount = tlRiders.filter(r => r.status === 'active').length;
             const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
+            const churnCount = tlRiders.filter(r => r.status === 'deleted').length;
+
+            // Rider Age (Loyalty)
+            const riderAges = tlRiders
+                .filter(r => r.status === 'active' && r.allotmentDate)
+                .map(r => {
+                    const start = new Date(r.allotmentDate!);
+                    return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                });
+            const avgRiderAge = riderAges.length > 0 ? riderAges.reduce((a, b) => a + b, 0) / riderAges.length : 0;
+
             // Wallet Stats
-            const totalWallet = tlRiders.reduce((sum, r) => sum + r.walletAmount, 0);
-            const positiveWallet = tlRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0);
-            const negativeWallet = tlRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0);
+            const positiveSum = tlRiders.filter(r => r.walletAmount > 0).reduce((sum, r) => sum + r.walletAmount, 0);
+            const negativeSum = tlRiders.filter(r => r.walletAmount < 0).reduce((sum, r) => sum + r.walletAmount, 0);
+            const zeroWalletCount = tlRiders.filter(r => r.walletAmount === 0).length;
 
             // Leads
             const tlLeads = leads.filter(l => l.createdBy === tl.id);
             const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
+            const notConvertedLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
 
             // Collection
             const collectionAmount = collections[tl.id] || 0;
 
-            // --- WEIGHTED SCORING LOGIC ---
+            // --- ADVANCED WEIGHTED SCORING LOGIC ---
             let score = 0;
-            score += activeCount * 10;                         // +10 per Active Rider
-            score += Math.floor(collectionAmount / 1000) * 5;  // +5 per 1k Collected
-            score += convertedLeads * 20;                      // +20 per Converted Lead
-            score += Math.floor(positiveWallet > 0 ? positiveWallet / 1000 : 0) * 1;    // +1 per 1k Positive Wallet
-            score -= inactiveCount * 5;                        // -5 per Inactive Rider
-            score -= Math.abs(Math.floor(negativeWallet < 0 ? negativeWallet / 1000 : 0)) * 2; // -2 per 1k Negative Wallet
+            score += activeCount * 20;
+            score -= inactiveCount * 15;
+            score -= churnCount * 30;
+            score += Math.floor(collectionAmount / 1000) * 10;
+            score += Math.floor(positiveSum / 1000) * 2;
+            score -= Math.abs(Math.floor(negativeSum / 1000)) * 12;
+            score -= zeroWalletCount * 5;
+            score += convertedLeads * 40;
+            score -= notConvertedLeads * 8;
+            score += Math.floor(avgRiderAge * 0.5);
 
-            // Normalize Score (Min 0)
             score = Math.max(0, Math.round(score));
 
             return {
@@ -143,14 +158,16 @@ const LeaderboardPage: React.FC = () => {
                     active: activeCount,
                     total: tlRiders.length,
                     activePercentage: tlRiders.length > 0 ? (activeCount / tlRiders.length) * 100 : 0,
-                    wallet: totalWallet,
-                    avgWallet: tlRiders.length > 0 ? totalWallet / tlRiders.length : 0,
+                    wallet: positiveSum + negativeSum,
+                    avgWallet: tlRiders.length > 0 ? (positiveSum + negativeSum) / tlRiders.length : 0,
                     leads: {
                         total: tlLeads.length,
                         converted: convertedLeads,
                         conversionRate: tlLeads.length > 0 ? (convertedLeads / tlLeads.length) * 100 : 0
                     },
-                    collection: collectionAmount
+                    collection: collectionAmount,
+                    avgRiderAge: Math.round(avgRiderAge),
+                    churn: churnCount
                 }
             } as ScoredTL;
         });

@@ -1,10 +1,9 @@
+```
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import {
-    Users, UserCheck, UserX, Wallet, Activity, Zap, Star, Shield, Sparkles, AlertTriangle, FileText, ArrowRight
-} from 'lucide-react';
+import { Star, Users, Wallet, Zap, History, Bell, Search, Filter, Plus, Calendar, ShieldCheck, ChevronRight, Activity, Clock } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
@@ -67,14 +66,14 @@ const Dashboard: React.FC = () => {
             const { data: myRidersData, error: myRidersError } = await supabase
                 .from('riders')
                 .select(`
-                    id,
-                    trievId:triev_id,
-                    riderName:rider_name,
-                    mobileNumber:mobile_number,
-                    status,
-                    walletAmount:wallet_amount,
-                    teamLeaderId:team_leader_id
-                `)
+id,
+    trievId: triev_id,
+        riderName: rider_name,
+            mobileNumber: mobile_number,
+                status,
+                walletAmount: wallet_amount,
+                    teamLeaderId: team_leader_id
+                        `)
                 .eq('team_leader_id', userData.id);
 
             if (myRidersError) throw myRidersError;
@@ -117,20 +116,21 @@ const Dashboard: React.FC = () => {
 
             // 3. Global Leaderboard Data
             const { data: tlsData } = await supabase.from('users').select(`
-                id,
-                fullName:full_name,
-                email,
-                role
+id,
+    fullName: full_name,
+        email,
+        role
             `).eq('role', 'teamLeader');
             const allTls = sanitizeArray((tlsData || []) as User[]);
 
             const { data: allRidersData } = await supabase.from('riders').select(`
-                id,
-                status,
-                riderName:rider_name,
-                mobileNumber:mobile_number,
-                walletAmount:wallet_amount,
-                teamLeaderId:team_leader_id
+id,
+    status,
+    riderName: rider_name,
+        mobileNumber: mobile_number,
+            walletAmount: wallet_amount,
+                teamLeaderId: team_leader_id,
+                    allotmentDate: allotment_date
             `);
             const allRiders = (allRidersData || []) as Rider[];
 
@@ -289,7 +289,7 @@ const Dashboard: React.FC = () => {
                         icon={UserCheck}
                         color="emerald"
                         trend={{ value: 98, label: 'health', direction: 'up' }}
-                        subtitle={`${stats.totalRiders} Total Assigned`}
+                        subtitle={`${ stats.totalRiders } Total Assigned`}
                         progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
                         isCurrency={false}
@@ -302,7 +302,7 @@ const Dashboard: React.FC = () => {
                     icon={UserX}
                     color="slate"
                     trend={{ value: Math.round(((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100) || 0, label: 'churn rate', direction: 'down' }}
-                    subtitle={`${stats.inactiveRiders} Inactive | ${stats.deletedRiders} Deleted`}
+                    subtitle={`${ stats.inactiveRiders } Inactive | ${ stats.deletedRiders } Deleted`}
                     progress={stats.totalRiders > 0 ? ((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'inactive' })}
                     isCurrency={false}
@@ -311,11 +311,11 @@ const Dashboard: React.FC = () => {
                 {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
                     <SmartMetricCard
                         title="Lead Pipeline"
-                        value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}%`}
+                        value={`${ stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0 }% `}
                         icon={Sparkles}
                         color="fuchsia"
                         trend={{ value: 12, label: 'velocity', direction: 'up' }}
-                        subtitle={`${stats.convertedLeads} Successful Converts`}
+                        subtitle={`${ stats.convertedLeads } Successful Converts`}
                         progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
                         onClick={() => handleNavigate('/team-leader/leads?status=New')}
                         isCurrency={false}
@@ -330,7 +330,7 @@ const Dashboard: React.FC = () => {
                         icon={Wallet}
                         color="indigo"
                         trend={{ value: 24, label: 'growth', direction: 'up' }}
-                        subtitle={`${stats.positiveWallet} Riders Positive`}
+                        subtitle={`${ stats.positiveWallet } Riders Positive`}
                         progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
                     />
@@ -369,8 +369,8 @@ const Dashboard: React.FC = () => {
                         value={Math.abs(stats.totalNegativeAmount)}
                         icon={AlertTriangle}
                         color="rose"
-                        aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}
-                        subtitle={`${stats.negativeWallet} Riders in Debt`}
+                        aiInsight={stats.negativeWallet > 0 ? `${ stats.negativeWallet } riders owe payments.` : undefined}
+                        subtitle={`${ stats.negativeWallet } Riders in Debt`}
                         progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
                         onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
                     />
@@ -503,7 +503,7 @@ const Dashboard: React.FC = () => {
                         onClick={() => handleNavigate(action.path)}
                         className="flex flex-col items-center justify-center p-3 rounded-2xl bg-card border hover:border-primary/50 shadow-sm transition-all group"
                     >
-                        <div className={`p-2 rounded-full ${action.bg} ${action.color} mb-1 group-hover:scale-110 transition-transform`}>
+                        <div className={`p - 2 rounded - full ${ action.bg } ${ action.color } mb - 1 group - hover: scale - 110 transition - transform`}>
                             <action.icon size={16} />
                         </div>
                         <span className="font-bold text-[10px] text-foreground">{action.label}</span>
@@ -539,15 +539,6 @@ const Dashboard: React.FC = () => {
                                 </div>
                             </div>
                         </div>
-
-                        <button
-                            onClick={() => handleNavigate('/portal/leaderboard')}
-                            className="group relative flex items-center gap-4 px-10 py-5 bg-primary rounded-3xl font-black text-xs uppercase tracking-[0.2em] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all"
-                        >
-                            <span className="relative z-10">View Full Rankings</span>
-                            <ArrowRight size={20} className="relative z-10 group-hover:translate-x-1.5 transition-transform" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl shadow-[0_15px_35px_-10px_rgba(124,58,237,0.5)]" />
-                        </button>
                     </div>
 
                     <div className="relative z-10">
