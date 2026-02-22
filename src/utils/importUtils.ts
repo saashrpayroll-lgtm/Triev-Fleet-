@@ -557,27 +557,29 @@ export const processWalletUpdate = async (
                 throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
             }
 
-            // STRICT WALLET RULE:
-            // "Bulk Wallet Update" is the FINAL TRUTH at the moment of upload.
-            // We set the date to NOW() so that any previous collections/history 
-            // from earlier today are considered "past" and overridden by this new balance.
+            // -------------------------------------------------
+            // TIMESTAMP FIX: Always update riders.updated_at
+            // Rules:
+            //   Balance CHANGED  → update balance (done by processDailyUpdate) + touch timestamp
+            //   Balance SAME     → skip balance write, but STILL touch timestamp
+            //   Either way       → ledger entry created_at refreshed to NOW()
+            // -------------------------------------------------
 
-            // CRITICAL: Use current time, NOT midnight.
-            const today = new Date();
-            const todayISO = today.toISOString();
+            const previousBalance = matchData.wallet_amount ?? null;
+            const balanceChanged = previousBalance !== amount;
+            const nowISO = new Date().toISOString();
 
-            // Generate a stable External ID based on LOCAL DATE (YYYY-MM-DD)
-            // This ensures that all uploads for "Today" act on the SAME ledger entry.
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const todayDateString = `${year}-${month}-${day}`;
-            const externalId = `RESET_${matchData.id}_${todayDateString}`;
+            // Stable External ID keyed to LOCAL DATE (YYYY-MM-DD)
+            // All uploads within the same calendar day act on the SAME ledger entry.
+            // The created_at will be refreshed to NOW() after every upload (timestamp fix).
+            const nowDate = new Date();
+            const todayStr = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-${String(nowDate.getDate()).padStart(2, '0')}`;
+            const externalId = `RESET_${matchData.id}_${todayStr}`;
 
             const response: any = await LedgerAPI.processDailyUpdate({
                 riderId: matchData.id,
                 newBalance: amount,
-                date: todayISO,
+                date: nowISO,
                 externalId: externalId
             });
 
@@ -591,8 +593,22 @@ export const processWalletUpdate = async (
                 throw new Error("DATABASE SCRIPT OUTDATED. Please run strict_wallet_logic.sql in Supabase.");
             }
 
-            // Track for Notification
-            if (matchData.team_leader_id) {
+            // 3. Always touch riders.updated_at (timestamp fix)
+            //    This ensures "last bulk sync" is always visible regardless of balance change.
+            await supabase
+                .from('riders')
+                .update({ updated_at: nowISO })
+                .eq('id', matchData.id);
+
+            // 4. Also refresh the ledger entry's created_at to NOW() so the
+            //    exact time of the most recent bulk upload is always recorded.
+            await supabase
+                .from('wallet_ledger')
+                .update({ created_at: nowISO })
+                .eq('external_id', externalId);
+
+            // Track for Notification (only if balance actually changed)
+            if (balanceChanged && matchData.team_leader_id) {
                 tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
             }
 

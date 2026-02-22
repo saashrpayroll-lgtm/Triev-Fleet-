@@ -100,14 +100,17 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
 
 
     const rankConfig = (rank: number) => {
+        const uniformHeight = 'min-h-[400px] md:min-h-[430px]';
+        const uniformWidth = 'w-full md:w-[340px]';
+
         if (rank === 1) return {
             cardBg: 'bg-gradient-to-b from-yellow-500/25 via-yellow-900/20 to-slate-950/95',
             border: 'border-yellow-400/50',
             glow: 'shadow-[0_0_80px_-10px_rgba(255,200,0,0.5),0_30px_60px_-20px_rgba(255,200,0,0.3)]',
             nameColor: 'text-yellow-300',
             badgeBg: 'bg-yellow-500/30 border-yellow-400/50 text-yellow-200',
-            height: 'min-h-[480px] md:min-h-[540px]',
-            width: 'w-full md:w-[300px]',
+            height: uniformHeight,
+            width: uniformWidth,
             zIndex: 'z-20',
             ringColor: 'border-yellow-400/30',
             statsBg: 'bg-black/50 border-yellow-500/20',
@@ -118,8 +121,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             glow: 'shadow-[0_0_50px_-15px_rgba(200,200,220,0.4)]',
             nameColor: 'text-slate-200',
             badgeBg: 'bg-slate-400/25 border-slate-300/40 text-slate-200',
-            height: 'min-h-[430px] md:min-h-[480px]',
-            width: 'w-full md:w-[270px]',
+            height: uniformHeight,
+            width: uniformWidth,
             zIndex: 'z-10',
             ringColor: 'border-slate-300/20',
             statsBg: 'bg-black/50 border-slate-400/15',
@@ -130,8 +133,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
             glow: 'shadow-[0_0_50px_-15px_rgba(200,100,50,0.4)]',
             nameColor: 'text-orange-300',
             badgeBg: 'bg-orange-500/25 border-orange-400/40 text-orange-200',
-            height: 'min-h-[410px] md:min-h-[460px]',
-            width: 'w-full md:w-[270px]',
+            height: uniformHeight,
+            width: uniformWidth,
             zIndex: 'z-0',
             ringColor: 'border-orange-400/20',
             statsBg: 'bg-black/50 border-orange-500/15',
