@@ -57,8 +57,8 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-            <div className="bg-card border w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-border/40">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+            <div className="bg-card border w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-border/40 ring-1 ring-white/10">
 
                 {/* Header */}
                 <div className="p-5 border-b flex justify-between items-center bg-muted/30">
@@ -84,8 +84,8 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     </div>
                 </div>
 
-                {/* List Container - Scrollable */}
-                <div className="max-h-[380px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/10 hover:scrollbar-thumb-muted-foreground/20 transition-all bg-card/50">
+                {/* List Container - Scrollable (Sized for ~7-8 entries) */}
+                <div className="max-h-[460px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/10 hover:scrollbar-thumb-muted-foreground/20 transition-all bg-card/50">
                     {loading ? (
                         <div className="p-12 text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
@@ -112,7 +112,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                                                 <div className="p-1.5 rounded-lg bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                                     <Calendar size={12} />
                                                 </div>
-                                                <span className="font-bold text-foreground text-xs">{format(new Date(record.date), 'dd MMM, yyyy')}</span>
+                                                <span className="font-black text-foreground text-[13px] tracking-tight">{format(new Date(record.date), 'dd MMM, yyyy')}</span>
                                             </div>
                                         </td>
                                         <td className="px-5 py-4 text-right">

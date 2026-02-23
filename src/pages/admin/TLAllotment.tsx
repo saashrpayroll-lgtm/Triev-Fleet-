@@ -17,7 +17,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { format, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 
 interface TLAllotmentMetric {
     team_leader_id: string;
@@ -39,31 +39,33 @@ const TLAllotment: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isExportOpen, setIsExportOpen] = useState(false);
 
-    // Date Range State - Default to TODAY for daily tracking as requested
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
-        new Date(),
-        new Date()
-    ]);
+    // Date Range State - Default to TODAY (IST) for daily tracking
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => {
+        const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        return [istDate, istDate];
+    });
     const [startDate, endDate] = dateRange;
 
     const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
-        const now = new Date();
+        const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
         switch (preset) {
             case 'today':
-                setDateRange([now, now]);
+                setDateRange([istNow, istNow]);
                 break;
             case 'yesterday':
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterday = new Date(istNow);
+                yesterday.setDate(istNow.getDate() - 1);
                 setDateRange([yesterday, yesterday]);
                 break;
             case 'week':
-                const weekStart = new Date();
-                weekStart.setDate(weekStart.getDate() - 7);
-                setDateRange([weekStart, now]);
+                const weekStart = new Date(istNow);
+                weekStart.setDate(istNow.getDate() - 7);
+                setDateRange([weekStart, istNow]);
                 break;
             case 'month':
-                setDateRange([startOfMonth(now), now]);
+                // Resetting to start of month in IST
+                const monthStart = new Date(istNow.getFullYear(), istNow.getMonth(), 1);
+                setDateRange([monthStart, istNow]);
                 break;
         }
     };

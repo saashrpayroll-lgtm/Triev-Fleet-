@@ -50,13 +50,13 @@ const TLPerformance: React.FC = () => {
             if (usersRes.error) throw usersRes.error;
             if (dailyRes.error) throw dailyRes.error;
 
-            // Process Collections
-            const todayStr = new Date().toISOString().split('T')[0];
+            // Process Collections - ALIGN TO IST (India Standard Time)
+            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const todayStr = nowIST.toISOString().split('T')[0];
 
-            const d = new Date();
-            const dayNum = d.getDay();
-            const diff = d.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
-            const weekStart = new Date(d.setDate(diff)).toISOString().split('T')[0];
+            const weekStart = new Date(nowIST);
+            weekStart.setDate(nowIST.getDate() - nowIST.getDay() + (nowIST.getDay() === 0 ? -6 : 1));
+            const weekStartStr = weekStart.toISOString().split('T')[0];
 
             const totals: Record<string, number> = {};
             const daily: Record<string, number> = {};
@@ -68,7 +68,7 @@ const TLPerformance: React.FC = () => {
 
                 totals[tlId] = (totals[tlId] || 0) + amt;
                 if (item.date === todayStr) daily[tlId] = (daily[tlId] || 0) + amt;
-                if (item.date >= weekStart) weekly[tlId] = (weekly[tlId] || 0) + amt;
+                if (item.date >= weekStartStr) weekly[tlId] = (weekly[tlId] || 0) + amt;
             });
 
             setTlCollections(totals);
@@ -101,11 +101,13 @@ const TLPerformance: React.FC = () => {
     }, []);
 
     const performanceData: TLSnapshot[] = useMemo(() => {
-        const todayStart = new Date().setHours(0, 0, 0, 0);
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const todayStart = new Date(nowIST.setHours(0, 0, 0, 0)).getTime();
 
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
-            const tlRiders = rawData.riders.filter(r => r.team_leader_id === tlId || r.teamLeaderId === tlId);
+            // Support both snake_case and camelCase from Supabase mappings
+            const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId) && !r.deleted_at);
             const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
 
             const activeRiders = tlRiders.filter(r => r.status === 'active').length;
