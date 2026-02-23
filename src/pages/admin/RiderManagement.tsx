@@ -195,6 +195,8 @@ const RiderManagement: React.FC = () => {
                 teamLeaderName:team_leader_name,
                 createdAt:created_at,
                 updatedAt:updated_at,
+                inactivatedAt:inactivated_at,
+                lastStatusChangeAt:last_status_change_at,
                 deletedAt:deleted_at
             `);
             if (ridersError) throw ridersError;

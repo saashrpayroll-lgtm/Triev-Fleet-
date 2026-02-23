@@ -39,12 +39,34 @@ const TLAllotment: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isExportOpen, setIsExportOpen] = useState(false);
 
-    // Date Range State
+    // Date Range State - Default to TODAY for daily tracking as requested
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
-        startOfMonth(new Date()),
+        new Date(),
         new Date()
     ]);
     const [startDate, endDate] = dateRange;
+
+    const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
+        const now = new Date();
+        switch (preset) {
+            case 'today':
+                setDateRange([now, now]);
+                break;
+            case 'yesterday':
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                setDateRange([yesterday, yesterday]);
+                break;
+            case 'week':
+                const weekStart = new Date();
+                weekStart.setDate(weekStart.getDate() - 7);
+                setDateRange([weekStart, now]);
+                break;
+            case 'month':
+                setDateRange([startOfMonth(now), now]);
+                break;
+        }
+    };
 
     const fetchMetrics = async () => {
         setLoading(true);
@@ -151,6 +173,13 @@ const TLAllotment: React.FC = () => {
                     <p className="text-muted-foreground italic">Comprehensive tracking of Allotments vs EV Submissions (Inactivations).</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 bg-muted/30 p-1 rounded-xl border border-border/40">
+                        <button onClick={() => setPreset('today')} className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${!startDate || (startDate.toDateString() === new Date().toDateString() && (!endDate || endDate.toDateString() === new Date().toDateString())) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Today</button>
+                        <button onClick={() => setPreset('yesterday')} className="px-3 py-1 text-[10px] font-black uppercase rounded-lg hover:bg-muted transition-all">Yesterday</button>
+                        <button onClick={() => setPreset('week')} className="px-3 py-1 text-[10px] font-black uppercase rounded-lg hover:bg-muted transition-all">Last 7D</button>
+                        <button onClick={() => setPreset('month')} className="px-3 py-1 text-[10px] font-black uppercase rounded-lg hover:bg-muted transition-all">This Month</button>
+                    </div>
+
                     <div className="flex items-center bg-card border border-border rounded-xl px-3 py-1.5 shadow-sm">
                         <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
                         <DatePicker
@@ -158,8 +187,8 @@ const TLAllotment: React.FC = () => {
                             startDate={startDate}
                             endDate={endDate}
                             onChange={(update) => setDateRange(update)}
-                            className="bg-transparent text-sm font-bold w-48 outline-none"
-                            placeholderText="Select Date Range"
+                            className="bg-transparent text-sm font-bold w-41 outline-none"
+                            placeholderText="Custom Range"
                         />
                     </div>
 

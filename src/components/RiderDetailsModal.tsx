@@ -385,8 +385,13 @@ ${new Date().toLocaleString('en-IN')}`;
                                     </div>
                                     <p className="font-bold text-sm font-mono text-foreground truncate">{rider.chassisNumber || 'N/A'}</p>
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No date'}
+                                        Allotment: {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No date'}
                                     </p>
+                                    {rider.inactivatedAt && (
+                                        <p className="text-[10px] text-rose-500 font-bold mt-1">
+                                            Submission: {new Date(rider.inactivatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Team Leader — spans 2 cols on mobile */}

@@ -183,6 +183,8 @@ export interface Rider {
     comments?: string; // Optional comments/notes field
     createdAt: string;
     updatedAt: string;
+    inactivatedAt?: string | null;
+    lastStatusChangeAt?: string | null;
     deletedAt?: string | null;
 }
 
