@@ -263,17 +263,17 @@ const WalletHistory: React.FC = () => {
 
     // Maintenance Cleanup (RPC)
     const handleCleanup = async () => {
-        if (!window.confirm('This will delete all redundant "DAY OPENING BALANCE" entries older than today. Only the most recent record for each rider will be kept. Proceed?')) {
+        if (!window.confirm('This will perform a "Smart Cleanup" of DAY OPENING BALANCE entries. Historical entries will be removed while carefully preserving the latest baseline for each rider. Proceed?')) {
             return;
         }
 
         setIsCleaning(true);
-        const loadingToast = toast.loading('Performing cleanup...');
+        const loadingToast = toast.loading('Performing smart cleanup...');
         try {
             const { data, error } = await supabase.rpc('cleanup_wallet_ledger');
             if (error) throw error;
 
-            toast.success(`Cleanup successful: ${data.deleted_count} records removed`, { id: loadingToast });
+            toast.success(`Smart cleanup successful: ${data.deleted_count} historical records removed.`, { id: loadingToast });
             fetchTransactions();
         } catch (error: any) {
             console.error('Cleanup failed:', error);
@@ -282,6 +282,7 @@ const WalletHistory: React.FC = () => {
             setIsCleaning(false);
         }
     };
+
 
     // Bulk Delete
     const handleBulkDelete = async () => {
