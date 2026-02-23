@@ -12,6 +12,9 @@ import {
     SearchX
 } from 'lucide-react';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
 
 const TLPerformance: React.FC = () => {
@@ -27,6 +30,11 @@ const TLPerformance: React.FC = () => {
     const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+    const [riskFilter, setRiskFilter] = useState<'all' | 'high_risk' | 'low_risk'>('all');
+    const [perfFilter, setPerfFilter] = useState<'all' | 'top_performers' | 'low_conversion'>('all');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [isExportOpen, setIsExportOpen] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -147,9 +155,94 @@ const TLPerformance: React.FC = () => {
     }, [rawData, tlCollections, dailyCollections, weeklyCollections]);
 
     const filteredData = performanceData.filter(tl => {
-        return tl.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        const matchesSearch = tl.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             tl.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus = filterStatus === 'all' || tl.status === filterStatus;
+
+        const matchesRisk = riskFilter === 'all' ||
+            (riskFilter === 'high_risk' && tl.criticalDebtCount > 0) ||
+            (riskFilter === 'low_risk' && tl.criticalDebtCount === 0);
+
+        const matchesPerf = perfFilter === 'all' ||
+            (perfFilter === 'top_performers' && tl.leads.conversionRate >= 50) ||
+            (perfFilter === 'low_conversion' && tl.leads.conversionRate < 10 && tl.leads.total > 0);
+
+        return matchesSearch && matchesStatus && matchesRisk && matchesPerf;
     });
+
+    const exportToExcel = () => {
+        const data = filteredData.map(tl => ({
+            'Name': tl.name,
+            'Email': tl.email,
+            'Active Riders': tl.activeRiders,
+            'Total Riders': tl.totalRiders,
+            'Total Collection': tl.totalCollection,
+            'Daily Collection': tl.dailyCollection,
+            'Weekly Collection': tl.weeklyCollection,
+            'Positive Riders': tl.wallet.positiveCount,
+            'Positive Volume': tl.wallet.positiveAmount,
+            'Negative Riders': tl.wallet.negativeCount,
+            'Risk Amount': Math.abs(tl.wallet.negativeAmount),
+            'Leads Today': tl.leadsToday,
+            'Churn Leads': tl.churnLeads,
+            'Conversion Rate': tl.leads.conversionRate + '%'
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Performance");
+        XLSX.writeFile(wb, `tl_performance_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Excel report exported successfully');
+        setIsExportOpen(false);
+    };
+
+    const exportToPDF = () => {
+        const doc = new jsPDF('l', 'mm', 'a4');
+
+        // Branded Header
+        doc.setFontSize(20);
+        doc.setTextColor(79, 70, 229); // Indigo-600
+        doc.text('Team Leader Performance Report', 14, 20);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
+
+        const tableColumn = [
+            "TL Name",
+            "Active",
+            "Daily Col.",
+            "Weekly Col.",
+            "Pos/Neg",
+            "Risk Amt",
+            "Conversion"
+        ];
+
+        const tableRows = filteredData.map(tl => [
+            tl.name,
+            `${tl.activeRiders}/${tl.totalRiders}`,
+            `INR ${tl.dailyCollection.toLocaleString()}`,
+            `INR ${tl.weeklyCollection.toLocaleString()}`,
+            `${tl.wallet.positiveCount}/${tl.wallet.negativeCount}`,
+            `INR ${Math.abs(tl.wallet.negativeAmount).toLocaleString()}`,
+            `${tl.leads.conversionRate}%`
+        ]);
+
+        (doc as any).autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 35,
+            theme: 'striped',
+            headStyles: { fillColor: [79, 70, 229] },
+            styles: { fontSize: 8, cellPadding: 3 },
+            alternateRowStyles: { fillColor: [249, 250, 251] }
+        });
+
+        doc.save(`tl_performance_${new Date().toISOString().split('T')[0]}.pdf`);
+        toast.success('PDF report exported successfully');
+        setIsExportOpen(false);
+    };
 
     const exportToCSV = () => {
         const headers = ['Name', 'Email', 'Active Riders', 'Total Riders', 'Total Collection', 'Daily Collection', 'Weekly Collection', 'Positive Riders', 'Positive Volume', 'Negative Riders', 'Risk Amount', 'Leads Today', 'Churn Leads', 'Conversion Rate'];
@@ -181,7 +274,8 @@ const TLPerformance: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast.success('Performance report exported successfully');
+        toast.success('CSV report exported successfully');
+        setIsExportOpen(false);
     };
 
     return (
@@ -191,14 +285,29 @@ const TLPerformance: React.FC = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Team Leader Performance Center</h1>
                     <p className="text-muted-foreground">Real-time analytical depth and operational insights for all Team Leaders.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={exportToCSV}
-                        className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors shadow-sm"
-                    >
-                        <Download className="h-4 w-4" />
-                        Export Reports
-                    </button>
+                <div className="flex items-center gap-3 relative">
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsExportOpen(!isExportOpen)}
+                            className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors shadow-sm"
+                        >
+                            <Download className="h-4 w-4" />
+                            Export Reports
+                        </button>
+                        {isExportOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1 animate-in slide-in-from-top-2">
+                                <button onClick={exportToExcel} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel Spreadsheet (.xlsx)
+                                </button>
+                                <button onClick={exportToPDF} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-rose-500" /> Portable Document (.pdf)
+                                </button>
+                                <button onClick={exportToCSV} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2 border-t pt-2">
+                                    <div className="w-2 h-2 rounded-full bg-slate-400" /> Legacy CSV (.csv)
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-full text-xs font-bold">
                         <Activity className="h-3 w-3 animate-pulse" />
                         Live Neural Sync
@@ -233,7 +342,7 @@ const TLPerformance: React.FC = () => {
                             <h2 className="text-lg font-bold">Team Leader Analysis Table</h2>
                             <p className="text-xs text-muted-foreground">Comprehensive breakdown of TL performance across all key verticals.</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative">
                             <div className="relative w-full md:w-80">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <input
@@ -243,9 +352,84 @@ const TLPerformance: React.FC = () => {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
-                            <button className="p-2.5 border border-border/60 rounded-xl hover:bg-muted transition-colors bg-background shadow-sm">
-                                <Filter className="h-4 w-4" />
-                            </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                    className={`p-2.5 border border-border/60 rounded-xl transition-colors bg-background shadow-sm hover:bg-muted ${(filterStatus !== 'all' || riskFilter !== 'all' || perfFilter !== 'all') ? 'ring-2 ring-primary/20 bg-primary/5 text-primary' : ''}`}
+                                >
+                                    <Filter className="h-4 w-4" />
+                                </button>
+                                {isFilterOpen && (
+                                    <div className="absolute right-0 mt-3 w-72 bg-card border border-border rounded-2xl shadow-2xl z-50 p-6 space-y-5 animate-in slide-in-from-top-4">
+                                        <div className="flex items-center justify-between border-b pb-3">
+                                            <span className="font-black text-xs uppercase tracking-widest italic">Neural Filter Core</span>
+                                            <button onClick={() => { setFilterStatus('all'); setRiskFilter('all'); setPerfFilter('all'); }} className="text-[10px] text-primary font-bold hover:underline">Reset All</button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter">Account Status</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {['all', 'active', 'inactive'].map(s => (
+                                                        <button
+                                                            key={s}
+                                                            onClick={() => setFilterStatus(s as any)}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filterStatus === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}
+                                                        >
+                                                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter">Debt Exposure Matrix</label>
+                                                <div className="space-y-2">
+                                                    {[
+                                                        { id: 'all', label: 'All Risks' },
+                                                        { id: 'high_risk', label: 'Critical Debt Only' },
+                                                        { id: 'low_risk', label: 'Safe Balance Only' }
+                                                    ].map(r => (
+                                                        <button
+                                                            key={r.id}
+                                                            onClick={() => setRiskFilter(r.id as any)}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold border transition-all ${riskFilter === r.id ? 'bg-primary/10 text-primary border-primary/20' : 'bg-background hover:bg-muted'}`}
+                                                        >
+                                                            {r.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter">Performance Tier</label>
+                                                <div className="space-y-2">
+                                                    {[
+                                                        { id: 'all', label: 'All Performance Tiers' },
+                                                        { id: 'top_performers', label: 'High Conversion (50%+)' },
+                                                        { id: 'low_conversion', label: 'Conversion Laggards (<10%)' }
+                                                    ].map(p => (
+                                                        <button
+                                                            key={p.id}
+                                                            onClick={() => setPerfFilter(p.id as any)}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold border transition-all ${perfFilter === p.id ? 'bg-primary/10 text-primary border-primary/20' : 'bg-background hover:bg-muted'}`}
+                                                        >
+                                                            {p.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => setIsFilterOpen(false)}
+                                            className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all"
+                                        >
+                                            Engage Filters
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -398,8 +582,8 @@ const TLPerformance: React.FC = () => {
 
                                         <td className="px-6 py-5 text-right">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest ${tl.status === 'active'
-                                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                                : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                                 }`}>
                                                 {tl.status}
                                             </span>
