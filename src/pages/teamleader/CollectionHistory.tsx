@@ -195,13 +195,13 @@ const CollectionHistory: React.FC = () => {
                 <div className="p-4 border-b bg-muted/20 flex justify-between items-center">
                     <h3 className="font-semibold text-sm">Detailed History</h3>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/50 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20">
+                    <table className="w-full text-sm text-left border-separate border-spacing-0">
+                        <thead className="bg-muted/90 backdrop-blur-md text-muted-foreground font-semibold text-xs uppercase tracking-wider sticky top-0 z-20 shadow-sm">
                             <tr>
-                                <th className="px-6 py-4 rounded-tl-lg">Date</th>
-                                <th className="px-6 py-4">Collection Amount</th>
-                                <th className="px-6 py-4 rounded-tr-lg text-right">Reference</th>
+                                <th className="px-6 py-4 border-b border-border/50">Date</th>
+                                <th className="px-6 py-4 border-b border-border/50">Collection Amount</th>
+                                <th className="px-6 py-4 border-b border-border/50 text-right">Reference</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
