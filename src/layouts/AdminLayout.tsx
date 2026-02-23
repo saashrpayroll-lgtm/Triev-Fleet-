@@ -102,6 +102,7 @@ const AdminLayout: React.FC = () => {
                 { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/analytics', icon: Activity, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
                 { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/tl-allotment', icon: Target, label: 'TL Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
             ].filter(item => item.visible)
         },

@@ -39,6 +39,7 @@ import WalletHistory from '@/pages/admin/WalletHistory';
 import RequestManagement from '@/pages/admin/RequestManagement';
 import LeaderboardPage from '@/pages/admin/LeaderboardPage';
 import TLPerformance from '@/pages/admin/TLPerformance';
+import TLAllotment from './pages/admin/TLAllotment';
 
 import '@/index.css';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
@@ -294,6 +295,7 @@ function AppRoutes() {
           <Route path="users" element={<UserManagement />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="tl-performance" element={<TLPerformance />} />
+          <Route path="tl-allotment" element={<TLAllotment />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="notifications" element={<NotificationManagement />} />
           <Route path="chat" element={<AdminChat />} />
