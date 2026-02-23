@@ -57,8 +57,8 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
-            <div className="bg-card border w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-border/40 ring-1 ring-white/10">
+        <div className="fixed inset-0 z-[100] flex flex-col items-center overflow-y-auto bg-black/60 backdrop-blur-md animate-in fade-in duration-300 py-8 px-4">
+            <div className="my-auto bg-card border w-full max-w-sm rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-border/40 ring-1 ring-white/10">
 
                 {/* Header */}
                 <div className="p-5 border-b flex justify-between items-center bg-muted/30">
