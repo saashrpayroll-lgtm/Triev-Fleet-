@@ -57,58 +57,68 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-card border w-full max-w-md rounded-xl shadow-2xl overflow-hidden animate-in scale-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300 p-4">
+            <div className="bg-card border w-full max-w-sm rounded-[24px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-border/40">
 
                 {/* Header */}
-                <div className="p-4 border-b flex justify-between items-center bg-muted/40">
+                <div className="p-5 border-b flex justify-between items-center bg-muted/30">
                     <div>
-                        <h3 className="font-semibold text-lg">Collection History</h3>
-                        <p className="text-sm text-muted-foreground">{teamLeaderName}</p>
+                        <h3 className="font-black text-xl tracking-tight">Collection History</h3>
+                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">{teamLeaderName}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
-                        <X size={18} />
+                    <button onClick={onClose} className="p-2 hover:bg-muted rounded-xl transition-all active:scale-90 border border-transparent hover:border-border/50">
+                        <X size={18} className="text-muted-foreground" />
                     </button>
                 </div>
 
-                {/* Summary Card */}
-                <div className="p-4 bg-primary/5 border-b border-primary/10">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-full text-primary">
-                                <Wallet size={20} />
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Collection</p>
-                                <p className="text-xl font-bold text-primary">₹{total.toLocaleString()}</p>
-                            </div>
+                {/* Summary Card - High Contrast */}
+                <div className="p-5 bg-gradient-to-br from-primary/10 via-background to-background border-b border-border/40">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20">
+                            <Wallet size={24} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em]">Aggregate Sourcing</p>
+                            <p className="text-2xl font-black text-foreground">₹{total.toLocaleString()}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* List */}
-                <div className="max-h-[400px] overflow-auto custom-scrollbar p-0">
+                {/* List Container - Scrollable */}
+                <div className="max-h-[380px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/10 hover:scrollbar-thumb-muted-foreground/20 transition-all bg-card/50">
                     {loading ? (
-                        <div className="p-8 text-center text-muted-foreground">Loading history...</div>
+                        <div className="p-12 text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+                            <p className="text-xs font-bold text-muted-foreground animate-pulse">Fetching records...</p>
+                        </div>
                     ) : history.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground">No collection records found.</div>
+                        <div className="p-12 text-center text-muted-foreground">
+                            <Calendar size={32} className="mx-auto mb-3 opacity-10" />
+                            <p className="text-sm font-bold opacity-30">No recovery data found.</p>
+                        </div>
                     ) : (
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-muted/50 text-muted-foreground font-medium sticky top-0">
+                        <table className="w-full text-sm text-left border-separate border-spacing-0">
+                            <thead className="bg-muted/80 backdrop-blur-sm sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-3 font-medium">Date</th>
-                                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/30">Date</th>
+                                    <th className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/30 text-right">Amount</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y">
+                            <tbody className="divide-y divide-border/10">
                                 {history.map((record, idx) => (
-                                    <tr key={idx} className="hover:bg-muted/20 transition-colors">
-                                        <td className="px-4 py-3 flex items-center gap-2">
-                                            <Calendar size={14} className="text-muted-foreground" />
-                                            {format(new Date(record.date), 'dd MMM yyyy')}
+                                    <tr key={idx} className="hover:bg-primary/5 transition-all group">
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-1.5 rounded-lg bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                                    <Calendar size={12} />
+                                                </div>
+                                                <span className="font-bold text-foreground text-xs">{format(new Date(record.date), 'dd MMM, yyyy')}</span>
+                                            </div>
                                         </td>
-                                        <td className="px-4 py-3 text-right font-semibold text-emerald-600">
-                                            ₹{record.total_collection.toLocaleString()}
+                                        <td className="px-5 py-4 text-right">
+                                            <span className="font-black text-xs text-emerald-600 bg-emerald-500/5 px-2 py-1 rounded-lg border border-emerald-500/10 inline-block">
+                                                ₹{record.total_collection.toLocaleString()}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))}
@@ -117,8 +127,11 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     )}
                 </div>
 
-                <div className="p-3 border-t bg-muted/20 text-xs text-center text-muted-foreground">
-                    Showing last {history.length} records
+                <div className="p-4 border-t bg-muted/30 flex justify-center items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground/60">
+                        Showing {history.length} Daily Entry Points
+                    </span>
                 </div>
             </div>
         </div>,
