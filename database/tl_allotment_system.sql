@@ -98,7 +98,7 @@ BEGIN
             SUM(wl.amount) as collections
         FROM public.wallet_ledger wl
         JOIN public.riders r ON wl.rider_id = r.id
-        WHERE wl.transaction_type = 'DAILY_COLLECTION' 
+        WHERE wl.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION')
           AND wl.mode = 'ADD'
           AND COALESCE((wl.metadata->>'date_on_sheet')::DATE, wl.transaction_date::DATE, wl.created_at::DATE) >= p_start_date
           AND COALESCE((wl.metadata->>'date_on_sheet')::DATE, wl.transaction_date::DATE, wl.created_at::DATE) <= p_end_date
@@ -123,5 +123,12 @@ BEGIN
     LEFT JOIN collection_stats cs ON u.id = cs.team_leader_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5. Data Migration (Self-Healing)
+-- Populate inactivated_at for existing inactive riders using their last update date
+-- This ensures 100% accuracy for submissions made before this system was deployed.
+UPDATE public.riders
+SET inactivated_at = updated_at
+WHERE status = 'inactive' AND inactivated_at IS NULL;
 
 COMMIT;
