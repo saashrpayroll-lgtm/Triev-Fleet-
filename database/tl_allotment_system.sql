@@ -57,7 +57,7 @@ BEGIN
     RETURN QUERY
     WITH tl_list AS (
         -- Get all Team Leaders from the users table
-        SELECT u.id, u.name, u.email
+        SELECT u.id, u.full_name, u.email
         FROM public.users u
         WHERE u.role = 'teamLeader'
     ),
@@ -106,7 +106,7 @@ BEGIN
     )
     SELECT 
         u.id,
-        u.name,
+        u.full_name,
         u.email,
         COALESCE(rs.active_riders, 0),
         COALESCE(rs.pos_count, 0),
