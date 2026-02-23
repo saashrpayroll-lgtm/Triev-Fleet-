@@ -51,12 +51,13 @@ const TLPerformance: React.FC = () => {
             if (dailyRes.error) throw dailyRes.error;
 
             // Process Collections - ALIGN TO IST (India Standard Time)
-            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-            const todayStr = nowIST.toISOString().split('T')[0];
+            const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+            const todayStr = formatter.format(new Date());
 
+            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
             const weekStart = new Date(nowIST);
             weekStart.setDate(nowIST.getDate() - nowIST.getDay() + (nowIST.getDay() === 0 ? -6 : 1));
-            const weekStartStr = weekStart.toISOString().split('T')[0];
+            const weekStartStr = formatter.format(weekStart);
 
             const totals: Record<string, number> = {};
             const daily: Record<string, number> = {};
@@ -101,8 +102,9 @@ const TLPerformance: React.FC = () => {
     }, []);
 
     const performanceData: TLSnapshot[] = useMemo(() => {
-        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-        const todayStart = new Date(nowIST.setHours(0, 0, 0, 0)).getTime();
+        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+        const nowISTStr = formatter.format(new Date());
+        const todayStart = new Date(nowISTStr).getTime();
 
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;

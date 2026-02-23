@@ -41,13 +41,17 @@ const TLAllotment: React.FC = () => {
 
     // Date Range State - Default to TODAY (IST) for daily tracking
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => {
-        const istDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const istNowStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+        const istDate = new Date(istNowStr);
         return [istDate, istDate];
     });
     const [startDate, endDate] = dateRange;
 
     const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
-        const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+        const nowISTStr = formatter.format(new Date());
+        const istNow = new Date(nowISTStr);
+
         switch (preset) {
             case 'today':
                 setDateRange([istNow, istNow]);
