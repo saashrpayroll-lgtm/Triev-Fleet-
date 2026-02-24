@@ -53,8 +53,13 @@ const WalletHistory: React.FC = () => {
     const [isUpdating, setIsUpdating] = useState(false);
     const [isCleaning, setIsCleaning] = useState(false);
 
-    // Multi-Selection for Bulk Delete
+    // Multi-Selection for Bulk Delete & Bulk Edit
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    // Bulk Edit Date State
+    const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+    const [bulkNewDate, setBulkNewDate] = useState('');
+    const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
     // Initial Data Load (TLs)
     useEffect(() => {
@@ -292,6 +297,30 @@ const WalletHistory: React.FC = () => {
         }
     };
 
+    // Bulk Update Date Handler
+    const handleBulkUpdateDate = async () => {
+        if (selectedIds.length === 0 || !bulkNewDate) return;
+
+        setIsBulkUpdating(true);
+        try {
+            const { error } = await supabase.rpc('bulk_update_wallet_transaction_date', {
+                p_transaction_ids: selectedIds,
+                p_new_date: new Date(bulkNewDate).toISOString()
+            });
+
+            if (error) throw error;
+
+            toast.success(`Successfully updated ${selectedIds.length} transaction dates`);
+            setIsBulkEditModalOpen(false);
+            setSelectedIds([]);
+            fetchTransactions(); // Refresh list & stats
+        } catch (error: any) {
+            console.error('Bulk update failed:', error);
+            toast.error(error.message || 'Failed to bulk update dates');
+        } finally {
+            setIsBulkUpdating(false);
+        }
+    };
 
     // Bulk Delete
     const handleBulkDelete = async () => {
@@ -552,6 +581,15 @@ const WalletHistory: React.FC = () => {
                                 <div className="flex items-center gap-3 animate-in slide-in-from-left-2">
                                     <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold text-xs">{selectedIds.length} Selected</span>
                                     <button
+                                        onClick={() => {
+                                            setBulkNewDate(''); // Clear on open
+                                            setIsBulkEditModalOpen(true);
+                                        }}
+                                        className="text-primary hover:text-primary/80 font-black text-xs uppercase tracking-tighter flex items-center gap-1 border-b border-primary/30 mr-2"
+                                    >
+                                        <Calendar size={14} /> Bulk Edit Date
+                                    </button>
+                                    <button
                                         onClick={handleBulkDelete}
                                         className="text-red-600 hover:text-red-700 font-black text-xs uppercase tracking-tighter flex items-center gap-1 border-b border-red-600/30"
                                     >
@@ -638,10 +676,10 @@ const WalletHistory: React.FC = () => {
                                                     <span className="font-medium">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
                                                     <span className="text-xs text-muted-foreground">{format(parseISO(t.created_at), 'hh:mm a')}</span>
                                                 </div>
-                                                {/* Edit Date Button (Only for Daily Collection & Admin) */}
+                                                {/* Edit Date Button (Only for Daily/Rent Collection & Admin) */}
                                                 {userData?.role === 'admin' && (
                                                     <div className="flex items-center gap-1 mt-1">
-                                                        {t.transaction_type === 'DAILY_COLLECTION' && (
+                                                        {['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'].includes(t.transaction_type) && (
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingTransaction(t);
@@ -734,6 +772,64 @@ const WalletHistory: React.FC = () => {
                     </button>
                 </div>
             </GlassCard>
+
+            {/* Bulk Edit Date Modal */}
+            {isBulkEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Calendar className="text-primary" size={20} /> Bulk Edit Dates
+                            </h3>
+                            <button
+                                onClick={() => setIsBulkEditModalOpen(false)}
+                                className="p-1 hover:bg-muted rounded-full transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="bg-primary/10 p-4 rounded-lg text-sm space-y-2 border border-primary/20">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Selected Transactions:</span>
+                                <span className="font-bold text-primary">{selectedIds.length}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">New Date & Time</label>
+                            <input
+                                type="datetime-local"
+                                value={bulkNewDate}
+                                onChange={(e) => setBulkNewDate(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                                style={{ colorScheme: 'light dark' }}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Changing the date will move all selected transactions in the ledger and update Daily Collection reports accordingly.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setIsBulkEditModalOpen(false)}
+                                className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+                                disabled={isBulkUpdating}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleBulkUpdateDate}
+                                disabled={isBulkUpdating || !bulkNewDate}
+                                className="px-4 py-2 text-sm font-bold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                            >
+                                {isBulkUpdating ? <RefreshCw className="animate-spin" size={16} /> : 'Update All Dates'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Edit Date Modal */}
             {editingTransaction && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
