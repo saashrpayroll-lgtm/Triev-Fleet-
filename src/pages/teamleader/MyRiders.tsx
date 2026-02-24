@@ -810,7 +810,7 @@ const MyRiders: React.FC = () => {
             {/* ── Modals ── */}
             {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} />}
             {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider as unknown as RiderFormData} isEdit />}
-            {viewingRider && <RiderDetailsModal rider={viewingRider} onClose={() => setViewingRider(null)} />}
+            {viewingRider && <RiderDetailsModal rider={viewingRider} onClose={() => setViewingRider(null)} onUpdate={fetchRiders} />}
             {reminderRider && <PaymentReminderModal rider={reminderRider} onClose={() => setReminderRider(null)} onSend={handleSendReminder} />}
             {showExportModal && (
                 <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} onExport={handleExport}

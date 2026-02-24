@@ -11,6 +11,7 @@ import { format, parseISO } from 'date-fns';
 interface RiderDetailsModalProps {
     rider: Rider;
     onClose: () => void;
+    onUpdate?: () => void;
 }
 
 interface TeamLeaderInfo {
@@ -27,7 +28,7 @@ interface LedgerEntry {
     created_at: string;
 }
 
-const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose }) => {
+const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, onUpdate }) => {
     const { userData } = useSupabaseAuth();
     const [activeTab, setActiveTab] = useState<'profile' | 'wallet'>('profile');
 
@@ -45,7 +46,51 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose })
 
     useEffect(() => {
         setWalletBalance(rider.walletAmount);
+        setDisplaySubmissionDate(rider.inactivatedAt || '');
     }, [rider]);
+
+    // Submission Date Edit State
+    const [isEditingSubmission, setIsEditingSubmission] = useState(false);
+    const [selectedDate, setSelectedDate] = useState('');
+    const [displaySubmissionDate, setDisplaySubmissionDate] = useState(rider.inactivatedAt || '');
+    const [isSavingDate, setIsSavingDate] = useState(false);
+
+    const handleUpdateSubmissionDate = async () => {
+        if (!selectedDate) {
+            toast.error("Please select a valid date");
+            return;
+        }
+
+        setIsSavingDate(true);
+        try {
+            const { error } = await supabase
+                .from('riders')
+                .update({ inactivated_at: selectedDate })
+                .eq('id', rider.id);
+
+            if (error) throw error;
+
+            setDisplaySubmissionDate(selectedDate);
+            setIsEditingSubmission(false);
+
+            // Log Activity
+            await logActivity({
+                actionType: 'riderEdited',
+                targetType: 'rider',
+                targetId: rider.id,
+                details: `Updated submission date to ${selectedDate} for ${rider.riderName}`,
+                performedBy: userData?.email
+            });
+
+            toast.success("Submission date updated successfully");
+            onUpdate?.(); // Sync tables safely
+        } catch (error) {
+            console.error("Failed to update date:", error);
+            toast.error("Failed to update submission date");
+        } finally {
+            setIsSavingDate(false);
+        }
+    };
 
 
     // Reminder State
@@ -387,10 +432,53 @@ ${new Date().toLocaleString('en-IN')}`;
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
                                         Allotment: {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No date'}
                                     </p>
-                                    {rider.inactivatedAt && (
-                                        <p className="text-[10px] text-rose-500 font-bold mt-1">
-                                            Submission: {new Date(rider.inactivatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </p>
+                                    {displaySubmissionDate && (
+                                        <div className="mt-1 flex items-center justify-between">
+                                            {isEditingSubmission ? (
+                                                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-full mt-1">
+                                                    <input
+                                                        type="date"
+                                                        value={selectedDate}
+                                                        onChange={e => setSelectedDate(e.target.value)}
+                                                        className="text-xs py-1 px-1.5 focus:outline-none bg-background rounded border border-border w-full text-foreground"
+                                                        max={new Date().toISOString().split('T')[0]}
+                                                    />
+                                                    <button
+                                                        onClick={handleUpdateSubmissionDate}
+                                                        disabled={isSavingDate}
+                                                        className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded shadow-sm disabled:opacity-50 transition-colors"
+                                                    >
+                                                        {isSavingDate ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setIsEditingSubmission(false)}
+                                                        disabled={isSavingDate}
+                                                        className="p-1.5 bg-muted-foreground/20 hover:bg-muted-foreground/30 text-foreground rounded transition-colors"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-1 items-center justify-between group">
+                                                    <p className="text-[10px] text-rose-500 font-bold">
+                                                        Submission: {new Date(displaySubmissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </p>
+                                                    {userData?.role === 'admin' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                const currentDateStr = displaySubmissionDate.split('T')[0];
+                                                                setSelectedDate(currentDateStr);
+                                                                setIsEditingSubmission(true);
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-all rounded-md hover:bg-accent"
+                                                            title="Edit Submission Date"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 
