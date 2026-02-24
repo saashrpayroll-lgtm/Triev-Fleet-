@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
+
 
 const TLPerformance: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -107,7 +107,7 @@ const TLPerformance: React.FC = () => {
         };
     }, []);
 
-    const performanceData: TLSnapshot[] = useMemo(() => {
+    const performanceData = useMemo(() => {
         const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
         const nowISTStr = formatter.format(new Date());
         const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));

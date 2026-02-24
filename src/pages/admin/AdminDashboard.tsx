@@ -15,7 +15,7 @@ import RecentActivity from '@/components/dashboard/RecentActivity';
 import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
 import { WalletSyncWidget } from '@/components/WalletSyncWidget';
 import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
-import TeamLeaderPerformanceTable, { TLSnapshot } from '@/components/dashboard/TeamLeaderPerformanceTable';
+import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
 import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
@@ -281,7 +281,7 @@ const Dashboard: React.FC = () => {
     }, [filteredData, stats]);
 
     // --- TL Performance Stats ---
-    const tlStats: TLSnapshot[] = useMemo(() => {
+    const tlStats = useMemo(() => {
         const { teamLeaders, riders, leads } = rawData;
         const todayStart = new Date().setHours(0, 0, 0, 0);
 
