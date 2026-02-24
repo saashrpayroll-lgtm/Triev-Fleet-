@@ -81,9 +81,9 @@ const CollectionHistory: React.FC = () => {
         let barColor = '#6366f1'; // Default Indigo
         if (averageDaily > 0) {
             const performance = (amount / averageDaily) * 100;
-            if (performance > 85) barColor = '#10b981'; // Emerald/Green
-            else if (performance >= 60) barColor = '#f59e0b'; // Amber/Yellow
-            else barColor = '#ef4444'; // Red
+            if (performance > 85) barColor = '#0ac429'; // Emerald/Green
+            else if (performance >= 60) barColor = '#fce700'; // Amber/Yellow
+            else barColor = '#f50202'; // Red
         }
 
         return {
