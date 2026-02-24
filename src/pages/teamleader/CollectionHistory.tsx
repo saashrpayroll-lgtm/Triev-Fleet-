@@ -75,14 +75,14 @@ const CollectionHistory: React.FC = () => {
         const perRider = amount / riderCount;
 
         // Dynamic Color Logic based on deviation from average
-        // Green: Above 100% of average
-        // Yellow: 80% to 100%
-        // Red: Below 80%
+        // Green: > 85% of average
+        // Yellow: 60% to 85%
+        // Red: < 60%
         let barColor = '#6366f1'; // Default Indigo
         if (averageDaily > 0) {
             const performance = (amount / averageDaily) * 100;
-            if (performance >= 100) barColor = '#10b981'; // Emerald/Green
-            else if (performance >= 80) barColor = '#f59e0b'; // Amber/Yellow
+            if (performance > 85) barColor = '#10b981'; // Emerald/Green
+            else if (performance >= 60) barColor = '#f59e0b'; // Amber/Yellow
             else barColor = '#ef4444'; // Red
         }
 
@@ -252,8 +252,8 @@ const CollectionHistory: React.FC = () => {
                                 let statusClass = "bg-emerald-500";
                                 if (averageDaily > 0) {
                                     const perf = (amount / averageDaily) * 100;
-                                    if (perf < 80) statusClass = "bg-red-500";
-                                    else if (perf < 100) statusClass = "bg-amber-500";
+                                    if (perf < 60) statusClass = "bg-red-500";
+                                    else if (perf <= 85) statusClass = "bg-amber-500";
                                 }
 
                                 return (
