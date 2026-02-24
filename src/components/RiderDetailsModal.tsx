@@ -7,6 +7,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
+import { logActivity } from '@/utils/activityLog';
 
 interface RiderDetailsModalProps {
     rider: Rider;
