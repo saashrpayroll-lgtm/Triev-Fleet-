@@ -20,7 +20,7 @@ BEGIN
         FROM public.wallet_ledger
         WHERE mode IN ('SET', 'RESET')
           AND transaction_type = 'DAY_OPENING_BALANCE'
-          AND (transaction_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::DATE < v_today
+          AND (transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE < v_today
         ORDER BY rider_id, transaction_date DESC, created_at DESC
     ),
     riders_needing_carry AS (
@@ -31,7 +31,7 @@ BEGIN
           ON lob.rider_id = today_ledger.rider_id
           AND today_ledger.mode IN ('SET', 'RESET')
           AND today_ledger.transaction_type = 'DAY_OPENING_BALANCE'
-          AND (today_ledger.transaction_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::DATE = v_today
+          AND (today_ledger.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE = v_today
         WHERE today_ledger.id IS NULL
     )
     INSERT INTO public.wallet_ledger (
@@ -56,7 +56,7 @@ BEGIN
     DELETE FROM public.wallet_ledger
     WHERE mode IN ('SET', 'RESET')
       AND transaction_type = 'DAY_OPENING_BALANCE'
-      AND (transaction_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::DATE < v_today;
+      AND (transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE < v_today;
 
     GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
 
@@ -89,7 +89,7 @@ BEGIN
           AND mode IN ('SET', 'RESET')
           AND transaction_type = 'DAY_OPENING_BALANCE'
           AND id <> NEW.id
-          AND (transaction_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::DATE < v_today;
+          AND (transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE < v_today;
     END IF;
     RETURN NEW;
 END;
