@@ -537,6 +537,7 @@ const TLPerformance: React.FC = () => {
                                 <th className="px-6 py-5 text-center">Rider Force</th>
                                 <th className="px-6 py-5">Wallet Health (Pos/Neg/Risk)</th>
                                 <th className="px-6 py-5">Collections (Daily/Weekly)</th>
+                                <th className="px-6 py-5">Fleet Flow (A/S/N)</th>
                                 <th className="px-6 py-5">Leads Sourcing</th>
                                 <th className="px-6 py-5 text-right">Status</th>
                             </tr>
@@ -640,6 +641,27 @@ const TLPerformance: React.FC = () => {
                                                     <div className="flex flex-col text-right">
                                                         <span className="text-[8px] text-muted-foreground font-black uppercase">Grand</span>
                                                         <span className="text-xs font-black text-foreground/50 font-mono">₹{tl.totalCollection.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td className="px-6 py-5">
+                                            <div className="space-y-2">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">Net Growth</span>
+                                                    <span className={`text-base font-black ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {tl.netGrowth > 0 ? '+' : ''}{tl.netGrowth}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[8px] text-muted-foreground font-black uppercase">Allotment</span>
+                                                        <span className="text-xs font-black text-indigo-600">+{tl.allotments}</span>
+                                                    </div>
+                                                    <div className="flex flex-col text-right">
+                                                        <span className="text-[8px] text-muted-foreground font-black uppercase">Submission</span>
+                                                        <span className="text-xs font-black text-rose-500">-{tl.submissions}</span>
                                                     </div>
                                                 </div>
                                             </div>
