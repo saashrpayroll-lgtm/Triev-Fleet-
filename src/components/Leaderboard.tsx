@@ -58,8 +58,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
 
     const rankConfig = (rank: number) => {
-        const standardHeight = 'min-h-[580px] h-auto pb-2';
-        const goldHeight = 'min-h-[630px] h-auto pb-2';
+        const bronzeHeight = 'min-h-[550px] h-auto pb-2';
+        const silverHeight = 'min-h-[590px] h-auto pb-2';
+        const goldHeight = 'min-h-[640px] h-auto pb-2';
         const uniformWidth = 'md:w-[320px] w-full';
 
         if (rank === 1) return {
@@ -80,7 +81,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_80px_-30px_rgba(200,200,220,0.4)]',
             nameColor: 'text-white font-extrabold',
             badgeBg: 'bg-slate-500 border-slate-400 text-white',
-            height: standardHeight,
+            height: silverHeight,
             width: uniformWidth,
             zIndex: 'z-20',
             ringColor: 'border-slate-300/40',
@@ -92,7 +93,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_80px_-30px_rgba(205,127,50,0.4)]',
             nameColor: 'text-orange-100 font-extrabold',
             badgeBg: 'bg-orange-600 border-orange-500 text-white',
-            height: standardHeight,
+            height: bronzeHeight,
             width: uniformWidth,
             zIndex: 'z-10',
             ringColor: 'border-orange-400/40',
@@ -138,9 +139,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     };
 
     return (
-        <div className="relative overflow-visible pb-10">
+        <div className="relative overflow-visible pb-2 mt-4">
             {/* Podium Cards: stacked on mobile (Gold first), side-by-side on desktop (Silver|Gold|Bronze) */}
-            <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 md:gap-6 px-2 md:px-4 pt-4 pb-12">
+            <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 md:gap-6 px-2 md:px-4 pt-16 pb-4">
                 {/* Mobile order: show #1 first, then #2, then #3 */}
                 {[0, 1, 2].map((mobileIdx) => {
                     // On desktop the visual order is [1,0,2]; we handle that with md:order-* below
@@ -220,7 +221,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                                     </span>
-                                    <span className="text-[10px] font-black tracking-widest text-white uppercase italic">AI LIVE</span>
+                                    <span className="text-[10px] font-black tracking-widest text-white uppercase italic">AI REALTIME</span>
                                 </div>
 
                                 {/* Card Content — using fixed layout instead of mt-auto to keep stats grid consistent */}

@@ -173,14 +173,10 @@ const Dashboard: React.FC = () => {
         // Real-time Collections Update via daily_collections table
         const channel = supabase
             .channel('tl-dashboard-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'daily_collections' },
-                () => {
-                    // Refresh dashboard when collection totals change
-                    fetchStats();
-                }
-            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => { fetchStats(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => { fetchStats(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { fetchStats(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => { fetchStats(); })
             .subscribe();
 
         return () => {
