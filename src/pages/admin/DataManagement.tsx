@@ -10,6 +10,7 @@ import { supabase } from '@/config/supabase';
 import { downloadRiderTemplate, downloadWalletTemplate, downloadRentCollectionTemplate } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
 import RiderAuditModal from '@/components/RiderAuditModal';
+import ImportLogModal from '@/components/ImportLogModal';
 
 const DataManagement: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -27,6 +28,7 @@ const DataManagement: React.FC = () => {
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
     const [showAuditModal, setShowAuditModal] = useState(false);
+    const [selectedLogRecord, setSelectedLogRecord] = useState<any | null>(null);
 
     // Refs for interval
     const riderConfigRef = React.useRef(riderConfig);
@@ -853,6 +855,12 @@ const DataManagement: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => setSelectedLogRecord(record)}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                                                >
+                                                    View Details
+                                                </button>
                                                 <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${record.status === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>{record.status}</div>
                                                 <button
                                                     onClick={() => handleDeleteHistory(record.id)}
@@ -904,6 +912,12 @@ const DataManagement: React.FC = () => {
                     </GlassCard>
                 )}
             </div>
+
+            <ImportLogModal
+                isOpen={!!selectedLogRecord}
+                onClose={() => setSelectedLogRecord(null)}
+                record={selectedLogRecord}
+            />
         </div>
     );
 };

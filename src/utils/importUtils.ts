@@ -55,8 +55,10 @@ const logImportHistory = async (
             total_rows: totalRows,
             success_count: summary.success,
             failure_count: summary.failed,
+            skipped_count: summary.skipped || 0,
             status: summary.failed === 0 ? 'success' : (summary.success === 0 ? 'failed' : 'partial'),
             errors: summary.errors.slice(0, 50), // Limit errors stored
+            skipped_details: (summary.skippedDetails || []).slice(0, 100), // Limit skips stored
             timestamp: new Date().toISOString()
         });
     } catch (e) {
@@ -71,7 +73,7 @@ export const processRiderImport = async (
     adminName: string,
     strictMirror = false // New parameter for Google Sheets Sync
 ): Promise<ImportSummary> => {
-    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], updated: 0, skipped: 0 };
+    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], updated: 0, skipped: 0, skippedDetails: [] };
     const processedRiderIds = new Set<string>();
 
     // Pre-fetch Users to map Name -> ID (Auto-assign Team Leader)
@@ -368,6 +370,13 @@ export const processRiderImport = async (
                     }
                 } else {
                     summary.skipped = (summary.skipped || 0) + 1;
+                    if (!summary.skippedDetails) summary.skippedDetails = [];
+                    summary.skippedDetails.push({
+                        row: rowNum,
+                        identifier: riderName || trievId || mobile,
+                        reason: "Exact Match found, but no fields to update.",
+                        data: row
+                    });
                     processedRiderIds.add(matchData.id); // It's still processed/in the sheet
                 }
                 continue;
@@ -492,7 +501,7 @@ export const processWalletUpdate = async (
     adminId: string,
     adminName: string
 ): Promise<ImportSummary> => {
-    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
+    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], skipped: 0, skippedDetails: [] };
 
     summary.total = fileData.length;
 
@@ -564,6 +573,13 @@ export const processWalletUpdate = async (
             const previousBalance = matchData.wallet_amount ?? null;
             if (previousBalance === amount) {
                 summary.skipped = (summary.skipped || 0) + 1;
+                if (!summary.skippedDetails) summary.skippedDetails = [];
+                summary.skippedDetails.push({
+                    row: rowNum,
+                    identifier: trievId || mobile,
+                    reason: "Wallet balance matching sheet value. Skipped to prevent redundant history.",
+                    data: row
+                });
                 // processedRiderIds.add(matchData.id); // If we tracked processed IDs here, we'd add it.
                 continue;
             }

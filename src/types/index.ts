@@ -360,6 +360,7 @@ export interface ImportSummary {
     updated?: number; // Added for tracking updates
     skipped?: number; // Added for duplicate checks
     errors: ImportError[];
+    skippedDetails?: ImportError[]; // Reusing ImportError type since structure is identical
 }
 
 // Request Management Types
