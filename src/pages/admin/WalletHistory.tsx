@@ -40,6 +40,7 @@ const WalletHistory: React.FC = () => {
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<string>('all');
+    const [filterMode, setFilterMode] = useState<string>('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [filterTL, setFilterTL] = useState<string>('all');
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -106,7 +107,12 @@ const WalletHistory: React.FC = () => {
             }
 
             if (searchTerm) {
-                query = query.or(`description.ilike.%${searchTerm}%`);
+                // Expanding search to Rider Name and Triev ID via joined table
+                query = query.or(`description.ilike.%${searchTerm}%,riders.rider_name.ilike.%${searchTerm}%,riders.triev_id.ilike.%${searchTerm}%`);
+            }
+
+            if (filterMode !== 'all') {
+                query = query.eq('mode', filterMode);
             }
 
             if (dateRange.start) {
@@ -150,7 +156,7 @@ const WalletHistory: React.FC = () => {
 
     useEffect(() => {
         fetchTransactions();
-    }, [currentPage, pageSize, filterType, dateRange, filterTL, userData]);
+    }, [currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData]);
 
     // Export Functionality
     const handleExport = async () => {
@@ -170,7 +176,10 @@ const WalletHistory: React.FC = () => {
 
             // Apply Filters (Same as above)
             if (filterType !== 'all') query = query.eq('transaction_type', filterType);
-            if (searchTerm) query = query.or(`description.ilike.%${searchTerm}%`);
+            if (filterMode !== 'all') query = query.eq('mode', filterMode);
+            if (searchTerm) {
+                query = query.or(`description.ilike.%${searchTerm}%,riders.rider_name.ilike.%${searchTerm}%,riders.triev_id.ilike.%${searchTerm}%`);
+            }
             if (dateRange.start) query = query.gte('created_at', new Date(dateRange.start).toISOString());
             if (dateRange.end) {
                 const endDate = new Date(dateRange.end);
@@ -427,6 +436,21 @@ const WalletHistory: React.FC = () => {
 
                         {/* Filter Toggle */}
                         <div className="flex gap-2">
+                            {(searchTerm || filterType !== 'all' || filterMode !== 'all' || filterTL !== 'all' || dateRange.start || dateRange.end) && (
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setFilterType('all');
+                                        setFilterMode('all');
+                                        setFilterTL('all');
+                                        setDateRange({ start: '', end: '' });
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 transition-all"
+                                >
+                                    <X size={16} /> Clear Filters
+                                </button>
+                            )}
                             <button
                                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                                 className={`px-4 py-2.5 border rounded-lg hover:bg-accent transition-all flex items-center gap-2 font-medium text-sm ${showAdvancedFilters ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'border-input bg-card text-foreground'}`}
@@ -444,14 +468,31 @@ const WalletHistory: React.FC = () => {
                                 <SearchableSelect
                                     options={[
                                         { value: 'all', label: 'All Types' },
-                                        { value: 'MANUAL_ADJUSTMENT', label: 'Manual Adjustment' },
                                         { value: 'DAILY_COLLECTION', label: 'Daily Collection' },
-                                        { value: 'SYSTEM_IMPORT', label: 'System Import' },
-                                        { value: 'SYSTEM_RENT_CHARGE', label: 'System Rent Charge' }
+                                        { value: 'SYSTEM_RENT_CHARGE', label: 'System Rent Charge' },
+                                        { value: 'DAY_OPENING_BALANCE', label: 'Day Opening Balance' },
+                                        { value: 'MANUAL_ADJUSTMENT', label: 'Manual Adjustment' },
+                                        { value: 'SYSTEM_IMPORT', label: 'System Import' }
                                     ]}
                                     value={filterType}
                                     onChange={(val) => setFilterType(val as any)}
                                     placeholder="Select Type"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Mode</label>
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'All Modes' },
+                                        { value: 'ADD', label: 'ADD (Credits)' },
+                                        { value: 'SUBTRACT', label: 'SUBTRACT (Debits)' },
+                                        { value: 'SET', label: 'SET (Legacy)' },
+                                        { value: 'RESET', label: 'RESET (New)' }
+                                    ]}
+                                    value={filterMode}
+                                    onChange={(val) => setFilterMode(val as any)}
+                                    placeholder="Select Mode"
                                 />
                             </div>
 
@@ -472,7 +513,7 @@ const WalletHistory: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-1">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Date Range</label>
                                 <div className="flex items-center gap-2">
                                     <input
