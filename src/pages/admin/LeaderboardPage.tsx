@@ -309,7 +309,7 @@ const LeaderboardPage: React.FC = () => {
             </div>
 
             {/* Premium Podium Component */}
-            <div className="animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
+            <div className="animate-in fade-in slide-in-from-bottom duration-1000 delay-200 mt-12 mb-8">
                 <Leaderboard
                     teamLeaders={teamLeaders}
                     riders={riders}

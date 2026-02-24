@@ -58,9 +58,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
 
     const rankConfig = (rank: number) => {
-        const bronzeHeight = 'min-h-[550px] h-auto pb-2';
-        const silverHeight = 'min-h-[590px] h-auto pb-2';
-        const goldHeight = 'min-h-[640px] h-auto pb-2';
+        const bronzeHeight = 'min-h-[510px] h-auto pb-2';
+        const silverHeight = 'min-h-[550px] h-auto pb-2';
+        const goldHeight = 'min-h-[590px] h-auto pb-2';
         const uniformWidth = 'md:w-[320px] w-full';
 
         if (rank === 1) return {
@@ -224,8 +224,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                     <span className="text-[10px] font-black tracking-widest text-white uppercase italic">AI REALTIME</span>
                                 </div>
 
-                                {/* Card Content — using fixed layout instead of mt-auto to keep stats grid consistent */}
-                                <div className="relative z-10 flex flex-col items-center w-full h-full pt-12 pb-4 px-4">
+                                /* Card Content — using fixed layout instead of mt-auto to keep stats grid consistent */
+                                <div className="relative z-10 flex flex-col items-center w-full h-full pt-12 pb-2 px-3">
 
                                     {/* Avatar */}
                                     <div className={`relative flex-shrink-0 ${isFirst ? 'mt-4' : 'mt-2'} mb-2`}>
@@ -260,14 +260,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                         </div>
                                     </div>
 
-                                    {/* Name & Email */}
-                                    <div className="text-center mt-4 mb-1 w-full flex-shrink-0">
-                                        <h3 className={`text-2xl font-black text-center mb-1 drop-shadow-sm ${cfg.nameColor}`}>
+                                    {/* Name & Email (Email Removed per request) */}
+                                    <div className="text-center mt-3 mb-1 w-full flex-shrink-0">
+                                        <h3 className={`text-xl font-black text-center mb-2 drop-shadow-sm ${cfg.nameColor}`}>
                                             {safeRender(tl.fullName)}
                                         </h3>
-                                        <p className="text-[11px] font-medium text-white/60 mb-3 text-center line-clamp-1 max-w-[200px]">
-                                            {tl.email}
-                                        </p>
                                     </div>
                                     {/* AI Score */}
                                     <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/25 px-6 py-3 rounded-2xl shadow-2xl mb-2">
