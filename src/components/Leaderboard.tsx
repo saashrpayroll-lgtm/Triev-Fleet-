@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { User, Rider, Lead } from '../types';
 import {
     Trophy, Crown, Zap, Sparkles, Users, Wallet,
-    ArrowRight, TrendingUp, Target, TrendingDown, PlusCircle, Activity
+    ArrowRight, TrendingUp, Target, TrendingDown, PlusCircle, Activity, AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -58,9 +58,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
 
     const rankConfig = (rank: number) => {
-        const standardHeight = 'h-[540px]';
-        const goldHeight = 'h-[580px]';
-        const uniformWidth = 'md:w-[320px]';
+        const standardHeight = 'min-h-[580px] h-auto pb-2';
+        const goldHeight = 'min-h-[630px] h-auto pb-2';
+        const uniformWidth = 'md:w-[320px] w-full';
 
         if (rank === 1) return {
             cardBg: 'bg-gradient-to-b from-yellow-500/35 via-yellow-900/25 to-slate-950/98',
@@ -388,6 +388,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                                 <span className="text-rose-400">Risk Factor</span>
                                                             </div>
                                                         </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl hover:bg-white/10 transition-all w-full">
+                                                        <AlertTriangle size={15} className="text-rose-400 flex-shrink-0" strokeWidth={2.5} />
+                                                        <span className="text-xs font-black text-rose-400 leading-none">
+                                                            ₹{Math.abs(tl.stats.negativeWallet) >= 1000 ? `${(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k` : Math.abs(tl.stats.negativeWallet)}
+                                                        </span>
+                                                        <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide text-center">Arrears</span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" className="font-bold bg-slate-950 text-[11px] border-white/20 p-3 rounded-xl shadow-2xl">
+                                                        <p className="text-rose-400">Total Negative Wallet</p>
+                                                        <p className="text-white/60 mt-1">Impacts Collection Risk Profile</p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </div>
