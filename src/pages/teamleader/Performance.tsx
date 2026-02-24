@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Calendar, ChevronDown, Activity, ArrowUpRight, ArrowDownRight, Users, Wallet, Target } from 'lucide-react';
+import { Calendar, ChevronDown, Activity, ArrowUpRight, Users, Wallet, Target } from 'lucide-react';
 import { toast } from 'sonner';
 
 const TLPersonalPerformance: React.FC = () => {
