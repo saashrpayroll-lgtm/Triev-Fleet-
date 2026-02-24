@@ -19,13 +19,13 @@ import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerform
 import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
-
-type DateFilter = 'all' | 'month' | 'week';
+import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
+import { calculateAIScore } from '@/utils/performance';
 
 const Dashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const navigate = useNavigate();
-    const [dateFilter, setDateFilter] = useState<DateFilter>('month');
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('month');
     const [loading, setLoading] = useState(true);
 
 
@@ -281,32 +281,18 @@ const Dashboard: React.FC = () => {
     }, [filteredData, stats]);
 
     // --- TL Performance Stats ---
+    const period = useMemo(() => resolvePerformancePeriod(dateFilter), [dateFilter]);
+
     const tlStats = useMemo(() => {
         const { teamLeaders, riders, leads } = rawData;
-        const todayStart = new Date().setHours(0, 0, 0, 0);
 
         return teamLeaders.map(tl => {
-            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
-            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
-
-            const activeRiders = tlRiders.filter(r => r.status === 'active').length;
-
-            const wallet = tlRiders.reduce((acc, r) => ({
-                total: acc.total + r.walletAmount,
-                positiveCount: acc.positiveCount + (r.walletAmount > 0 ? 1 : 0),
-                positiveAmount: acc.positiveAmount + (r.walletAmount > 0 ? r.walletAmount : 0),
-                negativeCount: acc.negativeCount + (r.walletAmount < 0 && r.status === 'active' ? 1 : 0),
-                negativeAmount: acc.negativeAmount + (r.walletAmount < 0 && r.status === 'active' ? r.walletAmount : 0)
-            }), { total: 0, positiveCount: 0, positiveAmount: 0, negativeCount: 0, negativeAmount: 0 });
-
-            const converted = tlLeads.filter(l => l.status === 'Convert').length;
-            const churnLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
-            const leadsToday = tlLeads.filter(l => new Date(l.createdAt).getTime() >= todayStart).length;
-            const criticalDebtCount = tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length;
-
-            const conversionRate = tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0;
+            const tlCollection = tlCollections[tl.id] || 0;
+            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period);
 
             // Activity Pulse Detection
+            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
+            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
             const lastLeadTime = tlLeads.length > 0 ? Math.max(...tlLeads.map(l => new Date(l.createdAt).getTime())) : 0;
             const lastRiderUpdate = tlRiders.length > 0 ? Math.max(...tlRiders.map(r => new Date(r.updatedAt || r.createdAt).getTime())) : 0;
             const lastActivity = new Date(Math.max(lastLeadTime, lastRiderUpdate)).toISOString();
@@ -315,28 +301,37 @@ const Dashboard: React.FC = () => {
                 id: tl.id,
                 name: tl.fullName || 'Unknown',
                 email: tl.email,
-                totalRiders: tlRiders.length,
-                activeRiders,
-                wallet,
+                totalRiders: metrics.totalRiders,
+                activeRiders: metrics.activeRiders,
+                wallet: {
+                    total: metrics.positiveWallet + metrics.negativeWallet,
+                    positiveCount: tlRiders.filter(r => r.walletAmount > 0).length,
+                    positiveAmount: metrics.positiveWallet,
+                    negativeCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length,
+                    negativeAmount: metrics.negativeWallet
+                },
                 leads: {
-                    total: tlLeads.length,
-                    converted,
-                    conversionRate
+                    total: metrics.leadsTotal,
+                    converted: metrics.convertedLeads,
+                    conversionRate: metrics.conversionRate
                 },
                 status: tl.status,
-                totalCollection: tlCollections[tl.id] || 0,
+                totalCollection: metrics.collection,
                 dailyCollection: dailyCollections[tl.id] || 0,
                 weeklyCollection: weeklyCollections[tl.id] || 0,
-                leadsToday,
-                churnLeads,
-                criticalDebtCount,
+                leadsToday: tlLeads.filter(l => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    return l.createdAt.startsWith(todayStr);
+                }).length,
+                churnLeads: tlLeads.filter(l => l.status === 'Not Convert').length,
+                criticalDebtCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length,
                 lastActivity,
-                allotments: (tl as any).allotments || 0,
-                submissions: (tl as any).submissions || 0,
-                netGrowth: (tl as any).netGrowth || 0
+                allotments: metrics.allotments,
+                submissions: metrics.submissions,
+                netGrowth: metrics.netGrowth
             };
         });
-    }, [rawData, tlCollections, dailyCollections, weeklyCollections]);
+    }, [rawData, tlCollections, dailyCollections, weeklyCollections, period]);
 
     // --- Render Loading ---
     if (loading) {
@@ -369,11 +364,10 @@ const Dashboard: React.FC = () => {
 
                     </div>
 
-                    {/* Date Filters */}
                     <div className="flex items-center gap-2 bg-muted/40 p-1 rounded-lg border">
                         <Filter size={14} className="text-muted-foreground ml-2" />
                         <span className="w-px h-3 bg-border mx-1"></span>
-                        {(['all', 'month', 'week'] as DateFilter[]).map((filter) => (
+                        {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
                             <button
                                 key={filter}
                                 onClick={() => setDateFilter(filter)}
@@ -385,7 +379,7 @@ const Dashboard: React.FC = () => {
                                     }
                                 `}
                             >
-                                {filter === 'all' ? 'All Time' : filter === 'month' ? 'This Month' : 'This Week'}
+                                {filter === 'all' ? 'All Time' : filter === 'day' ? 'Today' : filter === 'month' ? 'This Month' : 'This Week'}
                             </button>
                         ))}
                     </div>
@@ -648,6 +642,7 @@ const Dashboard: React.FC = () => {
                         riders={rawData.riders}
                         leads={rawData.leads}
                         collections={tlCollections}
+                        period={period || undefined}
                     />
                 </div>
             </motion.div>

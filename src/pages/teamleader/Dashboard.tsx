@@ -14,6 +14,7 @@ import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
+import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 
 interface DashboardStats {
     // Riders
@@ -45,6 +46,7 @@ const Dashboard: React.FC = () => {
         positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
         totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
     });
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('month');
     const [aiInsight, setAiInsight] = useState<string>('');
 
     // Leaderboard Data State
@@ -550,6 +552,21 @@ const Dashboard: React.FC = () => {
                                 <span className="text-[10px] font-black tracking-[0.2em] text-white uppercase italic">Neural Realtime Sync</span>
                             </div>
                         </div>
+
+                        <div className="flex items-center bg-black/5 dark:bg-white/5 backdrop-blur-xl p-1 rounded-2xl border border-black/5 dark:border-white/10">
+                            {(['all', 'day', 'week', 'month'] as const).map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setDateFilter(filter)}
+                                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${dateFilter === filter
+                                        ? 'bg-primary text-white shadow-lg scale-105'
+                                        : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                                        }`}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="relative z-10">
@@ -561,6 +578,7 @@ const Dashboard: React.FC = () => {
                                     leads={leaderboardData.leads}
                                     collections={tlCollections}
                                     disableClick={true}
+                                    period={resolvePerformancePeriod(dateFilter)}
                                 />
                             </ComponentErrorBoundary>
                         ) : (

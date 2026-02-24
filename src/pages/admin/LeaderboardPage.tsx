@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { User, Rider, Lead } from '@/types';
-import { Trophy, Users, Search, ArrowUpDown, TrendingUp, Wallet, Zap, Target, BarChart3, Clock } from 'lucide-react';
+import { Trophy, Users, Search, ArrowUpDown, TrendingUp, Wallet, Zap, Target, BarChart3, Clock, Calendar, PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Leaderboard from '@/components/Leaderboard';
+import { calculateAIScore } from '@/utils/performance';
+import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 
 interface ScoredTL extends User {
     score: number;
@@ -27,6 +29,9 @@ interface ScoredTL extends User {
         };
         collection: number;
         avgRiderAge: number;
+        allotments: number;
+        submissions: number;
+        netGrowth: number;
     };
 }
 
@@ -38,6 +43,7 @@ const LeaderboardPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'score', direction: 'desc' });
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -124,71 +130,39 @@ const LeaderboardPage: React.FC = () => {
         return () => { subscription.unsubscribe(); };
     }, []);
 
+    const period = useMemo(() => resolvePerformancePeriod(dateFilter), [dateFilter]);
+
     // AI Scoring (Standardized with Leaderboard component)
     const scoredList: ScoredTL[] = useMemo(() => {
-        const now = new Date();
         const list = teamLeaders.map(tl => {
-            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
-            const activeCount = tlRiders.filter(r => r.status === 'active').length;
-            const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
-            const churnCount = tlRiders.filter(r => r.status === 'deleted').length;
-
-            const riderAges = tlRiders
-                .filter(r => r.status === 'active' && r.allotmentDate)
-                .map(r => {
-                    const start = new Date(r.allotmentDate!);
-                    return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                });
-            const avgRiderAge = riderAges.length > 0 ? riderAges.reduce((a, b) => a + b, 0) / riderAges.length : 0;
-
-            const positiveSum = tlRiders.filter(r => r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
-            const negativeSum = tlRiders.filter(r => r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
-            const zeroWalletCount = tlRiders.filter(r => r.walletAmount === 0).length;
-
-            const tlLeads = leads.filter(l => l.createdBy === tl.id);
-            const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
-            const notConvertedLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
-            const conversionRate = tlLeads.length > 0 ? (convertedLeads / tlLeads.length) * 100 : 0;
-
-            const collectionAmount = collections[tl.id] || 0;
-
-            let score = 0;
-            score += activeCount * 20;
-            score -= inactiveCount * 15;
-            score -= churnCount * 30;
-            score += Math.floor(collectionAmount / 1000) * 10;
-            score += Math.floor(positiveSum / 1000) * 2;
-            score -= Math.abs(Math.floor(negativeSum / 1000)) * 12;
-            score -= zeroWalletCount * 5;
-            score += convertedLeads * 40;
-            score -= notConvertedLeads * 8;
-            score += Math.floor(avgRiderAge * 0.5);
-            score = Math.max(0, Math.round(score));
-
-            const isTrending = score > 500 && tlRiders.length > 0 && (activeCount / tlRiders.length) > 0.85;
+            const tlCollection = collections[tl.id] || 0;
+            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period);
 
             return {
                 ...tl,
-                score,
-                isTrending,
+                score: metrics.score,
+                isTrending: metrics.isTrending,
                 stats: {
-                    active: activeCount,
-                    inactive: inactiveCount,
-                    churn: churnCount,
-                    total: tlRiders.length,
-                    activePercentage: tlRiders.length > 0 ? (activeCount / tlRiders.length) * 100 : 0,
-                    wallet: positiveSum + negativeSum,
-                    avgWallet: tlRiders.length > 0 ? (positiveSum + negativeSum) / tlRiders.length : 0,
-                    positiveWallet: positiveSum,
-                    negativeWallet: negativeSum,
+                    active: metrics.activeRiders,
+                    inactive: metrics.inactiveRiders,
+                    churn: metrics.churnRiders,
+                    total: metrics.totalRiders,
+                    activePercentage: metrics.efficiency,
+                    wallet: metrics.positiveWallet + metrics.negativeWallet,
+                    avgWallet: metrics.totalRiders > 0 ? (metrics.positiveWallet + metrics.negativeWallet) / metrics.totalRiders : 0,
+                    positiveWallet: metrics.positiveWallet,
+                    negativeWallet: metrics.negativeWallet,
                     leads: {
-                        total: tlLeads.length,
-                        converted: convertedLeads,
-                        notConverted: notConvertedLeads,
-                        conversionRate
+                        total: metrics.leadsTotal,
+                        converted: metrics.convertedLeads,
+                        notConverted: metrics.leadsTotal - metrics.convertedLeads,
+                        conversionRate: metrics.conversionRate
                     },
-                    collection: collectionAmount,
-                    avgRiderAge: Math.round(avgRiderAge)
+                    collection: metrics.collection,
+                    avgRiderAge: metrics.avgRiderAge,
+                    allotments: metrics.allotments,
+                    submissions: metrics.submissions,
+                    netGrowth: metrics.netGrowth
                 }
             } as any;
         });
@@ -201,6 +175,7 @@ const LeaderboardPage: React.FC = () => {
                 if (key === 'leads') return item.stats.leads.conversionRate;
                 if (key === 'collection') return item.stats.collection;
                 if (key === 'churn') return item.stats.churn;
+                if (key === 'netGrowth') return item.stats.netGrowth;
                 return 0;
             };
             const valA = getVal(a, sortConfig.key);
@@ -209,7 +184,7 @@ const LeaderboardPage: React.FC = () => {
         });
 
         return sorted.map((item: any, index: number) => ({ ...item, rank: index + 1 })) as ScoredTL[];
-    }, [teamLeaders, riders, leads, collections, sortConfig]);
+    }, [teamLeaders, riders, leads, collections, sortConfig, period]);
 
     const filteredList = scoredList.filter(tl =>
         (tl.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -267,17 +242,41 @@ const LeaderboardPage: React.FC = () => {
                             <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">
                                 Live Performance Leaderboard
                             </h1>
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Neural Engine Synchronization: Active
-                                </p>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
+                                        Neural Engine Synchronization: Active
+                                    </p>
+                                </div>
+                                {period && (
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 text-indigo-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                                        <Calendar size={12} />
+                                        {period.start} — {period.end}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                    {/* Date Filters */}
+                    <div className="flex items-center bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl border border-white/20 dark:border-white/5 p-1.5 rounded-2xl shadow-xl overflow-hidden self-stretch md:self-auto">
+                        {(['all', 'day', 'week', 'month'] as const).map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => setDateFilter(filter)}
+                                className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${dateFilter === filter
+                                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-lg scale-105'
+                                    : 'text-muted-foreground hover:bg-white/20 dark:hover:bg-white/5'
+                                    }`}
+                            >
+                                {filter}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="relative flex-grow md:w-80 group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                         <input
@@ -311,7 +310,14 @@ const LeaderboardPage: React.FC = () => {
 
             {/* Premium Podium Component */}
             <div className="animate-in fade-in slide-in-from-bottom duration-1000 delay-200">
-                <Leaderboard teamLeaders={teamLeaders} riders={riders} leads={leads} collections={collections} disableClick={true} />
+                <Leaderboard
+                    teamLeaders={teamLeaders}
+                    riders={riders}
+                    leads={leads}
+                    collections={collections}
+                    disableClick={true}
+                    period={period || undefined}
+                />
             </div>
 
             {/* Full Rankings Table */}
@@ -341,6 +347,7 @@ const LeaderboardPage: React.FC = () => {
                                 <th className="px-4 py-4">Leader</th>
                                 <SortTh label="AI Score" sortKey="score" icon={<Zap size={12} className="text-indigo-400" />} />
                                 <SortTh label="Fleet" sortKey="riders" icon={<Users size={12} className="text-blue-400" />} />
+                                <SortTh label="Flow (A/S/N)" sortKey="netGrowth" icon={<PlusCircle size={12} className="text-indigo-400" />} />
                                 <SortTh label="Leads" sortKey="leads" icon={<Target size={12} className="text-yellow-400" />} />
                                 <SortTh label="Wallet" sortKey="wallet" icon={<Wallet size={12} className="text-emerald-400" />} />
                                 <SortTh label="Collected" sortKey="collection" icon={<TrendingUp size={12} className="text-purple-400" />} />
@@ -419,7 +426,20 @@ const LeaderboardPage: React.FC = () => {
                                         </div>
                                     </td>
 
-                                    {/* Leads */}
+                                    {/* Fleet Flow */}
+                                    <td className="px-4 py-3 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-sm font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                    {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
+                                                </span>
+                                                <PlusCircle size={10} className="text-indigo-400" />
+                                            </div>
+                                            <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter">
+                                                +{tl.stats.allotments} / -{tl.stats.submissions}
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td className="px-4 py-3 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
                                         <div className="space-y-1 min-w-[80px]">
                                             <div className="flex justify-between items-end">

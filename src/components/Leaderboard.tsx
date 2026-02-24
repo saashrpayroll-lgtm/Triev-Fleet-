@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
-import { User, Rider, Lead } from '@/types';
+import { User, Rider, Lead } from '../types';
 import {
     Trophy, Crown, Zap, Sparkles, Users, Wallet,
-    ArrowRight, Star, TrendingUp, Target
+    ArrowRight, TrendingUp, Target, TrendingDown, PlusCircle, Activity
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { safeRender } from '@/utils/safeRender';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/CustomTooltip';
+import { safeRender } from '../utils/safeRender';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/CustomTooltip';
+import { calculateAIScore, PerformancePeriod } from '../utils/performance';
 
 interface LeaderboardProps {
     teamLeaders: User[];
@@ -16,79 +17,36 @@ interface LeaderboardProps {
     collections?: Record<string, number>;
     action?: React.ReactNode;
     disableClick?: boolean;
+    period?: PerformancePeriod;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = [], collections = {}, action, disableClick = false }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({
+    teamLeaders,
+    riders,
+    leads = [],
+    collections = {},
+    action,
+    disableClick = false,
+    period
+}) => {
     const navigate = useNavigate();
     const location = useLocation();
 
     const scoredTLs = useMemo(() => {
-        const now = new Date();
-
         return teamLeaders.map(tl => {
-            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
-            const activeCount = tlRiders.filter(r => r.status === 'active').length;
-            const inactiveCount = tlRiders.filter(r => r.status === 'inactive').length;
-            const churnCount = tlRiders.filter(r => r.status === 'deleted').length;
-
-            const riderAges = tlRiders
-                .filter(r => r.status === 'active' && r.allotmentDate)
-                .map(r => Math.floor((now.getTime() - new Date(r.allotmentDate!).getTime()) / 86400000));
-            const avgRiderAge = riderAges.length > 0 ? riderAges.reduce((a, b) => a + b, 0) / riderAges.length : 0;
-
-            const positiveWallet = tlRiders.filter(r => r.walletAmount > 0);
-            const negativeWallet = tlRiders.filter(r => r.walletAmount < 0);
-            const zeroWalletCount = tlRiders.filter(r => r.walletAmount === 0).length;
-            const positiveSum = positiveWallet.reduce((s, r) => s + r.walletAmount, 0);
-            const negativeSum = negativeWallet.reduce((s, r) => s + r.walletAmount, 0);
-
-            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
-            const convertedLeadsCount = tlLeads.filter(l => l.status === 'Convert').length;
-            const notConvertedCount = tlLeads.filter(l => l.status === 'Not Convert').length;
-            const conversionRate = tlLeads.length > 0 ? Math.round((convertedLeadsCount / tlLeads.length) * 100) : 0;
-
-            const collectionAmount = collections[tl.id] || 0;
-
-            let score = 0;
-            score += activeCount * 20;
-            score -= inactiveCount * 15;
-            score -= churnCount * 30;
-            score += Math.floor(collectionAmount / 1000) * 10;
-            score += Math.floor(positiveSum / 1000) * 2;
-            score -= Math.abs(Math.floor(negativeSum / 1000)) * 12;
-            score -= zeroWalletCount * 5;
-            score += convertedLeadsCount * 40;
-            score -= notConvertedCount * 8;
-            score += Math.floor(avgRiderAge * 0.5);
-            score = Math.max(0, Math.round(score));
-
-            const isTrending = score > 500 && tlRiders.length > 0 && (activeCount / tlRiders.length) > 0.85;
+            const tlCollection = collections[tl.id] || 0;
+            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period);
 
             return {
-                id: tl.id,
+                ...tl,
                 fullName: tl.fullName || (tl as any).full_name || 'Unknown',
                 email: tl.email,
-                role: tl.role,
-                profilePicUrl: tl.profilePicUrl || (tl as any).profile_pic_url || null,
-                score,
-                isTrending,
-                stats: {
-                    activeRiders: activeCount,
-                    inactiveRiders: inactiveCount,
-                    churnRiders: churnCount,
-                    totalRiders: tlRiders.length,
-                    collection: collectionAmount,
-                    convertedLeads: convertedLeadsCount,
-                    leadsTotal: tlLeads.length,
-                    conversionRate,
-                    positiveWallet: positiveSum,
-                    negativeWallet: negativeSum,
-                    efficiency: tlRiders.length > 0 ? Math.round((activeCount / tlRiders.length) * 100) : 0,
-                    avgRiderAge: Math.round(avgRiderAge)
-                }
+                score: metrics.score,
+                isTrending: metrics.isTrending,
+                stats: metrics
             };
         }).sort((a, b) => b.score - a.score);
-    }, [teamLeaders, riders, leads, collections]);
+    }, [teamLeaders, riders, leads, collections, period]);
 
     const top3 = scoredTLs.slice(0, 3);
 
@@ -379,15 +337,57 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                                 </Tooltip>
 
                                                 <Tooltip>
-                                                    <TooltipTrigger className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl hover:bg-white/10 transition-all w-full">
-                                                        <Star size={15} className="text-indigo-400 flex-shrink-0" strokeWidth={2.5} />
-                                                        <span className="text-xs font-black text-white leading-none">{tl.stats.efficiency}%</span>
-                                                        <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide">Fleet Health</span>
+                                                    <TooltipTrigger className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl hover:bg-white/10 transition-all w-full">
+                                                        <PlusCircle size={15} className="text-indigo-400 flex-shrink-0" strokeWidth={2.5} />
+                                                        <span className="text-xs font-black text-white leading-none">
+                                                            {tl.stats.allotments}<span className="text-white/40 text-[8px]">/ -{tl.stats.submissions}</span>
+                                                        </span>
+                                                        <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide">Fleet Flow</span>
                                                     </TooltipTrigger>
                                                     <TooltipContent side="top" className="font-bold bg-slate-950 text-[11px] border-white/20 p-3 rounded-xl shadow-2xl">
-                                                        <p>Fleet Efficiency Score</p>
-                                                        <p className="text-indigo-400 mt-1">Avg Rider Age: {tl.stats.avgRiderAge}d</p>
-                                                        <p className="text-red-400">Churn: {tl.stats.churnRiders} riders</p>
+                                                        <p className="text-indigo-400">Allotments: +{tl.stats.allotments}</p>
+                                                        <p className="text-white/60 font-medium">New registrations in period</p>
+                                                        <div className="h-px bg-white/10 my-2" />
+                                                        <p className="text-rose-400">Submissions: -{tl.stats.submissions}</p>
+                                                        <p className="text-white/60 font-medium">Inactivations in period</p>
+                                                        <div className="h-px bg-white/10 my-2" />
+                                                        <p className={`font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            Net Growth: {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+
+                                                <Tooltip>
+                                                    <TooltipTrigger className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl hover:bg-white/10 transition-all w-full">
+                                                        <div className="flex gap-2 items-center">
+                                                            <Activity size={15} className="text-emerald-400 flex-shrink-0" strokeWidth={2.5} />
+                                                            {tl.stats.netGrowth < 0 && <TrendingDown size={14} className="text-rose-400" />}
+                                                        </div>
+                                                        <span className={`text-[10px] font-black leading-none mt-1 ${tl.stats.netGrowth >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
+                                                        </span>
+                                                        <span className="text-[8px] text-white/50 uppercase font-bold tracking-wide text-center">Net Growth</span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="top" className="font-bold bg-slate-950 text-[11px] border-white/20 p-3 rounded-xl shadow-2xl">
+                                                        <p className="font-black text-indigo-400 uppercase tracking-widest mb-2">AI Score Breakdown</p>
+                                                        <div className="space-y-1.5 font-medium text-[10px]">
+                                                            <div className="flex justify-between gap-8">
+                                                                <span className="text-white/60">Fleet Growth (Net)</span>
+                                                                <span className="text-emerald-400">High Impact</span>
+                                                            </div>
+                                                            <div className="flex justify-between gap-8">
+                                                                <span className="text-white/60">Daily Collections</span>
+                                                                <span className="text-yellow-400">High Impact</span>
+                                                            </div>
+                                                            <div className="flex justify-between gap-8">
+                                                                <span className="text-white/60">Lead Conversion</span>
+                                                                <span className="text-blue-400">Quality Indicator</span>
+                                                            </div>
+                                                            <div className="flex justify-between gap-8">
+                                                                <span className="text-white/60">Wallet Arrears</span>
+                                                                <span className="text-rose-400">Risk Factor</span>
+                                                            </div>
+                                                        </div>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </div>
@@ -446,6 +446,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ teamLeaders, riders, leads = 
                                     <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
                                         <Zap size={12} className="text-yellow-500 dark:text-yellow-400" />
                                         <span className="font-bold">{tl.stats.conversionRate}%</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
+                                        <PlusCircle size={12} className="text-indigo-500 dark:text-indigo-400" />
+                                        <span className={`font-bold ${tl.stats.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                            {tl.stats.allotments}/-{tl.stats.submissions}
+                                        </span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         <Sparkles size={12} className="text-indigo-500 dark:text-indigo-400" />
