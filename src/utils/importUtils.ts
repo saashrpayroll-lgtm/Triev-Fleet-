@@ -283,7 +283,7 @@ export const processRiderImport = async (
             const clientName = isValidClient(clientRaw) ? clientRaw : 'Other';
 
             // Handle Date
-            let allotmentDate = new Date().toISOString();
+            let allotmentDate: string | undefined = undefined;
             const dateRaw = getValue(['Allotment Date', 'Date', 'Alloted Date', 'Joining Date', 'Allotment', 'Allotment date']);
             if (dateRaw) {
                 const d = new Date(dateRaw);
@@ -382,7 +382,7 @@ export const processRiderImport = async (
                 client_name: clientName,
                 client_id: getValue(['Client ID', 'ClientId']),
                 wallet_amount: parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance'])),
-                allotment_date: allotmentDate,
+                allotment_date: allotmentDate || new Date().toISOString(),
                 remarks: getValue(['Remarks', 'Remark', 'Note', 'Notes']),
                 team_leader_id: teamLeaderId,
                 team_leader_name: assignmentStatus,
