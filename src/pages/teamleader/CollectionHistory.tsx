@@ -68,6 +68,10 @@ const CollectionHistory: React.FC = () => {
     const totalRiderWeighted = history.reduce((sum, item) => sum + (item.active_riders_count || 1), 0);
     const averagePerRider = history.length > 0 ? totalCollected / totalRiderWeighted : 0;
 
+    const bestDay = history.length > 0
+        ? Math.max(...history.map(h => Number(h.total_collection) || 0))
+        : 0;
+
     // Chart Data Preparation
     const chartData = history.map(item => {
         const amount = Number(item.total_collection) || 0;
@@ -81,9 +85,9 @@ const CollectionHistory: React.FC = () => {
         let barColor = '#6366f1'; // Default Indigo
         if (averageDaily > 0) {
             const performance = (amount / averageDaily) * 100;
-            if (performance > 85) barColor = '#0ac429'; // Emerald/Green
-            else if (performance >= 60) barColor = '#fce700'; // Amber/Yellow
-            else barColor = '#f50202'; // Red
+            if (performance > 85) barColor = '#0ac429'; // Custom Emerald/Green
+            else if (performance >= 60) barColor = '#fce700'; // Custom Amber/Yellow
+            else barColor = '#f50202'; // Custom Red
         }
 
         return {
@@ -133,7 +137,7 @@ const CollectionHistory: React.FC = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border transition-colors rounded-xl p-5 shadow-sm relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Collection ({dateRange} Days)</p>
@@ -145,9 +149,14 @@ const CollectionHistory: React.FC = () => {
                     <h3 className="text-3xl font-bold mt-2 text-blue-500">₹{Math.round(averageDaily).toLocaleString()}</h3>
                 </div>
                 <div className="bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border transition-colors rounded-xl p-5 shadow-sm relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Avg Per Rider</p>
-                    <h3 className="text-3xl font-bold mt-2 text-purple-500">₹{Math.round(averagePerRider).toLocaleString()}</h3>
+                    <h3 className="text-3xl font-bold mt-2 text-indigo-500">₹{Math.round(averagePerRider).toLocaleString()}</h3>
+                </div>
+                <div className="bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border transition-colors rounded-xl p-5 shadow-sm relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Best Day</p>
+                    <h3 className="text-3xl font-bold mt-2 text-purple-500">₹{bestDay.toLocaleString()}</h3>
                 </div>
             </div>
 
