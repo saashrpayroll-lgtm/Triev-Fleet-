@@ -9,7 +9,9 @@ import {
     Wallet,
     ArrowUpRight,
     Activity,
-    SearchX
+    SearchX,
+    Calendar,
+    ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -35,6 +37,10 @@ const TLPerformance: React.FC = () => {
     const [perfFilter, setPerfFilter] = useState<'all' | 'top_performers' | 'low_conversion'>('all');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isExportOpen, setIsExportOpen] = useState(false);
+
+    // New Date Filter States
+    const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'custom'>('week'); // Default to week
+    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 
     const fetchData = async () => {
         try {
@@ -104,6 +110,24 @@ const TLPerformance: React.FC = () => {
     const performanceData: TLSnapshot[] = useMemo(() => {
         const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
         const nowISTStr = formatter.format(new Date());
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+        // Determine Start and End dates for the selected filter
+        let startDateStr = nowISTStr;
+        let endDateStr = nowISTStr;
+
+        if (dateFilter === 'week') {
+            const weekStart = new Date(nowIST);
+            weekStart.setDate(nowIST.getDate() - nowIST.getDay() + (nowIST.getDay() === 0 ? -6 : 1));
+            startDateStr = formatter.format(weekStart);
+        } else if (dateFilter === 'month') {
+            const monthStart = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1);
+            startDateStr = formatter.format(monthStart);
+        } else if (dateFilter === 'custom' && customDateRange.start && customDateRange.end) {
+            startDateStr = customDateRange.start;
+            endDateStr = customDateRange.end;
+        }
+
         const todayStart = new Date(nowISTStr).getTime();
 
         return rawData.teamLeaders.map(tl => {
@@ -134,6 +158,25 @@ const TLPerformance: React.FC = () => {
             const activityTime = Math.max(lastLeadTime, lastRiderUpdate);
             const lastActivity = activityTime > 0 ? new Date(activityTime).toISOString() : undefined;
 
+            // Date Range metrics calculations
+            const allotments = tlRiders.filter(r => {
+                if (!r.allotment_date) return false;
+                // Parse date string (assumes YYYY-MM-DD or timestamp)
+                const adStr = typeof r.allotment_date === 'string' ? r.allotment_date.split('T')[0] : formatter.format(new Date(r.allotment_date));
+                return adStr >= startDateStr && adStr <= endDateStr;
+            }).length;
+
+            const submissions = rawData.riders.filter(r => {
+                // Must be inactive, and inactivated_at must fall in range, AND assigned to this TL
+                if (r.status !== 'inactive' || !r.inactivated_at) return false;
+                if (r.team_leader_id !== tlId && r.teamLeaderId !== tlId) return false;
+
+                const sdStr = typeof r.inactivated_at === 'string' ? r.inactivated_at.split('T')[0] : formatter.format(new Date(r.inactivated_at));
+                return sdStr >= startDateStr && sdStr <= endDateStr;
+            }).length;
+
+            const netGrowth = allotments - submissions;
+
             return {
                 id: tlId,
                 name: tl.full_name || tl.fullName || 'Unknown',
@@ -153,6 +196,9 @@ const TLPerformance: React.FC = () => {
                 leadsToday,
                 churnLeads,
                 criticalDebtCount,
+                allotments,
+                submissions,
+                netGrowth,
                 lastActivity
             };
         });
@@ -190,7 +236,13 @@ const TLPerformance: React.FC = () => {
             'Risk Amount': Math.abs(tl.wallet.negativeAmount),
             'Leads Today': tl.leadsToday,
             'Churn Leads': tl.churnLeads,
-            'Conversion Rate': tl.leads.conversionRate + '%'
+            'Conversion Rate': tl.leads.conversionRate + '%',
+            'Allotments': tl.allotments,
+            'Submissions': tl.submissions,
+            'Net Growth': tl.netGrowth,
+            'Date Filter Selected': dateFilter,
+            'Custom Start': customDateRange.start,
+            'Custom End': customDateRange.end
         }));
 
         const ws = XLSX.utils.json_to_sheet(data);
@@ -220,6 +272,7 @@ const TLPerformance: React.FC = () => {
             "Weekly Col.",
             "Pos/Neg",
             "Risk Amt",
+            "Metrics (A/S/N)",
             "Conversion"
         ];
 
@@ -230,6 +283,7 @@ const TLPerformance: React.FC = () => {
             `INR ${tl.weeklyCollection.toLocaleString()}`,
             `${tl.wallet.positiveCount}/${tl.wallet.negativeCount}`,
             `INR ${Math.abs(tl.wallet.negativeAmount).toLocaleString()}`,
+            `${tl.allotments}/${tl.submissions}/${tl.netGrowth}`,
             `${tl.leads.conversionRate}%`
         ]);
 
@@ -249,7 +303,7 @@ const TLPerformance: React.FC = () => {
     };
 
     const exportToCSV = () => {
-        const headers = ['Name', 'Email', 'Active Riders', 'Total Riders', 'Total Collection', 'Daily Collection', 'Weekly Collection', 'Positive Riders', 'Positive Volume', 'Negative Riders', 'Risk Amount', 'Leads Today', 'Churn Leads', 'Conversion Rate'];
+        const headers = ['Name', 'Email', 'Active Riders', 'Total Riders', 'Total Collection', 'Daily Collection', 'Weekly Collection', 'Positive Riders', 'Positive Volume', 'Negative Riders', 'Risk Amount', 'Leads Today', 'Churn Leads', 'Conversion Rate', 'Allotments', 'Submissions', 'Net Growth'];
         const rows = filteredData.map(tl => [
             tl.name,
             tl.email,
@@ -264,7 +318,10 @@ const TLPerformance: React.FC = () => {
             Math.abs(tl.wallet.negativeAmount),
             tl.leadsToday,
             tl.churnLeads,
-            tl.leads.conversionRate + '%'
+            tl.leads.conversionRate + '%',
+            tl.allotments,
+            tl.submissions,
+            tl.netGrowth
         ]);
 
         const csvContent = "data:text/csv;charset=utf-8," +
@@ -347,22 +404,56 @@ const TLPerformance: React.FC = () => {
                             <p className="text-xs text-muted-foreground">Comprehensive breakdown of TL performance across all key verticals.</p>
                         </div>
                         <div className="flex items-center gap-2 relative">
-                            <div className="relative w-full md:w-80">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-2 relative w-full md:w-auto">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hidden md:block" />
                                 <input
                                     placeholder="Search TL Name or Email..."
-                                    className="w-full pl-9 pr-4 py-2.5 bg-background border border-border/60 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+                                    className="w-full md:w-64 pl-4 md:pl-9 pr-4 py-2 bg-background border border-border/60 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
-                            </div>
-                            <div className="relative">
-                                <button
-                                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                    className={`p-2.5 border border-border/60 rounded-xl transition-colors bg-background shadow-sm hover:bg-muted ${(filterStatus !== 'all' || riskFilter !== 'all' || perfFilter !== 'all') ? 'ring-2 ring-primary/20 bg-primary/5 text-primary' : ''}`}
-                                >
-                                    <Filter className="h-4 w-4" />
-                                </button>
+
+                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                    <div className="relative flex-1 md:flex-none">
+                                        <select
+                                            value={dateFilter}
+                                            onChange={(e: any) => setDateFilter(e.target.value)}
+                                            className="w-full md:w-auto pl-9 pr-8 py-2 bg-background border border-border/60 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none shadow-sm font-medium text-primary"
+                                        >
+                                            <option value="today">Today Metrics</option>
+                                            <option value="week">Weekly Metrics</option>
+                                            <option value="month">Monthly Metrics</option>
+                                            <option value="custom">Custom Date Range</option>
+                                        </select>
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary pointer-events-none" />
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 pointer-events-none" />
+                                    </div>
+
+                                    {dateFilter === 'custom' && (
+                                        <div className="flex items-center gap-2 bg-background border border-border/60 rounded-xl p-1 shadow-sm">
+                                            <input
+                                                type="date"
+                                                className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded"
+                                                value={customDateRange.start}
+                                                onChange={(e) => setCustomDateRange({ ...customDateRange, start: e.target.value })}
+                                            />
+                                            <span className="text-muted-foreground text-xs font-bold">-</span>
+                                            <input
+                                                type="date"
+                                                className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded"
+                                                value={customDateRange.end}
+                                                onChange={(e) => setCustomDateRange({ ...customDateRange, end: e.target.value })}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                        className={`p-2 border border-border/60 rounded-xl transition-colors bg-background shadow-sm hover:bg-muted ml-auto ${(filterStatus !== 'all' || riskFilter !== 'all' || perfFilter !== 'all') ? 'ring-2 ring-primary/20 bg-primary/5 text-primary' : ''}`}
+                                    >
+                                        <Filter className="h-4 w-4" />
+                                    </button>
+                                </div>
                                 {isFilterOpen && (
                                     <div className="absolute right-0 mt-3 w-72 bg-card border border-border rounded-2xl shadow-2xl z-50 p-6 space-y-5 animate-in slide-in-from-top-4">
                                         <div className="flex items-center justify-between border-b pb-3">

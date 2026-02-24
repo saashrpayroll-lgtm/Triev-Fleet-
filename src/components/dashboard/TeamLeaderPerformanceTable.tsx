@@ -34,6 +34,9 @@ export interface TLSnapshot {
     leadsToday: number;
     churnLeads: number;
     criticalDebtCount: number;
+    allotments: number;
+    submissions: number;
+    netGrowth: number;
     lastActivity?: string;
 }
 
@@ -170,6 +173,9 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                             <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('dailyCollection')}>
                                 Collections (D/W/T)
                             </th>
+                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('netGrowth')}>
+                                Fleet Flow (A/S/N)
+                            </th>
                             <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('leadsToday')}>
                                 Leads Performance
                             </th>
@@ -251,6 +257,27 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                             <div className="flex flex-col text-right">
                                                 <span className="text-[8px] text-muted-foreground font-medium uppercase">Total</span>
                                                 <span className="text-[11px] font-bold text-foreground/60">₹{tl.totalCollection.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td className="p-4">
+                                    <div className="space-y-1">
+                                        <div className="flex flex-col">
+                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Net Growth</span>
+                                            <span className={`text-sm font-black ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {tl.netGrowth > 0 ? '+' : ''}{tl.netGrowth}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center gap-4 border-t border-muted/50 pt-1">
+                                            <div className="flex flex-col text-left">
+                                                <span className="text-[8px] text-muted-foreground font-medium uppercase">Allotments</span>
+                                                <span className="text-[11px] font-bold text-indigo-600">+{tl.allotments}</span>
+                                            </div>
+                                            <div className="flex flex-col text-right">
+                                                <span className="text-[8px] text-muted-foreground font-medium uppercase">Submissions</span>
+                                                <span className="text-[11px] font-bold text-rose-500">-{tl.submissions}</span>
                                             </div>
                                         </div>
                                     </div>
