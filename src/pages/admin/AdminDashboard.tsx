@@ -330,7 +330,10 @@ const Dashboard: React.FC = () => {
                 leadsToday,
                 churnLeads,
                 criticalDebtCount,
-                lastActivity
+                lastActivity,
+                allotments: (tl as any).allotments || 0,
+                submissions: (tl as any).submissions || 0,
+                netGrowth: (tl as any).netGrowth || 0
             };
         });
     }, [rawData, tlCollections, dailyCollections, weeklyCollections]);
