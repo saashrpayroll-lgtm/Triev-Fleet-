@@ -295,6 +295,10 @@ const WalletHistory: React.FC = () => {
 
     // Bulk Delete
     const handleBulkDelete = async () => {
+        if (userData?.role !== 'admin') {
+            toast.error('Only Admins can perform bulk deletions.');
+            return;
+        }
         if (selectedIds.length === 0) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected transactions? This cannot be undone and will affect rider balances.`)) {
             return;
@@ -544,7 +548,7 @@ const WalletHistory: React.FC = () => {
                     <div className="flex items-center justify-between p-4 border-b bg-muted/20">
                         <div className="text-sm text-muted-foreground flex items-center gap-4">
                             <span>Showing <span className="font-medium text-foreground">{transactions.length}</span> of <span className="font-medium text-foreground">{totalCount}</span> entries</span>
-                            {selectedIds.length > 0 && (
+                            {selectedIds.length > 0 && userData?.role === 'admin' && (
                                 <div className="flex items-center gap-3 animate-in slide-in-from-left-2">
                                     <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold text-xs">{selectedIds.length} Selected</span>
                                     <button
@@ -573,15 +577,17 @@ const WalletHistory: React.FC = () => {
                     <table className="w-full text-sm text-left">
                         <thead className="text-xs uppercase bg-muted/50 text-muted-foreground font-semibold">
                             <tr>
-                                <th className="px-6 py-4 w-10">
-                                    <button onClick={toggleSelectAll} className="p-1 hover:bg-primary/10 rounded-md transition-colors text-muted-foreground">
-                                        {selectedIds.length === transactions.length && transactions.length > 0 ? (
-                                            <CheckSquare size={18} className="text-primary" />
-                                        ) : (
-                                            <Square size={18} />
-                                        )}
-                                    </button>
-                                </th>
+                                {userData?.role === 'admin' && (
+                                    <th className="px-6 py-4 w-10">
+                                        <button onClick={toggleSelectAll} className="p-1 hover:bg-primary/10 rounded-md transition-colors text-muted-foreground">
+                                            {selectedIds.length === transactions.length && transactions.length > 0 ? (
+                                                <CheckSquare size={18} className="text-primary" />
+                                            ) : (
+                                                <Square size={18} />
+                                            )}
+                                        </button>
+                                    </th>
+                                )}
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Rider</th>
                                 <th className="px-6 py-4">Team Leader</th>
@@ -594,7 +600,7 @@ const WalletHistory: React.FC = () => {
                         <tbody className="divide-y divide-border/50">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-24">
+                                    <td colSpan={userData?.role === 'admin' ? 8 : 7} className="text-center py-24">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                                             <span className="text-muted-foreground text-sm">Loading ledger...</span>
@@ -603,7 +609,7 @@ const WalletHistory: React.FC = () => {
                                 </tr>
                             ) : transactions.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-24 text-muted-foreground">
+                                    <td colSpan={userData?.role === 'admin' ? 8 : 7} className="text-center py-24 text-muted-foreground">
                                         No ledger entries found.
                                     </td>
                                 </tr>
@@ -616,15 +622,17 @@ const WalletHistory: React.FC = () => {
 
                                     return (
                                         <tr key={t.id} className={`hover:bg-muted/30 transition-colors group ${selectedIds.includes(t.id) ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}>
-                                            <td className="px-6 py-4">
-                                                <button onClick={() => toggleSelect(t.id)} className="p-1 hover:bg-primary/10 rounded-md transition-colors text-muted-foreground">
-                                                    {selectedIds.includes(t.id) ? (
-                                                        <CheckSquare size={18} className="text-primary" />
-                                                    ) : (
-                                                        <Square size={18} />
-                                                    )}
-                                                </button>
-                                            </td>
+                                            {userData?.role === 'admin' && (
+                                                <td className="px-6 py-4">
+                                                    <button onClick={() => toggleSelect(t.id)} className="p-1 hover:bg-primary/10 rounded-md transition-colors text-muted-foreground">
+                                                        {selectedIds.includes(t.id) ? (
+                                                            <CheckSquare size={18} className="text-primary" />
+                                                        ) : (
+                                                            <Square size={18} />
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
