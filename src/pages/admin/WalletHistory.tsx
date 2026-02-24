@@ -15,7 +15,7 @@ interface LedgerEntry {
     rider_id: string;
     amount: number;
     transaction_type: 'SYSTEM_IMPORT' | 'MANUAL_ADJUSTMENT' | 'DAILY_COLLECTION' | 'SYSTEM_RENT_CHARGE';
-    mode: 'ADD' | 'SUBTRACT' | 'SET';
+    mode: 'ADD' | 'SUBTRACT' | 'SET' | 'RESET';
     description: string;
     metadata: any;
     created_at: string;
@@ -571,7 +571,7 @@ const WalletHistory: React.FC = () => {
                                     const amount = Number(t.amount) || 0;
                                     const isCredit = t.mode === 'ADD';
                                     const isDebit = t.mode === 'SUBTRACT';
-                                    const isSet = t.mode === 'SET';
+                                    const isSet = t.mode === 'SET' || t.mode === 'RESET';
 
                                     return (
                                         <tr key={t.id} className={`hover:bg-muted/30 transition-colors group ${selectedIds.includes(t.id) ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}>
