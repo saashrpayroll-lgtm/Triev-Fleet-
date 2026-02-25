@@ -85,7 +85,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             width: uniformWidth,
             zIndex: 'z-20',
             ringColor: 'border-slate-300/40',
-            statsBg: 'bg-black/40 border-slate-400/15 backdrop-blur-xl',
+            statsBg: 'bg-black/40 border-slate-500/20 backdrop-blur-xl',
         };
         return {
             cardBg: 'bg-gradient-to-b from-orange-600/30 via-orange-900/20 to-slate-950/98',
@@ -97,7 +97,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             width: uniformWidth,
             zIndex: 'z-10',
             ringColor: 'border-orange-300/40',
-            statsBg: 'bg-black/40 border-orange-400/15 backdrop-blur-xl',
+            statsBg: 'bg-black/40 border-orange-500/20 backdrop-blur-xl',
         };
     };
 
