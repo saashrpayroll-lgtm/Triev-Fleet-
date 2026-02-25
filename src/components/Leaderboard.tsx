@@ -58,9 +58,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
 
     const rankConfig = (rank: number) => {
-        const bronzeHeight = 'min-h-[510px] h-auto pb-2';
-        const silverHeight = 'min-h-[550px] h-auto pb-2';
-        const goldHeight = 'min-h-[590px] h-auto pb-2';
+        const bronzeHeight = 'md:min-h-[510px] h-auto pb-2';
+        const silverHeight = 'md:min-h-[550px] h-auto pb-2';
+        const goldHeight = 'md:min-h-[590px] h-auto pb-2';
         const uniformWidth = 'md:w-[320px] w-full';
 
         if (rank === 1) return {
