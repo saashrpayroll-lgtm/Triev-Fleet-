@@ -58,7 +58,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
 
     const rankConfig = (rank: number) => {
-        const bronzeHeight = 'md:h-[510px] h-auto pb-2';
+        const bronzeHeight = 'md:h-[550px] h-auto pb-2';
         const silverHeight = 'md:h-[550px] h-auto pb-2';
         const goldHeight = 'md:h-[590px] h-auto pb-2';
         const uniformWidth = 'md:w-[320px] w-full';
@@ -96,8 +96,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             height: bronzeHeight,
             width: uniformWidth,
             zIndex: 'z-10',
-            ringColor: 'border-orange-400/40',
-            statsBg: 'bg-black/40 border-orange-500/15 backdrop-blur-xl',
+            ringColor: 'border-orange-300/40',
+            statsBg: 'bg-black/40 border-orange-400/15 backdrop-blur-xl',
         };
     };
 
