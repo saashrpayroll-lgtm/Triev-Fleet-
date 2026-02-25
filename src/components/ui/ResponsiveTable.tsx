@@ -51,54 +51,79 @@ function ResponsiveTable<T>({
         <div className="w-full">
             {/* ─── DESKTOP TABLE (md+) ─── */}
             <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/30 border-b border-border">
-                        <tr>
+                <table className="w-full text-sm text-left border-separate border-spacing-0">
+                    <thead className="sticky top-0 z-10">
+                        <tr className="bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-border/50">
                             {columns.map((col, idx) => (
-                                <th key={idx} className={`px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground ${col.className || ''}`}>
+                                <th
+                                    key={idx}
+                                    className={`
+                                        px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-border/50 first:rounded-tl-xl last:rounded-tr-xl
+                                        ${col.className || ''}
+                                    `}
+                                >
                                     {col.header}
                                 </th>
                             ))}
-                            {actions && <th className="px-5 py-3.5 text-right text-[10px] font-black uppercase tracking-wider text-muted-foreground">Actions</th>}
+                            {actions && (
+                                <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-border/50 last:rounded-tr-xl">
+                                    Actions
+                                </th>
+                            )}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/40">
-                        {data.map((row) => (
-                            <tr
-                                key={String(row[keyField])}
-                                onClick={() => onRowClick && onRowClick(row)}
-                                className={`group transition-colors duration-200 ${onRowClick ? 'cursor-pointer' : ''}
-                                    ${highlightedRowId === String(row[keyField])
-                                        ? 'bg-amber-50 dark:bg-amber-900/10 ring-2 ring-amber-400 ring-inset'
-                                        : 'hover:bg-muted/30'
-                                    }`}
-                            >
-                                {columns.map((col, idx) => (
-                                    <td key={idx} className={`px-5 py-3.5 ${col.className || ''}`}>
-                                        {col.cell ? col.cell(row) : (row[col.accessorKey!] as React.ReactNode)}
-                                    </td>
-                                ))}
-                                {actions && (
-                                    <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                                        {actions(row)}
-                                    </td>
-                                )}
-                            </tr>
-                        ))}
+                    <tbody className="divide-y divide-border/20">
+                        {data.map((row) => {
+                            const rowId = String(row[keyField]);
+                            const isHighlighted = highlightedRowId === rowId;
+
+                            return (
+                                <tr
+                                    key={rowId}
+                                    onClick={() => onRowClick && onRowClick(row)}
+                                    className={`
+                                        group relative transition-all duration-300 
+                                        ${onRowClick ? 'cursor-pointer' : ''}
+                                        ${isHighlighted
+                                            ? 'bg-amber-50/50 dark:bg-amber-900/10'
+                                            : 'hover:bg-primary/[0.03] dark:hover:bg-primary/[0.05]'
+                                        }
+                                    `}
+                                >
+                                    {columns.map((col, idx) => (
+                                        <td key={idx} className={`px-6 py-4 relative ${col.className || ''}`}>
+                                            {/* Vertical Hover Indicator */}
+                                            {idx === 0 && !isHighlighted && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary opacity-0 group-hover:opacity-100 transition-opacity rounded-r-full" />
+                                            )}
+                                            {idx === 0 && isHighlighted && (
+                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400 rounded-r-full" />
+                                            )}
+                                            <div className="relative z-10">
+                                                {col.cell ? col.cell(row) : (row[col.accessorKey!] as React.ReactNode)}
+                                            </div>
+                                        </td>
+                                    ))}
+                                    {actions && (
+                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                            {actions(row)}
+                                        </td>
+                                    )}
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
 
             {/* ─── MOBILE CARDS (< md) ─── */}
-            <div className="md:hidden space-y-2 p-3">
+            <div className="md:hidden space-y-4 p-4 bg-slate-50/30 dark:bg-slate-900/30">
                 {data.map((row) => {
                     const isHighlighted = highlightedRowId === String(row[keyField]);
-                    // First column is usually checkbox/ID, second is Name — show as card header
                     const primaryCol = columns.find(c => c.accessorKey === 'riderName' || c.accessorKey === 'fullName') || columns[1];
                     const secondaryCol = columns.find(c => c.accessorKey === 'trievId') || columns[0];
-                    // Skip checkbox col (index 0), primary name col, and show rest
                     const detailCols = columns.filter(c =>
-                        c !== columns[0] && // skip checkbox
+                        c !== columns[0] &&
                         c !== primaryCol &&
                         c !== secondaryCol
                     );
@@ -107,61 +132,58 @@ function ResponsiveTable<T>({
                         <div
                             key={String(row[keyField])}
                             onClick={() => onRowClick && onRowClick(row)}
-                            className={`rounded-2xl border transition-all shadow-sm ${onRowClick ? 'cursor-pointer active:scale-[0.99]' : ''}
+                            className={`
+                                relative rounded-2xl border transition-all duration-300 overflow-hidden shadow-sm
+                                ${onRowClick ? 'cursor-pointer active:scale-[0.98]' : ''}
                                 ${isHighlighted
-                                    ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/10 ring-2 ring-amber-400'
-                                    : 'border-border bg-card hover:border-primary/30 hover:shadow-md'
-                                }`}
+                                    ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 ring-2 ring-amber-400'
+                                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary/40 hover:shadow-lg'
+                                }
+                            `}
                         >
-                            {/* Card header */}
-                            <div className="flex items-start gap-3 p-3">
-                                {/* Checkbox (first column) */}
-                                <div onClick={e => e.stopPropagation()} className="flex-shrink-0 pt-0.5">
-                                    {columns[0].cell ? columns[0].cell(row) : null}
+                            {/* Vertical Accent */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isHighlighted ? 'bg-amber-400' : 'bg-primary/20 group-hover:bg-primary transition-colors'}`} />
+
+                            <div className="p-4">
+                                {/* Card Header */}
+                                <div className="flex justify-between items-start gap-4 mb-4">
+                                    <div className="min-w-0">
+                                        <div className="text-base font-black text-slate-900 dark:text-slate-100 truncate">
+                                            {primaryCol?.cell ? primaryCol.cell(row) : primaryCol?.accessorKey ? String(row[primaryCol.accessorKey] || '') : ''}
+                                        </div>
+                                        <div className="text-[10px] font-mono font-bold tracking-widest text-slate-500 mt-1 uppercase bg-slate-100 dark:bg-slate-800 w-fit px-2 py-0.5 rounded-md">
+                                            {secondaryCol?.cell ? secondaryCol.cell(row) : secondaryCol?.accessorKey ? String(row[secondaryCol.accessorKey] || '') : ''}
+                                        </div>
+                                    </div>
+                                    {actions && (
+                                        <div onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                                            {actions(row)}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                            {/* Primary name */}
-                                            <div className="font-bold text-foreground text-sm truncate">
-                                                {primaryCol?.cell ? primaryCol.cell(row) : primaryCol?.accessorKey ? String(row[primaryCol.accessorKey] || '') : ''}
-                                            </div>
-                                            {/* Secondary ID */}
-                                            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                                                {secondaryCol?.cell ? secondaryCol.cell(row) : secondaryCol?.accessorKey ? String(row[secondaryCol.accessorKey] || '') : ''}
-                                            </div>
-                                        </div>
-                                        {/* Actions button */}
-                                        {actions && (
-                                            <div onClick={e => e.stopPropagation()} className="flex-shrink-0">
-                                                {actions(row)}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Detail columns as mini badges/rows */}
-                                    <div className="flex flex-wrap gap-2 mt-2.5">
-                                        {detailCols.map((col, idx) => {
-                                            const val = col.cell ? col.cell(row) : (col.accessorKey ? (row[col.accessorKey] as React.ReactNode) : null);
-                                            const label = typeof col.header === 'string' ? col.header : null;
-                                            if (!label || !val) return null;
-                                            return (
-                                                <div key={idx} className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
-                                                    <span className="text-[9px] font-black uppercase tracking-wide text-muted-foreground">{label}</span>
-                                                    <span className="text-[11px] font-semibold text-foreground">{val}</span>
+                                {/* Badge Grid */}
+                                <div className="grid grid-cols-2 gap-2.5">
+                                    {detailCols.map((col, idx) => {
+                                        const val = col.cell ? col.cell(row) : (col.accessorKey ? (row[col.accessorKey] as React.ReactNode) : null);
+                                        const label = typeof col.header === 'string' ? col.header : null;
+                                        if (!label || !val) return null;
+                                        return (
+                                            <div key={idx} className="flex flex-col gap-1.5 p-3 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800/50 transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</span>
+                                                <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                                    {val}
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* View details hint */}
+                            {/* View Detail Hint */}
                             {onRowClick && !actions && (
-                                <div className="border-t border-border/50 px-4 py-2 flex items-center justify-end gap-1 text-primary text-[10px] font-bold uppercase tracking-wide">
-                                    View Details <ChevronRight size={12} />
+                                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/20 border-t border-border/40 flex items-center justify-end text-[10px] font-black uppercase tracking-widest text-primary gap-1.5">
+                                    View Full History <ChevronRight size={14} className="animate-pulse" />
                                 </div>
                             )}
                         </div>
