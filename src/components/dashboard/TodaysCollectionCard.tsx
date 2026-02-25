@@ -34,7 +34,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
             if (teamLeaderId) {
                 // Filter by TL via the joined riders table
-                query = query.eq('riders.team_leader_id', teamLeaderId);
+                query = query.eq('rider.team_leader_id', teamLeaderId);
             }
 
             const { data, error } = await query;

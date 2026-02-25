@@ -737,7 +737,7 @@ export const generateRevenueReport = (
 
             if (entry.transaction_type === 'SYSTEM_RENT_CHARGE' && entry.mode === 'SUBTRACT') {
                 current.billing += amount;
-            } else if (entry.transaction_type === 'DAILY_COLLECTION' && entry.mode === 'ADD') {
+            } else if (['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'].includes(entry.transaction_type) && entry.mode === 'ADD') {
                 current.collection += amount;
             }
         }

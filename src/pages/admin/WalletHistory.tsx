@@ -502,6 +502,8 @@ const WalletHistory: React.FC = () => {
                                     options={[
                                         { value: 'all', label: 'All Types' },
                                         { value: 'DAILY_COLLECTION', label: 'Daily Collection' },
+                                        { value: 'RENT_COLLECTION', label: 'Rent Collection' },
+                                        { value: 'FTD_COLLECTION', label: 'FTD Collection' },
                                         { value: 'SYSTEM_RENT_CHARGE', label: 'System Rent Charge' },
                                         { value: 'DAY_OPENING_BALANCE', label: 'Day Opening Balance' },
                                         { value: 'MANUAL_ADJUSTMENT', label: 'Manual Adjustment' },

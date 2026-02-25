@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 const adjustmentSchema = z.object({
     // Allow negative numbers (we'll handle logic), but effectively we want non-zero
     amount: z.number().refine(val => val !== 0, 'Amount cannot be zero'),
-    type: z.enum(['MANUAL_ADJUSTMENT', 'DAILY_COLLECTION'] as const),
+    type: z.enum(['MANUAL_ADJUSTMENT', 'DAILY_COLLECTION', 'FTD_COLLECTION', 'RENT_COLLECTION'] as const),
     mode: z.enum(['ADD', 'SUBTRACT'] as const),
     description: z.string().min(3, 'Reason is required'),
 });
@@ -150,6 +150,21 @@ const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
                                 <span className="font-bold text-lg">- Deduct</span>
                                 <span className="text-xs opacity-80">Debit</span>
                             </button>
+                        </div>
+
+                        {/* Transaction Type */}
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5">Transaction Type</label>
+                            <select
+                                {...register('type')}
+                                className="w-full px-3 py-2.5 border rounded-lg bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                            >
+                                <option value="MANUAL_ADJUSTMENT">Manual Adjustment</option>
+                                <option value="DAILY_COLLECTION">Daily Collection</option>
+                                <option value="FTD_COLLECTION">FTD Collection</option>
+                                <option value="RENT_COLLECTION">Rent Collection</option>
+                            </select>
+                            {errors.type && <p className="text-destructive text-xs mt-1">{errors.type.message}</p>}
                         </div>
 
                         {/* Amount */}
