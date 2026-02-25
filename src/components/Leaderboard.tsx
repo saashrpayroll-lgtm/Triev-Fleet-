@@ -58,9 +58,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
 
     const rankConfig = (rank: number) => {
-        const bronzeHeight = 'md:min-h-[510px] h-auto pb-2';
-        const silverHeight = 'md:min-h-[550px] h-auto pb-2';
-        const goldHeight = 'md:min-h-[590px] h-auto pb-2';
+        const bronzeHeight = 'md:h-[510px] h-auto pb-2';
+        const silverHeight = 'md:h-[550px] h-auto pb-2';
+        const goldHeight = 'md:h-[590px] h-auto pb-2';
         const uniformWidth = 'md:w-[320px] w-full';
 
         if (rank === 1) return {
@@ -224,7 +224,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                     <span className="text-[10px] font-black tracking-widest text-white uppercase italic">AI REALTIME</span>
                                 </div>
 
-                                /* Card Content — using fixed layout instead of mt-auto to keep stats grid consistent */
+                                {/* Card Content — using fixed layout instead of mt-auto to keep stats grid consistent */}
                                 <div className="relative z-10 flex flex-col items-center w-full h-full pt-12 pb-2 px-3">
 
                                     {/* Avatar */}
