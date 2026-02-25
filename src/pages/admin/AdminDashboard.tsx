@@ -59,6 +59,8 @@ const Dashboard: React.FC = () => {
                     allotmentDate:allotment_date,
                     status,
                     teamLeaderId:team_leader_id,
+                    inactivatedAt:inactivated_at,
+                    updatedAt:updated_at,
                     createdAt:created_at
                 `),
                 supabase.from('leads').select(`

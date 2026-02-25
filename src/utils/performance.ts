@@ -83,14 +83,14 @@ export const calculateAIScore = (
     if (period) {
         allotments = tlRiders.filter(r => {
             if (!r.allotmentDate) return false;
-            const adStr = r.allotmentDate.split('T')[0];
-            return adStr >= period.start && adStr <= period.end;
+            const dateStr = typeof r.allotmentDate === 'string' ? r.allotmentDate.split('T')[0] : '';
+            return dateStr >= period.start && dateStr <= period.end;
         }).length;
 
         submissions = tlRiders.filter(r => {
             if (r.status !== 'inactive' || !r.inactivatedAt) return false;
-            const sdStr = r.inactivatedAt.split('T')[0];
-            return sdStr >= period.start && sdStr <= period.end;
+            const dateStr = typeof r.inactivatedAt === 'string' ? r.inactivatedAt.split('T')[0] : '';
+            return dateStr >= period.start && dateStr <= period.end;
         }).length;
     } else {
         // If no period, count all-time allotments and check current status for submissions
