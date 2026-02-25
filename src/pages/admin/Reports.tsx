@@ -232,7 +232,7 @@ const Reports: React.FC = () => {
                         .select('amount, mode, transaction_type, transaction_date, created_at')
                         .gte('created_at', startDate.toISOString())
                         .lte('created_at', endDate.toISOString())
-                        .in('transaction_type', ['SYSTEM_RENT_CHARGE', 'DAILY_COLLECTION']);
+                        .in('transaction_type', ['SYSTEM_RENT_CHARGE', 'DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION']);
 
                     if (!ledgerEntries) throw new Error('Failed to fetch revenue data');
 
@@ -298,7 +298,7 @@ const Reports: React.FC = () => {
                         `)
                         .gte('created_at', startDate.toISOString())
                         .lte('created_at', endDate.toISOString())
-                        .eq('transaction_type', 'DAILY_COLLECTION')
+                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'])
                         .eq('mode', 'ADD');
 
                     if (!ledgerWithRiders || !teamLeaders) throw new Error('Failed to fetch ledger data');

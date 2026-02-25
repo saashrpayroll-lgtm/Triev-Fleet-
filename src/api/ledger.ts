@@ -1,6 +1,6 @@
 import { supabase } from '@/config/supabase';
 
-export type TransactionType = 'SYSTEM_IMPORT' | 'MANUAL_ADJUSTMENT' | 'DAILY_COLLECTION' | 'BULK_IMPORT' | 'RENT_COLLECTION';
+export type TransactionType = 'SYSTEM_IMPORT' | 'MANUAL_ADJUSTMENT' | 'DAILY_COLLECTION' | 'BULK_IMPORT' | 'RENT_COLLECTION' | 'FTD_COLLECTION';
 export type TransactionMode = 'SET' | 'ADD' | 'SUBTRACT' | 'RESET';
 
 export interface WalletTransactionInput {

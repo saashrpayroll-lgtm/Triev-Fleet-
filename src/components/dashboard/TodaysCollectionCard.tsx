@@ -29,7 +29,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     )
                 `)
                 .eq('mode', 'ADD') // Only collections/credits
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION']) // SYNC FIX: Match trigger
+                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION']) // SYNC FIX: Match v7 trigger
                 .gte('created_at', todayIso);
 
             if (teamLeaderId) {
@@ -83,7 +83,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     const newLog = payload.new as any;
 
                     // STRICT FILTER: Match the SQL trigger exactly
-                    if (newLog.transaction_type !== 'DAILY_COLLECTION' && newLog.transaction_type !== 'RENT_COLLECTION') {
+                    if (!['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'].includes(newLog.transaction_type)) {
                         return;
                     }
 

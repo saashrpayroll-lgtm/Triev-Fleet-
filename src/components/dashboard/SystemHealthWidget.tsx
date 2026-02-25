@@ -29,11 +29,11 @@ export const SystemHealthWidget: React.FC = () => {
                     .limit(1)
                     .single();
 
-                // 2. Last Collection Sync (DAILY_COLLECTION)
+                // 2. Last Collection Sync (Any Collection Type)
                 const { data: collectionData } = await supabase
                     .from('wallet_ledger')
                     .select('created_at')
-                    .eq('source_type', 'DAILY_COLLECTION')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'])
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
