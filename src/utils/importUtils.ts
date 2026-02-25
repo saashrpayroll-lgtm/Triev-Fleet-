@@ -546,19 +546,17 @@ export const processWalletUpdate = async (
 
             // 1. Try Triev ID first (more precise)
             if (trievId) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount').eq('triev_id', trievId).maybeSingle();
+                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount, status').eq('triev_id', trievId).maybeSingle();
                 if (data) {
                     matchData = data;
-                    // identifierUsed = `Triev ID: ${trievId}`;
                 }
             }
 
             // 2. Try Mobile if Triev ID failed or wasn't provided
             if (!matchData && mobile) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount').eq('mobile_number', mobile).maybeSingle();
+                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount, status').eq('mobile_number', mobile).maybeSingle();
                 if (data) {
                     matchData = data;
-                    // identifierUsed = `Mobile: ${mobile}`;
                 }
             }
 
@@ -581,6 +579,21 @@ export const processWalletUpdate = async (
                     data: row
                 });
                 // processedRiderIds.add(matchData.id); // If we tracked processed IDs here, we'd add it.
+                continue;
+            }
+
+            // -------------------------------------------------
+            // STATUS CHECK: Skip inactive riders
+            // -------------------------------------------------
+            if (matchData.status === 'inactive') {
+                summary.skipped = (summary.skipped || 0) + 1;
+                if (!summary.skippedDetails) summary.skippedDetails = [];
+                summary.skippedDetails.push({
+                    row: rowNum,
+                    identifier: trievId || mobile,
+                    reason: "Rider is Inactive. Wallet remains at 0.",
+                    data: row
+                });
                 continue;
             }
 

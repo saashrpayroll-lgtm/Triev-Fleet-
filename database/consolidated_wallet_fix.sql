@@ -112,7 +112,16 @@ RETURNS JSONB AS $$
 DECLARE
     v_new_id UUID;
     v_current_balance NUMERIC;
+    v_status TEXT;
 BEGIN
+    -- 0. Check Status
+    SELECT status INTO v_status FROM public.riders WHERE id = p_rider_id;
+    
+    -- If rider is inactive, we only allow MANUAL adjustments, not automated ones.
+    IF v_status = 'inactive' AND p_source = 'IMPORT' THEN
+         RETURN jsonb_build_object('success', true, 'skipped', true, 'reason', 'Rider is inactive');
+    END IF;
+
     -- Validate Mode
     IF p_mode NOT IN ('SET', 'RESET', 'ADD', 'SUBTRACT') THEN
          RAISE EXCEPTION 'Invalid mode. Must be SET, RESET, ADD, or SUBTRACT.';
@@ -145,7 +154,12 @@ DECLARE
     v_diff NUMERIC;
     v_ext_id TEXT;
 BEGIN
-    -- 1. Get Current System Balance
+    -- 1. Check if rider is inactive. If so, skip automated updates.
+    IF EXISTS (SELECT 1 FROM public.riders WHERE id = p_rider_id AND status = 'inactive') THEN
+        RETURN jsonb_build_object('success', true, 'skipped', true, 'reason', 'Rider is inactive');
+    END IF;
+
+    -- 2. Get Current System Balance
     v_current_system_balance := public.calculate_rider_balance(p_rider_id);
     
     -- 2. Compare
