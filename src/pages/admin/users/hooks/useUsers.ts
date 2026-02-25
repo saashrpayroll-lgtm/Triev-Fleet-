@@ -368,7 +368,6 @@ export const useUsers = () => {
 
     // Toggle User Status
     const toggleUserStatus = useCallback(async (user: User) => {
-        // console.log('toggleUserStatus called:', user);
         if (isImmune(user)) {
             toast.error("Action Denied: This is a Super Admin account.");
             return;
@@ -378,6 +377,7 @@ export const useUsers = () => {
         const currentStatus = user.status;
 
         try {
+            // Logic: active -> inactive, anything else -> active
             const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
 
             const updateData: any = {
@@ -385,12 +385,20 @@ export const useUsers = () => {
                 updated_at: new Date().toISOString()
             };
 
-            if (currentStatus === 'suspended' || newStatus === 'active') {
+            // If reactivating, clear suspension if it exists
+            if (newStatus === 'active') {
                 updateData.suspended_until = null;
             }
 
             const { error } = await supabase.from('users').update(updateData).eq('id', userId);
-            if (error) throw error;
+
+            if (error) {
+                // Check if it's the specific constraint violation to provide better error message
+                if (error.message?.includes('users_status_check')) {
+                    throw new Error("Database error: The 'inactive' status is not allowed in your database schema. Please run the provided SQL migration script ('fix_users_status_constraint.sql') in your Supabase SQL Editor.");
+                }
+                throw error;
+            }
 
             logActivity({
                 actionType: 'statusChanged',
@@ -402,9 +410,8 @@ export const useUsers = () => {
 
             const action = newStatus === 'active' ? 'activated' : 'deactivated';
             toast.success(`User ${action} successfully`);
-            await fetchUsers(); // Auto-refresh
+            await fetchUsers(); // Refresh the list
 
-            // If updating self, refresh auth context immediately
             if (currentUser && currentUser.id === userId) {
                 await refreshUserData();
             }
@@ -413,7 +420,7 @@ export const useUsers = () => {
             const msg = error?.message || "Failed to update status";
             toast.error(msg);
         }
-    }, [currentUser, fetchUsers]);
+    }, [currentUser, isImmune, fetchUsers, refreshUserData, toast]);
 
     // Suspend User
     const suspendUser = useCallback(async (user: User, durationMinutes: number) => {
@@ -652,14 +659,24 @@ export const useUsers = () => {
 
     const bulkToggleStatus = useCallback(async (selectedUsers: User[]) => {
         if (!confirm(`Toggle status for ${selectedUsers.length} users?`)) return;
+
         await runBulkAction(selectedUsers, async (u) => {
             const newStatus = u.status === 'active' ? 'inactive' : 'active';
-            const { error } = await supabase.from('users').update({
+            const updateData: any = {
                 status: newStatus,
                 updated_at: new Date().toISOString()
-            }).eq('id', u.id);
+            };
 
-            if (error) return false;
+            if (newStatus === 'active') {
+                updateData.suspended_until = null;
+            }
+
+            const { error } = await supabase.from('users').update(updateData).eq('id', u.id);
+
+            if (error) {
+                console.error(`Status update error for ${u.email}:`, error);
+                return false;
+            }
 
             logActivity({
                 actionType: 'statusChanged',
