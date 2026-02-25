@@ -3,7 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Rider, User, RiderStatus, ClientName } from '@/types';
-import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal } from 'lucide-react';
+import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal, CheckCircle, XCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import ExportModal, { ExportFormat } from '@/components/ExportModal';
@@ -284,6 +285,18 @@ const RiderManagement: React.FC = () => {
         setActiveTab(tab);
         setSelectedRiders(new Set());
     };
+
+    const getTabCount = (tab: TabType) => {
+        if (tab === 'all') return riders.length;
+        return riders.filter(r => r.status === tab).length;
+    };
+
+    const tabConfig = [
+        { id: 'all', label: 'All Riders', icon: Users },
+        { id: 'active', label: 'Active', icon: CheckCircle },
+        { id: 'inactive', label: 'Inactive', icon: XCircle },
+        { id: 'deleted', label: 'Trash', icon: Trash2 },
+    ] as const;
 
 
 
@@ -1143,24 +1156,50 @@ const RiderManagement: React.FC = () => {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="border-b border-border/60 overflow-x-auto scrollbar-hide">
-                <div className="flex gap-8 min-w-max px-2">
-                    {['all', 'active', 'inactive', 'deleted'].map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => handleTabChange(tab as TabType)}
-                            className={`pb-4 px-2 font-medium transition-all relative capitalize text-sm tracking-wide ${activeTab === tab
-                                ? 'text-primary font-bold'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            {tab} Riders
-                            {activeTab === tab && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full shadow-[0_-2px_6px_rgba(var(--primary),0.2)]"></div>
-                            )}
-                        </button>
-                    ))}
+            {/* Enhanced Segmented Tabs */}
+            <div className="relative p-1 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 w-fit mx-auto md:mx-0 shadow-sm">
+                <div className="flex flex-wrap md:flex-nowrap gap-1">
+                    {tabConfig.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        const count = getTabCount(tab.id as TabType);
+
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id as TabType)}
+                                className={`
+                                    relative flex items-center gap-2.5 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-500
+                                    ${isActive
+                                        ? 'text-white'
+                                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                                    }
+                                `}
+                            >
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="activeTabBackground"
+                                        className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-primary rounded-full shadow-lg shadow-primary/20"
+                                        initial={false}
+                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                    />
+                                )}
+                                <span className="relative z-10 flex items-center gap-2.5">
+                                    <Icon size={16} className={`${isActive ? 'opacity-100' : 'opacity-60'}`} />
+                                    {tab.label}
+                                    <span className={`
+                                        flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black border
+                                        ${isActive
+                                            ? 'bg-white/20 border-white/30 text-white'
+                                            : 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                                        }
+                                    `}>
+                                        {count}
+                                    </span>
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 

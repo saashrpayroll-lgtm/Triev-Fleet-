@@ -8,7 +8,8 @@ import LeadForm from '@/components/LeadForm';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import AdvancedFilterModal, { FilterConfig } from '@/components/AdvancedFilterModal';
 import { AIService } from '@/services/AIService';
-import { Plus, Sparkles, Download, Search, Trash2, SlidersHorizontal } from 'lucide-react';
+import { Plus, Sparkles, Download, Search, Trash2, SlidersHorizontal, Users, PlusCircle, Target, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { mapLeadToDB } from '@/utils/leadUtils';
 import { logActivity } from '@/utils/activityLog';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -210,6 +211,13 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
         if (status === 'All') return leads.length;
         return leads.filter(l => l.status === status).length;
     };
+
+    const leadTabConfig = [
+        { id: 'All', label: 'All Leads', icon: Users },
+        { id: 'New', label: 'New', icon: PlusCircle },
+        { id: 'Convert', label: 'Converted', icon: Target },
+        { id: 'Not Convert', label: 'Not Converted', icon: AlertTriangle },
+    ] as const;
 
     // Bulk Actions Handlers
     const handleSelectionChange = (ids: string[]) => {
@@ -559,25 +567,50 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                 />
             </div>
 
-            {/* Tabs */}
-            <div className="border-b border-border/50">
-                <div className="flex gap-6">
-                    {(['All', 'New', 'Convert', 'Not Convert'] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`pb - 3 text - sm font - medium border - b - 2 transition - all flex items - center gap - 2 ${activeTab === tab
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                                } `}
-                        >
-                            {tab}
-                            <span className={`px - 2 py - 0.5 rounded - full text - xs ${activeTab === tab ? 'bg-primary/10' : 'bg-muted'
-                                } `}>
-                                {getTabCount(tab)}
-                            </span>
-                        </button>
-                    ))}
+            {/* Enhanced Segmented Tabs */}
+            <div className="relative p-1 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 w-fit mx-auto md:mx-0 shadow-sm">
+                <div className="flex flex-wrap md:flex-nowrap gap-1">
+                    {leadTabConfig.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        const count = getTabCount(tab.id as any);
+
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`
+                                    relative flex items-center gap-2.5 px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-500
+                                    ${isActive
+                                        ? 'text-white'
+                                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                                    }
+                                `}
+                            >
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="leadActiveTabBackground"
+                                        className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full shadow-lg shadow-blue-500/20"
+                                        initial={false}
+                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                    />
+                                )}
+                                <span className="relative z-10 flex items-center gap-2.5">
+                                    <Icon size={16} className={`${isActive ? 'opacity-100' : 'opacity-60'}`} />
+                                    {tab.label}
+                                    <span className={`
+                                        flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black border
+                                        ${isActive
+                                            ? 'bg-white/20 border-white/30 text-white'
+                                            : 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                                        }
+                                    `}>
+                                        {count}
+                                    </span>
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
