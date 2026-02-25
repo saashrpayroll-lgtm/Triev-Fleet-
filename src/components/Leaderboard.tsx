@@ -427,7 +427,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                 border border-slate-200 dark:border-white/10
                                 rounded-2xl px-4 py-3 sm:px-5 transition-all cursor-default shadow-sm"
                             >
-                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="flex items-center gap-3 w-full sm:flex-1">
                                     <span className="text-sm font-black text-slate-400 dark:text-white/30 w-6 text-center">{idx + 4}</span>
                                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-slate-100 dark:bg-white/10 flex items-center justify-center text-xs sm:text-sm font-black text-slate-700 dark:text-white border border-slate-200 dark:border-white/20 flex-shrink-0">
                                         {tl.profilePicUrl ? (
