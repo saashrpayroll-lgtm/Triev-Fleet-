@@ -112,7 +112,7 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
         <div
             onClick={onClick}
             className={`
-                relative overflow-hidden rounded-2xl border p-5 
+                relative overflow-hidden rounded-2xl border p-4 sm:p-5 
                 transition-all duration-500 hover:scale-[1.03] hover:-translate-y-2 cursor-pointer
                 backdrop-blur-md bg-white/40 dark:bg-black/20
                 hover:shadow-xl active:scale-95

@@ -128,7 +128,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
     }, [teamLeaderId]);
 
     return (
-        <div className="bg-card rounded-xl border border-border/50 shadow-sm p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-card rounded-xl border border-border/50 shadow-sm p-4 sm:p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300">
             {/* Background Decoration */}
             <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:bg-green-500/20" />
 

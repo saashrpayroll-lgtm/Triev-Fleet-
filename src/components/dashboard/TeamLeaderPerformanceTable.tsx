@@ -129,7 +129,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 </div>
 
                 {/* Advanced Filters Toolbar */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <div className="relative flex-1 max-w-sm">
                         <input
                             type="text"
@@ -163,7 +163,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 <table className="w-full text-sm relative">
                     <thead className="sticky top-0 z-10 bg-card shadow-sm">
                         <tr className="text-left border-b">
-                            <th className="p-4 font-medium text-muted-foreground w-[250px] bg-card">Team Leader</th>
+                            <th className="p-4 font-medium text-muted-foreground min-w-[180px] md:w-[250px] bg-card">Team Leader</th>
                             <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('activeRiders')}>
                                 Riders (Active)
                             </th>

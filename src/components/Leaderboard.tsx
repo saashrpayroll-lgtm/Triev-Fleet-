@@ -141,7 +141,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     return (
         <div className="relative overflow-visible pb-2 mt-4">
             {/* Podium Cards: stacked on mobile (Gold first), side-by-side on desktop (Silver|Gold|Bronze) */}
-            <div className="flex flex-col md:flex-row md:items-end justify-center gap-4 md:gap-6 px-2 md:px-4 pt-16 pb-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-center gap-8 md:gap-6 px-2 md:px-4 pt-16 pb-4">
                 {/* Mobile order: show #1 first, then #2, then #3 */}
                 {[0, 1, 2].map((mobileIdx) => {
                     // On desktop the visual order is [1,0,2]; we handle that with md:order-* below
@@ -422,34 +422,37 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: idx * 0.05 }}
-                                className="flex items-center gap-4
+                                className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4
                                 bg-white/80 hover:bg-white dark:bg-white/5 dark:hover:bg-white/10
                                 border border-slate-200 dark:border-white/10
-                                rounded-2xl px-5 py-3 transition-all cursor-default shadow-sm"
+                                rounded-2xl px-4 py-3 sm:px-5 transition-all cursor-default shadow-sm"
                             >
-                                <span className="text-sm font-black text-slate-400 dark:text-white/30 w-6 text-center">{idx + 4}</span>
-                                <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-black text-slate-700 dark:text-white border border-slate-200 dark:border-white/20 flex-shrink-0">
-                                    {tl.profilePicUrl ? (
-                                        <img
-                                            src={tl.profilePicUrl}
-                                            alt={tl.fullName}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                const t = e.currentTarget;
-                                                t.style.display = 'none';
-                                                const p = t.parentElement;
-                                                if (p) p.innerHTML = `<span class="text-sm font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`;
-                                            }}
-                                        />
-                                    ) : (
-                                        tl.fullName.charAt(0).toUpperCase()
-                                    )}
+                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                    <span className="text-sm font-black text-slate-400 dark:text-white/30 w-6 text-center">{idx + 4}</span>
+                                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-slate-100 dark:bg-white/10 flex items-center justify-center text-xs sm:text-sm font-black text-slate-700 dark:text-white border border-slate-200 dark:border-white/20 flex-shrink-0">
+                                        {tl.profilePicUrl ? (
+                                            <img
+                                                src={tl.profilePicUrl}
+                                                alt={tl.fullName}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    const t = e.currentTarget;
+                                                    t.style.display = 'none';
+                                                    const p = t.parentElement;
+                                                    if (p) p.innerHTML = `<span class="text-sm font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`;
+                                                }}
+                                            />
+                                        ) : (
+                                            tl.fullName.charAt(0).toUpperCase()
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                        <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
-                                    <p className="text-[10px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
-                                </div>
-                                <div className="flex items-center gap-4 flex-shrink-0">
+
+                                <div className="flex items-center flex-wrap gap-x-4 gap-y-2 flex-shrink-0 w-full sm:w-auto pl-9 sm:pl-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 dark:border-white/5">
                                     <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
                                         <Users size={12} className="text-blue-500 dark:text-blue-400" />
                                         <span className="font-bold">{tl.stats.activeRiders}/{tl.stats.totalRiders}</span>
