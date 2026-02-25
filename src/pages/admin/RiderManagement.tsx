@@ -1303,31 +1303,29 @@ const RiderManagement: React.FC = () => {
             )}
 
             {/* Desktop and Mobile Table */}
-            <div className="bg-card border border-border rounded-lg overflow-x-auto shadow-sm">
-                <ResponsiveTable
-                    columns={columns}
-                    data={paginatedRiders}
-                    keyField="id"
-                    isLoading={loading}
-                    emptyMessage="No riders found matching your criteria."
-                    highlightedRowId={highlightedRiderId}
-                    onRowClick={(rider) => setViewingRider(rider)}
-                    actions={(rider) => (
-                        <ActionDropdownMenu
-                            rider={rider}
-                            onView={() => setViewingRider(rider)}
-                            onEdit={() => setEditingRider(rider)}
-                            onStatusChange={(s) => handleStatusChange(rider, s)}
-                            onDelete={() => handleDeleteRider(rider)}
-                            onRestore={() => handleRestoreRider(rider)}
-                            onPermanentDelete={() => handlePermanentDelete(rider)}
-                            onReassign={() => setReassigningRider(rider)}
-                            onAdjustWallet={() => setAdjustmentRider(rider)}
-                            userRole="admin"
-                        />
-                    )}
-                />
-            </div>
+            <ResponsiveTable
+                columns={columns}
+                data={paginatedRiders}
+                keyField="id"
+                isLoading={loading}
+                emptyMessage="No riders found matching your criteria."
+                highlightedRowId={highlightedRiderId}
+                onRowClick={(rider) => setViewingRider(rider)}
+                actions={(rider) => (
+                    <ActionDropdownMenu
+                        rider={rider}
+                        onView={() => setViewingRider(rider)}
+                        onEdit={() => setEditingRider(rider)}
+                        onStatusChange={(s) => handleStatusChange(rider, s)}
+                        onDelete={() => handleDeleteRider(rider)}
+                        onRestore={() => handleRestoreRider(rider)}
+                        onPermanentDelete={() => handlePermanentDelete(rider)}
+                        onReassign={() => setReassigningRider(rider)}
+                        onAdjustWallet={() => setAdjustmentRider(rider)}
+                        userRole="admin"
+                    />
+                )}
+            />
 
             {/* Modals */}
             <TLMappingModal

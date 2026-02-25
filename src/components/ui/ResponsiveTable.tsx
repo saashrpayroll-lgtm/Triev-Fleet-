@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export interface Column<T> {
     header: string | React.ReactNode;
@@ -50,70 +51,89 @@ function ResponsiveTable<T>({
     return (
         <div className="w-full">
             {/* ─── DESKTOP TABLE (md+) ─── */}
-            <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm text-left border-separate border-spacing-0">
-                    <thead className="sticky top-0 z-10">
-                        <tr className="bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-border/50">
-                            {columns.map((col, idx) => (
-                                <th
-                                    key={idx}
-                                    className={`
-                                        px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-border/50 first:rounded-tl-xl last:rounded-tr-xl
-                                        ${col.className || ''}
-                                    `}
-                                >
-                                    {col.header}
-                                </th>
-                            ))}
-                            {actions && (
-                                <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-border/50 last:rounded-tr-xl">
-                                    Actions
-                                </th>
-                            )}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
-                        {data.map((row) => {
-                            const rowId = String(row[keyField]);
-                            const isHighlighted = highlightedRowId === rowId;
-
-                            return (
-                                <tr
-                                    key={rowId}
-                                    onClick={() => onRowClick && onRowClick(row)}
-                                    className={`
-                                        group relative transition-all duration-300 
-                                        ${onRowClick ? 'cursor-pointer' : ''}
-                                        ${isHighlighted
-                                            ? 'bg-amber-50/50 dark:bg-amber-900/10'
-                                            : 'hover:bg-primary/[0.03] dark:hover:bg-primary/[0.05]'
-                                        }
-                                    `}
-                                >
+            <div className="hidden md:block">
+                <div className="relative rounded-3xl border border-white/20 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-2xl shadow-2xl overflow-hidden group/table">
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-sm text-left border-separate border-spacing-0">
+                            <thead className="sticky top-0 z-20">
+                                <tr className="bg-slate-50/40 dark:bg-slate-900/40 backdrop-blur-xl border-b border-white/10">
                                     {columns.map((col, idx) => (
-                                        <td key={idx} className={`px-6 py-4 relative ${col.className || ''}`}>
-                                            {/* Vertical Hover Indicator */}
-                                            {idx === 0 && !isHighlighted && (
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary opacity-0 group-hover:opacity-100 transition-opacity rounded-r-full" />
-                                            )}
-                                            {idx === 0 && isHighlighted && (
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400 rounded-r-full" />
-                                            )}
-                                            <div className="relative z-10">
-                                                {col.cell ? col.cell(row) : (row[col.accessorKey!] as React.ReactNode)}
-                                            </div>
-                                        </td>
+                                        <th
+                                            key={idx}
+                                            className={`
+                                                px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10 first:pl-8
+                                                ${col.className || ''}
+                                            `}
+                                        >
+                                            {col.header}
+                                        </th>
                                     ))}
                                     {actions && (
-                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                            {actions(row)}
-                                        </td>
+                                        <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10 pr-8">
+                                            Actions
+                                        </th>
                                     )}
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody className="relative">
+                                <AnimatePresence mode="popLayout">
+                                    {data.map((row, index) => {
+                                        const rowId = String(row[keyField]);
+                                        const isHighlighted = highlightedRowId === rowId;
+
+                                        return (
+                                            <motion.tr
+                                                key={rowId}
+                                                initial={{ opacity: 0, y: 15 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.98 }}
+                                                transition={{
+                                                    duration: 0.4,
+                                                    delay: Math.min(index * 0.03, 0.3),
+                                                    ease: [0.23, 1, 0.32, 1]
+                                                }}
+                                                onClick={() => onRowClick && onRowClick(row)}
+                                                className={`
+                                                    group relative transition-all duration-500 
+                                                    ${onRowClick ? 'cursor-pointer' : ''}
+                                                    ${isHighlighted
+                                                        ? 'bg-amber-400/10 dark:bg-amber-400/5'
+                                                        : 'hover:bg-white/60 dark:hover:bg-slate-800/40'
+                                                    }
+                                                `}
+                                            >
+                                                {columns.map((col, idx) => (
+                                                    <td key={idx} className={`px-6 py-5 relative first:pl-8 ${col.className || ''}`}>
+                                                        {/* Floating Hover Indicator - Centered Pill */}
+                                                        {idx === 0 && !isHighlighted && (
+                                                            <div className="absolute left-2 top-2 bottom-2 w-1.5 bg-primary/0 group-hover:bg-primary rounded-full transition-all duration-500 opacity-0 group-hover:opacity-100 shadow-[0_0_15px_rgba(var(--primary),0.5)] scale-y-50 group-hover:scale-y-100" />
+                                                        )}
+                                                        {idx === 0 && isHighlighted && (
+                                                            <div className="absolute left-2 top-2 bottom-2 w-1.5 bg-amber-400 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.5)]" />
+                                                        )}
+                                                        <div className={`relative z-10 transition-transform duration-500 ${!isHighlighted && 'group-hover:translate-x-1'}`}>
+                                                            {col.cell ? col.cell(row) : (row[col.accessorKey!] as React.ReactNode)}
+                                                        </div>
+                                                    </td>
+                                                ))}
+                                                {actions && (
+                                                    <td className="px-6 py-5 text-right pr-8" onClick={(e) => e.stopPropagation()}>
+                                                        <div className="relative z-10">
+                                                            {actions(row)}
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {/* Bottom Border Glow on Hover */}
+                                                <td className="absolute inset-x-4 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 underline-offset-4" colSpan={columns.length + (actions ? 1 : 0)} />
+                                            </motion.tr>
+                                        );
+                                    })}
+                                </AnimatePresence>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             {/* ─── MOBILE CARDS (< md) ─── */}

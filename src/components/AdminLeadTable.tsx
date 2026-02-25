@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lead, LeadStatus } from '@/types';
 import {
     MoreVertical, Eye, Edit, Trash2, MapPin, ShieldCheck, AlertTriangle,
-    Repeat, Sparkles, Phone, MessageCircle, RotateCw, Trash,
+    Repeat, Sparkles, Phone, MessageCircle, Trash,
     ChevronDown, CheckSquare, Square
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -171,152 +171,184 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
             {/* Fixed-position action menu portal */}
             {actionMenu && activeLead && (
                 <div
-                    className="fixed w-52 bg-popover border border-border rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+                    className="fixed w-60 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
                     style={{ top: `${actionMenu.top}px`, right: `${actionMenu.right}px`, zIndex: 9999 }}
                     onClick={e => e.stopPropagation()}
                 >
-                    <div className="py-1.5">
-                        <button onClick={() => { setActionMenu(null); onView(activeLead); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-accent flex items-center gap-2.5"><Eye size={14} className="text-blue-500" /> View Details</button>
-                        <button onClick={() => { setActionMenu(null); onEdit(activeLead); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-accent flex items-center gap-2.5"><Edit size={14} className="text-violet-500" /> Edit Lead</button>
-                        <div className="border-t border-border/50 my-1" />
-                        <div className="px-4 py-1.5 text-[10px] text-muted-foreground font-black uppercase tracking-wider">Change Status</div>
-                        {(['New', 'Convert', 'Not Convert'] as LeadStatus[]).map(status => (
-                            <button key={status} onClick={() => { setActionMenu(null); onStatusChange(activeLead, status); }} disabled={activeLead.status === status}
-                                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${activeLead.status === status ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent'}`}>
-                                <RotateCw size={13} className={activeLead.status === status ? 'opacity-50' : 'text-muted-foreground'} /> {status}
-                            </button>
-                        ))}
+                    <div className="p-2 space-y-1">
+                        <div className="px-4 py-2 mb-1 border-b border-border/50">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Manage Lead</p>
+                            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate mt-0.5">{activeLead.riderName}</p>
+                        </div>
+
+                        <button onClick={() => { setActionMenu(null); onView(activeLead); }} className="w-full text-left px-3 py-2.5 text-xs font-bold hover:bg-primary/10 hover:text-primary rounded-xl flex items-center gap-3 transition-all"><div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0"><Eye size={14} className="text-blue-500" /></div> View Details</button>
+                        <button onClick={() => { setActionMenu(null); onEdit(activeLead); }} className="w-full text-left px-3 py-2.5 text-xs font-bold hover:bg-primary/10 hover:text-primary rounded-xl flex items-center gap-3 transition-all"><div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0"><Edit size={14} className="text-violet-500" /></div> Edit Lead</button>
+
+                        <div className="h-[1px] bg-border/50 my-2" />
+                        <div className="px-4 py-1.5 text-[10px] text-slate-400 font-black uppercase tracking-wider">Change Status</div>
+
+                        <div className="grid grid-cols-1 gap-1">
+                            {(['New', 'Convert', 'Not Convert'] as LeadStatus[]).map(status => (
+                                <button key={status} onClick={() => { setActionMenu(null); onStatusChange(activeLead, status); }} disabled={activeLead.status === status}
+                                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl flex items-center gap-3 transition-all ${activeLead.status === status ? 'opacity-40 cursor-not-allowed bg-slate-50 dark:bg-slate-800/50' : 'hover:bg-primary/10 hover:text-primary'}`}>
+                                    <div className="w-2 h-2 rounded-full bg-slate-400" /> {status}
+                                </button>
+                            ))}
+                        </div>
+
                         {onAIRecommend && (<>
-                            <div className="border-t border-border/50 my-1" />
-                            <button onClick={() => { setActionMenu(null); onAIRecommend(activeLead); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-amber-50 dark:hover:bg-amber-900/10 flex items-center gap-2.5 text-amber-600"><Sparkles size={14} /> AI Recommendations</button>
+                            <div className="h-[1px] bg-border/50 my-2" />
+                            <button onClick={() => { setActionMenu(null); onAIRecommend(activeLead); }} className="w-full text-left px-3 py-2.5 text-xs font-bold hover:bg-amber-500/10 text-amber-600 rounded-xl flex items-center gap-3 transition-all"><div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0"><Sparkles size={14} /></div> AI Recommendations</button>
                         </>)}
-                        <div className="border-t border-border/50 my-1" />
-                        <button onClick={() => { setActionMenu(null); onDelete(activeLead); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-orange-50 dark:hover:bg-orange-900/10 text-orange-600 flex items-center gap-2.5"><Trash2 size={14} /> Soft Delete</button>
-                        {onPermanentDelete && <button onClick={() => { setActionMenu(null); onPermanentDelete(activeLead); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/10 text-red-600 flex items-center gap-2.5"><Trash size={14} /> Permanent Delete</button>}
+
+                        <div className="h-[1px] bg-border/50 my-2" />
+                        <button onClick={() => { setActionMenu(null); onDelete(activeLead); }} className="w-full text-left px-3 py-2.5 text-xs font-bold hover:bg-orange-500/10 text-orange-600 rounded-xl flex items-center gap-3 transition-all"><div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0"><Trash2 size={14} /></div> Soft Delete</button>
+                        {onPermanentDelete && <button onClick={() => { setActionMenu(null); onPermanentDelete(activeLead); }} className="w-full text-left px-3 py-2.5 text-xs font-bold hover:bg-red-500/10 text-red-600 rounded-xl flex items-center gap-3 transition-all"><div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0"><Trash size={14} /></div> Permanent Delete</button>}
                     </div>
                 </div>
             )}
 
             {/* ─── DESKTOP TABLE (md+) ─── */}
-            <div className="hidden md:block overflow-x-auto">
-                <table className="w-full border-separate border-spacing-0">
-                    <thead>
-                        <tr className="bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-border/50">
-                            <th className="px-6 py-4 w-12 border-b border-border/50 rounded-tl-2xl">
-                                <button onClick={handleSelectAll} className="text-slate-400 hover:text-primary transition-all active:scale-95">
-                                    {selectedIds.length === leads.length && leads.length > 0 ? <CheckSquare size={18} className="text-primary" /> : <Square size={18} />}
-                                </button>
-                            </th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">ID</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">Candidate Info</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">Location / Source</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">Assignee</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">Status</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">AI Verif.</th>
-                            <th className="px-3 py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">Score</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">GPS</th>
-                            <th className="px-3 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50">Registered</th>
-                            <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-border/50 rounded-tr-2xl">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/20">
-                        {leads.map(lead => {
-                            const isSelected = selectedIds.includes(lead.id);
-                            const category = getCategory(lead);
-
-                            return (
-                                <tr
-                                    key={lead.id}
-                                    onClick={() => onView(lead)}
-                                    className={`
-                                        group relative transition-all duration-300 cursor-pointer
-                                        ${isSelected ? 'bg-primary/[0.04]' : 'hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]'}
-                                    `}
-                                >
-                                    <td className="px-6 py-5 relative" onClick={e => e.stopPropagation()}>
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary opacity-0 group-hover:opacity-100 transition-opacity rounded-r-full" />
-                                        <button onClick={() => {
-                                            onSelectionChange(isSelected ? selectedIds.filter(x => x !== lead.id) : [...selectedIds, lead.id]);
-                                        }} className="text-slate-300 dark:text-slate-600 hover:text-primary transition-all">
-                                            {isSelected ? <CheckSquare size={18} className="text-primary" /> : <Square size={18} />}
+            <div className="hidden md:block">
+                <div className="relative rounded-3xl border border-white/20 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-2xl shadow-2xl overflow-hidden group/table">
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full border-separate border-spacing-0">
+                            <thead className="sticky top-0 z-20">
+                                <tr className="bg-slate-50/40 dark:bg-slate-900/40 backdrop-blur-xl border-b border-white/10">
+                                    <th className="px-6 py-5 w-12 border-b border-white/10 pl-8">
+                                        <button onClick={handleSelectAll} className="text-slate-400 hover:text-primary transition-all active:scale-95">
+                                            {selectedIds.length === leads.length && leads.length > 0 ? <CheckSquare size={18} className="text-primary" /> : <Square size={18} />}
                                         </button>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <span className="text-xs font-black text-muted-foreground">#{lead.leadId}</span>
-                                        <div className="text-[10px] text-muted-foreground/60 mt-0.5">
-                                            {lead.createdAt ? format(new Date(lead.createdAt), 'dd/MM') : '—'}
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
-                                                {lead.riderName?.charAt(0)?.toUpperCase() || '?'}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-bold text-foreground truncate max-w-[130px]">{lead.riderName}</p>
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[10px] font-mono text-muted-foreground">{lead.mobileNumber}</span>
-                                                    <div className="flex gap-0.5" onClick={e => e.stopPropagation()}>
-                                                        <a href={getCallLink(lead.mobileNumber)} className="p-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 rounded transition-colors" title="Call"><Phone size={10} /></a>
-                                                        <a href={getWhatsAppLink(lead.mobileNumber)} target="_blank" rel="noreferrer" className="p-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 rounded transition-colors" title="WhatsApp"><MessageCircle size={10} /></a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <p className="text-sm font-medium text-foreground">{lead.city || '—'}</p>
-                                        <p className="text-[10px] text-muted-foreground mt-0.5">{lead.source || '—'}</p>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center text-white text-[8px] font-black flex-shrink-0">
-                                                {(lead.createdByName || 'A')?.charAt(0)?.toUpperCase()}
-                                            </div>
-                                            <span className="text-xs text-muted-foreground truncate max-w-[100px]">{lead.createdByName || 'Admin'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                                        <StatusDropdown lead={lead} onStatusChange={onStatusChange} />
-                                    </td>
-                                    <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
-                                        <AiBadge
-                                            category={category}
-                                            onClick={onAIStatusClick ? () => onAIStatusClick(lead, category as any) : undefined}
-                                        />
-                                    </td>
-                                    <td className="px-3 py-3"><ScoreBadge score={lead.score} /></td>
-                                    <td className="px-3 py-3">
-                                        {lead.location ? (
-                                            <button
-                                                onClick={e => { e.stopPropagation(); window.open(`https://www.google.com/maps?q=${lead.location.lat},${lead.location.lng}`, '_blank'); }}
-                                                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:underline px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg transition-colors"
-                                            >
-                                                <MapPin size={10} /> View
-                                            </button>
-                                        ) : <span className="text-[10px] text-muted-foreground/50">N/A</span>}
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <span className="text-[11px] text-muted-foreground">{lead.createdAt ? format(new Date(lead.createdAt), 'dd MMM yy') : '—'}</span>
-                                    </td>
-                                    <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => onView(lead)} className="p-1.5 rounded-lg text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="View"><Eye size={14} /></button>
-                                            <button onClick={() => onEdit(lead)} className="p-1.5 rounded-lg text-muted-foreground hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors" title="Edit"><Edit size={14} /></button>
-                                            <button
-                                                onClick={e => {
-                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                    setActionMenu(actionMenu?.id === lead.id ? null : { id: lead.id, top: rect.bottom + 4, right: window.innerWidth - rect.right });
-                                                }}
-                                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                            ><MoreVertical size={14} /></button>
-                                        </div>
-                                    </td>
+                                    </th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">ID</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">Candidate Info</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">Location / Source</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">Assignee</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">Status</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">AI Verif.</th>
+                                    <th className="px-3 py-5 text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">Score</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">GPS</th>
+                                    <th className="px-3 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10">Registered</th>
+                                    <th className="px-6 py-5 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/70 dark:text-slate-400/70 border-b border-white/10 pr-8">Actions</th>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody className="relative">
+                                <AnimatePresence mode="popLayout">
+                                    {leads.map((lead, index) => {
+                                        const isSelected = selectedIds.includes(lead.id);
+                                        const category = getCategory(lead);
+
+                                        return (
+                                            <motion.tr
+                                                key={lead.id}
+                                                initial={{ opacity: 0, y: 15 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.98 }}
+                                                transition={{
+                                                    duration: 0.4,
+                                                    delay: Math.min(index * 0.03, 0.3),
+                                                    ease: [0.23, 1, 0.32, 1]
+                                                }}
+                                                onClick={() => onView(lead)}
+                                                className={`
+                                                    group relative transition-all duration-500 cursor-pointer
+                                                    ${isSelected ? 'bg-primary/5' : 'hover:bg-white/60 dark:hover:bg-slate-800/40'}
+                                                `}
+                                            >
+                                                <td className="px-6 py-4 relative pl-8" onClick={e => e.stopPropagation()}>
+                                                    {/* Floating Hover Indicator */}
+                                                    <div className="absolute left-2 top-2 bottom-2 w-1.5 bg-primary/0 group-hover:bg-primary rounded-full transition-all duration-500 opacity-0 group-hover:opacity-100 shadow-[0_0_15px_rgba(var(--primary),0.5)] scale-y-50 group-hover:scale-y-100" />
+
+                                                    <button onClick={() => {
+                                                        onSelectionChange(isSelected ? selectedIds.filter(x => x !== lead.id) : [...selectedIds, lead.id]);
+                                                    }} className="text-slate-300 dark:text-slate-600 hover:text-primary transition-all">
+                                                        {isSelected ? <CheckSquare size={18} className="text-primary" /> : <Square size={18} />}
+                                                    </button>
+                                                </td>
+                                                <td className="px-3 py-4">
+                                                    <span className="text-xs font-black text-slate-400/80 tracking-tighter">#{lead.leadId}</span>
+                                                    <div className="text-[10px] text-slate-400/50 mt-0.5">
+                                                        {lead.createdAt ? format(new Date(lead.createdAt), 'dd/MM') : '—'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-600 p-[1px] shadow-lg group-hover:rotate-6 transition-transform duration-500 flex-shrink-0">
+                                                            <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-xs font-black">
+                                                                {lead.riderName?.charAt(0)?.toUpperCase() || '?'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="min-w-0 transition-transform duration-500 group-hover:translate-x-1">
+                                                            <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate max-w-[140px] tracking-tight">{lead.riderName}</p>
+                                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <span className="text-[10px] font-mono font-bold text-slate-400">{lead.mobileNumber}</span>
+                                                                <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                                                                    <a href={getCallLink(lead.mobileNumber)} className="p-1.5 bg-blue-500/10 hover:bg-blue-500 text-blue-600 hover:text-white rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-90" title="Call"><Phone size={10} /></a>
+                                                                    <a href={getWhatsAppLink(lead.mobileNumber)} target="_blank" rel="noreferrer" className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white rounded-lg transition-all duration-300 transform hover:scale-110 active:scale-90" title="WhatsApp"><MessageCircle size={10} /></a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-4">
+                                                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 tracking-tight">{lead.city || '—'}</p>
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700" />
+                                                        <p className="text-[10px] font-black uppercase text-slate-400/70 tracking-widest">{lead.source || 'Direct'}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-4">
+                                                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50 w-fit group-hover:bg-white dark:group-hover:bg-slate-800 transition-colors">
+                                                        <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-orange-400 to-rose-500 flex items-center justify-center text-white text-[9px] font-black flex-shrink-0 shadow-sm">
+                                                            {(lead.createdByName || 'A')?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[90px]">{lead.createdByName || 'Admin'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-4" onClick={e => e.stopPropagation()}>
+                                                    <StatusDropdown lead={lead} onStatusChange={onStatusChange} />
+                                                </td>
+                                                <td className="px-3 py-4" onClick={e => e.stopPropagation()}>
+                                                    <AiBadge
+                                                        category={category}
+                                                        onClick={onAIStatusClick ? () => onAIStatusClick(lead, category as any) : undefined}
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-4 text-center"><ScoreBadge score={lead.score} /></td>
+                                                <td className="px-3 py-4">
+                                                    {lead.location ? (
+                                                        <button
+                                                            onClick={e => { e.stopPropagation(); window.open(`https://www.google.com/maps?q=${lead.location.lat},${lead.location.lng}`, '_blank'); }}
+                                                            className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-blue-600 hover:text-white px-3 py-1.5 bg-blue-500/10 hover:bg-blue-600 rounded-xl transition-all active:scale-95 shadow-sm"
+                                                        >
+                                                            <MapPin size={10} /> View
+                                                        </button>
+                                                    ) : <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-slate-700">None</span>}
+                                                </td>
+                                                <td className="px-3 py-4">
+                                                    <span className="text-[11px] font-black text-slate-400/60 uppercase tracking-tighter">{lead.createdAt ? format(new Date(lead.createdAt), 'dd MMM yy') : '—'}</span>
+                                                </td>
+                                                <td className="px-3 py-4 text-right pr-8" onClick={e => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-end gap-1.5">
+                                                        <button onClick={() => onView(lead)} className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-500/10 transform hover:scale-110 active:scale-90 transition-all" title="View"><Eye size={15} /></button>
+                                                        <button onClick={() => onEdit(lead)} className="p-2 rounded-xl text-slate-400 hover:text-violet-600 hover:bg-violet-500/10 transform hover:scale-110 active:scale-90 transition-all" title="Edit"><Edit size={15} /></button>
+                                                        <button
+                                                            onClick={e => {
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                setActionMenu(actionMenu?.id === lead.id ? null : { id: lead.id, top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                                                            }}
+                                                            className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-500/10 transform hover:scale-110 active:scale-90 transition-all"
+                                                        ><MoreVertical size={15} /></button>
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        );
+                                    })}
+                                </AnimatePresence>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             {/* ─── MOBILE CARDS (< md) ─── */}

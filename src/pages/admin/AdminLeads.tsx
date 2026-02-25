@@ -614,18 +614,8 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                 </div>
             </div>
 
-            {/* Table + Pagination */}
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                {/* Results count bar */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/10">
-                    <p className="text-xs font-semibold text-muted-foreground">
-                        Showing <span className="text-foreground font-black">{Math.min((currentPage - 1) * LEADS_PAGE_SIZE + 1, filteredLeads.length)}</span>–<span className="text-foreground font-black">{Math.min(currentPage * LEADS_PAGE_SIZE, filteredLeads.length)}</span> of <span className="text-foreground font-black">{filteredLeads.length}</span> leads
-                    </p>
-                    {selectedIds.length > 0 && (
-                        <span className="text-xs font-black text-primary">{selectedIds.length} selected</span>
-                    )}
-                </div>
-
+            {/* Table + Pagination Area */}
+            <div className="space-y-4">
                 <AdminLeadTable
                     leads={paginatedLeads}
                     loading={loading}
@@ -639,44 +629,44 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                     getLeadAIStatus={getLeadAIStatus}
                     onAIStatusClick={handleAIStatusClick}
                 />
-
-                {/* Pagination footer */}
-                {totalLeadPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-border/50">
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            className="px-3 py-1.5 text-xs font-bold border border-input rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                            ← Prev
-                        </button>
-                        <div className="flex items-center gap-1">
-                            {Array.from({ length: Math.min(5, totalLeadPages) }, (_, i) => {
-                                const page = totalLeadPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalLeadPages - 2 ? totalLeadPages - 4 + i : currentPage - 2 + i;
-                                return (
-                                    <button
-                                        key={page}
-                                        onClick={() => setCurrentPage(page)}
-                                        className={`w - 8 h - 8 text - xs font - bold rounded - lg transition - colors ${page === currentPage
-                                            ? 'bg-primary text-primary-foreground shadow-sm'
-                                            : 'hover:bg-accent text-muted-foreground'
-                                            } `}
-                                    >
-                                        {page}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(totalLeadPages, p + 1))}
-                            disabled={currentPage === totalLeadPages}
-                            className="px-3 py-1.5 text-xs font-bold border border-input rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Next →
-                        </button>
-                    </div>
-                )}
             </div>
+
+            {/* Pagination footer */}
+            {totalLeadPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border/50">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 text-xs font-bold border border-input rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                        ← Prev
+                    </button>
+                    <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalLeadPages) }, (_, i) => {
+                            const page = totalLeadPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalLeadPages - 2 ? totalLeadPages - 4 + i : currentPage - 2 + i;
+                            return (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w - 8 h - 8 text - xs font - bold rounded - lg transition - colors ${page === currentPage
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'hover:bg-accent text-muted-foreground'
+                                        } `}
+                                >
+                                    {page}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(totalLeadPages, p + 1))}
+                        disabled={currentPage === totalLeadPages}
+                        className="px-3 py-1.5 text-xs font-bold border border-input rounded-lg hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Next →
+                    </button>
+                </div>
+            )}
             {/* Add/Edit Lead Modal */}
             {(showAddModal || editingLead) && (
                 <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[20000] flex items-center justify-center p-0 md:p-4">
