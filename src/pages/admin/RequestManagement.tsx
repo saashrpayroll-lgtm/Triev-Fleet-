@@ -186,11 +186,6 @@ const RequestManagement: React.FC = () => {
         setSubmitting(true);
         try {
             console.log("Attempting secure password reset via RPC...");
-            console.log("Current User Context:", {
-                id: currentUser?.id,
-                email: currentUser?.email,
-                role: currentUser?.role
-            });
 
             const { error: rpcError } = await supabase.rpc('admin_reset_password_v2', {
                 target_user_id: selectedRequest.userId,

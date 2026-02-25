@@ -368,7 +368,7 @@ const DataManagement: React.FC = () => {
         const syncChannel = supabase
             .channel('google-sync-events')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sync_events' }, (payload) => {
-                console.log('Sync event received:', payload);
+                console.log('Sync event received.');
                 handleSyncEvent(payload.new);
             })
             .subscribe();

@@ -115,9 +115,9 @@ export const ChatService = {
     /**
      * Mark messages as read
      */
-    markAsRead: async (sessionId: string, _roleToMark: SenderRole) => {
+    markAsRead: async (_sessionId: string, _roleToMark: SenderRole) => {
         // Placeholder
-        console.log('Marking as read', sessionId, _roleToMark);
+        // console.log('Marking as read');
     },
 
     // --- Attachments ---

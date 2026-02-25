@@ -99,8 +99,8 @@ const NotificationManagement: React.FC = () => {
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'announcements' },
-                (payload) => {
-                    console.log('Real-time update received:', payload);
+                (_payload) => {
+                    console.log('Real-time update received.');
                     fetchAnnouncements();
                 }
             )
