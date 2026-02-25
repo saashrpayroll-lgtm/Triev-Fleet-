@@ -37,6 +37,7 @@ export interface TLSnapshot {
     allotments: number;
     submissions: number;
     netGrowth: number;
+    avgRiderCollection: number;
     lastActivity?: string;
 }
 
@@ -121,10 +122,10 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                         <p className="text-sm text-muted-foreground">Real-time metrics per supervisor</p>
                     </div>
                     <button
-                        onClick={() => navigate('/portal/users', { state: { filter: 'teamLeader' } })}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                        onClick={() => navigate('/portal/tl-performance')}
+                        className="text-sm font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 transition-all flex items-center gap-1"
                     >
-                        View All <ChevronRight size={14} />
+                        View All Performance <ChevronRight size={14} />
                     </button>
                 </div>
 
@@ -163,23 +164,26 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                 <table className="w-full text-sm relative">
                     <thead className="sticky top-0 z-10 bg-card shadow-sm">
                         <tr className="text-left border-b">
-                            <th className="p-4 font-medium text-muted-foreground min-w-[180px] md:w-[250px] bg-card">Team Leader</th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('activeRiders')}>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest min-w-[180px] md:w-[250px] bg-card">Team Leader</th>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('activeRiders')}>
                                 Riders (Active)
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('criticalDebtCount')}>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('criticalDebtCount')}>
                                 Risk & Critical Dues
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('dailyCollection')}>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('avgRiderCollection')}>
+                                Avg Collection
+                            </th>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('dailyCollection')}>
                                 Collections (D/W/T)
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('netGrowth')}>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('netGrowth')}>
                                 Fleet Flow (A/S/N)
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('leadsToday')}>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('leadsToday')}>
                                 Leads Performance
                             </th>
-                            <th className="p-4 font-medium text-muted-foreground text-right bg-card">Actions</th>
+                            <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right bg-card">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -240,6 +244,14 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                             <span className="text-emerald-500">Vol: ₹{tl.wallet.positiveAmount.toLocaleString()}</span>
                                             <span className="text-rose-500">Risk: ₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
                                         </div>
+                                    </div>
+                                </td>
+
+                                <td className="p-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Avg/Rider</span>
+                                        <span className="text-sm font-black text-indigo-600">₹{tl.avgRiderCollection.toLocaleString()}</span>
+                                        <span className="text-[8px] text-muted-foreground mt-1 italic whitespace-nowrap">Based on active force</span>
                                     </div>
                                 </td>
 

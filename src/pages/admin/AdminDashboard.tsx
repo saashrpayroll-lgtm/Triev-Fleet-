@@ -321,6 +321,7 @@ const Dashboard: React.FC = () => {
                 totalCollection: metrics.collection,
                 dailyCollection: dailyCollections[tl.id] || 0,
                 weeklyCollection: weeklyCollections[tl.id] || 0,
+                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
                 leadsToday: tlLeads.filter(l => {
                     const todayStr = new Date().toISOString().split('T')[0];
                     return l.createdAt.startsWith(todayStr);
