@@ -27,40 +27,21 @@ const LoginPage: React.FC = () => {
         try {
             let emailToLogin = loginInput;
 
-            // Check if input looks like an email
-            const rawInput = loginInput.trim();
-            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawInput);
+            // Resolve Login Identifier (Email / Mobile / Username)
+            const { data: resolvedEmail, error: resolutionError } = await supabase
+                .rpc('resolve_login_identifier', { p_identifier: loginInput.trim() });
 
-            if (!isEmail) {
-                // Remove spaces, dashes, parentheses to clean potential phone formatting
-                const cleanedInput = rawInput.replace(/[\s\-()]/g, '');
-
-                // Check if it's a mobile number (digits, optionally starting with +)
-                const isMobile = /^(\+)?\d+$/.test(cleanedInput);
-
-                if (isMobile) {
-                    // Lookup email by mobile
-                    const { data, error } = await supabase
-                        .rpc('get_email_by_mobile', { mobile_input: cleanedInput });
-
-                    if (error || !data) {
-                        // console.error("Mobile lookup failed:", error); // Security: Don't log detailed error
-                        throw new Error('Mobile number not registered or incorrect.');
-                    }
-                    emailToLogin = data;
+            if (resolutionError || !resolvedEmail) {
+                // If resolution fails, it might be because the function isn't run or user not found
+                // We fallback to raw input if it looks like an email, otherwise throw registered error
+                const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginInput.trim());
+                if (isEmail) {
+                    emailToLogin = loginInput.trim();
                 } else {
-                    // Lookup email by username
-                    const { data, error } = await supabase
-                        .rpc('get_email_by_username', { username_input: cleanedInput });
-
-                    if (error || !data) {
-                        // console.error("Username lookup failed:", error);
-                        throw new Error('Username not found');
-                    }
-                    emailToLogin = data;
+                    throw new Error('Account not found. Please check your Email, Mobile or Username.');
                 }
             } else {
-                emailToLogin = rawInput;
+                emailToLogin = resolvedEmail;
             }
 
             await login(emailToLogin, password);

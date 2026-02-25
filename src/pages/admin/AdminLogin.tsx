@@ -21,26 +21,19 @@ const AdminLogin: React.FC = () => {
             let emailToLogin = loginInput;
 
             // 1. Resolve Login Identifier (Email / Mobile / UserID)
-            const rawInput = loginInput.trim();
-            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawInput);
+            const { data: resolvedEmail, error: resolutionError } = await supabase
+                .rpc('resolve_login_identifier', { p_identifier: loginInput.trim() });
 
-            if (!isEmail) {
-                // Remove spaces, dashes, parentheses to clean potential phone formatting
-                const cleanedInput = rawInput.replace(/[\s\-()]/g, '');
-
-                // If not standard email, try to resolve it
-                const isMobile = /^(\+)?\d+$/.test(cleanedInput);
-
-                if (isMobile) {
-                    const { data, error } = await supabase.rpc('get_email_by_mobile', { mobile_input: cleanedInput });
-                    if (error || !data) throw new Error("Mobile number not found or not registered.");
-                    emailToLogin = data;
+            if (resolutionError || !resolvedEmail) {
+                // Fallback to raw input if it looks like an email
+                const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginInput.trim());
+                if (isEmail) {
+                    emailToLogin = loginInput.trim();
                 } else {
-                    // Assume Username / User ID
-                    const { data, error } = await supabase.rpc('get_email_by_username', { username_input: rawInput });
-                    if (error || !data) throw new Error("User ID / Username not found.");
-                    emailToLogin = data;
+                    throw new Error("Account not found. Please check your Email, Mobile or User ID.");
                 }
+            } else {
+                emailToLogin = resolvedEmail;
             }
 
             // 2. Perform standard login with resolved email
