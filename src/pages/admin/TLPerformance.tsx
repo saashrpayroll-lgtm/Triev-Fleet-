@@ -42,6 +42,10 @@ const TLPerformance: React.FC = () => {
     const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'custom'>('week'); // Default to week
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 
+    // Sorting & Multi-TL Filter States
+    const [selectedTLs, setSelectedTLs] = useState<string[]>([]);
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'totalCollection', direction: 'desc' });
+
     const fetchData = async () => {
         try {
             const [ridersRes, leadsRes, usersRes, dailyRes] = await Promise.all([
@@ -99,7 +103,8 @@ const TLPerformance: React.FC = () => {
         const channels = [
             supabase.channel('tl-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData).subscribe(),
             supabase.channel('tl-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData).subscribe(),
-            supabase.channel('tl-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData).subscribe()
+            supabase.channel('tl-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData).subscribe(),
+            supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData).subscribe()
         ];
 
         return () => {
@@ -138,6 +143,9 @@ const TLPerformance: React.FC = () => {
 
             const activeRiders = tlRiders.filter(r => r.status === 'active').length;
 
+            // CALCULATE WALLET METRICS
+            // Note: wallet_amount now reflects ONLY 'RESET' (Day Opening) + 'MANUAL_ADJUSTMENT'.
+            // Automated Collections (DAILY_COLLECTION, RENT_COLLECTION) are EXCLUDED from this balance.
             const wallet = tlRiders.reduce((acc, r) => ({
                 total: acc.total + (r.wallet_amount || 0),
                 positiveCount: acc.positiveCount + (r.wallet_amount > 0 ? 1 : 0),
@@ -204,22 +212,61 @@ const TLPerformance: React.FC = () => {
         });
     }, [rawData, tlCollections, dailyCollections, weeklyCollections]);
 
-    const filteredData = performanceData.filter(tl => {
-        const matchesSearch = tl.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tl.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredData = useMemo(() => {
+        let data = performanceData.filter(tl => {
+            const matchesSearch = tl.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tl.email.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesStatus = filterStatus === 'all' || tl.status === filterStatus;
+            const matchesStatus = filterStatus === 'all' || tl.status === filterStatus;
 
-        const matchesRisk = riskFilter === 'all' ||
-            (riskFilter === 'high_risk' && tl.criticalDebtCount > 0) ||
-            (riskFilter === 'low_risk' && tl.criticalDebtCount === 0);
+            const matchesRisk = riskFilter === 'all' ||
+                (riskFilter === 'high_risk' && tl.criticalDebtCount > 0) ||
+                (riskFilter === 'low_risk' && tl.criticalDebtCount === 0);
 
-        const matchesPerf = perfFilter === 'all' ||
-            (perfFilter === 'top_performers' && tl.leads.conversionRate >= 50) ||
-            (perfFilter === 'low_conversion' && tl.leads.conversionRate < 10 && tl.leads.total > 0);
+            const matchesPerf = perfFilter === 'all' ||
+                (perfFilter === 'top_performers' && tl.leads.conversionRate >= 50) ||
+                (perfFilter === 'low_conversion' && tl.leads.conversionRate < 10 && tl.leads.total > 0);
 
-        return matchesSearch && matchesStatus && matchesRisk && matchesPerf;
-    });
+            const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(tl.id);
+
+            return matchesSearch && matchesStatus && matchesRisk && matchesPerf && matchesTL;
+        });
+
+        // Apply Sorting
+        if (sortConfig) {
+            data.sort((a: any, b: any) => {
+                let aValue: any;
+                let bValue: any;
+
+                // Handle nested keys or calculated values
+                if (sortConfig.key === 'walletHealth') {
+                    aValue = Math.abs(a.wallet.negativeAmount);
+                    bValue = Math.abs(b.wallet.negativeAmount);
+                } else if (sortConfig.key === 'conversion') {
+                    aValue = a.leads.conversionRate;
+                    bValue = b.leads.conversionRate;
+                } else {
+                    aValue = a[sortConfig.key];
+                    bValue = b[sortConfig.key];
+                }
+
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return data;
+    }, [performanceData, searchTerm, filterStatus, riskFilter, perfFilter, selectedTLs, sortConfig]);
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => {
+            if (prev?.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'desc' };
+        });
+    };
 
     const exportToExcel = () => {
         const data = filteredData.map(tl => ({
@@ -516,6 +563,29 @@ const TLPerformance: React.FC = () => {
                                             </div>
                                         </div>
 
+                                        <div className="space-y-1.5 pt-4 border-t">
+                                            <label className="text-[10px] uppercase font-black text-muted-foreground tracking-tighter">Select Team Leaders</label>
+                                            <div className="max-h-40 overflow-y-auto space-y-2 p-1 border rounded-lg bg-background/50 custom-scrollbar">
+                                                {rawData.teamLeaders.map(tl => (
+                                                    <label key={tl.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded text-xs cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedTLs.includes(tl.id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedTLs([...selectedTLs, tl.id]);
+                                                                } else {
+                                                                    setSelectedTLs(selectedTLs.filter(id => id !== tl.id));
+                                                                }
+                                                            }}
+                                                            className="rounded border-border text-primary focus:ring-primary/20"
+                                                        />
+                                                        <span className="truncate">{tl.full_name || tl.fullName}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <button
                                             onClick={() => setIsFilterOpen(false)}
                                             className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all"
@@ -533,12 +603,54 @@ const TLPerformance: React.FC = () => {
                     <table className="w-full text-sm text-left">
                         <thead className="text-[10px] text-muted-foreground uppercase bg-muted/10 font-black tracking-widest border-b border-border/40">
                             <tr>
-                                <th className="px-6 py-5">Team Leader</th>
-                                <th className="px-6 py-5 text-center">Rider Force</th>
-                                <th className="px-6 py-5">Wallet Health (Pos/Neg/Risk)</th>
-                                <th className="px-6 py-5">Collections (Daily/Weekly)</th>
-                                <th className="px-6 py-5">Fleet Flow (A/S/N)</th>
-                                <th className="px-6 py-5">Leads Sourcing</th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('name')}>
+                                    <div className="flex items-center gap-1">
+                                        Team Leader
+                                        {sortConfig?.key === 'name' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('activeRiders')}>
+                                    <div className="flex items-center justify-center gap-1">
+                                        Rider Force
+                                        {sortConfig?.key === 'activeRiders' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('walletHealth')}>
+                                    <div className="flex items-center gap-1">
+                                        Wallet Health (Risk)
+                                        {sortConfig?.key === 'walletHealth' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('totalCollection')}>
+                                    <div className="flex items-center gap-1">
+                                        Collections
+                                        {sortConfig?.key === 'totalCollection' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('netGrowth')}>
+                                    <div className="flex items-center gap-1">
+                                        Fleet Flow
+                                        {sortConfig?.key === 'netGrowth' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('conversion')}>
+                                    <div className="flex items-center gap-1">
+                                        Leads %
+                                        {sortConfig?.key === 'conversion' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
+                                    </div>
+                                </th>
                                 <th className="px-6 py-5 text-right">Status</th>
                             </tr>
                         </thead>
