@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     LayoutDashboard,
@@ -15,7 +16,9 @@ import {
     Bell,
     ShieldAlert,
     Target,
-    Trophy
+    Trophy,
+    TrendingUp,
+    Layout
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -100,17 +103,15 @@ const AdminLayout: React.FC = () => {
             title: 'Overview',
             items: [
                 { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/analytics', icon: Activity, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
-                { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/tl-allotment', icon: Target, label: 'TL Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/analytics', icon: TrendingUp, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
                 { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
             ].filter(item => item.visible)
         },
         {
             title: 'Operations',
             items: [
-                { path: '/portal/riders', icon: Users, label: 'Rider Management', visible: userData?.permissions?.modules?.riders ?? true },
-                { path: '/portal/leads', icon: Target, label: 'Lead Management', visible: userData?.permissions?.modules?.leads ?? true },
+                { path: '/portal/riders', icon: Users, label: 'Riders', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/portal/leads', icon: Target, label: 'Leads', visible: userData?.permissions?.modules?.leads ?? true },
                 {
                     path: '/portal/requests',
                     icon: ShieldAlert,
@@ -119,6 +120,28 @@ const AdminLayout: React.FC = () => {
                     badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                     badgeColor: 'bg-orange-500 text-white'
                 },
+            ].filter(item => item.visible)
+        },
+        {
+            title: 'Management',
+            items: [
+                { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },
+            ].filter(item => item.visible)
+        },
+        {
+            title: 'Financials',
+            items: [
+                { path: '/portal/data', icon: Database, label: 'Data Hub', visible: userData?.permissions?.modules?.dataManagement ?? true },
+                { path: '/portal/wallet-history', icon: Database, label: 'Wallet Logs', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/portal/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
+            ].filter(item => item.visible)
+        },
+        {
+            title: 'System',
+            items: [
+                { path: '/portal/users', icon: UserCog, label: 'Staff & Roles', visible: userData?.permissions?.modules?.users ?? true },
+                { path: '/portal/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
                 {
                     path: '/portal/notifications',
                     icon: Bell,
@@ -127,21 +150,6 @@ const AdminLayout: React.FC = () => {
                     badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
                     badgeColor: 'bg-red-500 text-white'
                 },
-            ].filter(item => item.visible)
-        },
-        {
-            title: 'Financials',
-            items: [
-                { path: '/portal/data', icon: Database, label: 'Data Hub (Imports)', visible: userData?.permissions?.modules?.dataManagement ?? true },
-                { path: '/portal/wallet-history', icon: Database, label: 'Wallet History', visible: userData?.permissions?.modules?.riders ?? true },
-                { path: '/portal/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
-            ].filter(item => item.visible)
-        },
-        {
-            title: 'System & Admin',
-            items: [
-                { path: '/portal/users', icon: UserCog, label: 'Staff & Users', visible: userData?.permissions?.modules?.users ?? true },
-                { path: '/portal/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
                 { path: '/portal/profile', icon: User, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? true },
             ].filter(item => item.visible)
         }
@@ -174,13 +182,18 @@ const AdminLayout: React.FC = () => {
                     </h1>
                 </div>
 
-                <nav className="flex-1 px-3 py-6 space-y-6 overflow-x-hidden overflow-y-auto custom-scrollbar">
+                <nav className="flex-1 px-3 py-6 space-y-7 overflow-x-hidden overflow-y-auto custom-scrollbar">
                     {navGroups.map((group, groupIndex) => (
-                        <div key={groupIndex} className="space-y-1">
+                        <div key={groupIndex} className="space-y-2">
                             {sidebarOpen && (
-                                <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">
+                                <motion.h3
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="px-4 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/40 mb-3 flex items-center gap-2"
+                                >
                                     {group.title}
-                                </h3>
+                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                                </motion.h3>
                             )}
                             {group.items.map((item) => {
                                 const Icon = item.icon;
@@ -191,30 +204,42 @@ const AdminLayout: React.FC = () => {
                                         key={item.path}
                                         to={item.path}
                                         className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
-                                            ? 'bg-primary/10 text-primary font-medium'
-                                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-900/20 dark:hover:text-violet-400'
+                                            ? 'text-primary font-bold'
+                                            : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
-                                        <div className={`relative shrink-0 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
-                                            <Icon size={20} />
+                                        {/* Hover background effect */}
+                                        <div className={`absolute inset-0 transition-opacity duration-300 ${isActive
+                                            ? 'bg-primary/10 opacity-100'
+                                            : 'bg-primary/5 opacity-0 group-hover:opacity-100'
+                                            }`} />
+
+                                        {/* Activity Indicator */}
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="active-pill"
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.5)]"
+                                            />
+                                        )}
+
+                                        <div className={`relative shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'}`}>
+                                            <Icon size={18} className={isActive ? 'text-primary' : 'transition-colors duration-300'} />
                                             {!sidebarOpen && item.badge !== undefined && (
-                                                <span className={`absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${item.badgeColor}`}>
+                                                <span className={`absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black shadow-lg ${item.badgeColor}`}>
                                                     {item.badge > 99 ? '99+' : item.badge}
                                                 </span>
                                             )}
                                         </div>
 
-                                        <span className={`flex-1 whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute left-12'}`}>
+                                        <span className={`relative flex-1 text-sm tracking-tight whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute left-12'}`}>
                                             {item.label}
                                         </span>
 
                                         {sidebarOpen && item.badge !== undefined && (
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in`}>
+                                            <span className={`relative px-2 py-0.5 rounded-lg text-[9px] font-black ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in shadow-sm`}>
                                                 {item.badge > 99 ? '99+' : item.badge}
                                             </span>
                                         )}
-
-                                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1/2 w-1 bg-primary rounded-r-full" />}
                                     </Link>
                                 );
                             })}

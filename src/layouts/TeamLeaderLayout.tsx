@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { LayoutDashboard, Users, FileText, Activity, LogOut, Menu, X, HelpCircle, Wallet, UserCog } from 'lucide-react';
+import {
+    LayoutDashboard, Users, FileText, Activity, LogOut, Menu,
+    X, Wallet, User, Target, ShieldAlert
+} from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
@@ -74,14 +78,14 @@ const TeamLeaderLayout: React.FC = () => {
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
         },
         {
-            title: 'My Team',
+            title: 'Operations',
             items: [
                 { path: '/team-leader/riders', icon: Users, label: 'My Riders', visible: userData?.permissions?.modules?.riders ?? true },
-                { path: '/team-leader/leads', icon: Users, label: 'My Leads', visible: userData?.permissions?.modules?.leads ?? true },
+                { path: '/team-leader/leads', icon: Target, label: 'My Leads', visible: userData?.permissions?.modules?.leads ?? true },
                 {
                     path: '/team-leader/requests',
-                    icon: HelpCircle,
-                    label: 'My Requests',
+                    icon: ShieldAlert,
+                    label: 'Support Tickets',
                     visible: userData?.permissions?.modules?.requests ?? true,
                     badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                     badgeColor: 'bg-orange-500 text-white'
@@ -89,17 +93,17 @@ const TeamLeaderLayout: React.FC = () => {
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
         },
         {
-            title: 'Financials & Logs',
+            title: 'Logs & Reports',
             items: [
-                { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet History', visible: userData?.permissions?.wallet?.viewHistory ?? true },
+                { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet Logs', visible: userData?.permissions?.wallet?.viewHistory ?? true },
                 { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
-                { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Log', visible: userData?.permissions?.modules?.activityLog ?? true },
+                { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
         },
         {
-            title: 'Account',
+            title: 'Settings',
             items: [
-                { path: '/team-leader/profile', icon: UserCog, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? false },
+                { path: '/team-leader/profile', icon: User, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? true },
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
         }
     ].filter(group => group.items.length > 0);
@@ -128,13 +132,18 @@ const TeamLeaderLayout: React.FC = () => {
                     </button>
                 </div>
 
-                <nav className="flex-1 px-3 py-6 space-y-6 overflow-y-auto custom-scrollbar">
+                <nav className="flex-1 px-3 py-6 space-y-7 overflow-y-auto custom-scrollbar">
                     {navGroups.map((group, groupIndex) => (
-                        <div key={groupIndex} className="space-y-1 relative">
+                        <div key={groupIndex} className="space-y-2 relative">
                             {sidebarOpen && (
-                                <h3 className="px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">
+                                <motion.h3
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="px-4 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/40 mb-3 flex items-center gap-2"
+                                >
                                     {group.title}
-                                </h3>
+                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                                </motion.h3>
                             )}
                             {group.items.map((item) => {
                                 const Icon = item.icon;
@@ -145,32 +154,44 @@ const TeamLeaderLayout: React.FC = () => {
                                         key={item.path}
                                         to={item.path}
                                         className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
-                                            ? 'bg-primary/10 text-primary font-medium'
-                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                            ? 'text-primary font-bold'
+                                            : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
-                                        <div className={`relative shrink-0 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
-                                            <Icon size={20} />
+                                        {/* Hover background effect */}
+                                        <div className={`absolute inset-0 transition-opacity duration-300 ${isActive
+                                            ? 'bg-primary/10 opacity-100'
+                                            : 'bg-primary/5 opacity-0 group-hover:opacity-100'
+                                            }`} />
+
+                                        {/* Activity Indicator */}
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="tl-active-pill"
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.5)]"
+                                            />
+                                        )}
+
+                                        <div className={`relative shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'}`}>
+                                            <Icon size={18} className={isActive ? 'text-primary' : 'transition-colors duration-300'} />
                                             {!sidebarOpen && item.badge !== undefined && (
-                                                <span className={`absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${item.badgeColor}`}>
+                                                <span className={`absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black shadow-lg ${item.badgeColor}`}>
                                                     {item.badge}
                                                 </span>
                                             )}
                                         </div>
 
                                         {sidebarOpen && (
-                                            <span className="flex-1 whitespace-nowrap transition-all duration-300">
+                                            <span className="relative flex-1 text-sm tracking-tight whitespace-nowrap transition-all duration-300">
                                                 {item.label}
                                             </span>
                                         )}
 
                                         {sidebarOpen && item.badge !== undefined && (
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in`}>
+                                            <span className={`relative px-2 py-0.5 rounded-lg text-[9px] font-black ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in shadow-sm`}>
                                                 {item.badge}
                                             </span>
                                         )}
-
-                                        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1/2 w-1 bg-primary rounded-r-full" />}
                                     </Link>
                                 );
                             })}
