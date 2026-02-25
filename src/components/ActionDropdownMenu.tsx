@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MoreVertical, Eye, Edit, Repeat, Trash2, RotateCcw, XCircle, X } from 'lucide-react';
 import { Rider } from '@/types';
 
@@ -55,7 +56,11 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
         e.preventDefault();
         if (!isMobile && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
-            setMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+            // Using viewport coordinates for Portal placement
+            setMenuPos({
+                top: rect.bottom + window.scrollY + 6,
+                right: window.innerWidth - (rect.right + window.scrollX)
+            });
         }
         setIsOpen(true);
     };
@@ -71,9 +76,12 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                 close();
             }
         };
-        const onScroll = () => close();
+        const onScroll = () => {
+            if (!isMobile) close();
+        };
+
         document.addEventListener('mousedown', onOutside);
-        if (!isMobile) window.addEventListener('scroll', onScroll, true);
+        window.addEventListener('scroll', onScroll, true);
         return () => {
             document.removeEventListener('mousedown', onOutside);
             window.removeEventListener('scroll', onScroll, true);
@@ -83,43 +91,36 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
     const isDeleted = rider.status === 'deleted';
     const can = (a: keyof ActionPermissions) => permissions[a] !== false;
 
-    // Shared action handler — always close menu and stop propagation
     const act = (fn: () => void) => (e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
         close();
-        // Defer so menu closes before modal opens (prevents focus-trap clash)
         setTimeout(fn, 50);
     };
 
     const MenuItems = () => (
         <div className="py-1 px-1 space-y-0.5">
-            {/* Rider name row */}
             <div className="px-3 py-2 border-b border-border/50 mb-1">
                 <p className="text-xs font-black text-foreground truncate">{rider.riderName}</p>
                 <p className="text-[10px] text-muted-foreground font-mono">{rider.trievId}</p>
             </div>
 
-            {/* View */}
             {can('view') && (
                 <button onClick={act(onView)} className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
                     <Eye size={15} className="text-muted-foreground group-hover:text-primary" /> View Details
                 </button>
             )}
-            {/* Edit */}
             {!isDeleted && can('edit') && (
                 <button onClick={act(onEdit)} className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
                     <Edit size={15} className="text-muted-foreground group-hover:text-primary" /> Edit Rider
                 </button>
             )}
-            {/* Wallet Adjust */}
             {!isDeleted && onAdjustWallet && (
                 <button onClick={act(onAdjustWallet)} className="w-full px-3 py-2.5 text-left hover:bg-primary/10 hover:text-primary rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
                     <WalletIcon /> Adjust Wallet
                 </button>
             )}
 
-            {/* Status Change */}
             {!isDeleted && can('statusChange') && (
                 <div className="my-1">
                     <div className="px-3 py-1 text-[9px] uppercase tracking-widest text-muted-foreground font-black">Set Status</div>
@@ -127,22 +128,19 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                         {rider.status !== 'active' && (
                             <button onClick={act(() => onStatusChange('active'))}
                                 className="px-2 py-2 hover:bg-green-500/10 hover:text-green-600 rounded-lg border border-transparent hover:border-green-200 transition-colors flex items-center justify-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                                <span className="text-xs font-bold">Active</span>
+                                <span className="text-xs font-bold text-green-600">Active</span>
                             </button>
                         )}
                         {rider.status !== 'inactive' && (
                             <button onClick={act(() => onStatusChange('inactive'))}
                                 className="px-2 py-2 hover:bg-amber-500/10 hover:text-amber-600 rounded-lg border border-transparent hover:border-amber-200 transition-colors flex items-center justify-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-                                <span className="text-xs font-bold">Inactive</span>
+                                <span className="text-xs font-bold text-amber-600">Inactive</span>
                             </button>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* Re-assign */}
             {userRole === 'admin' && !isDeleted && onReassign && (
                 <button onClick={act(onReassign)} className="w-full px-3 py-2.5 text-left hover:bg-blue-500/10 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-3 group text-sm font-medium">
                     <Repeat size={15} className="text-muted-foreground group-hover:text-blue-600" /> Transfer Rider
@@ -151,7 +149,6 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
 
             <div className="my-1 border-t border-border/50" />
 
-            {/* Delete / Restore */}
             {!isDeleted ? (
                 can('softDelete') && (
                     <button onClick={act(onDelete)} className="w-full px-3 py-2.5 text-left hover:bg-destructive/10 text-destructive rounded-lg transition-colors flex items-center gap-3 text-sm font-medium">
@@ -176,7 +173,7 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
     );
 
     return (
-        <div className="relative">
+        <>
             <button
                 ref={buttonRef}
                 onClick={open}
@@ -186,52 +183,39 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                 <MoreVertical size={18} />
             </button>
 
-            {isOpen && (
-                <>
-                    {/* ── MOBILE: Full-screen bottom sheet ── */}
-                    {isMobile && (
-                        <div
-                            className="fixed inset-0 z-[30000] flex flex-col justify-end"
-                            onMouseDown={e => { if (e.target === e.currentTarget) close(); }}
-                        >
-                            {/* Backdrop */}
-                            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={close} />
+            {isOpen && createPortal(
+                <div className="fixed inset-0 z-[50000]">
+                    {/* Backdrop for mobile / Click away for desktop */}
+                    <div className={`absolute inset-0 ${isMobile ? 'bg-black/50 backdrop-blur-sm' : ''}`} onClick={close} />
 
-                            {/* Sheet */}
-                            <div
-                                ref={menuRef}
-                                className="relative z-10 bg-card rounded-t-3xl shadow-2xl border-t border-border animate-in slide-in-from-bottom-4 duration-200 pb-safe"
-                                onClick={e => e.stopPropagation()}
-                            >
-                                {/* Drag handle */}
-                                <div className="flex justify-center pt-3 pb-1">
-                                    <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-                                </div>
-                                {/* Close */}
-                                <button onClick={close} className="absolute top-3 right-4 p-1.5 rounded-full hover:bg-muted transition-colors">
-                                    <X size={18} className="text-muted-foreground" />
-                                </button>
-                                <div className="max-h-[75vh] overflow-y-auto pb-6">
-                                    <MenuItems />
-                                </div>
+                    {isMobile ? (
+                        <div className="absolute bottom-0 inset-x-0 z-10 bg-card rounded-t-3xl shadow-2xl border-t border-border animate-in slide-in-from-bottom-4 duration-300 pb-safe">
+                            <div className="flex justify-center pt-3 pb-1">
+                                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                            </div>
+                            <button onClick={close} className="absolute top-3 right-4 p-1.5 rounded-full hover:bg-muted transition-colors">
+                                <X size={18} className="text-muted-foreground" />
+                            </button>
+                            <div className="max-h-[75vh] overflow-y-auto pb-6">
+                                <MenuItems />
                             </div>
                         </div>
+                    ) : (
+                        menuPos && (
+                            <div
+                                ref={menuRef}
+                                className="absolute w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-[50001] animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
+                                style={{ top: menuPos.top, right: menuPos.right }}
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <MenuItems />
+                            </div>
+                        )
                     )}
-
-                    {/* ── DESKTOP: Floating dropdown ── */}
-                    {!isMobile && menuPos && (
-                        <div
-                            ref={menuRef}
-                            className="fixed w-60 bg-card border border-border rounded-2xl shadow-2xl z-[20001] animate-in zoom-in-95 duration-150 overflow-hidden"
-                            style={{ top: menuPos.top, right: menuPos.right }}
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <MenuItems />
-                        </div>
-                    )}
-                </>
+                </div>,
+                document.body
             )}
-        </div>
+        </>
     );
 };
 

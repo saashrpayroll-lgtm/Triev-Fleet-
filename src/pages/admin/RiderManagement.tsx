@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Rider, User, RiderStatus, ClientName } from '@/types';
-import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal, CheckCircle, XCircle, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
@@ -1005,23 +1005,23 @@ const RiderManagement: React.FC = () => {
     // Determine Actions based on Tab
     const getBulkActions = () => {
         const commonActions = [
-            { label: 'Assign TL', onClick: () => setShowBulkAssignTL(true), icon: <Users size={16} /> }
+            { label: 'Assign TL', onClick: () => setShowBulkAssignTL(true), variant: 'default' as const, icon: <Users size={14} /> }
         ];
 
         if (activeTab === 'deleted') {
             return [
-                { label: 'Restore', onClick: handleBulkRestore, icon: <RefreshCw size={16} /> },
+                { label: 'Restore', onClick: handleBulkRestore, variant: 'premium' as const, icon: <RefreshCw size={14} /> },
                 ...commonActions,
-                { label: 'Permanently Delete', onClick: handleBulkPermanentDelete, variant: 'destructive', icon: <Trash2 size={16} /> }
+                { label: 'Permanently Delete', onClick: handleBulkPermanentDelete, variant: 'destructive' as const, icon: <Trash2 size={14} /> }
             ];
         }
 
         return [
-            { label: 'Set Active', onClick: () => handleBulkStatusChange('active') },
-            { label: 'Set Inactive', onClick: () => handleBulkStatusChange('inactive') },
-            { label: 'Bulk Communication (WA)', onClick: () => setShowBulkCommunicationModal(true), icon: <MessageCircle size={16} /> },
+            { label: 'Set Active', onClick: () => handleBulkStatusChange('active'), variant: 'default' as const, icon: <CheckCircle size={14} className="text-green-500" /> },
+            { label: 'Set Inactive', onClick: () => handleBulkStatusChange('inactive'), variant: 'default' as const, icon: <XCircle size={14} className="text-amber-500" /> },
+            { label: 'Communicate', onClick: () => setShowBulkCommunicationModal(true), variant: 'premium' as const, icon: <Send size={14} /> },
             ...commonActions,
-            { label: 'Bulk Delete', onClick: handleBulkDelete, variant: 'destructive', icon: <Trash2 size={16} /> }
+            { label: 'Delete', onClick: handleBulkDelete, variant: 'destructive' as const, icon: <Trash2 size={14} /> }
         ];
     };
 
@@ -1034,23 +1034,24 @@ const RiderManagement: React.FC = () => {
                     e.stopPropagation();
                     handleSelectAll();
                 }}
+                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 accent-primary"
                 checked={paginatedRiders.length > 0 && paginatedRiders.every(r => selectedRiders.has(r.id))}
             />,
             accessorKey: 'id',
             className: 'w-10 text-center',
             cell: (rider) => (
-                <div onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-center">
                     <input
                         type="checkbox"
                         checked={selectedRiders.has(rider.id)}
                         onChange={() => handleSelectOne(rider.id)}
-                        className="cursor-pointer"
+                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 accent-primary cursor-pointer"
                     />
                 </div>
             )
         },
         {
-            header: <span className="cursor-pointer flex items-center gap-1" onClick={() => handleSort('trievId')}>Triev ID</span>,
+            header: <span className="cursor-pointer tracking-widest" onClick={() => handleSort('trievId')}>ID</span>,
             accessorKey: 'trievId',
             cell: (rider) => (
                 <button
@@ -1058,73 +1059,107 @@ const RiderManagement: React.FC = () => {
                         e.stopPropagation();
                         setViewingRider(rider);
                     }}
-                    className="text-primary hover:underline font-bold"
+                    className="text-primary hover:text-primary/70 font-black font-mono text-[11px] tracking-tighter"
                 >
                     {rider.trievId}
                 </button>
             )
         },
         {
-            header: <span className="cursor-pointer" onClick={() => handleSort('riderName')}>Name</span>,
-            accessorKey: 'riderName'
+            header: <span className="cursor-pointer tracking-widest" onClick={() => handleSort('riderName')}>Full Name</span>,
+            accessorKey: 'riderName',
+            cell: (rider) => (
+                <div className="flex flex-col">
+                    <span className="font-bold text-slate-700 dark:text-slate-200">{rider.riderName}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{rider.clientName || 'Standalone'}</span>
+                </div>
+            )
         },
         {
-            header: 'Mobile',
+            header: <span className="tracking-widest">Contact Info</span>,
             accessorKey: 'mobileNumber',
             cell: (rider) => (
-                <div className="flex flex-col gap-1">
-                    <span>{rider.mobileNumber}</span>
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleCall(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200" title="Call"><Phone size={20} /></button>
-                        <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="text-green-600 hover:text-green-700 p-2 rounded-full hover:bg-green-100 hover:shadow-md transition-all border border-transparent hover:border-green-200" title="WhatsApp"><MessageCircle size={20} /></button>
+                <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{rider.mobileNumber}</span>
+                    </div>
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleCall(rider.mobileNumber)} className="p-1.5 text-slate-400 hover:text-green-500 hover:bg-green-50 rounded-lg transition-all" title="Call"><Phone size={14} /></button>
+                        <button onClick={() => handleWhatsApp(rider.mobileNumber)} className="p-1.5 text-slate-400 hover:text-green-500 hover:bg-green-50 rounded-lg transition-all" title="WhatsApp"><MessageCircle size={14} /></button>
                     </div>
                 </div>
             )
         },
-        { header: 'Chassis', accessorKey: 'chassisNumber', className: 'text-muted-foreground text-xs md:text-sm' },
         {
-            header: <span className="cursor-pointer" onClick={() => handleSort('clientName')}>Client</span>,
-            accessorKey: 'clientName',
-            className: 'capitalize'
-        },
-        {
-            header: <span className="cursor-pointer" onClick={() => handleSort('walletAmount')}>Wallet</span>,
-            accessorKey: 'walletAmount',
+            header: <span className="tracking-widest">Asset Details</span>,
+            accessorKey: 'chassisNumber',
             cell: (rider) => (
-                <div className="flex items-center gap-2">
-                    <span className={`font-bold ${rider.walletAmount > 0 ? 'text-green-600' : rider.walletAmount < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                        ₹{rider.walletAmount}
-                    </span>
-                    {rider.walletAmount < 0 && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setReminderRider(rider);
-                            }}
-                            className="p-1.5 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-full shadow hover:shadow-lg hover:from-red-600 hover:to-pink-700 transition-all transform hover:-translate-y-0.5"
-                            title="Send Payment Reminder (AI)"
-                        >
-                            <MessageCircle size={14} />
-                        </button>
-                    )}
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-tighter">{rider.chassisNumber || 'N/A'}</span>
+                    <span className="text-[9px] text-slate-400 uppercase font-black">Chassis Info</span>
                 </div>
             )
         },
         {
-            header: 'Status',
-            accessorKey: 'status',
+            header: <span className="cursor-pointer tracking-widest text-center" onClick={() => handleSort('walletAmount')}>Ledger Balance</span>,
+            accessorKey: 'walletAmount',
+            className: 'text-center',
             cell: (rider) => (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${rider.status === 'active' ? 'bg-green-100 text-green-700' :
-                    rider.status === 'inactive' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                    }`}>
-                    {rider.status}
-                </span>
+                <div className="flex flex-col items-center justify-center gap-1">
+                    <div className={`
+                        px-3 py-1 rounded-full text-[11px] font-black tracking-tight flex items-center gap-1.5
+                        ${rider.walletAmount > 0
+                            ? 'bg-green-500/10 text-green-600 border border-green-500/20'
+                            : rider.walletAmount < 0
+                                ? 'bg-red-500/10 text-red-600 border border-red-500/20 shadow-[0_4px_12px_rgba(239,68,68,0.1)]'
+                                : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                        }
+                    `}>
+                        {rider.walletAmount < 0 ? '-' : ''}₹{Math.abs(rider.walletAmount).toLocaleString('en-IN')}
+                        {rider.walletAmount < 0 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReminderRider(rider);
+                                }}
+                                className="ml-1 p-0.5 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"
+                                title="Send AI Penalty/Reminder"
+                            >
+                                <Send size={10} />
+                            </button>
+                        )}
+                    </div>
+                </div>
             )
         },
         {
-            header: <span className="cursor-pointer" onClick={() => handleSort('teamLeaderName')}>Team Leader</span>,
-            accessorKey: 'teamLeaderName'
+            header: <span className="tracking-widest">Status</span>,
+            accessorKey: 'status',
+            cell: (rider) => (
+                <div className={`
+                    w-fit px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-[0.15em] border
+                    ${rider.status === 'active'
+                        ? 'bg-green-500/5 text-green-600 border-green-500/20 shadow-[0_2px_10px_rgba(34,197,94,0.1)]'
+                        : rider.status === 'inactive'
+                            ? 'bg-amber-500/5 text-amber-600 border-amber-500/20'
+                            : 'bg-red-500/5 text-red-600 border-red-500/20'
+                    }
+                `}>
+                    {rider.status}
+                </div>
+            )
+        },
+        {
+            header: <span className="cursor-pointer tracking-widest" onClick={() => handleSort('teamLeaderName')}>Captain / TL</span>,
+            accessorKey: 'teamLeaderName',
+            cell: (rider) => (
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                        {rider.teamLeaderName?.charAt(0) || <Users size={12} />}
+                    </div>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{rider.teamLeaderName || 'Unassigned'}</span>
+                </div>
+            )
         },
     ];
 
