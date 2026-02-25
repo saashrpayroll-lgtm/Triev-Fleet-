@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LucideIcon, Menu, X, User, LogOut } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -16,13 +16,11 @@ interface BottomNavProps {
 
 const BottomNav: React.FC<BottomNavProps> = ({ items }) => {
     const location = useLocation();
-    const navigate = useNavigate();
-    const { signOut } = useSupabaseAuth(); // Use context for logout
+    const { signOut, userData } = useSupabaseAuth(); // Use context for logout and role
 
     const handleLogout = async () => {
         try {
             await signOut();
-            navigate('/login');
         } catch (error) {
             console.error('Logout failed:', error);
         }
@@ -127,17 +125,19 @@ const BottomNav: React.FC<BottomNavProps> = ({ items }) => {
                             })}
                         </div>
 
-                        {/* Footer Actions (Profile & Logout) */}
+                        {/* Footer Actions (Logout only, Profile is in Nav Items if enabled) */}
                         <div className="p-4 border-t border-border bg-muted/10 space-y-2 shrink-0">
-                            {/* Profile Link (if not already in nav items, but good to have explicit) */}
-                            <Link
-                                to="/portal/profile"
-                                onClick={() => setIsMoreOpen(false)}
-                                className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-                            >
-                                <User size={20} />
-                                <span>My Profile</span>
-                            </Link>
+                            {/* Profile fallback ONLY if not in visible items and if user is admin/tl */}
+                            {!visibleItems.some(i => i.path.includes('profile')) && userData?.permissions?.modules?.profile && (
+                                <Link
+                                    to={userData.role === 'admin' ? '/portal/profile' : '/team-leader/profile'}
+                                    onClick={() => setIsMoreOpen(false)}
+                                    className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                                >
+                                    <User size={20} />
+                                    <span>My Profile</span>
+                                </Link>
+                            )}
 
                             <button
                                 onClick={handleLogout}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
@@ -28,7 +28,6 @@ interface NavGroup {
 
 const TeamLeaderLayout: React.FC = () => {
     const { userData, signOut } = useSupabaseAuth();
-    const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -64,7 +63,6 @@ const TeamLeaderLayout: React.FC = () => {
     const handleLogout = async () => {
         try {
             await signOut();
-            navigate('/login');
         } catch (error) {
             console.error('Logout failed:', error);
         }

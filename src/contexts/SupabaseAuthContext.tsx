@@ -29,6 +29,41 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [user, setUser] = useState<any | null>(null);
     const [userData, setUserData] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [lastActivity, setLastActivity] = useState(Date.now());
+    const AUTO_LOGOUT_TIME = 10 * 60 * 1000; // 10 minutes in ms
+
+    // Auto-logout effect
+    useEffect(() => {
+        if (!user) return;
+
+        const checkInactivity = () => {
+            const now = Date.now();
+            if (now - lastActivity > AUTO_LOGOUT_TIME) {
+                // console.log('Auto-logging out due to inactivity');
+                signOut();
+            }
+        };
+
+        const interval = setInterval(checkInactivity, 30000); // Check every 30 seconds
+
+        const updateActivity = () => setLastActivity(Date.now());
+
+        // Event listeners for activity
+        window.addEventListener('mousemove', updateActivity);
+        window.addEventListener('keydown', updateActivity);
+        window.addEventListener('click', updateActivity);
+        window.addEventListener('scroll', updateActivity);
+        window.addEventListener('touchstart', updateActivity);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('mousemove', updateActivity);
+            window.removeEventListener('keydown', updateActivity);
+            window.removeEventListener('click', updateActivity);
+            window.removeEventListener('scroll', updateActivity);
+            window.removeEventListener('touchstart', updateActivity);
+        };
+    }, [user, lastActivity]);
 
     const formatUserData = (data: any): User => {
         // Since we use aliasing in .select(), 'data' should already have camelCase keys.
@@ -199,8 +234,19 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     const signOut = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        try {
+            await supabase.auth.signOut();
+            // Clear all state
+            setSession(null);
+            setUser(null);
+            setUserData(null);
+            // Strong redirect to login to clear any residual state/routing
+            window.location.href = '/login';
+        } catch (error) {
+            console.error('Logout failed:', error);
+            // Fallback redirect
+            window.location.href = '/login';
+        }
     };
 
     const value = {
