@@ -15,8 +15,8 @@ CHECK (transaction_type IN (
     'RENT_COLLECTION', 'SYSTEM_IMPORT', 'BULK_IMPORT', 'INACTIVATION_RESET'
 ));
 
--- 1. Insert RESET transactions for all currently inactive riders
--- We only do this for riders who don't already have an 'INACTIVATION_RESET'
+-- 1. Insert RESET transactions for all currently inactive riders who are NOT at 0
+-- We do this even if an 'INACTIVATION_RESET' exists, to override any newer negative baselines.
 INSERT INTO public.wallet_ledger (
     rider_id,
     transaction_type,
@@ -32,17 +32,13 @@ SELECT
     'INACTIVATION_RESET',
     'RESET',
     0,
-    'Manual catch-up: Resetting existing inactive rider wallet to 0',
+    'Forced Sync: Resetting inactive rider wallet back to 0 (Overriding newer updates)',
     'SYSTEM',
     NOW(),
-    '{"action": "manual_sync_reset"}'::jsonb
+    '{"action": "forced_sync_reset"}'::jsonb
 FROM public.riders r
 WHERE r.status = 'inactive'
-  AND NOT EXISTS (
-      SELECT 1 FROM public.wallet_ledger wl 
-      WHERE wl.rider_id = r.id 
-        AND wl.transaction_type = 'INACTIVATION_RESET'
-  );
+  AND r.wallet_amount != 0; -- Target ONLY those who reverted to negative/positive
 
 -- 2. Update the cached wallet_amount in riders table
 -- This calls the logic that sums up the latest RESET + subsequent transactions
