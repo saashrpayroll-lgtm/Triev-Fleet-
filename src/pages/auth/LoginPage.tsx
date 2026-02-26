@@ -82,9 +82,9 @@ const LoginPage: React.FC = () => {
                     </div>
                     <div className="space-y-1">
                         <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
-                            Rider <span className="text-orange-500 not-italic">PRO</span>
+                            TRIEV <span className="text-orange-500 not-italic">Rider's</span>
                         </h1>
-                        <p className="text-orange-100/40 text-xs font-semibold uppercase tracking-[0.2em]">Next-Gen Logistics Management</p>
+                        <p className="text-green-100/40 text-xs font-semibold uppercase tracking-[0.2em]">#JoinTheEVTrive</p>
                     </div>
                 </div>
 
