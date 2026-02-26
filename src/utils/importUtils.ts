@@ -498,162 +498,134 @@ export const processWalletUpdate = async (
     adminName: string
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], skipped: 0, skippedDetails: [] };
-
     summary.total = fileData.length;
+
+    // 1. Pre-fetch ALL Riders for Map-based lookup (Massive performance gain)
+    const { data: allRiders, error: fetchError } = await supabase
+        .from('riders')
+        .select('id, triev_id, mobile_number, rider_name, team_leader_id, wallet_amount, status');
+
+    if (fetchError) throw fetchError;
+
+    const trievMap = new Map<string, any>();
+    const mobileMap = new Map<string, any>();
+    allRiders?.forEach(r => {
+        if (r.triev_id) trievMap.set(r.triev_id, r);
+        if (r.mobile_number) mobileMap.set(r.mobile_number, r);
+    });
 
     // Notification Accumulator: TL ID -> Count
     const tlNotificationCounts = new Map<string, number>();
+    const nowISO = new Date().toISOString();
+    const todayStr = new Date().toISOString().split('T')[0];
 
+    // Data structures for batch processing
+    const pendingUpdates: any[] = [];
+    const riderIdsToTouch: string[] = [];
+    const ledgerExternalIdsToTouch: string[] = [];
+
+    // Helper: Chunk array for parallel processing
+    const chunkArray = (arr: any[], size: number) => {
+        const result = [];
+        for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
+        return result;
+    };
+
+    // 2. Initial Loop: Validation and Prep (No DB calls here)
     for (let i = 0; i < fileData.length; i++) {
         const row = fileData[i];
         const rowNum = i + 2;
 
         try {
-            // Helper to get value from normalized keys (Duplicate logic but scoped)
             const normalizedRow: any = {};
-            Object.keys(row).forEach(key => {
-                normalizedRow[normalizeKey(key)] = row[key];
-            });
+            Object.keys(row).forEach(key => normalizedRow[normalizeKey(key)] = row[key]);
 
             const getValue = (keys: string[]) => {
                 for (const key of keys) {
                     const val = normalizedRow[normalizeKey(key)];
-                    if (val !== undefined && val !== null && String(val).trim() !== '') {
-                        return String(val).trim();
-                    }
+                    if (val !== undefined && val !== null && String(val).trim() !== '') return String(val).trim();
                 }
                 return '';
             };
 
-            // Priority: Triev ID -> Mobile
             const trievId = getValue(['Triev ID', 'TrievId', 'ID']);
             const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone']);
             const mobile = mobileRaw.replace(/[^0-9]/g, '');
             const amount = parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance']));
 
-            if (!trievId && !mobile) {
-                throw new Error("Missing Identifier: 'Triev ID' or 'Mobile Number' is required column.");
-            }
-            if (isNaN(amount)) throw new Error("Invalid Wallet Amount value.");
-            // Note: We accept 0 as a valid target balance (e.g. clearing dues)
+            if (!trievId && !mobile) throw new Error("Missing Identifier ('Triev ID' or 'Mobile Number')");
+            if (isNaN(amount)) throw new Error("Invalid Wallet Amount");
 
-            let matchData = null;
-            // let identifierUsed = '';
-
-            // 1. Try Triev ID first (more precise)
-            if (trievId) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount, status').eq('triev_id', trievId).maybeSingle();
-                if (data) {
-                    matchData = data;
-                }
-            }
-
-            // 2. Try Mobile if Triev ID failed or wasn't provided
-            if (!matchData && mobile) {
-                const { data } = await supabase.from('riders').select('id, rider_name, team_leader_id, wallet_amount, status').eq('mobile_number', mobile).maybeSingle();
-                if (data) {
-                    matchData = data;
-                }
-            }
+            const matchData = (trievId ? trievMap.get(trievId) : null) || (mobile ? mobileMap.get(mobile) : null);
 
             if (!matchData) {
-                throw new Error(`Rider not found for ${trievId ? 'Triev ID: ' + trievId : 'Mobile: ' + mobile}. Ensure rider exists in system.`);
+                throw new Error(`Rider not found for ${trievId || mobile}`);
             }
 
-            // -------------------------------------------------
-            // SKIP LOGIC: If balance is exactly the same, skip processing.
-            // This prevents redundant history entries and satisfies user request.
-            // -------------------------------------------------
-            const previousBalance = matchData.wallet_amount ?? null;
-            if (previousBalance === amount) {
-                summary.skipped = (summary.skipped || 0) + 1;
-                if (!summary.skippedDetails) summary.skippedDetails = [];
-                summary.skippedDetails.push({
-                    row: rowNum,
-                    identifier: trievId || mobile,
-                    reason: "Wallet balance matching sheet value. Skipped to prevent redundant history.",
-                    data: row
-                });
-                // processedRiderIds.add(matchData.id); // If we tracked processed IDs here, we'd add it.
+            // Skip Logic: Identical balance or Inactive
+            if (matchData.wallet_amount === amount) {
+                summary.skipped++;
+                summary.skippedDetails?.push({ row: rowNum, identifier: trievId || mobile, reason: "Balance identical", data: row });
                 continue;
             }
 
-            // -------------------------------------------------
-            // STATUS CHECK: Skip inactive riders
-            // -------------------------------------------------
             if (matchData.status === 'inactive') {
-                summary.skipped = (summary.skipped || 0) + 1;
-                if (!summary.skippedDetails) summary.skippedDetails = [];
-                summary.skippedDetails.push({
-                    row: rowNum,
-                    identifier: trievId || mobile,
-                    reason: "Rider is Inactive. Wallet remains at 0.",
-                    data: row
-                });
+                summary.skipped++;
+                summary.skippedDetails?.push({ row: rowNum, identifier: trievId || mobile, reason: "Rider is Inactive", data: row });
                 continue;
             }
 
-            // -------------------------------------------------
-            // TIMESTAMP FIX: Always update riders.updated_at
-            // Rules:
-            //   Balance CHANGED  → update balance (done by processDailyUpdate) + touch timestamp
-            //   Balance SAME     → (SKIPPED ABOVE)
-            //   Either way       → ledger entry created_at refreshed to NOW()
-            // -------------------------------------------------
-
-            const checkDate = new Date();
-            const todayStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
             const externalId = `RESET_${matchData.id}_${todayStr}`;
-            const nowISO = new Date().toISOString();
-
-            const response: any = await LedgerAPI.processDailyUpdate({
+            pendingUpdates.push({
                 riderId: matchData.id,
                 newBalance: amount,
-                date: nowISO,
-                externalId: externalId
+                externalId,
+                rowNum,
+                tlId: matchData.team_leader_id
             });
-
-            // 1. Check for Explicit SQL Error
-            if (!response || response.success === false) {
-                throw new Error(response?.error || "Database Update Failed (Unknown Error)");
-            }
-
-            // 2. Check for Script Version (Outdated Script)
-            if (response.mode !== 'UPSERT') {
-                throw new Error("DATABASE SCRIPT OUTDATED. Please run strict_wallet_logic.sql in Supabase.");
-            }
-
-            // 3. Always touch riders.updated_at (timestamp fix)
-            //    This ensures "last bulk sync" is always visible regardless of balance change.
-            await supabase
-                .from('riders')
-                .update({ updated_at: nowISO })
-                .eq('id', matchData.id);
-
-            // 4. Also refresh the ledger entry's created_at to NOW() so the
-            //    exact time of the most recent bulk upload is always recorded.
-            //    FIX: Column name is external_transaction_id (not external_id)
-            await supabase
-                .from('wallet_ledger')
-                .update({ created_at: nowISO })
-                .eq('external_transaction_id', externalId);
-
-            // Track for Notification (balance always changed if we reach here due to skip logic)
-            if (matchData.team_leader_id) {
-                tlNotificationCounts.set(matchData.team_leader_id, (tlNotificationCounts.get(matchData.team_leader_id) || 0) + 1);
-            }
-
-            summary.success++;
 
         } catch (err: any) {
             summary.failed++;
-            summary.errors.push({
-                row: rowNum,
-                identifier: row['Triev ID'] || row['Mobile Number'] || `Row ${rowNum}`,
-                reason: err.message || "Unknown error",
-                data: row
-            });
+            summary.errors.push({ row: rowNum, identifier: `Row ${rowNum}`, reason: err.message, data: row });
         }
+    }
+
+    // 3. Parallel Execution: RPC Calls in Chunks (Avoid rate limits/overhead)
+    const updateBatches = chunkArray(pendingUpdates, 15); // Process 15 at a time
+    for (const batch of updateBatches) {
+        await Promise.all(batch.map(async (update: any) => {
+            try {
+                const response: any = await LedgerAPI.processDailyUpdate({
+                    riderId: update.riderId,
+                    newBalance: update.newBalance,
+                    date: nowISO,
+                    externalId: update.externalId
+                });
+
+                if (!response || response.success === false) {
+                    throw new Error(response?.error || "Update Failed");
+                }
+
+                summary.success++;
+                riderIdsToTouch.push(update.riderId);
+                ledgerExternalIdsToTouch.push(update.externalId);
+
+                if (update.tlId) {
+                    tlNotificationCounts.set(update.tlId, (tlNotificationCounts.get(update.tlId) || 0) + 1);
+                }
+            } catch (err: any) {
+                summary.failed++;
+                summary.errors.push({ row: update.rowNum, identifier: update.riderId, reason: err.message });
+            }
+        }));
+    }
+
+    // 4. Batch Touch: Metadata Updates (Drastically reduces network overhead)
+    if (riderIdsToTouch.length > 0) {
+        await supabase.from('riders').update({ updated_at: nowISO }).in('id', riderIdsToTouch);
+    }
+    if (ledgerExternalIdsToTouch.length > 0) {
+        await supabase.from('wallet_ledger').update({ created_at: nowISO }).in('external_transaction_id', ledgerExternalIdsToTouch);
     }
 
     // --- BATCH NOTIFICATIONS SENDING ---
