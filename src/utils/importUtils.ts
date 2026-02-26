@@ -316,68 +316,64 @@ export const processRiderImport = async (
                 }
             }
 
-            // 3. Handle Existing Rider (Fully Smart Update)
+            // 3. Handle Existing Rider (Smart Update with Change Detection)
             if (matchData) {
                 const updatePayload: any = {};
 
-                // Smart mapping for all available fields based on input row
-                if (riderName) updatePayload.rider_name = riderName;
-                if (trievId && trievId !== matchData.triev_id) updatePayload.triev_id = trievId;
-                if (mobile && mobile !== matchData.mobile_number) updatePayload.mobile_number = mobile;
+                // Helper to only add if changed
+                const addIfChanged = (field: string, newValue: any, currentValue: any) => {
+                    if (newValue !== undefined && newValue !== null && String(newValue).trim() !== '' && String(newValue).trim() !== String(currentValue || '')) {
+                        updatePayload[field] = String(newValue).trim();
+                    }
+                };
 
-                if (chassis) updatePayload.chassis_number = chassis;
-                if (clientName && clientName !== 'Other') updatePayload.client_name = clientName;
+                addIfChanged('rider_name', riderName, (matchData as any).rider_name);
+
+                // EXCLUSION: wallet_amount is NO LONGER updated here.
+
+                if (chassis && chassis !== (matchData as any).chassis_number) updatePayload.chassis_number = chassis;
+                if (clientName && clientName !== 'Other' && clientName !== (matchData as any).client_name) updatePayload.client_name = clientName;
 
                 const clientId = getValue(['Client ID', 'ClientId']);
-                if (clientId) updatePayload.client_id = clientId;
+                if (clientId && clientId !== (matchData as any).client_id) updatePayload.client_id = clientId;
 
                 const remarks = getValue(['Remarks', 'Remark', 'Note', 'Notes']);
-                if (remarks) updatePayload.remarks = remarks;
+                if (remarks && remarks !== (matchData as any).remarks) updatePayload.remarks = remarks;
 
-                if (allotmentDate) updatePayload.allotment_date = allotmentDate;
+                if (allotmentDate && allotmentDate !== (matchData as any).allotment_date) updatePayload.allotment_date = allotmentDate;
 
-                if (teamLeaderId) {
+                if (teamLeaderId && teamLeaderId !== (matchData as any).team_leader_id) {
                     updatePayload.team_leader_id = teamLeaderId;
                     updatePayload.team_leader_name = assignmentStatus;
-                } else if (teamLeaderName) {
-                    // Update name even if ID wasn't perfectly matched, for manual correction later
-                    updatePayload.team_leader_name = teamLeaderName;
-                    updatePayload.team_leader_id = null; // Clear if it changed to an unrecognized name
                 }
 
-                updatePayload.updated_at = new Date().toISOString();
-
                 // Only update if there are changes
-                if (Object.keys(updatePayload).length > 1) { // > 1 because updated_at is always there
+                if (Object.keys(updatePayload).length > 0) {
+                    updatePayload.updated_at = new Date().toISOString();
                     const { error } = await supabase
                         .from('riders')
                         .update(updatePayload)
-                        .eq('id', matchData.id);
+                        .eq('id', (matchData as any).id);
 
                     if (error) {
                         summary.errors.push({
-                            row: rowNum,
-                            identifier: riderName,
-                            reason: "Update Failed: " + error.message,
-                            data: row
+                            row: rowNum, identifier: riderName,
+                            reason: "Update Failed: " + error.message, data: row
                         });
                         summary.failed++;
                     } else {
-                        // console.log(`[Import] Updated rider ${matchData.id} details.`);
                         summary.updated = (summary.updated || 0) + 1;
                         summary.success++;
-                        processedRiderIds.add(matchData.id);
+                        processedRiderIds.add((matchData as any).id);
                     }
                 } else {
                     summary.skipped = (summary.skipped || 0) + 1;
                     if (!summary.skippedDetails) summary.skippedDetails = [];
                     summary.skippedDetails.push({
-                        row: rowNum,
-                        identifier: riderName || trievId || mobile,
-                        reason: "Exact Match found, but no fields to update.",
-                        data: row
+                        row: rowNum, identifier: riderName || trievId || mobile,
+                        reason: "Exact Match found. No changes detected.", data: row
                     });
-                    processedRiderIds.add(matchData.id); // It's still processed/in the sheet
+                    processedRiderIds.add((matchData as any).id);
                 }
                 continue;
             }
@@ -390,7 +386,7 @@ export const processRiderImport = async (
                 chassis_number: chassis,
                 client_name: clientName,
                 client_id: getValue(['Client ID', 'ClientId']),
-                wallet_amount: parseCurrency(getValue(['Wallet Amount', 'Wallet', 'Balance', 'Amount', 'Wallet balance'])),
+                // WALLET EXCLUSION: wallet_amount is NO LONGER set here. Default is 0.
                 allotment_date: allotmentDate || new Date().toISOString(),
                 remarks: getValue(['Remarks', 'Remark', 'Note', 'Notes']),
                 team_leader_id: teamLeaderId,

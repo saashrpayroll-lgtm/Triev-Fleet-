@@ -124,7 +124,9 @@ const Dashboard: React.FC = () => {
                 profilePicUrl: u.profile_pic_url || undefined
             })) as User[];
 
-            const { data: allRidersData } = await supabase.from('riders').select('id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date');
+            const { data: allRidersData } = await supabase
+                .from('riders')
+                .select('id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date, inactivated_at, created_at, updated_at');
             const allRiders = (allRidersData || []).map((r: any) => ({
                 id: r.id,
                 status: r.status,
@@ -132,7 +134,10 @@ const Dashboard: React.FC = () => {
                 mobileNumber: r.mobile_number,
                 walletAmount: r.wallet_amount,
                 teamLeaderId: r.team_leader_id,
-                allotmentDate: r.allotment_date
+                allotmentDate: r.allotment_date,
+                inactivatedAt: r.inactivated_at,
+                createdAt: r.created_at,
+                updatedAt: r.updated_at
             })) as Rider[];
 
             const { data: allLeadsData } = await supabase.from('leads').select('*');
