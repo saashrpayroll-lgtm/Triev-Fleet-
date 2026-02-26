@@ -45,14 +45,25 @@ const LoginPage: React.FC = () => {
 
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                // Check if user is using default password "123456"
+                const isDefaultPassword = password === '123456';
+
                 const { data: userRecord } = await supabase
                     .from('users')
                     .select('id, force_password_change')
                     .eq('id', user.id)
                     .single();
 
-                if (userRecord?.force_password_change) {
-                    setLoggedInUserId(userRecord.id);
+                if (isDefaultPassword || userRecord?.force_password_change) {
+                    // If using default password, ensure the flag is set in the database for future logins too
+                    if (isDefaultPassword && !userRecord?.force_password_change) {
+                        await supabase
+                            .from('users')
+                            .update({ force_password_change: true })
+                            .eq('id', user.id);
+                    }
+
+                    setLoggedInUserId(user.id);
                     setShowForcePasswordChange(true);
                 }
             }

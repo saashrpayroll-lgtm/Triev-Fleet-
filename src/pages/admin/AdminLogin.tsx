@@ -3,6 +3,7 @@ import { supabase } from '@/config/supabase';
 import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 import AnimatedBackground from '@/components/auth/AnimatedBackground';
 import { toast } from 'sonner';
+import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 
 const AdminLogin: React.FC = () => {
     const [loginInput, setLoginInput] = useState('');
@@ -10,6 +11,8 @@ const AdminLogin: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showForcePasswordChange, setShowForcePasswordChange] = useState(false);
+    const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,13 +46,25 @@ const AdminLogin: React.FC = () => {
 
             const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('role')
+                .select('id, role, force_password_change')
                 .eq('id', authData.user.id)
                 .single();
 
             if (userError || !userData || userData.role !== 'admin') {
                 await supabase.auth.signOut();
                 throw new Error("ACCESS DENIED: Administrative privileges required.");
+            }
+
+            // Check for default password or manual force flag
+            const isDefaultPassword = password === '123456';
+            if (isDefaultPassword || userData.force_password_change) {
+                if (isDefaultPassword && !userData.force_password_change) {
+                    await supabase.from('users').update({ force_password_change: true }).eq('id', userData.id);
+                }
+                setLoggedInUserId(userData.id);
+                setShowForcePasswordChange(true);
+                setLoading(false);
+                return;
             }
 
             toast.success("Security Clearance Verified.");
@@ -172,6 +187,16 @@ const AdminLogin: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {showForcePasswordChange && loggedInUserId && (
+                <ForcePasswordChangeModal
+                    userId={loggedInUserId}
+                    onPasswordChanged={() => {
+                        setShowForcePasswordChange(false);
+                        window.location.href = '/portal';
+                    }}
+                />
+            )}
         </div>
     );
 };

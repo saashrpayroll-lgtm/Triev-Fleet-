@@ -30,7 +30,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [userData, setUserData] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [lastActivity, setLastActivity] = useState(Date.now());
-    const AUTO_LOGOUT_TIME = 10 * 60 * 1000; // 10 minutes in ms
+    const AUTO_LOGOUT_TIME = 30 * 60 * 1000; // 30 minutes in ms (increased from 10m)
 
     // Auto-logout effect
     useEffect(() => {

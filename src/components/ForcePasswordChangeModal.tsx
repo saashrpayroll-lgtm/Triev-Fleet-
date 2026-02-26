@@ -101,10 +101,10 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
 
                 {/* Content */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-900">
-                            <strong>Security Notice:</strong> Your password was reset by an administrator.
-                            Please create a new secure password before continuing.
+                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <p className="text-sm text-orange-900">
+                            <strong>Security Alert:</strong> You are using a default or insecure password ("123456").
+                            For your protection, you must create a new secure password before you can access the dashboard.
                         </p>
                     </div>
 
