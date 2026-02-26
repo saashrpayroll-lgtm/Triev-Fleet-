@@ -564,12 +564,14 @@ export const processWalletUpdate = async (
 
             // Skip Logic: Identical balance or Inactive
             if (matchData.wallet_amount === amount) {
+                if (summary.skipped === undefined) summary.skipped = 0;
                 summary.skipped++;
                 summary.skippedDetails?.push({ row: rowNum, identifier: trievId || mobile, reason: "Balance identical", data: row });
                 continue;
             }
 
             if (matchData.status === 'inactive') {
+                if (summary.skipped === undefined) summary.skipped = 0;
                 summary.skipped++;
                 summary.skippedDetails?.push({ row: rowNum, identifier: trievId || mobile, reason: "Rider is Inactive", data: row });
                 continue;
