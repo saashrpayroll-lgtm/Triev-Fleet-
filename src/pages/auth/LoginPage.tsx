@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Eye, EyeOff, LogIn, Sparkles, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Sparkles, Mail, Lock, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
-
+import AnimatedBackground from '@/components/auth/AnimatedBackground';
 
 const LoginPage: React.FC = () => {
     const [loginInput, setLoginInput] = useState('');
@@ -27,18 +27,15 @@ const LoginPage: React.FC = () => {
         try {
             let emailToLogin = loginInput;
 
-            // Resolve Login Identifier (Email / Mobile / Username)
             const { data: resolvedEmail, error: resolutionError } = await supabase
                 .rpc('resolve_login_identifier', { p_identifier: loginInput.trim() });
 
             if (resolutionError || !resolvedEmail) {
-                // If resolution fails, it might be because the function isn't run or user not found
-                // We fallback to raw input if it looks like an email, otherwise throw registered error
                 const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginInput.trim());
                 if (isEmail) {
                     emailToLogin = loginInput.trim();
                 } else {
-                    throw new Error('Account not found. Please check your Email, Mobile or Username.');
+                    throw new Error('Account not found. Please check your credentials.');
                 }
             } else {
                 emailToLogin = resolvedEmail;
@@ -46,7 +43,6 @@ const LoginPage: React.FC = () => {
 
             await login(emailToLogin, password);
 
-            // Check if user needs to change password
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: userRecord } = await supabase
@@ -60,143 +56,149 @@ const LoginPage: React.FC = () => {
                     setShowForcePasswordChange(true);
                 }
             }
-
-            // Navigation is handled by App.tsx redirect based on auth state
-        } catch (err: unknown) {
-            // console.error('Login error:', err);
-
-            if (err instanceof Error) {
-                setError(err.message || 'Failed to login. Please check your credentials.');
-            } else {
-                setError('Failed to login. Please check your credentials.');
-            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to login. Please check your credentials.');
         } finally {
             setLoading(false);
         }
     };
 
-
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-orange-50 to-red-50 relative overflow-hidden">
-            {/* Background Decor */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute -top-20 -left-20 w-96 h-96 bg-orange-300/20 rounded-full blur-3xl animate-blob"></div>
-                <div className="absolute top-1/2 right-0 w-80 h-80 bg-amber-300/20 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
-                <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-red-300/20 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
-            </div>
+        <div className="min-h-screen relative flex items-center justify-center p-6 selection:bg-orange-500/30">
+            <AnimatedBackground variant="login" />
 
-            <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10">
-                {/* Logo and Title */}
-                <div className="text-center mb-8 flex flex-col items-center">
-                    <div className="w-40 h-40 bg-white rounded-full shadow-xl flex items-center justify-center mb-6 p-4 ring-4 ring-white/50 relative overflow-hidden">
-                        <img
-                            src="/triev_logo.png"
-                            alt="Triev Logo"
-                            className="w-full h-full object-contain"
-                        />
+            <div className="w-full max-w-lg relative">
+                {/* Brand Identity Section */}
+                <div className="text-center mb-10 space-y-6 animate-in fade-in slide-in-from-top-4 duration-1000">
+                    <div className="relative inline-block">
+                        <div className="absolute inset-0 bg-orange-500/20 blur-[50px] rounded-full"></div>
+                        <div className="w-32 h-32 bg-white/10 backdrop-blur-3xl rounded-[40px] border border-white/20 shadow-2xl flex items-center justify-center p-6 ring-1 ring-white/30 transform hover:scale-110 transition-transform duration-500">
+                            <img
+                                src="/triev_logo.png"
+                                alt="Triev Logo"
+                                className="w-full h-full object-contain drop-shadow-2xl"
+                            />
+                        </div>
                     </div>
-                    {/* Hiding text title as requested logo should be prominent, but keeping accessible text */}
-                    <h1 className="sr-only">Triev Rider Pro</h1>
-                    <p className="text-gray-600 text-lg font-medium">Welcome back! Please sign in to continue</p>
+                    <div className="space-y-1">
+                        <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
+                            Rider <span className="text-orange-500 not-italic">PRO</span>
+                        </h1>
+                        <p className="text-orange-100/40 text-xs font-semibold uppercase tracking-[0.2em]">Next-Gen Logistics Management</p>
+                    </div>
                 </div>
 
                 {/* Login Card */}
-                <div className="bg-white rounded-3xl p-8 shadow-2xl border border-orange-100">
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Error Message */}
+                <div className="bg-white/10 backdrop-blur-[40px] border border-white/20 rounded-[45px] p-10 shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative overflow-hidden group animate-in slide-in-from-bottom-6 duration-700">
+                    {/* Inner Shadow Decor */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none"></div>
+
+                    <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
                         {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300 flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-red-500 fill-red-500" />
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-100 p-4 rounded-2xl text-sm font-medium flex items-center gap-3 animate-in shake duration-500">
+                                <AlertTriangle className="w-5 h-5 text-red-500" />
                                 {error}
                             </div>
                         )}
 
-                        {/* Email/Mobile/Username Input */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-orange-500" />
-                                Email, Mobile or Username
-                            </label>
-                            <input
-                                type="text"
-                                value={loginInput}
-                                onChange={(e) => setLoginInput(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 font-medium"
-                                placeholder="Enter your email, mobile or username"
-                                required
-                            />
-                        </div>
+                        <div className="space-y-6">
+                            {/* Identifier Input */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-black text-orange-100/60 uppercase tracking-widest ml-2">Secure ID</label>
+                                <div className="relative group/field">
+                                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-orange-500/50 group-focus-within/field:text-orange-500 transition-colors">
+                                        <Mail size={18} />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={loginInput}
+                                        onChange={(e) => setLoginInput(e.target.value)}
+                                        className="w-full pl-16 pr-6 py-5 bg-black/20 border border-white/5 rounded-3xl text-white placeholder-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all font-medium"
+                                        placeholder="Email, Mobile or Username"
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                        {/* Password Input */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                <Lock className="w-4 h-4 text-orange-500" />
-                                Password
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all duration-300 font-medium pr-12"
-                                    placeholder="Enter your password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-orange-600 transition-colors p-1"
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
+                            {/* Password Input */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-black text-orange-100/60 uppercase tracking-widest ml-2">Passkey</label>
+                                <div className="relative group/field">
+                                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-orange-500/50 group-focus-within/field:text-orange-500 transition-colors">
+                                        <Lock size={18} />
+                                    </div>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full pl-16 pr-14 py-5 bg-black/20 border border-white/5 rounded-3xl text-white placeholder-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all font-medium"
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-6 top-1/2 -translate-y-1/2 text-white/20 hover:text-orange-500 transition-colors p-1"
+                                    >
+                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Remember Me & Forgot Password */}
-                        <div className="flex items-center justify-between text-sm">
-                            <label className="flex items-center gap-2 text-gray-600 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                                />
-                                <span className="group-hover:text-gray-900 transition-colors font-medium">Remember me</span>
+                        {/* Options */}
+                        <div className="flex items-center justify-between px-2">
+                            <label className="flex items-center gap-3 text-orange-100/60 cursor-pointer group">
+                                <div className="relative flex items-center justify-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={rememberMe}
+                                        onChange={(e) => setRememberMe(e.target.checked)}
+                                        className="peer w-5 h-5 opacity-0 absolute cursor-pointer"
+                                    />
+                                    <div className="w-5 h-5 rounded-md border-2 border-white/10 peer-checked:bg-orange-600 peer-checked:border-orange-600 transition-all flex items-center justify-center">
+                                        <Sparkles className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" />
+                                    </div>
+                                </div>
+                                <span className="text-xs font-bold uppercase tracking-wider group-hover:text-white transition-colors">Stay Active</span>
                             </label>
                             <button
                                 type="button"
                                 onClick={() => setShowForgotPassword(true)}
-                                className="text-orange-600 hover:text-orange-700 transition-colors font-bold hover:underline"
+                                className="text-xs font-black text-orange-500 hover:text-orange-400 transition-all hover:tracking-widest uppercase"
                             >
-                                Forgot Password?
+                                Recover Passkey
                             </button>
                         </div>
 
-                        {/* Login Button */}
+                        {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3.5 px-6 rounded-xl hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+                            className="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-5 rounded-[22px] transition-all duration-500 flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(234,88,12,0.3)] hover:shadow-[0_15px_40px_rgba(234,88,12,0.4)] disabled:opacity-50 group/btn overflow-hidden relative"
                         >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000"></div>
                             {loading ? (
                                 <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Signing in...</span>
+                                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span className="tracking-[0.2em] font-black uppercase">Verifying...</span>
                                 </>
                             ) : (
                                 <>
-                                    <LogIn size={20} />
-                                    <span>Sign In</span>
+                                    <LogIn size={20} className="group-hover/btn:translate-x-1 transition-transform" />
+                                    <span className="tracking-[0.2em] font-black uppercase italic">Access Portal</span>
                                 </>
                             )}
                         </button>
                     </form>
                 </div>
 
-                {/* Footer */}
-                <p className="text-center text-sm text-gray-500 mt-6 font-medium">
-                    © 2026 Triev Rider Pro. All rights reserved.
-                </p>
+                {/* Footer Section */}
+                <div className="mt-10 text-center space-y-4">
+                    <p className="text-white/20 text-[10px] font-bold tracking-[0.3em] uppercase">
+                        © 2026 Triev Rider Technologies • Secure Node V2.5
+                    </p>
+                </div>
             </div>
 
             {/* Modals */}

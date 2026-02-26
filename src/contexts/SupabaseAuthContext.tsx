@@ -235,13 +235,22 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const signOut = async () => {
         try {
+            // Check role before signing out to determine redirect path
+            const role = userData?.role;
+
             await supabase.auth.signOut();
+
             // Clear all state
             setSession(null);
             setUser(null);
             setUserData(null);
-            // Strong redirect to login to clear any residual state/routing
-            window.location.href = '/login';
+
+            // Role-based redirect
+            if (role === 'admin') {
+                window.location.href = '/admin-login';
+            } else {
+                window.location.href = '/login';
+            }
         } catch (error) {
             console.error('Logout failed:', error);
             // Fallback redirect
