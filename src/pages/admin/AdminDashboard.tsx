@@ -34,7 +34,8 @@ const Dashboard: React.FC = () => {
         riders: [] as Rider[],
         leads: [] as Lead[],
         requests: [] as Request[],
-        teamLeaders: [] as User[]
+        teamLeaders: [] as User[],
+        dailyCollectionsRaw: [] as any[]
     });
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
     const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
@@ -136,7 +137,8 @@ const Dashboard: React.FC = () => {
                 riders: ridersRes.data as Rider[] || [],
                 leads: leadsRes.data as Lead[] || [],
                 requests: requestsRes.data as Request[] || [],
-                teamLeaders: sanitizeArray(usersRes.data as User[] || [])
+                teamLeaders: sanitizeArray(usersRes.data as User[] || []),
+                dailyCollectionsRaw: dailyRes.data || []
             });
         } catch (error) {
             console.error('Data Load Error:', error);
@@ -289,8 +291,18 @@ const Dashboard: React.FC = () => {
         const { teamLeaders, riders, leads } = rawData;
 
         return teamLeaders.map(tl => {
-            const tlCollection = tlCollections[tl.id] || 0;
-            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period);
+            const tlCollectionAllTime = tlCollections[tl.id] || 0;
+
+            // Period-specific collection for accurate Avg calculation
+            let periodCollection = tlCollectionAllTime;
+            if (period) {
+                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                periodCollection = tlDailyData
+                    .filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end)
+                    .reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+            }
+
+            const metrics = calculateAIScore(tl, riders, leads, tlCollectionAllTime, period);
 
             // Activity Pulse Detection
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
@@ -321,7 +333,7 @@ const Dashboard: React.FC = () => {
                 totalCollection: metrics.collection,
                 dailyCollection: dailyCollections[tl.id] || 0,
                 weeklyCollection: weeklyCollections[tl.id] || 0,
-                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
+                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
                 leadsToday: tlLeads.filter(l => {
                     const todayStr = new Date().toISOString().split('T')[0];
                     return l.createdAt.startsWith(todayStr);
