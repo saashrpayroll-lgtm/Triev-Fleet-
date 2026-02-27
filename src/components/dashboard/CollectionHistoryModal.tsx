@@ -194,10 +194,9 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                                     <tbody className="divide-y divide-white/[0.03]">
                                         {history.map((record, idx) => (
                                             <tr key={idx} className="hover:bg-indigo-500/[0.07] transition-all group cursor-default relative overflow-hidden">
-                                                {/* Left margin indicator */}
-                                                <td className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 transition-opacity opacity-0 group-hover:opacity-100" />
-
-                                                <td className="px-6 py-3 sm:px-8 sm:py-4">
+                                                <td className="px-6 py-3 sm:px-8 sm:py-4 relative">
+                                                    {/* Left margin indicator */}
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 transition-opacity opacity-0 group-hover:opacity-100" />
                                                     <div className="flex items-center gap-4 sm:gap-6">
                                                         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground group-hover:bg-indigo-500 group-hover:text-white group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-all duration-500 border border-white/5">
                                                             <Calendar size={18} className="group-hover:scale-110 transition-transform sm:hidden" />
