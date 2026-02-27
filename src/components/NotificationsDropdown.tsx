@@ -346,7 +346,10 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
                     {/* View All Footer */}
                     <div className="p-3 border-t border-border/50 bg-muted/30 rounded-b-xl">
                         <button
-                            onClick={() => { setIsOpen(false); navigate('/admin/notifications'); }}
+                            onClick={() => {
+                                setIsOpen(false);
+                                navigate(userRole === 'admin' ? '/portal/notifications' : '/team-leader/notifications');
+                            }}
                             className="w-full py-1.5 text-xs font-medium text-center text-primary hover:bg-primary/5 rounded transition-colors"
                         >
                             View All Notifications

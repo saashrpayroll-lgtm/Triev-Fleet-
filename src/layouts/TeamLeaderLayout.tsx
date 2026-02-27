@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     LayoutDashboard, Users, FileText, Activity, LogOut, Menu,
-    X, Wallet, User, Target, ShieldAlert
+    X, Wallet, User, Target, ShieldAlert, Bell
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -101,6 +101,7 @@ const TeamLeaderLayout: React.FC = () => {
         {
             title: 'Settings',
             items: [
+                { path: '/team-leader/notifications', icon: Bell, label: 'Notifications', visible: userData?.permissions?.modules?.notifications ?? true },
                 { path: '/team-leader/profile', icon: User, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? true },
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
         }
