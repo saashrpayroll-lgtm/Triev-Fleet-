@@ -75,32 +75,34 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xl animate-in fade-in duration-500 py-6 px-4">
-            <div className="bg-background border w-full max-w-5xl rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col h-[90vh] animate-in zoom-in-95 duration-500 border-white/10 relative">
+        <div className="fixed inset-0 z-[100] flex flex-col items-center overflow-y-auto bg-black/75 backdrop-blur-xl animate-in fade-in duration-500 py-4 sm:py-10 px-4 scrollbar-none">
+            <div className="my-auto bg-background border w-full max-w-5xl rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col min-h-[600px] h-[90vh] animate-in zoom-in-95 duration-500 border-white/10 relative">
 
                 {/* Decorative background elements */}
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] -z-10 rounded-full" />
                 <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 blur-[120px] -z-10 rounded-full" />
 
                 {/* Header */}
-                <div className="px-8 py-6 border-b flex justify-between items-center bg-muted/20 backdrop-blur-md sticky top-0 z-20">
-                    <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-                            <BarChart3 size={28} />
+                <div className="px-6 sm:px-10 py-5 sm:py-8 border-b flex justify-between items-center bg-muted/20 backdrop-blur-md sticky top-0 z-20">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[1.5rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 flex-shrink-0">
+                            <BarChart3 size={24} className="sm:hidden" />
+                            <BarChart3 size={32} className="hidden sm:block" />
                         </div>
                         <div>
-                            <h3 className="font-black text-2xl tracking-tight text-foreground">Advanced Collection Intelligence</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">Supervisor</span>
-                                <p className="text-sm text-muted-foreground font-bold">{teamLeaderName}</p>
+                            <h3 className="font-black text-xl sm:text-3xl tracking-tight text-foreground leading-tight">Collection Intelligence</h3>
+                            <div className="flex items-center gap-2 mt-1 sm:mt-2">
+                                <span className="bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">Supervisor</span>
+                                <p className="text-xs sm:text-base text-muted-foreground font-bold">{teamLeaderName}</p>
                             </div>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-3 bg-muted hover:bg-rose-500/10 hover:text-rose-500 rounded-2xl transition-all active:scale-95 border border-transparent hover:border-rose-500/20 group"
+                        className="p-2 sm:p-4 bg-muted hover:bg-rose-500/10 hover:text-rose-500 rounded-2xl transition-all active:scale-95 border border-transparent hover:border-rose-500/20 group ml-4"
                     >
-                        <X size={24} className="text-muted-foreground group-hover:text-rose-500 transition-colors" />
+                        <X size={20} className="sm:hidden text-muted-foreground group-hover:text-rose-500 transition-colors" />
+                        <X size={28} className="hidden sm:block text-muted-foreground group-hover:text-rose-500 transition-colors" />
                     </button>
                 </div>
 
