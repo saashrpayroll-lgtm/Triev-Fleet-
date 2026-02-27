@@ -17,6 +17,15 @@ interface CollectionRecord {
     active_riders_count: number;
 }
 
+interface MetricTileProps {
+    label: string;
+    value: string;
+    icon: React.ElementType;
+    color: string;
+    subtitle: string;
+    trend?: string;
+}
+
 const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     isOpen, onClose, teamLeaderId, teamLeaderName
 }) => {
@@ -75,80 +84,68 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] flex flex-col items-center overflow-y-auto bg-black/80 backdrop-blur-2xl animate-in fade-in duration-700 py-6 sm:py-20 px-4 scrollbar-none">
-            <div className="my-auto bg-background/95 border w-full max-w-5xl rounded-[2.5rem] sm:rounded-[3.5rem] shadow-[0_0_100px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col min-h-[650px] h-fit max-h-[95vh] animate-in zoom-in-95 duration-500 border-white/20 relative backdrop-saturate-150">
+        <div className="fixed inset-0 z-[999999] flex flex-col items-center bg-black/85 backdrop-blur-3xl animate-in fade-in duration-700 overflow-y-auto scrollbar-none py-10 sm:py-20 px-4">
+            <div className="bg-background/95 border w-full max-w-6xl rounded-[2.5rem] sm:rounded-[4rem] shadow-[0_0_150px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col h-fit animate-in zoom-in-95 duration-500 border-white/20 relative backdrop-saturate-150">
 
-                {/* Decorative background energy pulses */}
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/20 blur-[150px] -z-10 rounded-full animate-pulse" />
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/20 blur-[150px] -z-10 rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+                {/* Decorative background elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] -z-10 rounded-full" />
+                <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 blur-[120px] -z-10 rounded-full" />
 
-                {/* Header Section: Extreme Premium */}
-                <div className="px-8 sm:px-12 py-8 sm:py-10 border-b border-white/10 flex justify-between items-center bg-gradient-to-b from-muted/40 to-muted/10 backdrop-blur-3xl sticky top-0 z-30">
-                    <div className="flex items-center gap-6 sm:gap-8">
-                        <div className="relative group">
-                            <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-tr from-indigo-500 via-purple-500 to-violet-600 flex items-center justify-center text-white shadow-2xl relative z-10">
-                                <BarChart3 size={32} className="sm:hidden" />
-                                <BarChart3 size={40} className="hidden sm:block" />
-                            </div>
+                {/* Header */}
+                <div className="px-6 sm:px-10 py-5 sm:py-8 border-b flex justify-between items-center bg-muted/20 backdrop-blur-md sticky top-0 z-20">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[1.5rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 flex-shrink-0">
+                            <BarChart3 size={24} className="sm:hidden" />
+                            <BarChart3 size={32} className="hidden sm:block" />
                         </div>
                         <div>
-                            <h3 className="font-black text-2xl sm:text-4xl tracking-tighter text-foreground leading-[1.1]">
-                                Recovery <span className="text-indigo-500">Intelligence</span>
-                            </h3>
-                            <div className="flex items-center gap-3 mt-2 sm:mt-3">
-                                <span className="bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] border border-indigo-500/20 shadow-sm">
-                                    Operational Audit
-                                </span>
-                                <div className="h-4 w-[1px] bg-border/50" />
-                                <p className="text-sm sm:text-lg text-muted-foreground font-bold tracking-tight">{teamLeaderName}</p>
+                            <h3 className="font-black text-xl sm:text-3xl tracking-tight text-foreground leading-tight">Collection Intelligence</h3>
+                            <div className="flex items-center gap-2 mt-1 sm:mt-2">
+                                <span className="bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">Supervisor</span>
+                                <p className="text-xs sm:text-base text-muted-foreground font-bold">{teamLeaderName}</p>
                             </div>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-3 sm:p-5 bg-muted/50 hover:bg-rose-500/10 hover:text-rose-500 rounded-3xl transition-all active:scale-90 border border-transparent hover:border-rose-500/20 group relative overflow-hidden"
+                        className="p-2 sm:p-4 bg-muted hover:bg-rose-500/10 hover:text-rose-500 rounded-2xl transition-all active:scale-95 border border-transparent hover:border-rose-500/20 group ml-4"
                     >
-                        <X size={24} className="sm:hidden text-muted-foreground group-hover:text-rose-500 transition-colors" />
-                        <X size={32} className="hidden sm:block text-muted-foreground group-hover:text-rose-500 transition-colors" />
+                        <X size={20} className="sm:hidden text-muted-foreground group-hover:text-rose-500 transition-colors" />
+                        <X size={28} className="hidden sm:block text-muted-foreground group-hover:text-rose-500 transition-colors" />
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-hidden flex flex-col">
-                    {/* Summary Metrics Grid: High Contrast */}
+                    {/* Summary Metrics Row */}
                     {!loading && history.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 p-8 sm:p-12 bg-muted/5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-8 bg-muted/10">
                             <MetricTile
-                                label="Total Recovery"
+                                label="Aggregate Sourcing"
                                 value={`₹${stats.totalCollection.toLocaleString()}`}
                                 icon={Wallet}
                                 color="indigo"
-                                subtitle="Aggregate Fleet Collection"
-                                trend="+Active"
+                                subtitle="Total all-time recovery"
                             />
                             <MetricTile
-                                label="Fleet Strength"
+                                label="Avg Active Fleet"
                                 value={stats.avgActiveRiders.toString()}
                                 icon={Users}
                                 color="purple"
-                                subtitle="Mean Daily Deployment"
-                                trend="Avg."
+                                subtitle="Daily mean force"
                             />
                             <MetricTile
-                                label="Daily Runrate"
+                                label="Per Rider Runrate"
                                 value={`₹${stats.avgPerRider.toLocaleString()}`}
                                 icon={TrendingUp}
                                 color="emerald"
-                                subtitle="Average Efficiency/Head"
-                                trend="KPI"
+                                subtitle="Efficiency per head"
                             />
                             <MetricTile
-                                label="Performance Peak"
+                                label="Single Day Peak"
                                 value={`₹${stats.bestDay.toLocaleString()}`}
                                 icon={TrendingUp}
                                 color="amber"
-                                subtitle="Highest Recorded Day"
-                                trend="Record"
+                                subtitle="Highest record"
                             />
                         </div>
                     )}
@@ -254,29 +251,28 @@ interface MetricTileProps {
 
 const MetricTile: React.FC<MetricTileProps> = ({ label, value, icon: Icon, color, subtitle, trend }) => {
     return (
-        <div className="bg-card border border-white/5 rounded-[2.5rem] p-6 shadow-xl hover:shadow-2xl transition-all duration-300 relative overflow-hidden group hover:-translate-y-1">
-            <div className={`absolute top-0 right-0 p-4 opacity-[0.03] scale-150 transform translate-x-1 translate-y-1 group-hover:scale-[1.8] group-hover:opacity-[0.08] transition-all duration-500`}>
-                <Icon size={60} />
+        <div className="bg-card border border-white/5 rounded-[2.5rem] p-7 shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 relative overflow-hidden group hover:-translate-y-1">
+            <div className={`absolute top-0 right-0 p-4 opacity-[0.03] scale-150 transform translate-x-1 translate-y-1 group-hover:scale-[2] group-hover:opacity-[0.07] transition-all duration-700 font-black`}>
+                <Icon size={70} />
             </div>
 
             <div className="relative z-10">
-                <div className="flex justify-between items-start mb-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">{label}</p>
+                <div className="flex justify-between items-start mb-5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/50">{label}</p>
                     {trend && (
-                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-md ${color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500' :
-                            color === 'purple' ? 'bg-purple-500/10 text-purple-500' :
-                                'bg-emerald-500/10 text-emerald-500'
+                        <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg ${color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.2)]' :
+                                'bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
                             }`}>
                             {trend}
                         </span>
                     )}
                 </div>
-                <p className="text-3xl font-black tracking-tighter mb-1 select-none">{value}</p>
-                <p className="text-[10px] font-bold text-muted-foreground opacity-60 leading-tight">{subtitle}</p>
-                <div className={`w-10 h-1 rounded-full mt-4 bg-gradient-to-r ${color === 'indigo' ? 'from-indigo-500 to-blue-500' :
-                    color === 'purple' ? 'from-purple-500 to-violet-500' :
-                        color === 'emerald' ? 'from-emerald-500 to-teal-500' :
-                            'from-amber-500 to-orange-500'
+                <p className="text-4xl font-black tracking-tighter mb-2">{value}</p>
+                <p className="text-[11px] font-bold text-muted-foreground/60 leading-tight pr-4">{subtitle}</p>
+                <div className={`w-12 h-1.5 rounded-full mt-5 bg-gradient-to-r ${color === 'indigo' ? 'from-indigo-600 to-violet-600' :
+                        color === 'purple' ? 'from-purple-600 to-fuchsia-600' :
+                            color === 'emerald' ? 'from-emerald-600 to-teal-600' :
+                                'from-amber-500 to-orange-500'
                     }`} />
             </div>
         </div>
