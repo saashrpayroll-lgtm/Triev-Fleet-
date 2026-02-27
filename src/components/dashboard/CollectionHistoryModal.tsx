@@ -33,6 +33,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalCollection: 0,
+        todayCollection: 0,
         avgActiveRiders: 0,
         avgPerRider: 0,
         bestDay: 0
@@ -68,8 +69,12 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
             const sumRunrate = records.reduce((sum, r) => sum + (r.total_collection / r.active_riders_count), 0);
             const sumRiders = records.reduce((sum, r) => sum + r.active_riders_count, 0);
 
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const todayRecord = records.find(r => r.date === todayStr);
+
             setStats({
                 totalCollection: totalColl,
+                todayCollection: todayRecord ? todayRecord.total_collection : 0,
                 avgActiveRiders: records.length > 0 ? Math.round(sumRiders / records.length) : 0,
                 avgPerRider: records.length > 0 ? Math.round(sumRunrate / records.length) : 0,
                 bestDay: records.length > 0 ? Math.max(...records.map(r => r.total_collection)) : 0
@@ -84,10 +89,8 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[999999] flex flex-col items-center bg-black/85 backdrop-blur-3xl animate-in fade-in duration-700 overflow-y-auto scrollbar-none py-10 sm:py-20 px-4">
-            <div className="bg-background/95 border w-full max-w-6xl rounded-[2.5rem] sm:rounded-[4rem] shadow-[0_0_150px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col h-fit animate-in zoom-in-95 duration-500 border-white/20 relative backdrop-saturate-150">
-
-                {/* Decorative background elements */}
+        <div className="fixed inset-0 z-[999999] flex flex-col items-center bg-black/90 backdrop-blur-3xl animate-in fade-in duration-700 overflow-y-auto scrollbar-none py-10 sm:py-20 px-4">
+            <div className="bg-background/95 border w-full max-w-[95rem] rounded-[2.5rem] sm:rounded-[4.5rem] shadow-[0_0_150px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col h-fit animate-in zoom-in-95 duration-500 border-white/20 relative backdrop-saturate-[2.5]">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] -z-10 rounded-full" />
                 <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 blur-[120px] -z-10 rounded-full" />
 
@@ -116,93 +119,121 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-hidden flex flex-col">
-                    {/* Summary Metrics Row */}
+                    {/* Summary Metrics Grid: High Contrast V2 (5 Columns) */}
                     {!loading && history.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-8 bg-muted/10">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 p-8 sm:p-12 bg-muted/5">
                             <MetricTile
                                 label="Aggregate Sourcing"
                                 value={`₹${stats.totalCollection.toLocaleString()}`}
                                 icon={Wallet}
                                 color="indigo"
-                                subtitle="Total all-time recovery"
+                                subtitle="Total historical volume"
+                                trend="Global"
                             />
                             <MetricTile
-                                label="Avg Active Fleet"
+                                label="Today Collection"
+                                value={`₹${stats.todayCollection.toLocaleString()}`}
+                                icon={TrendingUp}
+                                color="emerald"
+                                subtitle="Live daily recovery"
+                                trend="Real-time"
+                            />
+                            <MetricTile
+                                label="Fleet Force"
                                 value={stats.avgActiveRiders.toString()}
                                 icon={Users}
                                 color="purple"
-                                subtitle="Daily mean force"
+                                subtitle="Mean active riders"
+                                trend="Avg."
                             />
                             <MetricTile
-                                label="Per Rider Runrate"
+                                label="Efficiency rate"
                                 value={`₹${stats.avgPerRider.toLocaleString()}`}
                                 icon={TrendingUp}
-                                color="emerald"
-                                subtitle="Efficiency per head"
+                                color="amber"
+                                subtitle="Sourcing per head"
+                                trend="KPI"
                             />
                             <MetricTile
-                                label="Single Day Peak"
+                                label="Historical Peak"
                                 value={`₹${stats.bestDay.toLocaleString()}`}
-                                icon={TrendingUp}
-                                color="amber"
-                                subtitle="Highest record"
+                                icon={BarChart3}
+                                color="indigo"
+                                subtitle="Highest day recorded"
+                                trend="Peak"
                             />
                         </div>
                     )}
 
-                    {/* Table Section */}
-                    <div className="flex-grow overflow-auto p-8 pt-0">
+                    {/* Enhanced Data Table V2: Cinematic View */}
+                    <div className="flex-grow overflow-auto p-8 sm:p-12 pt-0 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
                         {loading ? (
-                            <div className="h-full flex flex-col items-center justify-center py-20">
-                                <div className="relative w-20 h-20">
-                                    <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full" />
-                                    <div className="absolute inset-0 border-4 border-t-indigo-500 rounded-full animate-spin" />
+                            <div className="h-[500px] flex flex-col items-center justify-center">
+                                <div className="relative w-32 h-32">
+                                    <div className="absolute inset-0 border-[10px] border-indigo-500/5 rounded-full" />
+                                    <div className="absolute inset-0 border-[10px] border-t-indigo-500 rounded-full animate-spin shadow-[0_0_30px_rgba(99,102,241,0.4)]" />
                                 </div>
-                                <p className="mt-6 text-sm font-black text-muted-foreground uppercase tracking-widest animate-pulse">Syncing Intelligence Network...</p>
+                                <p className="mt-10 text-xs font-black text-muted-foreground uppercase tracking-[0.4em] animate-pulse">Synchronizing Intelligence Stream...</p>
                             </div>
                         ) : history.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center py-20 opacity-30">
-                                <Calendar size={80} className="mb-4 text-muted-foreground" />
-                                <p className="text-lg font-black uppercase tracking-widest">No Historical footprint found</p>
+                            <div className="h-[500px] flex flex-col items-center justify-center opacity-30">
+                                <Calendar size={120} className="mb-8 text-muted-foreground/50" />
+                                <p className="text-3xl font-black uppercase tracking-[0.5em] text-center">Historical Vacuum <br /><span className="text-sm tracking-[0.2em] font-bold opacity-60">No digital footprints detected</span></p>
                             </div>
                         ) : (
-                            <div className="bg-card/50 border rounded-[2rem] overflow-hidden shadow-inner">
+                            <div className="bg-card/40 border border-white/5 rounded-[3rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-muted/50 border-b">
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Historical Date</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Total Sourcing</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Active Fleet</th>
-                                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right font-jakarta">Efficiency Avg/Rider</th>
+                                        <tr className="bg-white/[0.03] border-b border-white/5">
+                                            <th className="px-10 py-8 text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">Temporal Marker</th>
+                                            <th className="px-10 py-8 text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">Gross Recovery</th>
+                                            <th className="px-10 py-8 text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 text-center">Active Force</th>
+                                            <th className="px-10 py-8 text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 text-right">Unit Efficiency</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-border/50">
+                                    <tbody className="divide-y divide-white/[0.03]">
                                         {history.map((record, idx) => (
-                                            <tr key={idx} className="hover:bg-indigo-500/5 transition-colors group">
-                                                <td className="px-6 py-5 font-bold text-sm">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:bg-indigo-500/10 group-hover:text-indigo-500 transition-colors">
-                                                            <Calendar size={14} />
+                                            <tr key={idx} className="hover:bg-indigo-500/[0.07] transition-all group cursor-default relative overflow-hidden">
+                                                {/* Left margin indicator */}
+                                                <td className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 transition-opacity opacity-0 group-hover:opacity-100" />
+
+                                                <td className="px-10 py-8">
+                                                    <div className="flex items-center gap-6">
+                                                        <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground group-hover:bg-indigo-500 group-hover:text-white group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-all duration-500 border border-white/5">
+                                                            <Calendar size={22} className="group-hover:scale-110 transition-transform" />
                                                         </div>
-                                                        {format(new Date(record.date), 'EEEE, dd MMM yyyy')}
+                                                        <div>
+                                                            <p className="font-black text-xl tracking-tighter text-foreground/90 group-hover:text-indigo-400 transition-colors uppercase">
+                                                                {format(new Date(record.date), 'dd MMM yyyy')}
+                                                            </p>
+                                                            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.15em] mt-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                                {format(new Date(record.date), 'EEEE')} Cycle
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-5">
-                                                    <span className="font-black text-emerald-500 text-lg">
-                                                        ₹{record.total_collection.toLocaleString()}
-                                                    </span>
+                                                <td className="px-10 py-8">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-black text-emerald-500 text-2xl tracking-tighter group-hover:scale-105 transition-transform origin-left">
+                                                            ₹{record.total_collection.toLocaleString()}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-1 opacity-40">Sourced Total</span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-5 text-center">
-                                                    <span className="bg-muted px-3 py-1 rounded-full text-sm font-black border border-border group-hover:border-indigo-500/30 transition-colors">
-                                                        {record.active_riders_count} Riders
-                                                    </span>
+                                                <td className="px-10 py-8 text-center">
+                                                    <div className="inline-flex items-center gap-3 px-6 py-2.5 rounded-2xl bg-muted/30 border border-white/5 group-hover:border-indigo-500/30 group-hover:bg-indigo-500/10 transition-all duration-300">
+                                                        <Users size={14} className="text-muted-foreground group-hover:text-indigo-400" />
+                                                        <span className="text-sm font-black text-foreground/80 tracking-tight">
+                                                            {record.active_riders_count} Units
+                                                        </span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-5 text-right">
+                                                <td className="px-10 py-8 text-right">
                                                     <div className="flex flex-col items-end">
-                                                        <span className="font-black text-indigo-500 text-base">
+                                                        <span className="font-black text-amber-500 text-xl leading-none group-hover:text-indigo-400 transition-colors">
                                                             ₹{Math.round(record.total_collection / record.active_riders_count).toLocaleString()}
                                                         </span>
-                                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Per Head runrate</span>
+                                                        <span className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter mt-2 opacity-50">Avg / Rider Efficiency</span>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -261,7 +292,7 @@ const MetricTile: React.FC<MetricTileProps> = ({ label, value, icon: Icon, color
                     <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground/50">{label}</p>
                     {trend && (
                         <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg ${color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.2)]' :
-                                'bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                            'bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
                             }`}>
                             {trend}
                         </span>
@@ -270,9 +301,9 @@ const MetricTile: React.FC<MetricTileProps> = ({ label, value, icon: Icon, color
                 <p className="text-4xl font-black tracking-tighter mb-2">{value}</p>
                 <p className="text-[11px] font-bold text-muted-foreground/60 leading-tight pr-4">{subtitle}</p>
                 <div className={`w-12 h-1.5 rounded-full mt-5 bg-gradient-to-r ${color === 'indigo' ? 'from-indigo-600 to-violet-600' :
-                        color === 'purple' ? 'from-purple-600 to-fuchsia-600' :
-                            color === 'emerald' ? 'from-emerald-600 to-teal-600' :
-                                'from-amber-500 to-orange-500'
+                    color === 'purple' ? 'from-purple-600 to-fuchsia-600' :
+                        color === 'emerald' ? 'from-emerald-600 to-teal-600' :
+                            'from-amber-500 to-orange-500'
                     }`} />
             </div>
         </div>
