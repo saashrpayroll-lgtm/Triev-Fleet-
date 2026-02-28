@@ -43,6 +43,8 @@ import LeaderboardPage from '@/pages/admin/LeaderboardPage';
 import TLPerformance from '@/pages/admin/TLPerformance';
 import TLAllotment from './pages/admin/TLAllotment';
 import AdminNotificationsPage from '@/pages/admin/AdminNotificationsPage';
+import AdminForms from '@/pages/admin/AdminForms';
+import TLForms from '@/pages/teamleader/TLForms';
 
 import '@/index.css';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
@@ -293,6 +295,7 @@ function AppRoutes() {
           <Route path="collections" element={<CollectionHistory />} />
           <Route path="performance" element={<TLPersonalPerformance />} />
           <Route path="notifications" element={<TLNotificationsPage />} />
+          <Route path="forms" element={<TLForms />} />
         </Route>
 
         {/* Admin Portal Routes */}
@@ -314,6 +317,7 @@ function AppRoutes() {
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="broadcast" element={<NotificationManagement />} />
           <Route path="notifications" element={<AdminNotificationsPage />} />
+          <Route path="forms" element={<AdminForms />} />
           <Route path="chat" element={<AdminChat />} />
           <Route path="requests" element={<RequestManagement />} />
           <Route path="data" element={<DataManagement />} />

@@ -80,6 +80,7 @@ const TeamLeaderLayout: React.FC = () => {
             items: [
                 { path: '/team-leader/riders', icon: Users, label: 'My Riders', visible: userData?.permissions?.modules?.riders ?? true },
                 { path: '/team-leader/leads', icon: Target, label: 'My Leads', visible: userData?.permissions?.modules?.leads ?? true },
+                { path: '/team-leader/forms', icon: FileText, label: 'Company Forms', visible: true },
                 {
                     path: '/team-leader/requests',
                     icon: ShieldAlert,

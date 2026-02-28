@@ -125,6 +125,7 @@ const AdminLayout: React.FC = () => {
             items: [
                 { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/forms', icon: FileText, label: 'Company Forms', visible: userData?.permissions?.modules?.requests ?? true },
             ].filter(item => item.visible)
         },
         {
