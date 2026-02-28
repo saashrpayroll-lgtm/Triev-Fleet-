@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
-import PaymentReminderModal from '@/components/PaymentReminderModal';
+import AIReminderModal from '@/components/AIReminderModal';
 import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import ExportModal, { ExportFormat } from '@/components/ExportModal';
 import BulkActionsBar from '@/components/BulkActionsBar';
@@ -35,7 +35,8 @@ const MyRiders: React.FC = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [viewingRider, setViewingRider] = useState<Rider | null>(null);
-    const [reminderRider, setReminderRider] = useState<Rider | null>(null);
+    const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
+    const [reminderType, setReminderType] = useState<'low_balance' | 'warning' | 'critical' | 'inactive'>('low_balance');
     const [showExportModal, setShowExportModal] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
@@ -66,6 +67,7 @@ const MyRiders: React.FC = () => {
         canWhatsApp: userData?.permissions?.riders?.whatsapp ?? true,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mapRiderFromDB = (data: any): Rider => ({
         id: data.id,
         trievId: data.triev_id,
@@ -87,6 +89,7 @@ const MyRiders: React.FC = () => {
     });
 
     const mapRiderToDB = (rider: Partial<Rider>) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const payload: any = {};
         if (rider.trievId !== undefined) payload.triev_id = rider.trievId;
         if (rider.riderName !== undefined) payload.rider_name = rider.riderName;
@@ -106,44 +109,7 @@ const MyRiders: React.FC = () => {
         return payload;
     };
 
-    useEffect(() => {
-        if (userData?.id && canViewPage) fetchRiders();
-    }, [userData?.id, canViewPage]);
-
-    if (!canViewPage) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center p-8 bg-muted/30 rounded-2xl border border-border">
-                    <UserX size={48} className="mx-auto mb-4 text-muted-foreground" />
-                    <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
-                    <p className="text-muted-foreground">You do not have permission to view the Riders page.</p>
-                </div>
-            </div>
-        );
-    }
-
-    useEffect(() => { filterRiders(); }, [riders, activeTab, searchTerm, advancedFilters, sortBy, sortOrder]);
-    useEffect(() => { setCurrentPage(1); }, [filteredRiders.length]);
-
-    useEffect(() => {
-        if (searchParams.get('action') === 'new' && canAddRider) {
-            setShowAddModal(true);
-            setSearchParams(prev => { const p = new URLSearchParams(prev); p.delete('action'); return p; });
-        }
-    }, [searchParams, canAddRider]);
-
-    useEffect(() => {
-        const state = location.state as { filter?: string };
-        if (state?.filter) {
-            if (state.filter === 'positive_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'positive' })); setShowAdvancedFilters(true); }
-            else if (state.filter === 'negative_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'negative' })); setShowAdvancedFilters(true); }
-            else if (state.filter === 'zero_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'zero' })); setShowAdvancedFilters(true); }
-            else if (state.filter === 'low_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'low_balance' })); setShowAdvancedFilters(true); setActiveTab('active'); }
-            else if (['active', 'inactive', 'deleted'].includes(state.filter)) setActiveTab(state.filter as TabType);
-        }
-    }, [location.state]);
-
-    const fetchRiders = async () => {
+    const fetchRiders = React.useCallback(async () => {
         if (!userData) return;
         try {
             setLoading(true);
@@ -155,17 +121,9 @@ const MyRiders: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userData, mapRiderFromDB]);
 
-    useEffect(() => {
-        if (!userData?.id) return;
-        const channel = supabase.channel('my-riders-list')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id = eq.${userData.id} ` }, () => fetchRiders())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [userData?.id]);
-
-    const filterRiders = () => {
+    const filterRiders = React.useCallback(() => {
         let filtered = [...riders];
         if (activeTab && activeTab !== 'all') filtered = filtered.filter(r => r.status === activeTab);
         if (searchTerm) {
@@ -195,8 +153,42 @@ const MyRiders: React.FC = () => {
             return 0;
         });
         setFilteredRiders(filtered);
-    };
+    }, [riders, activeTab, searchTerm, advancedFilters, sortBy, sortOrder]);
 
+    useEffect(() => {
+        if (userData?.id && canViewPage) fetchRiders();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userData?.id, canViewPage]);
+
+
+    useEffect(() => { filterRiders(); }, [filterRiders]);
+    useEffect(() => { setCurrentPage(1); }, [filteredRiders.length]);
+
+    useEffect(() => {
+        if (searchParams.get('action') === 'new' && canAddRider) {
+            setShowAddModal(true);
+            setSearchParams(prev => { const p = new URLSearchParams(prev); p.delete('action'); return p; });
+        }
+    }, [searchParams, canAddRider, setSearchParams]);
+
+    useEffect(() => {
+        const state = location.state as { filter?: string };
+        if (state?.filter) {
+            if (state.filter === 'positive_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'positive' })); setShowAdvancedFilters(true); }
+            else if (state.filter === 'negative_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'negative' })); setShowAdvancedFilters(true); }
+            else if (state.filter === 'zero_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'zero' })); setShowAdvancedFilters(true); }
+            else if (state.filter === 'low_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'low_balance' })); setShowAdvancedFilters(true); setActiveTab('active'); }
+            else if (['active', 'inactive', 'deleted'].includes(state.filter)) setActiveTab(state.filter as TabType);
+        }
+    }, [location.state]);
+
+    useEffect(() => {
+        if (!userData?.id) return;
+        const channel = supabase.channel('my-riders-list')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id = eq.${userData.id} ` }, () => fetchRiders())
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [userData?.id, fetchRiders]);
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab);
         setSearchParams(tab === 'all' ? {} : { filter: tab });
@@ -215,9 +207,9 @@ const MyRiders: React.FC = () => {
             toast.success('Rider added successfully');
             await fetchRiders();
             setShowAddModal(false);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error adding rider:', error);
-            toast.error(`Failed to add rider: ${error.message || 'Unknown error'} `);
+            toast.error(`Failed to add rider: ${error instanceof Error ? error.message : 'Unknown error'} `);
         }
     };
 
@@ -254,19 +246,7 @@ const MyRiders: React.FC = () => {
         } catch (error) { console.error('Error restoring rider:', error); toast.error('Failed to restore rider'); }
     };
 
-    const handleLowBalanceReminder = async (rider: Rider) => {
-        const message = `Hello ${rider.riderName},\n\nYour current wallet balance is low (₹${rider.walletAmount}). Please top-up to maintain a balance above ₹250 to avoid negative balance issues.\n\nनमस्ते ${rider.riderName},\n\nआपकी वर्तमान वॉलेट बैलेंस कम है (₹${rider.walletAmount})। कृपया नेगेटिव बैलेंस की समस्याओं से बचने के लिए ₹250 से ऊपर बैलेंस बनाए रखने के लिए टॉप-अप करें।`;
 
-        await logActivity({
-            actionType: 'sent_reminder',
-            targetType: 'rider',
-            targetId: rider.id,
-            details: `Sent low balance WhatsApp reminder to ${rider.riderName}`,
-            performedBy: userData?.email
-        });
-
-        window.open(`${getWhatsAppLink(rider.mobileNumber)}?text=${encodeURIComponent(message)}`, '_blank');
-    };
 
     const handlePermanentDelete = async (rider: Rider) => {
         if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system.This action CANNOT be undone.Are you absolutely sure ? `)) return;
@@ -345,12 +325,7 @@ const MyRiders: React.FC = () => {
         window.open(getWhatsAppLink(phoneNumber), '_blank');
     };
 
-    const handleSendReminder = async (message: string) => {
-        if (!reminderRider) return;
-        await logActivity({ actionType: 'sent_reminder', targetType: 'rider', targetId: reminderRider.id, details: `Sent payment reminder to ${reminderRider.riderName} ` });
-        window.open(`https://wa.me/${reminderRider.mobileNumber}?text=${encodeURIComponent(message)}`, '_blank');
-        setReminderRider(null);
-    };
+
 
     const handleSort = (column: keyof Rider) => {
         if (sortBy === column) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -411,6 +386,18 @@ const MyRiders: React.FC = () => {
         if (status === 'inactive') return 'bg-amber-500';
         return 'bg-rose-500';
     };
+
+    if (!canViewPage) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center p-8 bg-muted/30 rounded-2xl border border-border">
+                    <UserX size={48} className="mx-auto mb-4 text-muted-foreground" />
+                    <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
+                    <p className="text-muted-foreground">You do not have permission to view the Riders page.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-5">
@@ -492,7 +479,7 @@ const MyRiders: React.FC = () => {
                 <div className="bg-muted/40 border border-border rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-1.5">Client</label>
-                        <select value={advancedFilters.client} onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as any })}
+                        <select value={advancedFilters.client} onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as ClientName | 'all' })}
                             className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                             <option value="all">All Clients</option>
                             {['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'].map(c => <option key={c} value={c}>{c}</option>)}
@@ -500,7 +487,7 @@ const MyRiders: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-1.5">Wallet</label>
-                        <select value={advancedFilters.walletRange} onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
+                        <select value={advancedFilters.walletRange} onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as AdvancedFilters['walletRange'] })}
                             className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                             <option value="all">All Wallets</option>
                             <option value="positive">Positive Balance</option>
@@ -525,6 +512,7 @@ const MyRiders: React.FC = () => {
                     totalCount={filteredRiders.length}
                     onSelectAll={() => setSelectedRiders(new Set(filteredRiders.map(r => r.id)))}
                     onDeselectAll={() => setSelectedRiders(new Set())}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     actions={getBulkActions() as any}
                 />
             )}
@@ -652,12 +640,12 @@ const MyRiders: React.FC = () => {
                                                         {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
                                                     </span>
                                                     {rider.walletAmount < 0 && (
-                                                        <button onClick={() => setReminderRider(rider)} className="p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
                                                             <AlertTriangle size={10} />
                                                         </button>
                                                     )}
                                                     {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); handleLowBalanceReminder(rider); }} className="p-[3px] bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-colors" title="Send Low Balance WhatsApp Reminder">
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="p-[3px] bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-colors" title="Send Low Balance WhatsApp Reminder">
                                                             <MessageCircle size={10} />
                                                         </button>
                                                     )}
@@ -770,8 +758,13 @@ const MyRiders: React.FC = () => {
                                                         </button>
                                                     )}
                                                     {rider.walletAmount < 0 && (
-                                                        <button onClick={() => setReminderRider(rider)} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition-colors active:scale-95">
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition-colors active:scale-95">
                                                             <AlertTriangle size={13} /> Remind
+                                                        </button>
+                                                    )}
+                                                    {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-xl text-xs font-bold border border-orange-200 dark:border-orange-800 hover:bg-orange-100 transition-colors active:scale-95">
+                                                            <MessageCircle size={13} /> Remind
                                                         </button>
                                                     )}
                                                     <ActionDropdownMenu
@@ -833,7 +826,14 @@ const MyRiders: React.FC = () => {
             {showAddModal && <AddRiderForm onClose={() => setShowAddModal(false)} onSubmit={handleAddRider} />}
             {editingRider && <AddRiderForm onClose={() => setEditingRider(null)} onSubmit={handleEditRider} initialData={editingRider as unknown as RiderFormData} isEdit />}
             {viewingRider && <RiderDetailsModal rider={viewingRider} onClose={() => setViewingRider(null)} onUpdate={fetchRiders} />}
-            {reminderRider && <PaymentReminderModal rider={reminderRider} onClose={() => setReminderRider(null)} onSend={handleSendReminder} />}
+            {selectedReminderRider && (
+                <AIReminderModal
+                    isOpen={true}
+                    onClose={() => setSelectedReminderRider(null)}
+                    rider={selectedReminderRider}
+                    type={reminderType}
+                />
+            )}
             {showExportModal && (
                 <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} onExport={handleExport}
                     availableColumns={availableExportColumns}
