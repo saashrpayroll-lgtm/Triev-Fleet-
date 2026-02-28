@@ -325,6 +325,46 @@ Return ONLY the final message text ready to send.`;
         return `Dear *${name}*, this is a friendly reminder about your outstanding balance of *${amountStr}*. Please clear your dues at the earliest. Thank you!`;
     },
 
+    generateLowBalanceReminder: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
+        const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+        const name = rider.riderName;
+
+        const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
+
+        // Add randomness factor
+        const variations = [
+            "Focus on maintaining a seamless, uninterrupted EV riding experience.",
+            "Focus on preventing future negative balances.",
+            "Be very cheerful and encouraging.",
+            "Keep it extremely brief and helpful."
+        ];
+        const randomFocus = variations[Math.floor(Math.random() * variations.length)];
+
+        const prompt = `Generate a UNIQUE, FRIENDLY WhatsApp reminder for a rider whose wallet balance is running very low (between 0 and 250).
+Rider Name: ${name}
+Current Balance: ${amountStr}
+
+INSTRUCTIONS:
+1. ${languageInstruction}
+2. Tone: Helpful, proactive, friendly, and non-threatening.
+3. CRITICAL: This rider is NOT in negative balance. They are simply low. Do not use words like "outstanding", "dues", "recovery", or "penalty".
+4. INSTEAD, strictly encourage them to "Top-Up" or "Recharge" to maintain a balance of at least ₹250 to ensure uninterrupted rides.
+5. The message MUST include the Rider Name ("${name}") and the Current Balance ("${amountStr}").
+6. VARIATION INSTRUCTION: ${randomFocus} (Ensure the message feels fresh/unique).
+7. Keep it concise (2-3 sentences max).
+
+Return ONLY the final message text ready to send.`;
+
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Proactive Rider Success Manager.");
+
+        if (text) return cleanText(text);
+
+        if (language === 'hindi') {
+            return `नमस्ते *${name}*, आपका वर्तमान वॉलेट बैलेंस *${amountStr}* है। निर्बाध राइडिंग अनुभव के लिए कृपया अपने वॉलेट में टॉप-अप करें और कम से कम ₹250 का बैलेंस बनाए रखें। सुरक्षित सवारी करें!`;
+        }
+        return `Hello *${name}*, your current wallet balance is running low at *${amountStr}*. Please do a quick top-up to maintain at least ₹250 for an uninterrupted riding experience. Ride safe!`;
+    },
+
     generateRecoveryMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
         const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
         const name = rider.riderName;

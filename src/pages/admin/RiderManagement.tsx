@@ -13,6 +13,7 @@ import TLMappingModal from '@/components/TLMappingModal';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import WalletAdjustmentModal from '@/components/WalletAdjustmentModal';
+import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
 
 import { notifyTeamLeader } from '@/utils/notificationUtils';
 import { logActivity } from '@/utils/activityLog';
@@ -51,6 +52,8 @@ const RiderManagement: React.FC = () => {
     const [reassigningRider, setReassigningRider] = useState<Rider | null>(null);
     const [showBulkAssignTL, setShowBulkAssignTL] = useState(false); // State for Bulk TL Modal
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
+    const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
+    const [reminderType, setReminderType] = useState<ReminderType>('low_balance');
 
     // Highlight Logic
     const [highlightedRiderId, setHighlightedRiderId] = useState<string | null>(null);
@@ -618,18 +621,9 @@ const RiderManagement: React.FC = () => {
         setReminderRider(null);
     };
 
-    const handleLowBalanceReminder = async (rider: Rider) => {
-        const message = `Hello ${rider.riderName},\n\nYour current wallet balance is low (₹${rider.walletAmount}). Please top-up to maintain a balance above ₹250 to avoid negative balance issues.\n\nनमस्ते ${rider.riderName},\n\nआपकी वर्तमान वॉलेट बैलेंस कम है (₹${rider.walletAmount})। कृपया नेगेटिव बैलेंस की समस्याओं से बचने के लिए ₹250 से ऊपर बैलेंस बनाए रखने के लिए टॉप-अप करें।`;
-
-        await logActivity({
-            actionType: 'sent_reminder',
-            targetType: 'rider',
-            targetId: rider.id,
-            details: `Sent low balance WhatsApp reminder to ${rider.riderName}`,
-            performedBy: currentUser?.email
-        });
-
-        window.open(`${getWhatsAppLink(rider.mobileNumber)}?text=${encodeURIComponent(message)}`, '_blank');
+    const handleLowBalanceReminder = (rider: Rider) => {
+        setSelectedReminderRider(rider);
+        setReminderType('low_balance');
     };
 
     // Bulk Actions
@@ -1510,6 +1504,14 @@ const RiderManagement: React.FC = () => {
                     />
                 )
             }
+            {selectedReminderRider && (
+                <AIReminderModal
+                    isOpen={true}
+                    onClose={() => setSelectedReminderRider(null)}
+                    rider={selectedReminderRider}
+                    type={reminderType}
+                />
+            )}
         </div >
     );
 };

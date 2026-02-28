@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Rider } from '@/types';
 import { AIService } from '@/services/AIService';
 import { logActivity } from '@/utils/activityLog';
-import { AlertTriangle, RefreshCw, Wallet, CheckCircle2, Send, X, Copy, Zap, Languages, UserX } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Wallet, CheckCircle2, Send, X, Copy, Zap, Languages, UserX, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import AIReminderModal from '@/components/AIReminderModal';
 
 interface DebtRecoveryTasksProps {
     riders: Rider[];
@@ -13,18 +14,26 @@ interface DebtRecoveryTasksProps {
 const CRITICAL_THRESHOLD = -300;
 
 const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
-    const [activeTab, setActiveTab] = useState<'critical' | 'warning' | 'inactive'>('critical');
+    const [activeTab, setActiveTab] = useState<'critical' | 'warning' | 'inactive' | 'low_balance'>('critical');
     const [processingId, setProcessingId] = useState<string | null>(null);
+    // Original inline chat state (for critical/warning/inactive)
     const [recoveryMessage, setRecoveryMessage] = useState<string>('');
     const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
     const [language, setLanguage] = useState<'hindi' | 'english'>('hindi');
 
-    // Filter Riders
-    const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD && r.status === 'active').sort((a, b) => a.walletAmount - b.walletAmount); // Ascending (more negative first)
-    const warningRiders = riders.filter(r => r.walletAmount < 0 && r.walletAmount > CRITICAL_THRESHOLD && r.status === 'active').sort((a, b) => a.walletAmount - b.walletAmount);
-    const inactiveRiders = riders.filter(r => r.status === 'inactive').sort((a, b) => a.riderName.localeCompare(b.riderName));
+    // New modal state (for low_balance)
+    const [reminderModalRider, setReminderModalRider] = useState<Rider | null>(null);
 
-    const activeList = activeTab === 'critical' ? criticalRiders : activeTab === 'warning' ? warningRiders : inactiveRiders;
+    // Derived Lists
+    const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD);
+    const warningRiders = riders.filter(r => r.walletAmount < 0 && r.walletAmount > CRITICAL_THRESHOLD);
+    const inactiveRiders = riders.filter(r => r.status === 'inactive');
+    const lowBalanceRiders = riders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250);
+
+    const activeList = activeTab === 'critical' ? criticalRiders
+        : activeTab === 'warning' ? warningRiders
+            : activeTab === 'inactive' ? inactiveRiders
+                : lowBalanceRiders;
 
     const generateMsg = async (rider: Rider, lang: 'hindi' | 'english') => {
         try {
@@ -160,6 +169,13 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                         <UserX size={14} />
                         Inactive ({inactiveRiders.length})
                     </button>
+                    <button
+                        onClick={() => setActiveTab('low_balance')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'low_balance' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <MessageCircle size={14} />
+                        Low Bal ({lowBalanceRiders.length})
+                    </button>
                 </div>
             </div>
 
@@ -192,8 +208,8 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
 
                                         {/* Rider Profile Section */}
                                         <div className="flex items-start gap-4 min-w-[200px] md:w-1/3">
-                                            <div className={`mt-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${activeTab === 'inactive' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-600' : rider.walletAmount <= CRITICAL_THRESHOLD ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'}`}>
-                                                {activeTab === 'inactive' ? <UserX size={28} strokeWidth={2.5} /> : <Wallet size={28} strokeWidth={2.5} />}
+                                            <div className={`mt-1 w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${activeTab === 'inactive' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-600' : activeTab === 'low_balance' ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : rider.walletAmount <= CRITICAL_THRESHOLD ? 'bg-red-100 dark:bg-red-900/20 text-red-600' : 'bg-orange-100 dark:bg-orange-900/20 text-orange-600'}`}>
+                                                {activeTab === 'inactive' ? <UserX size={28} strokeWidth={2.5} /> : activeTab === 'low_balance' ? <MessageCircle size={28} strokeWidth={2.5} /> : <Wallet size={28} strokeWidth={2.5} />}
                                             </div>
                                             <div>
                                                 <h4 className="font-black text-xl text-foreground leading-tight tracking-tight">{rider.riderName}</h4>
@@ -202,9 +218,9 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                 </p>
                                                 <div className="mt-3 inline-flex flex-col items-start bg-muted/50 rounded-lg px-3 py-1.5 border border-border/50 w-full">
                                                     <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">
-                                                        {activeTab === 'inactive' ? 'Status' : 'Outstanding Dues'}
+                                                        {activeTab === 'inactive' ? 'Status' : activeTab === 'low_balance' ? 'Current Balance' : 'Outstanding Dues'}
                                                     </span>
-                                                    <span className={`text-2xl font-black ${activeTab === 'inactive' ? 'text-blue-500 text-lg uppercase' : rider.walletAmount <= CRITICAL_THRESHOLD ? 'text-red-500' : 'text-orange-500'}`}>
+                                                    <span className={`text-2xl font-black ${activeTab === 'inactive' ? 'text-blue-500 text-lg uppercase' : activeTab === 'low_balance' ? 'text-amber-500' : rider.walletAmount <= CRITICAL_THRESHOLD ? 'text-red-500' : 'text-orange-500'}`}>
                                                         {activeTab === 'inactive' ? 'Inactive' : rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                                                     </span>
                                                 </div>
@@ -283,6 +299,11 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                                 ℹ <b>Retention:</b> Reach out to reactivate rider.<br />
                                                                 <span className="text-xs opacity-75 font-normal">Check in to see if they need help.</span>
                                                             </p>
+                                                        ) : activeTab === 'low_balance' ? (
+                                                            <p className="text-sm font-medium text-amber-600/90 leading-snug">
+                                                                ℹ <b>Low Balance:</b> Advise proactive top-up.<br />
+                                                                <span className="text-xs opacity-75 font-normal">Encourage maintaining ₹250+ balance.</span>
+                                                            </p>
                                                         ) : (
                                                             <p className="text-sm font-medium text-orange-600/90 leading-snug">
                                                                 ⚠ <b>Payment Overdue:</b> Send payment reminder.<br />
@@ -292,7 +313,13 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                     </div>
 
                                                     <button
-                                                        onClick={() => handleAction(rider)}
+                                                        onClick={() => {
+                                                            if (activeTab === 'low_balance') {
+                                                                setReminderModalRider(rider);
+                                                            } else {
+                                                                handleAction(rider);
+                                                            }
+                                                        }}
                                                         disabled={processingId !== null}
                                                         className={`
                                                             group relative overflow-hidden px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 w-full md:w-auto justify-center
@@ -300,7 +327,9 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                                 ? 'bg-gradient-to-r from-red-600 to-red-500 hover:to-red-600 text-white shadow-red-500/25'
                                                                 : activeTab === 'inactive'
                                                                     ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-blue-500/25'
-                                                                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:to-orange-500 text-white shadow-orange-500/25'}
+                                                                    : activeTab === 'low_balance'
+                                                                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-orange-500/25'
+                                                                        : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:to-orange-500 text-white shadow-orange-500/25'}
                                                             disabled:opacity-50 disabled:cursor-not-allowed
                                                         `}
                                                     >
@@ -313,6 +342,11 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                             <>
                                                                 <Zap size={18} className={processingId === rider.id ? "animate-spin" : "fill-white/20"} />
                                                                 Message Rider
+                                                            </>
+                                                        ) : activeTab === 'low_balance' ? (
+                                                            <>
+                                                                <MessageCircle size={18} className="fill-white/20" />
+                                                                Generate Advice
                                                             </>
                                                         ) : (
                                                             <>
@@ -327,10 +361,10 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                     </div>
                                 </div>
                                 {/* Progress Bar / Severity Indicator */}
-                                <div className={`h-1.5 w-full ${activeTab === 'inactive' ? 'bg-blue-500/20' : activeTab === 'critical' ? 'bg-red-500/20' : 'bg-orange-500/20'}`}>
+                                <div className={`h-1.5 w-full ${activeTab === 'inactive' ? 'bg-blue-500/20' : activeTab === 'low_balance' ? 'bg-amber-500/20' : activeTab === 'critical' ? 'bg-red-500/20' : 'bg-orange-500/20'}`}>
                                     <div
-                                        className={`h-full ${activeTab === 'inactive' ? 'bg-blue-500' : activeTab === 'critical' ? 'bg-red-500' : 'bg-orange-500'}`}
-                                        style={{ width: `${activeTab === 'inactive' ? '100' : Math.min(Math.abs(rider.walletAmount) / 100, 100)}%` }}
+                                        className={`h-full ${activeTab === 'inactive' ? 'bg-blue-500' : activeTab === 'low_balance' ? 'bg-amber-500' : activeTab === 'critical' ? 'bg-red-500' : 'bg-orange-500'}`}
+                                        style={{ width: `${activeTab === 'inactive' ? '100' : activeTab === 'low_balance' ? Math.max(0, 100 - (rider.walletAmount / 250) * 100) : Math.min(Math.abs(rider.walletAmount) / 100, 100)}%` }}
                                     />
                                 </div>
                             </motion.div>
@@ -338,6 +372,15 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                     </AnimatePresence>
                 )}
             </div>
+
+            {reminderModalRider && (
+                <AIReminderModal
+                    isOpen={true}
+                    onClose={() => setReminderModalRider(null)}
+                    rider={reminderModalRider}
+                    type="low_balance"
+                />
+            )}
         </div>
     );
 };

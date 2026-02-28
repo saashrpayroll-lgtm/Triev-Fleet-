@@ -8,6 +8,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { logActivity } from '@/utils/activityLog';
+import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
 
 interface RiderDetailsModalProps {
     rider: Rider;
@@ -95,10 +96,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
 
 
     // Reminder State
-    const [showReminder, setShowReminder] = useState(false);
-    const [reminderLang, setReminderLang] = useState<'hindi' | 'english'>('hindi');
-    const [aiMessage, setAiMessage] = useState('');
-    const [generating, setGenerating] = useState(false);
+    const [reminderModalType, setReminderModalType] = useState<ReminderType | null>(null);
     const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -275,7 +273,7 @@ ${new Date().toLocaleString('en-IN')}`;
                 user_id: userData.id,
                 user_name: userData.fullName,
                 user_role: userData.role,
-                action_type: type === 'call' ? 'call_rider' : type === 'whatsapp' ? 'whatsapp_rider' : type === 'call_tl' ? 'call_rider' : 'sent_reminder',
+                action_type: type === 'call' ? 'call_rider' : type === 'whatsapp' ? 'whatsapp_rider' : type === 'call_tl' ? 'call_rider' : 'whatsapp_rider',
                 target_type: 'rider',
                 target_id: rider.id,
                 details: type === 'reminder' ? `Sent payment reminder: "${message?.substring(0, 50)}..."` : type === 'call_tl' ? `Called Team Leader for rider` : `Initiated ${type} to rider`,
@@ -298,30 +296,9 @@ ${new Date().toLocaleString('en-IN')}`;
         } else if (type === 'reminder' && message) {
             const url = `https://wa.me/91${rider.mobileNumber}?text=${encodeURIComponent(message)}`;
             window.open(url, '_blank');
-            setShowReminder(false);
         }
     };
 
-    const generateAiReminder = async () => {
-        setGenerating(true);
-        try {
-            const rawMsg = await AIService.generatePaymentReminder(rider, reminderLang, 'professional');
-            const amountStr = rider.walletAmount < 0
-                ? `-₹${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
-                : `₹${rider.walletAmount.toLocaleString('en-IN')}`;
-
-            const hydratedMsg = rawMsg
-                .replace(/{name}/g, `*${rider.riderName}*`)
-                .replace(/{amount}/g, `*${amountStr}*`);
-
-            setAiMessage(hydratedMsg);
-        } catch (error) {
-            console.error("Error generating reminder:", error);
-            setAiMessage(`Hello *${rider.riderName}*, please clear your dues of *₹${rider.walletAmount}*.`);
-        } finally {
-            setGenerating(false);
-        }
-    };
 
 
     return (
@@ -378,7 +355,8 @@ ${new Date().toLocaleString('en-IN')}`;
                             {[
                                 { label: 'Call', icon: <Phone size={13} />, onClick: () => handleAction('call'), cls: 'bg-white/10 hover:bg-white/20' },
                                 { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
-                                ...(rider.walletAmount < 0 ? [{ label: 'Reminder', icon: <AlertTriangle size={13} />, onClick: () => { setShowReminder(true); setAiMessage(''); }, cls: 'bg-red-500/25 hover:bg-red-500/40' }] : []),
+                                ...(rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={13} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40' }] : []),
+                                ...(rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={13} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40' }] : []),
                                 { label: 'Share', icon: <Share2 size={13} />, onClick: handleShareCard, cls: 'bg-blue-500/25 hover:bg-blue-500/40' },
                                 { label: 'Download', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-violet-500/25 hover:bg-violet-500/40' },
                             ].map(({ label, icon, onClick, cls }) => (
@@ -529,37 +507,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                 </div>
                             </div>
 
-                            {/* AI Reminder panel */}
-                            {showReminder && (
-                                <div className="bg-muted/30 rounded-2xl border border-border p-4 animate-in slide-in-from-top-2">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h4 className="font-bold text-sm flex items-center gap-2"><ShieldCheck size={14} className="text-primary" /> AI Reminder</h4>
-                                        <button onClick={() => setShowReminder(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
-                                    </div>
-                                    <div className="flex gap-2 mb-2">
-                                        <select value={reminderLang} onChange={e => setReminderLang(e.target.value as any)}
-                                            className="flex-1 text-sm p-2 rounded-xl border bg-background border-input focus:ring-2 focus:ring-primary/20 outline-none">
-                                            <option value="hindi">Hindi</option>
-                                            <option value="english">English</option>
-                                        </select>
-                                        <button onClick={generateAiReminder} disabled={generating}
-                                            className="px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-60 transition-colors">
-                                            {generating ? '...' : '✨ Generate'}
-                                        </button>
-                                    </div>
-                                    <textarea value={aiMessage} onChange={e => setAiMessage(e.target.value)}
-                                        placeholder="Click generate..." rows={3}
-                                        className="w-full text-sm p-3 rounded-xl border bg-background border-input mb-2 focus:ring-2 focus:ring-primary/20 outline-none resize-none placeholder:text-muted-foreground" />
-                                    {aiMessage && (
-                                        <button onClick={() => handleAction('reminder', aiMessage)}
-                                            className="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors">
-                                            📱 Send via WhatsApp
-                                        </button>
-                                    )}
-                                </div>
-                            )}
 
-                            {/* Interaction History */}
                             <div className="bg-card border border-border rounded-2xl overflow-hidden">
                                 <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-center gap-2">
                                     <History size={14} className="text-muted-foreground" />
@@ -699,6 +647,13 @@ ${new Date().toLocaleString('en-IN')}`;
                     )}
                 </div>
             </div>
+
+            <AIReminderModal
+                isOpen={!!reminderModalType}
+                onClose={() => setReminderModalType(null)}
+                rider={rider}
+                type={reminderModalType || 'warning'}
+            />
         </div>
     );
 };
