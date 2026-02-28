@@ -1136,26 +1136,26 @@ const RiderManagement: React.FC = () => {
                                     e.stopPropagation();
                                     setReminderRider(rider);
                                 }}
-                                className="ml-1 p-1 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"
+                                className="ml-1 p-1.5 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"
                                 title="Send AI Penalty/Reminder"
                             >
-                                <Send size={14} />
+                                <Send size={16} />
                             </button>
                         )}
-                        {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                        {rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleLowBalanceReminder(rider);
                                 }}
-                                className="ml-1 p-1 bg-orange-500 text-white rounded-full hover:scale-110 transition-transform"
+                                className="ml-1 p-1.5 bg-orange-500 text-white rounded-full hover:scale-110 transition-transform"
                                 title="Send Low Balance WhatsApp Reminder"
                             >
-                                <MessageCircle size={14} />
+                                <MessageCircle size={16} />
                             </button>
                         )}
                     </div>
-                </div>
+                </div >
             )
         },
         {

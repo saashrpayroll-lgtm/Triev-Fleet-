@@ -639,14 +639,14 @@ const MyRiders: React.FC = () => {
                                                     <span className={`text-sm font-black ${rider.walletAmount > 0 ? 'text-emerald-600 dark:text-emerald-400' : rider.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
                                                         {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
                                                     </span>
-                                                    {rider.walletAmount < 0 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
-                                                            <AlertTriangle size={14} />
+                                                    {rider.status === 'active' && rider.walletAmount < 0 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="p-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
+                                                            <AlertTriangle size={16} />
                                                         </button>
                                                     )}
-                                                    {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="p-1 bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-colors" title="Send Low Balance WhatsApp Reminder">
-                                                            <MessageCircle size={14} />
+                                                    {rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="p-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-colors" title="Send Low Balance WhatsApp Reminder">
+                                                            <MessageCircle size={16} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -757,14 +757,14 @@ const MyRiders: React.FC = () => {
                                                             <MessageCircle size={13} /> WA
                                                         </button>
                                                     )}
-                                                    {rider.walletAmount < 0 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-xl text-sm font-bold border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition-colors active:scale-95">
-                                                            <AlertTriangle size={15} /> Remind
+                                                    {rider.status === 'active' && rider.walletAmount < 0 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-xl text-base font-bold border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition-colors active:scale-95">
+                                                            <AlertTriangle size={18} /> Remind
                                                         </button>
                                                     )}
-                                                    {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-xl text-sm font-bold border border-orange-200 dark:border-orange-800 hover:bg-orange-100 transition-colors active:scale-95">
-                                                            <MessageCircle size={15} /> Remind
+                                                    {rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-xl text-base font-bold border border-orange-200 dark:border-orange-800 hover:bg-orange-100 transition-colors active:scale-95">
+                                                            <MessageCircle size={18} /> Remind
                                                         </button>
                                                     )}
                                                     <ActionDropdownMenu

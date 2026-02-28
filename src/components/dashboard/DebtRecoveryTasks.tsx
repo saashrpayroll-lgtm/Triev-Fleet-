@@ -322,7 +322,7 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                         }}
                                                         disabled={processingId !== null}
                                                         className={`
-                                                            group relative overflow-hidden px-8 py-4 rounded-xl font-bold text-base flex items-center gap-3 transition-all shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 w-full md:w-auto justify-center
+                                                            group relative overflow-hidden px-10 py-5 rounded-xl font-bold text-lg flex items-center gap-4 transition-all shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 w-full md:w-auto justify-center
                                                             ${activeTab === 'critical'
                                                                 ? 'bg-gradient-to-r from-red-600 to-red-500 hover:to-red-600 text-white shadow-red-500/25'
                                                                 : activeTab === 'inactive'
@@ -335,22 +335,22 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                     >
                                                         {activeTab === 'critical' ? (
                                                             <>
-                                                                <AlertTriangle size={18} className="fill-white/20" />
+                                                                <AlertTriangle size={22} className="fill-white/20" />
                                                                 Initiate Recovery
                                                             </>
                                                         ) : activeTab === 'inactive' ? (
                                                             <>
-                                                                <Zap size={18} className={processingId === rider.id ? "animate-spin" : "fill-white/20"} />
+                                                                <Zap size={22} className={processingId === rider.id ? "animate-spin" : "fill-white/20"} />
                                                                 Message Rider
                                                             </>
                                                         ) : activeTab === 'low_balance' ? (
                                                             <>
-                                                                <MessageCircle size={18} className="fill-white/20" />
+                                                                <MessageCircle size={22} className="fill-white/20" />
                                                                 Generate Advice
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <RefreshCw size={18} className={processingId === rider.id ? "animate-spin" : ""} />
+                                                                <RefreshCw size={22} className={processingId === rider.id ? "animate-spin" : ""} />
                                                                 Send Reminder
                                                             </>
                                                         )}
