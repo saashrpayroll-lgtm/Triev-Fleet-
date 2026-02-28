@@ -391,6 +391,7 @@ function AppRoutes() {
 
 import { Toaster } from 'sonner';
 import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 
 
 function App() {
@@ -407,6 +408,7 @@ function App() {
           </ToastProvider>
         </ThemeProvider>
       </SupabaseAuthProvider>
+      <VercelAnalytics />
     </GlobalErrorBoundary>
   );
 }
