@@ -22,6 +22,7 @@ interface DashboardStats {
     activeRiders: number;
     inactiveRiders: number;
     deletedRiders: number;
+    lowBalanceCount: number;
     // Wallet
     positiveWallet: number;
     negativeWallet: number;
@@ -42,7 +43,7 @@ const Dashboard: React.FC = () => {
 
     // Stats State
     const [stats, setStats] = useState<DashboardStats>({
-        totalRiders: 0, activeRiders: 0, inactiveRiders: 0, deletedRiders: 0,
+        totalRiders: 0, activeRiders: 0, inactiveRiders: 0, deletedRiders: 0, lowBalanceCount: 0,
         positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
         totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
     });
@@ -97,6 +98,7 @@ const Dashboard: React.FC = () => {
                 activeRiders: myRiders.filter(r => r.status === 'active').length,
                 inactiveRiders: myRiders.filter(r => r.status === 'inactive').length,
                 deletedRiders: myRiders.filter(r => r.status === 'deleted').length,
+                lowBalanceCount: myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length,
 
                 // Wallet Stats
                 positiveWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount > 0).length,
@@ -228,7 +230,8 @@ const Dashboard: React.FC = () => {
             totalPositiveAmount: Number(stats?.totalPositiveAmount || 0),
             totalNegativeAmount: Number(stats?.totalNegativeAmount || 0),
             convertedLeads: Number(stats?.convertedLeads || 0),
-            totalLeads: Number(stats?.totalLeads || 0)
+            totalLeads: Number(stats?.totalLeads || 0),
+            lowBalanceCount: Number(stats?.lowBalanceCount || 0)
         };
 
         chartData = {
@@ -362,6 +365,17 @@ const Dashboard: React.FC = () => {
                     subtitle="Wallet < 0"
                     progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
                     onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
+                    isCurrency={false}
+                />
+
+                <SmartMetricCard
+                    title="Low Balance (0-250)"
+                    value={String(stats.lowBalanceCount)}
+                    icon={AlertTriangle}
+                    color="orange"
+                    className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
+                    subtitle="At-Risk of Rejection"
+                    onClick={() => handleNavigate('/team-leader/riders', { filter: 'low_balance' })}
                     isCurrency={false}
                 />
 

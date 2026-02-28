@@ -227,11 +227,12 @@ const Dashboard: React.FC = () => {
         // Critical Monitors
         const highDebtRiders = negativeWalletData.filter(r => r.walletAmount < -3000);
         const criticalRequests = requests.filter(r => r.priority === 'high');
+        const activeRidersList = riders.filter(r => r.status === 'active');
 
         return {
             // Riders
             totalRiders: riders.length,
-            activeRiders: riders.filter(r => r.status === 'active').length,
+            activeRiders: activeRidersList.length,
             inactiveRiders: riders.filter(r => r.status === 'inactive').length,
             deletedRiders: riders.filter(r => r.status === 'deleted').length,
 
@@ -240,6 +241,7 @@ const Dashboard: React.FC = () => {
             negativeWalletCount: negativeWalletData.length,
             zeroWalletCount: zeroWalletData.length,
             highDebtCount: highDebtRiders.length,
+            lowBalanceCount: activeRidersList.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
 
             // Finance Amounts
             totalCollection: positiveSum,
@@ -523,6 +525,17 @@ const Dashboard: React.FC = () => {
                     color="amber"
                     subtitle="Dormant Wallets"
                     onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
+                    isCurrency={false}
+                />
+
+                <SmartMetricCard
+                    title="Low Balance (0-250)"
+                    value={stats.lowBalanceCount}
+                    icon={AlertTriangle}
+                    color="orange"
+                    className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
+                    subtitle="At-Risk of Rejection"
+                    onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
                     isCurrency={false}
                 />
 

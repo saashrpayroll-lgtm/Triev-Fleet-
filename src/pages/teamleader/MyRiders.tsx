@@ -20,7 +20,7 @@ type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 
 interface AdvancedFilters {
     client: ClientName | 'all';
-    walletRange: 'all' | 'positive' | 'negative' | 'zero';
+    walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance';
 }
 
 const MyRiders: React.FC = () => {
@@ -138,6 +138,7 @@ const MyRiders: React.FC = () => {
             if (state.filter === 'positive_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'positive' })); setShowAdvancedFilters(true); }
             else if (state.filter === 'negative_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'negative' })); setShowAdvancedFilters(true); }
             else if (state.filter === 'zero_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'zero' })); setShowAdvancedFilters(true); }
+            else if (state.filter === 'low_balance') { setAdvancedFilters(p => ({ ...p, walletRange: 'low_balance' })); setShowAdvancedFilters(true); setActiveTab('active'); }
             else if (['active', 'inactive', 'deleted'].includes(state.filter)) setActiveTab(state.filter as TabType);
         }
     }, [location.state]);
@@ -183,6 +184,7 @@ const MyRiders: React.FC = () => {
                 if (advancedFilters.walletRange === 'positive') return a > 0;
                 if (advancedFilters.walletRange === 'negative') return a < 0;
                 if (advancedFilters.walletRange === 'zero') return a === 0;
+                if (advancedFilters.walletRange === 'low_balance') return a >= 0 && a <= 250;
                 return true;
             });
         }
@@ -250,6 +252,20 @@ const MyRiders: React.FC = () => {
             toast.success('Rider restored');
             await fetchRiders();
         } catch (error) { console.error('Error restoring rider:', error); toast.error('Failed to restore rider'); }
+    };
+
+    const handleLowBalanceReminder = async (rider: Rider) => {
+        const message = `Hello ${rider.riderName},\n\nYour current wallet balance is low (₹${rider.walletAmount}). Please top-up to maintain a balance above ₹250 to avoid negative balance issues.\n\nनमस्ते ${rider.riderName},\n\nआपकी वर्तमान वॉलेट बैलेंस कम है (₹${rider.walletAmount})। कृपया नेगेटिव बैलेंस की समस्याओं से बचने के लिए ₹250 से ऊपर बैलेंस बनाए रखने के लिए टॉप-अप करें।`;
+
+        await logActivity({
+            actionType: 'sent_reminder',
+            targetType: 'rider',
+            targetId: rider.id,
+            details: `Sent low balance WhatsApp reminder to ${rider.riderName}`,
+            performedBy: userData?.email
+        });
+
+        window.open(`${getWhatsAppLink(rider.mobileNumber)}?text=${encodeURIComponent(message)}`, '_blank');
     };
 
     const handlePermanentDelete = async (rider: Rider) => {
@@ -490,6 +506,7 @@ const MyRiders: React.FC = () => {
                             <option value="positive">Positive Balance</option>
                             <option value="negative">Negative Balance</option>
                             <option value="zero">Zero Balance</option>
+                            <option value="low_balance">Low Balance (0-250)</option>
                         </select>
                     </div>
                     <div className="flex items-end">
@@ -637,6 +654,11 @@ const MyRiders: React.FC = () => {
                                                     {rider.walletAmount < 0 && (
                                                         <button onClick={() => setReminderRider(rider)} className="p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
                                                             <AlertTriangle size={10} />
+                                                        </button>
+                                                    )}
+                                                    {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); handleLowBalanceReminder(rider); }} className="p-[3px] bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-colors" title="Send Low Balance WhatsApp Reminder">
+                                                            <MessageCircle size={10} />
                                                         </button>
                                                     )}
                                                 </div>

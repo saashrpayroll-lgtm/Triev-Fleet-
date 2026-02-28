@@ -28,7 +28,7 @@ type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 interface AdvancedFilters {
     teamLeader: string;
     client: ClientName | 'all';
-    walletRange: 'all' | 'positive' | 'negative' | 'zero';
+    walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance';
 }
 
 const RiderManagement: React.FC = () => {
@@ -156,6 +156,11 @@ const RiderManagement: React.FC = () => {
                 setAdvancedFilters(prev => ({ ...prev, walletRange: 'zero' }));
                 setShowAdvancedFilters(true);
             }
+            else if (state.filter === 'low_balance') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'low_balance' }));
+                setActiveTab('active');
+                setShowAdvancedFilters(true);
+            }
             // Map Status Filters
             else if (['active', 'inactive', 'deleted'].includes(state.filter)) {
                 setActiveTab(state.filter as TabType);
@@ -262,6 +267,7 @@ const RiderManagement: React.FC = () => {
                 if (advancedFilters.walletRange === 'positive') return r.walletAmount > 0;
                 if (advancedFilters.walletRange === 'negative') return r.walletAmount < 0;
                 if (advancedFilters.walletRange === 'zero') return r.walletAmount === 0;
+                if (advancedFilters.walletRange === 'low_balance') return r.walletAmount >= 0 && r.walletAmount <= 250;
                 return true;
             });
         }
@@ -610,6 +616,20 @@ const RiderManagement: React.FC = () => {
         window.open(`https://wa.me/${reminderRider.mobileNumber}?text=${encodedMessage}`, '_blank');
 
         setReminderRider(null);
+    };
+
+    const handleLowBalanceReminder = async (rider: Rider) => {
+        const message = `Hello ${rider.riderName},\n\nYour current wallet balance is low (₹${rider.walletAmount}). Please top-up to maintain a balance above ₹250 to avoid negative balance issues.\n\nनमस्ते ${rider.riderName},\n\nआपकी वर्तमान वॉलेट बैलेंस कम है (₹${rider.walletAmount})। कृपया नेगेटिव बैलेंस की समस्याओं से बचने के लिए ₹250 से ऊपर बैलेंस बनाए रखने के लिए टॉप-अप करें।`;
+
+        await logActivity({
+            actionType: 'sent_reminder',
+            targetType: 'rider',
+            targetId: rider.id,
+            details: `Sent low balance WhatsApp reminder to ${rider.riderName}`,
+            performedBy: currentUser?.email
+        });
+
+        window.open(`${getWhatsAppLink(rider.mobileNumber)}?text=${encodeURIComponent(message)}`, '_blank');
     };
 
     // Bulk Actions
@@ -1128,6 +1148,18 @@ const RiderManagement: React.FC = () => {
                                 <Send size={10} />
                             </button>
                         )}
+                        {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLowBalanceReminder(rider);
+                                }}
+                                className="ml-1 p-[3px] bg-orange-500 text-white rounded-full hover:scale-110 transition-transform"
+                                title="Send Low Balance WhatsApp Reminder"
+                            >
+                                <MessageCircle size={10} />
+                            </button>
+                        )}
                     </div>
                 </div>
             )
@@ -1308,10 +1340,11 @@ const RiderManagement: React.FC = () => {
                                 onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
                                 className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                             >
-                                <option value="all">All</option>
-                                <option value="positive">Positive Balance (+)</option>
-                                <option value="negative">Negative Balance (-)</option>
+                                <option value="all">All Wallets</option>
+                                <option value="positive">Positive Balance</option>
+                                <option value="negative">Negative Balance</option>
                                 <option value="zero">Zero Balance</option>
+                                <option value="low_balance">Low Balance (0-250)</option>
                             </select>
                         </div>
                         <div className="flex items-end">
