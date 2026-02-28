@@ -8,6 +8,7 @@ import AdminLogin from '@/pages/admin/AdminLogin';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import { supabase } from '@/config/supabase';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Team Leader Pages
 import TeamLeaderLayout from '@/layouts/TeamLeaderLayout';
@@ -403,6 +404,7 @@ function App() {
             <BrowserRouter>
               <AppRoutes />
               <Toaster position="top-right" richColors />
+              <SpeedInsights />
             </BrowserRouter>
           </ToastProvider>
         </ThemeProvider>
