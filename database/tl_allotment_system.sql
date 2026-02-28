@@ -79,7 +79,8 @@ BEGIN
             r.team_leader_id,
             COUNT(*) as allotments
         FROM public.riders r
-        WHERE r.allotment_date::DATE >= p_start_date AND r.allotment_date::DATE <= p_end_date
+        WHERE (r.allotment_date AT TIME ZONE 'Asia/Kolkata')::DATE >= p_start_date 
+          AND (r.allotment_date AT TIME ZONE 'Asia/Kolkata')::DATE <= p_end_date
         GROUP BY r.team_leader_id
     ),
     submission_stats AS (
@@ -88,7 +89,8 @@ BEGIN
             r.team_leader_id,
             COUNT(*) as submissions
         FROM public.riders r
-        WHERE r.inactivated_at::DATE >= p_start_date AND r.inactivated_at::DATE <= p_end_date
+        WHERE (r.inactivated_at AT TIME ZONE 'Asia/Kolkata')::DATE >= p_start_date 
+          AND (r.inactivated_at AT TIME ZONE 'Asia/Kolkata')::DATE <= p_end_date
         GROUP BY r.team_leader_id
     ),
     collection_stats AS (
@@ -100,8 +102,8 @@ BEGIN
         JOIN public.riders r ON wl.rider_id = r.id
         WHERE wl.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION')
           AND wl.mode = 'ADD'
-          AND COALESCE((wl.metadata->>'date_on_sheet')::DATE, wl.transaction_date::DATE, wl.created_at::DATE) >= p_start_date
-          AND COALESCE((wl.metadata->>'date_on_sheet')::DATE, wl.transaction_date::DATE, wl.created_at::DATE) <= p_end_date
+          AND COALESCE((wl.metadata->>'date_on_sheet')::DATE, (wl.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE, (wl.created_at AT TIME ZONE 'Asia/Kolkata')::DATE) >= p_start_date
+          AND COALESCE((wl.metadata->>'date_on_sheet')::DATE, (wl.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE, (wl.created_at AT TIME ZONE 'Asia/Kolkata')::DATE) <= p_end_date
         GROUP BY r.team_leader_id
     )
     SELECT 

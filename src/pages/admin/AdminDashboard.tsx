@@ -99,17 +99,16 @@ const Dashboard: React.FC = () => {
             const dayMap: Record<string, number> = {};
             const weekMap: Record<string, number> = {};
 
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            const todayStr = `${year}-${month}-${day}`;
+            const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const todayStr = istFormatter.format(nowIST);
 
-            // Week logic
-            const d = new Date();
-            const dayNum = d.getDay();
-            const diff = d.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
-            const weekStart = new Date(d.setDate(diff)).toISOString().split('T')[0];
+            // Week logic (Monday start in IST)
+            const weekStartPoint = new Date(nowIST);
+            const dayNum = weekStartPoint.getDay();
+            const diff = weekStartPoint.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
+            weekStartPoint.setDate(diff);
+            const weekStart = istFormatter.format(weekStartPoint);
 
             const dailyData = dailyRes.data || [];
             dailyData.forEach((d: any) => {
@@ -252,7 +251,12 @@ const Dashboard: React.FC = () => {
             // Leads
             totalLeads: leads.length,
             convertedLeads: leads.filter(l => l.status === 'Convert').length,
-            newLeadsToday: leads.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length,
+            newLeadsToday: leads.filter(l => {
+                const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                const leadDate = istFormatter.format(new Date(l.createdAt));
+                const todayDate = istFormatter.format(new Date());
+                return leadDate === todayDate;
+            }).length,
             conversionRate: leads.length > 0 ? Math.round((leads.filter(l => l.status === 'Convert').length / leads.length) * 100) : 0,
 
             // Requests
@@ -338,8 +342,10 @@ const Dashboard: React.FC = () => {
                 weeklyCollection: weeklyCollections[tl.id] || 0,
                 avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
                 leadsToday: tlLeads.filter(l => {
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    return l.createdAt.startsWith(todayStr);
+                    const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const leadDate = istFormatter.format(new Date(l.createdAt));
+                    const todayDate = istFormatter.format(new Date());
+                    return leadDate === todayDate;
                 }).length,
                 churnLeads: tlLeads.filter(l => l.status === 'Not Convert').length,
                 criticalDebtCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length,

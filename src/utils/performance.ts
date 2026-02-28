@@ -81,15 +81,17 @@ export const calculateAIScore = (
     let submissions = 0;
 
     if (period) {
+        const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+
         allotments = tlRiders.filter(r => {
             if (!r.allotmentDate) return false;
-            const dateStr = typeof r.allotmentDate === 'string' ? r.allotmentDate.split('T')[0] : '';
+            const dateStr = istFormatter.format(new Date(r.allotmentDate));
             return dateStr >= period.start && dateStr <= period.end;
         }).length;
 
         submissions = tlRiders.filter(r => {
             if (r.status !== 'inactive' || !r.inactivatedAt) return false;
-            const dateStr = typeof r.inactivatedAt === 'string' ? r.inactivatedAt.split('T')[0] : '';
+            const dateStr = istFormatter.format(new Date(r.inactivatedAt));
             return dateStr >= period.start && dateStr <= period.end;
         }).length;
     } else {

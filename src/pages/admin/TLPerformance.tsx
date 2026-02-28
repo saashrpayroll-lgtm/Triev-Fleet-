@@ -132,7 +132,7 @@ const TLPerformance: React.FC = () => {
             endDateStr = customDateRange.end;
         }
 
-        const todayStart = new Date(nowISTStr).getTime();
+
 
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
@@ -155,7 +155,10 @@ const TLPerformance: React.FC = () => {
 
             const converted = tlLeads.filter(l => l.status === 'Convert').length;
             const churnLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
-            const leadsToday = tlLeads.filter(l => new Date(l.created_at || l.createdAt).getTime() >= todayStart).length;
+            const leadsToday = tlLeads.filter(l => {
+                const leadDateStr = formatter.format(new Date(l.created_at || l.createdAt));
+                return leadDateStr === nowISTStr;
+            }).length;
             const criticalDebtCount = tlRiders.filter(r => r.status === 'active' && (r.wallet_amount || 0) < -3000).length;
 
             const conversionRate = tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0;
@@ -168,17 +171,15 @@ const TLPerformance: React.FC = () => {
             // Date Range metrics calculations
             const allotments = tlRiders.filter(r => {
                 if (!r.allotment_date) return false;
-                // Parse date string (assumes YYYY-MM-DD or timestamp)
-                const adStr = typeof r.allotment_date === 'string' ? r.allotment_date.split('T')[0] : formatter.format(new Date(r.allotment_date));
+                const adStr = formatter.format(new Date(r.allotment_date));
                 return adStr >= startDateStr && adStr <= endDateStr;
             }).length;
 
             const submissions = rawData.riders.filter(r => {
-                // Must be inactive, and inactivated_at must fall in range, AND assigned to this TL
                 if (r.status !== 'inactive' || !r.inactivated_at) return false;
                 if (r.team_leader_id !== tlId && r.teamLeaderId !== tlId) return false;
 
-                const sdStr = typeof r.inactivated_at === 'string' ? r.inactivated_at.split('T')[0] : formatter.format(new Date(r.inactivated_at));
+                const sdStr = formatter.format(new Date(r.inactivated_at));
                 return sdStr >= startDateStr && sdStr <= endDateStr;
             }).length;
 
