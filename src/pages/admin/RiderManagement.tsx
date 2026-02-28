@@ -270,7 +270,7 @@ const RiderManagement: React.FC = () => {
                 if (advancedFilters.walletRange === 'positive') return r.walletAmount > 0;
                 if (advancedFilters.walletRange === 'negative') return r.walletAmount < 0;
                 if (advancedFilters.walletRange === 'zero') return r.walletAmount === 0;
-                if (advancedFilters.walletRange === 'low_balance') return r.walletAmount >= 0 && r.walletAmount <= 250;
+                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250;
                 return true;
             });
         }
@@ -1136,10 +1136,10 @@ const RiderManagement: React.FC = () => {
                                     e.stopPropagation();
                                     setReminderRider(rider);
                                 }}
-                                className="ml-1 p-0.5 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"
+                                className="ml-1 p-1 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"
                                 title="Send AI Penalty/Reminder"
                             >
-                                <Send size={10} />
+                                <Send size={14} />
                             </button>
                         )}
                         {rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
@@ -1148,10 +1148,10 @@ const RiderManagement: React.FC = () => {
                                     e.stopPropagation();
                                     handleLowBalanceReminder(rider);
                                 }}
-                                className="ml-1 p-[3px] bg-orange-500 text-white rounded-full hover:scale-110 transition-transform"
+                                className="ml-1 p-1 bg-orange-500 text-white rounded-full hover:scale-110 transition-transform"
                                 title="Send Low Balance WhatsApp Reminder"
                             >
-                                <MessageCircle size={10} />
+                                <MessageCircle size={14} />
                             </button>
                         )}
                     </div>

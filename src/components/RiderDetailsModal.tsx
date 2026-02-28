@@ -355,8 +355,8 @@ ${new Date().toLocaleString('en-IN')}`;
                             {[
                                 { label: 'Call', icon: <Phone size={13} />, onClick: () => handleAction('call'), cls: 'bg-white/10 hover:bg-white/20' },
                                 { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
-                                ...(rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={13} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40' }] : []),
-                                ...(rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={13} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40' }] : []),
+                                ...(rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={15} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40 px-4 py-2 text-sm' }] : []),
+                                ...(rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={15} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40 px-4 py-2 text-sm' }] : []),
                                 { label: 'Share', icon: <Share2 size={13} />, onClick: handleShareCard, cls: 'bg-blue-500/25 hover:bg-blue-500/40' },
                                 { label: 'Download', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-violet-500/25 hover:bg-violet-500/40' },
                             ].map(({ label, icon, onClick, cls }) => (

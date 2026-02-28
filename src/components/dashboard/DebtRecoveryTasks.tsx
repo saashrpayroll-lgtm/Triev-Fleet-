@@ -28,7 +28,7 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
     const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD);
     const warningRiders = riders.filter(r => r.walletAmount < 0 && r.walletAmount > CRITICAL_THRESHOLD);
     const inactiveRiders = riders.filter(r => r.status === 'inactive');
-    const lowBalanceRiders = riders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250);
+    const lowBalanceRiders = riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250);
 
     const activeList = activeTab === 'critical' ? criticalRiders
         : activeTab === 'warning' ? warningRiders
@@ -322,7 +322,7 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders }) => {
                                                         }}
                                                         disabled={processingId !== null}
                                                         className={`
-                                                            group relative overflow-hidden px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 w-full md:w-auto justify-center
+                                                            group relative overflow-hidden px-8 py-4 rounded-xl font-bold text-base flex items-center gap-3 transition-all shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 w-full md:w-auto justify-center
                                                             ${activeTab === 'critical'
                                                                 ? 'bg-gradient-to-r from-red-600 to-red-500 hover:to-red-600 text-white shadow-red-500/25'
                                                                 : activeTab === 'inactive'
