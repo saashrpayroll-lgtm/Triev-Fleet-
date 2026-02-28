@@ -213,11 +213,21 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 
 
 
+import { usePresence } from '@/hooks/usePresence';
+
+function PresenceTracker() {
+  const { user, userData } = useSupabaseAuth();
+  // Always call hooks unconditionally at top level of component
+  usePresence(user?.id, user?.email, userData?.role);
+  return null;
+}
+
 function AppRoutes() {
   const { userData, user, refreshUserData } = useSupabaseAuth();
 
   return (
     <>
+      <PresenceTracker />
       {userData?.force_password_change && user && (
         <ForcePasswordChangeModal
           userId={user.id}

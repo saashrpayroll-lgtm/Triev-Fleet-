@@ -17,6 +17,7 @@ import { WalletSyncWidget } from '@/components/WalletSyncWidget';
 import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
 import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
 import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
+import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -593,14 +594,21 @@ const Dashboard: React.FC = () => {
 
             {/* TL Performance Table & System Health (Admin Only) */}
             {!isTL && (
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400">
-                    <div className="lg:col-span-3">
-                        <TeamLeaderPerformanceTable data={tlStats} />
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-6">
+                        <div className="lg:col-span-3">
+                            <TeamLeaderPerformanceTable data={tlStats} />
+                        </div>
+                        <div className="lg:col-span-1">
+                            <SystemHealthWidget />
+                        </div>
                     </div>
-                    <div className="lg:col-span-1">
-                        <SystemHealthWidget />
+
+                    {/* V4 Admin Live Presence Dashboard */}
+                    <div className="animate-in slide-in-from-bottom duration-700 delay-500 mb-6">
+                        <LivePresenceDashboard />
                     </div>
-                </div>
+                </>
             )}
 
             {/* Premium AI Leaderboard Section */}
