@@ -81,23 +81,18 @@ const TLForms: React.FC = () => {
                     <p className="text-muted-foreground text-lg max-w-md">There are currently no active forms or links assigned to Team Leaders. Please check back later.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2 pb-2 block w-full">
+                <div className="flex flex-col gap-3 max-h-[460px] overflow-y-auto pr-3 py-2 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
                     {forms.map((form) => (
                         <button
                             key={form.id}
                             onClick={() => handleFormClick(form.url)}
-                            className="group relative flex items-center p-4 bg-card border border-border/60 hover:border-primary/50 shadow-sm hover:shadow-md rounded-2xl cursor-pointer transition-all duration-300 w-full text-left"
+                            className="group flex items-center justify-between p-5 bg-card border border-border/80 hover:border-primary hover:bg-primary/5 shadow-sm hover:shadow-md rounded-2xl cursor-pointer transition-all duration-300 w-full text-left"
                         >
-                            <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0 mr-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                                <FileText size={24} />
-                            </div>
-                            <div className="flex-1 min-w-0 pr-4">
-                                <h3 className="font-bold text-base leading-tight text-foreground truncate group-hover:text-primary transition-colors">
-                                    {form.title}
-                                </h3>
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-muted/50 text-muted-foreground flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300 shrink-0">
-                                <ExternalLink size={16} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                            <span className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">
+                                {form.title}
+                            </span>
+                            <div className="w-10 h-10 rounded-full bg-muted/40 text-muted-foreground flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                                <ExternalLink size={18} />
                             </div>
                         </button>
                     ))}

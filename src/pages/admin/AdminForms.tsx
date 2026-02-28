@@ -261,9 +261,14 @@ const AdminForms: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <Reorder.Group axis="y" values={forms} onReorder={handleReorder} className="divide-y divide-border max-h-[400px] overflow-y-auto w-full block">
+                    <Reorder.Group axis="y" values={forms} onReorder={handleReorder} className="divide-y divide-border max-h-[460px] overflow-y-auto w-full block scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
                         {forms.map(form => (
-                            <Reorder.Item key={form.id} value={form} className="bg-card w-full">
+                            <Reorder.Item
+                                key={form.id}
+                                value={form}
+                                className="bg-card w-full active:shadow-2xl active:z-10 transition-shadow duration-200"
+                                whileDrag={{ scale: 1.02, backgroundColor: "var(--muted)" }}
+                            >
                                 <div className="p-4 hover:bg-muted/10 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group">
                                     <div className="flex items-center gap-4 flex-1 min-w-0">
                                         <div className="cursor-grab active:cursor-grabbing p-2 text-muted-foreground/40 hover:text-foreground hover:bg-muted rounded-lg transition-colors shrink-0 touch-none">
