@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight
+    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, Shield
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Rider, User, Lead, Request } from '@/types';
