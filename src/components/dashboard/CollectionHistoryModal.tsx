@@ -69,13 +69,20 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
             const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
             midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
 
-            const { data: todayLedger } = await supabase
-                .from('wallet_ledger')
-                .select('amount, rider:riders!inner(team_leader_id)')
-                .eq('mode', 'ADD')
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                .eq('rider.team_leader_id', teamLeaderId)
-                .gte('created_at', midnightIST.toISOString());
+            const [{ data: todayLedger }, { count: liveActiveCount }] = await Promise.all([
+                supabase
+                    .from('wallet_ledger')
+                    .select('amount, rider:riders!inner(team_leader_id)')
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .eq('rider.team_leader_id', teamLeaderId)
+                    .gte('created_at', midnightIST.toISOString()),
+                supabase
+                    .from('riders')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('team_leader_id', teamLeaderId)
+                    .eq('status', 'active')
+            ]);
 
             const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
@@ -83,16 +90,14 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
             const existingTodayIndex = records.findIndex(r => r.date === todayStr);
             if (existingTodayIndex >= 0) {
                 records[existingTodayIndex].total_collection = realTodayCollection;
+                records[existingTodayIndex].active_riders_count = liveActiveCount !== null ? liveActiveCount : records[existingTodayIndex].active_riders_count;
                 records[existingTodayIndex].runrate = records[existingTodayIndex].active_riders_count > 0 ? Math.round(realTodayCollection / records[existingTodayIndex].active_riders_count) : 0;
-            } else if (realTodayCollection > 0) {
-                // Determine active riders from yesterday's record or default to 1
-                const yesterdayRecord = records[0];
-                const activeRiders = yesterdayRecord ? yesterdayRecord.active_riders_count : 1;
+            } else if (realTodayCollection > 0 || (liveActiveCount && liveActiveCount > 0)) {
                 records = [{
                     date: todayStr,
                     total_collection: realTodayCollection,
-                    active_riders_count: activeRiders,
-                    runrate: Math.round(realTodayCollection / activeRiders)
+                    active_riders_count: liveActiveCount || 0,
+                    runrate: liveActiveCount && liveActiveCount > 0 ? Math.round(realTodayCollection / liveActiveCount) : 0
                 }, ...records];
             }
 
