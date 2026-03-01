@@ -29,31 +29,31 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [user, setUser] = useState<any | null>(null);
     const [userData, setUserData] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [lastActivity, setLastActivity] = useState(Date.now());
-    const AUTO_LOGOUT_TIME = 30 * 60 * 1000; // 30 minutes in ms (increased from 10m)
+    // useRef instead of useState — updating it does NOT trigger re-renders,
+    // which means event listeners are registered ONCE and never torn down/re-added.
+    const lastActivityRef = React.useRef<number>(Date.now());
+    const AUTO_LOGOUT_TIME = 30 * 60 * 1000; // 30 minutes
 
-    // Auto-logout effect
+    // Auto-logout effect — runs once when user logs in, never re-runs on activity
     useEffect(() => {
         if (!user) return;
 
         const checkInactivity = () => {
-            const now = Date.now();
-            if (now - lastActivity > AUTO_LOGOUT_TIME) {
-                // console.log('Auto-logging out due to inactivity');
+            if (Date.now() - lastActivityRef.current > AUTO_LOGOUT_TIME) {
                 signOut();
             }
         };
 
-        const interval = setInterval(checkInactivity, 30000); // Check every 30 seconds
+        const interval = setInterval(checkInactivity, 30000);
 
-        const updateActivity = () => setLastActivity(Date.now());
+        // updateActivity only writes to a ref — zero re-renders, zero listener churn
+        const updateActivity = () => { lastActivityRef.current = Date.now(); };
 
-        // Event listeners for activity
-        window.addEventListener('mousemove', updateActivity);
-        window.addEventListener('keydown', updateActivity);
-        window.addEventListener('click', updateActivity);
-        window.addEventListener('scroll', updateActivity);
-        window.addEventListener('touchstart', updateActivity);
+        window.addEventListener('mousemove', updateActivity, { passive: true });
+        window.addEventListener('keydown', updateActivity, { passive: true });
+        window.addEventListener('click', updateActivity, { passive: true });
+        window.addEventListener('scroll', updateActivity, { passive: true });
+        window.addEventListener('touchstart', updateActivity, { passive: true });
 
         return () => {
             clearInterval(interval);
@@ -63,7 +63,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             window.removeEventListener('scroll', updateActivity);
             window.removeEventListener('touchstart', updateActivity);
         };
-    }, [user, lastActivity]);
+    }, [user]); // ← only [user], not lastActivity — prevents the re-registration storm
 
     const formatUserData = (data: any): User => {
         // Since we use aliasing in .select(), 'data' should already have camelCase keys.

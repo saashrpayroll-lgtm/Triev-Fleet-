@@ -1,67 +1,76 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SupabaseAuthProvider, useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { supabase } from '@/config/supabase';
+import { Toaster } from 'sonner';
+import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
+import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
+import '@/index.css';
+
+// ─── Eagerly loaded (critical path – must be instant) ────────────────────────
 import LoginPage from '@/pages/auth/LoginPage';
 import AdminLogin from '@/pages/admin/AdminLogin';
-import ForgotPassword from '@/pages/auth/ForgotPassword';
-import RegisterPage from '@/pages/auth/RegisterPage';
-import { supabase } from '@/config/supabase';
+
+// ─── Lazily loaded (only downloaded when the route is actually visited) ────────
+const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
+const RegisterPage = React.lazy(() => import('@/pages/auth/RegisterPage'));
 
 // Team Leader Pages
-import TeamLeaderLayout from '@/layouts/TeamLeaderLayout';
-import TLDashboard from '@/pages/teamleader/Dashboard';
-import MyRiders from '@/pages/teamleader/MyRiders';
-import TLActivityLog from '@/pages/teamleader/ActivityLog';
-import TLReports from '@/pages/teamleader/Reports';
-import TLProfile from '@/pages/teamleader/Profile';
-import TLRequests from '@/pages/teamleader/Requests';
-import CollectionHistory from '@/pages/teamleader/CollectionHistory';
-import TLPersonalPerformance from '@/pages/teamleader/Performance';
-import TLNotificationsPage from '@/pages/teamleader/TLNotificationsPage';
-
-import AdminLeads from '@/pages/admin/AdminLeads';
-import UserLeads from '@/pages/teamleader/UserLeads';
+const TeamLeaderLayout = React.lazy(() => import('@/layouts/TeamLeaderLayout'));
+const TLDashboard = React.lazy(() => import('@/pages/teamleader/Dashboard'));
+const MyRiders = React.lazy(() => import('@/pages/teamleader/MyRiders'));
+const TLActivityLog = React.lazy(() => import('@/pages/teamleader/ActivityLog'));
+const TLReports = React.lazy(() => import('@/pages/teamleader/Reports'));
+const TLProfile = React.lazy(() => import('@/pages/teamleader/Profile'));
+const TLRequests = React.lazy(() => import('@/pages/teamleader/Requests'));
+const CollectionHistory = React.lazy(() => import('@/pages/teamleader/CollectionHistory'));
+const TLPersonalPerformance = React.lazy(() => import('@/pages/teamleader/Performance'));
+const TLNotificationsPage = React.lazy(() => import('@/pages/teamleader/TLNotificationsPage'));
+const UserLeads = React.lazy(() => import('@/pages/teamleader/UserLeads'));
+const TLForms = React.lazy(() => import('@/pages/teamleader/TLForms'));
 
 // Admin Pages
-import AdminLayout from '@/layouts/AdminLayout';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import Analytics from '@/pages/admin/Analytics';
-import RiderManagement from '@/pages/admin/RiderManagement';
-import UserManagement from '@/pages/admin/users';
-import DataManagement from '@/pages/admin/DataManagement';
-import AdminActivityLog from '@/pages/admin/ActivityLog';
-import AdminReports from '@/pages/admin/Reports';
-import AdminProfile from '@/pages/admin/Profile';
-import NotificationManagement from '@/pages/admin/NotificationManagement';
-import AdminChat from '@/pages/admin/AdminChat';
-import WalletHistory from '@/pages/admin/WalletHistory';
+const AdminLayout = React.lazy(() => import('@/layouts/AdminLayout'));
+const AdminDashboard = React.lazy(() => import('@/pages/admin/AdminDashboard'));
+const Analytics = React.lazy(() => import('@/pages/admin/Analytics'));
+const RiderManagement = React.lazy(() => import('@/pages/admin/RiderManagement'));
+const UserManagement = React.lazy(() => import('@/pages/admin/users'));
+const DataManagement = React.lazy(() => import('@/pages/admin/DataManagement'));
+const AdminActivityLog = React.lazy(() => import('@/pages/admin/ActivityLog'));
+const AdminReports = React.lazy(() => import('@/pages/admin/Reports'));
+const AdminProfile = React.lazy(() => import('@/pages/admin/Profile'));
+const NotificationManagement = React.lazy(() => import('@/pages/admin/NotificationManagement'));
+const AdminChat = React.lazy(() => import('@/pages/admin/AdminChat'));
+const WalletHistory = React.lazy(() => import('@/pages/admin/WalletHistory'));
+const RequestManagement = React.lazy(() => import('@/pages/admin/RequestManagement'));
+const LeaderboardPage = React.lazy(() => import('@/pages/admin/LeaderboardPage'));
+const TLPerformance = React.lazy(() => import('@/pages/admin/TLPerformance'));
+const TLAllotment = React.lazy(() => import('@/pages/admin/TLAllotment'));
+const AdminNotificationsPage = React.lazy(() => import('@/pages/admin/AdminNotificationsPage'));
+const AdminForms = React.lazy(() => import('@/pages/admin/AdminForms'));
+const AdminLeads = React.lazy(() => import('@/pages/admin/AdminLeads'));
 
-import RequestManagement from '@/pages/admin/RequestManagement';
-import LeaderboardPage from '@/pages/admin/LeaderboardPage';
-import TLPerformance from '@/pages/admin/TLPerformance';
-import TLAllotment from './pages/admin/TLAllotment';
-import AdminNotificationsPage from '@/pages/admin/AdminNotificationsPage';
-import AdminForms from '@/pages/admin/AdminForms';
-import TLForms from '@/pages/teamleader/TLForms';
+// ─── Loading fallback used by Suspense boundaries ─────────────────────────────
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <span className="text-xs text-muted-foreground font-medium">Loading...</span>
+    </div>
+  </div>
+);
 
-import '@/index.css';
-import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
-
-// Helper component for loading state
+// ─── Full-screen loading shown while auth state resolves ─────────────────────
 const LoadingScreen = () => {
   const [showSlowLoading, setShowSlowLoading] = React.useState(false);
   const [showReset, setShowReset] = React.useState(false);
 
   React.useEffect(() => {
-    const timer1 = setTimeout(() => setShowSlowLoading(true), 3000); // 3s
-    const timer2 = setTimeout(() => setShowReset(true), 8000); // 8s
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    const timer1 = setTimeout(() => setShowSlowLoading(true), 3000);
+    const timer2 = setTimeout(() => setShowReset(true), 8000);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
   }, []);
 
   const handleReset = async () => {
@@ -73,7 +82,7 @@ const LoadingScreen = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
       <div className="text-lg font-medium">Loading Application...</div>
 
       {showSlowLoading && (
@@ -91,7 +100,7 @@ const LoadingScreen = () => {
             onClick={handleReset}
             className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 text-sm font-medium border border-border shadow-sm"
           >
-            Reset & Reload
+            Reset &amp; Reload
           </button>
         </div>
       )}
@@ -99,7 +108,7 @@ const LoadingScreen = () => {
   );
 };
 
-// Protected Route Component
+// ─── Protected Route ──────────────────────────────────────────────────────────
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: ('admin' | 'teamLeader')[];
@@ -108,51 +117,37 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { user, userData, loading } = useSupabaseAuth();
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  if (loading) return <LoadingScreen />;
 
-  if (!user || !userData) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!user || !userData) return <Navigate to="/login" replace />;
 
-  // Handle Guest/Uninitialized Profile
   if ((userData.role as string) === 'guest') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
         <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
         <p className="text-muted-foreground max-w-md mb-6">
-          Your account is authenticated, but no user profile was found in our database.
-          Please contact your administrator to create your profile.
+          Your account is authenticated, but no user profile was found. Please contact your administrator.
         </p>
         <div className="p-4 bg-muted/50 rounded-lg text-left text-xs font-mono mb-6 w-full max-w-md overflow-auto">
           <p>User ID: {user.id}</p>
           <p>Email: {user.email}</p>
           <p>Status: {userData.status}</p>
         </div>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-        >
+        <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
           Sign Out
         </button>
       </div>
     );
   }
 
-  if (allowedRoles && !allowedRoles.includes(userData.role)) {
-    return <Navigate to="/unauthorized" replace />;
-  }
+  if (allowedRoles && !allowedRoles.includes(userData.role)) return <Navigate to="/unauthorized" replace />;
 
-  // Check if user is suspended
   if (userData.status === 'suspended') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-destructive mb-4">Account Suspended</h1>
-          <p className="text-muted-foreground">
-            Your account has been temporarily suspended. Please contact your administrator.
-          </p>
+          <p className="text-muted-foreground">Your account has been temporarily suspended. Please contact your administrator.</p>
         </div>
       </div>
     );
@@ -163,17 +158,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-destructive mb-4">Account Inactive</h1>
-          <p className="text-muted-foreground mb-4">
-            Your account is currently inactive. Please contact your administrator.
-          </p>
-          {/* Emergency Recovery for Admin (Supabase version) */}
-          {userData.username === 'saunvir1130' && ( // Assuming username field exists in Supabase users
+          <p className="text-muted-foreground mb-4">Your account is currently inactive. Please contact your administrator.</p>
+          {userData.username === 'saunvir1130' && (
             <button
               onClick={async () => {
-                if (user) {
-                  await supabase.from('users').update({ status: 'active' }).eq('id', user.id);
-                  window.location.reload();
-                }
+                if (user) { await supabase.from('users').update({ status: 'active' }).eq('id', user.id); window.location.reload(); }
               }}
               className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:bg-primary/90"
             >
@@ -188,42 +177,34 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   return <>{children}</>;
 };
 
-// Public Route Component (redirects to dashboard if already logged in)
-interface PublicRouteProps {
-  children: React.ReactNode;
-}
-
-const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
+// ─── Public Route (redirects away if already logged in) ──────────────────────
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, userData, loading } = useSupabaseAuth();
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading...</div>
+    </div>
+  );
 
   if (user && userData) {
-    // Redirect to appropriate dashboard based on role
-    const redirectPath = userData.role === 'admin' ? '/admin' : '/team-leader';
+    const redirectPath = userData.role === 'admin' ? '/portal' : '/team-leader';
     return <Navigate to={redirectPath} replace />;
   }
 
   return <>{children}</>;
 };
 
-
-
+// ─── Presence tracker (non-rendering) ────────────────────────────────────────
 import { usePresence } from '@/hooks/usePresence';
 
 function PresenceTracker() {
   const { user, userData } = useSupabaseAuth();
-  // Always call hooks unconditionally at top level of component
   usePresence(user?.id, user?.email, userData?.role);
   return null;
 }
 
+// ─── App Routes ───────────────────────────────────────────────────────────────
 function AppRoutes() {
   const { userData, user, refreshUserData } = useSupabaseAuth();
 
@@ -231,170 +212,113 @@ function AppRoutes() {
     <>
       <PresenceTracker />
       {userData?.force_password_change && user && (
-        <ForcePasswordChangeModal
-          userId={user.id}
-          onPasswordChanged={refreshUserData}
-        />
+        <ForcePasswordChangeModal userId={user.id} onPasswordChanged={refreshUserData} />
       )}
-      <Routes>
-        {/* Public Routes */}
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/admin-login"
-          element={
-            <PublicRoute>
-              <AdminLogin />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/forgot-password"
-          element={
-            <PublicRoute>
-              <ForgotPassword />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <RegisterPage />
-            </PublicRoute>
-          }
-        />
 
-        {/* Team Leader Routes */}
-        <Route
-          path="/team-leader"
-          element={
-            <ProtectedRoute allowedRoles={['teamLeader']}>
-              <TeamLeaderLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<TLDashboard />} />
-          <Route path="leads" element={<UserLeads />} />
-          <Route path="riders" element={<MyRiders />} />
-          <Route path="activity-log" element={<TLActivityLog />} />
-          <Route path="reports" element={<TLReports />} />
-          <Route path="profile" element={
-            userData?.permissions?.modules?.profile
-              ? <TLProfile />
-              : <Navigate to="/team-leader" replace />
-          } />
-          <Route path="requests" element={<TLRequests />} />
-          <Route path="wallet-history" element={<WalletHistory />} />
-          <Route path="collections" element={<CollectionHistory />} />
-          <Route path="performance" element={<TLPersonalPerformance />} />
-          <Route path="notifications" element={<TLNotificationsPage />} />
-          <Route path="forms" element={<TLForms />} />
-        </Route>
+      {/* Suspense boundary wraps ALL lazy routes */}
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Public Routes — login pages are eagerly loaded (no lazy) */}
+          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/admin-login" element={<PublicRoute><AdminLogin /></PublicRoute>} />
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
 
-        {/* Admin Portal Routes */}
-        <Route
-          path="/portal"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="leads" element={<AdminLeads />} />
-          <Route path="riders" element={<RiderManagement />} />
-          <Route path="users" element={<UserManagement />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="tl-performance" element={<TLPerformance />} />
-          <Route path="tl-allotment" element={<TLAllotment />} />
-          <Route path="leaderboard" element={<LeaderboardPage />} />
-          <Route path="broadcast" element={<NotificationManagement />} />
-          <Route path="notifications" element={<AdminNotificationsPage />} />
-          <Route path="forms" element={<AdminForms />} />
-          <Route path="chat" element={<AdminChat />} />
-          <Route path="requests" element={<RequestManagement />} />
-          <Route path="data" element={<DataManagement />} />
-          <Route path="wallet-history" element={<WalletHistory />} />
-          <Route path="activity-log" element={<AdminActivityLog />} />
-          <Route path="reports" element={<AdminReports />} />
-          <Route path="profile" element={<AdminProfile />} />
-        </Route>
+          {/* Team Leader Routes */}
+          <Route
+            path="/team-leader"
+            element={<ProtectedRoute allowedRoles={['teamLeader']}><TeamLeaderLayout /></ProtectedRoute>}
+          >
+            <Route index element={<TLDashboard />} />
+            <Route path="leads" element={<UserLeads />} />
+            <Route path="riders" element={<MyRiders />} />
+            <Route path="activity-log" element={<TLActivityLog />} />
+            <Route path="reports" element={<TLReports />} />
+            <Route path="profile" element={
+              userData?.permissions?.modules?.profile ? <TLProfile /> : <Navigate to="/team-leader" replace />
+            } />
+            <Route path="requests" element={<TLRequests />} />
+            <Route path="wallet-history" element={<WalletHistory />} />
+            <Route path="collections" element={<CollectionHistory />} />
+            <Route path="performance" element={<TLPersonalPerformance />} />
+            <Route path="notifications" element={<TLNotificationsPage />} />
+            <Route path="forms" element={<TLForms />} />
+          </Route>
 
-        {/* Default Route */}
-        <Route
-          path="/"
-          element={
-            userData?.role === 'admin' ? (
-              <Navigate to="/portal" replace />
-            ) : (
-              <Navigate to="/team-leader" replace />
-            )
-          }
-        />
+          {/* Admin Portal Routes */}
+          <Route
+            path="/portal"
+            element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="leads" element={<AdminLeads />} />
+            <Route path="riders" element={<RiderManagement />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="tl-performance" element={<TLPerformance />} />
+            <Route path="tl-allotment" element={<TLAllotment />} />
+            <Route path="leaderboard" element={<LeaderboardPage />} />
+            <Route path="broadcast" element={<NotificationManagement />} />
+            <Route path="notifications" element={<AdminNotificationsPage />} />
+            <Route path="forms" element={<AdminForms />} />
+            <Route path="chat" element={<AdminChat />} />
+            <Route path="requests" element={<RequestManagement />} />
+            <Route path="data" element={<DataManagement />} />
+            <Route path="wallet-history" element={<WalletHistory />} />
+            <Route path="activity-log" element={<AdminActivityLog />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="profile" element={<AdminProfile />} />
+          </Route>
 
-        {/* 404 & Unauthorized */}
-        <Route
-          path="/unauthorized"
-          element={
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold mb-4">Unauthorized</h1>
-                <p className="text-muted-foreground mb-6">
-                  You don't have permission to access this page.
-                </p>
-                {/* Debug Info for User */}
-                <div className="bg-muted p-4 rounded-lg text-left text-xs font-mono mb-6 inline-block max-w-sm">
-                  <p className="font-bold mb-2">Diagnostic Info:</p>
-                  <p>Your Role: <span className="text-primary">{userData?.role || 'None'}</span></p>
-                  {/* <p>Required Role: {allowedRoles?.join(' or ') || 'None'}</p> */}
-                  <p>User ID: {user?.id}</p>
+          {/* Default root redirect */}
+          <Route
+            path="/"
+            element={
+              userData?.role === 'admin'
+                ? <Navigate to="/portal" replace />
+                : <Navigate to="/team-leader" replace />
+            }
+          />
+
+          {/* 404 & Unauthorized */}
+          <Route
+            path="/unauthorized"
+            element={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold mb-4">Unauthorized</h1>
+                  <p className="text-muted-foreground mb-6">You don't have permission to access this page.</p>
+                  <div className="bg-muted p-4 rounded-lg text-left text-xs font-mono mb-6 inline-block max-w-sm">
+                    <p className="font-bold mb-2">Diagnostic Info:</p>
+                    <p>Your Role: <span className="text-primary">{userData?.role || 'None'}</span></p>
+                    <p>User ID: {user?.id}</p>
+                  </div>
+                  <br />
+                  <button onClick={() => window.history.back()} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 mr-2">Go Back</button>
+                  <button onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }} className="px-4 py-2 border border-border rounded-lg hover:bg-accent">Sign Out</button>
                 </div>
-                <br />
-                <button
-                  onClick={() => window.history.back()}
-                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 mr-2"
-                >
-                  Go Back
-                </button>
-                <button
-                  onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }}
-                  className="px-4 py-2 border border-border rounded-lg hover:bg-accent"
-                >
-                  Sign Out
-                </button>
               </div>
-            </div>
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="text-center">
-                <h1 className="text-2xl font-bold mb-4">404 - Page Not Found</h1>
-                <p className="text-muted-foreground">The page you're looking for doesn't exist.</p>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold mb-4">404 - Page Not Found</h1>
+                  <p className="text-muted-foreground">The page you're looking for doesn't exist.</p>
+                </div>
               </div>
-            </div>
-          }
-        />
-      </Routes>
+            }
+          />
+        </Routes>
+      </Suspense>
     </>
   );
 }
 
-import { Toaster } from 'sonner';
-import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
-
-
+// ─── App Root ─────────────────────────────────────────────────────────────────
 function App() {
-  // console.log('App component rendering (Supabase)');
   return (
     <GlobalErrorBoundary>
       <SupabaseAuthProvider>
