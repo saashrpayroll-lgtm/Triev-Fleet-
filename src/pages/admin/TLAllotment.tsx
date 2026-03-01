@@ -1,17 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
 import {
     Download,
     Search,
     Calendar,
     Users,
-    Activity,
     ArrowUpRight,
     ArrowDownRight,
     SearchX,
     TrendingUp,
     Filter,
     ChevronDown,
+    RefreshCw,
+    Wallet,
+    BarChart3,
+    ShieldCheck,
+    Activity,
+    IndianRupee,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -19,9 +24,9 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { format } from 'date-fns';
+import { format, startOfMonth } from 'date-fns';
 
-interface TLAllotmentMetric {
+interface TLMetric {
     team_leader_id: string;
     tl_name: string;
     tl_email: string;
@@ -36,147 +41,230 @@ interface TLAllotmentMetric {
     rent_collection_total: number;
 }
 
+// Helper: Get IST date string for a JS Date
+const toISTDateStr = (d: Date): string => {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+};
+
+const toISTDate = (): Date => {
+    const str = toISTDateStr(new Date());
+    const [y, m, day] = str.split('-').map(Number);
+    return new Date(y, m - 1, day);
+};
+
 const TLAllotment: React.FC = () => {
     const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<TLAllotmentMetric[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
+    const [data, setData] = useState<TLMetric[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isExportOpen, setIsExportOpen] = useState(false);
-
-    // New Filters & Sorting States
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [filterRisk, setFilterRisk] = useState<'all' | 'high_risk' | 'low_risk'>('all');
     const [filterPerformers, setFilterPerformers] = useState<'all' | 'growing' | 'shrinking'>('all');
-    const [sortConfig, setSortConfig] = useState<{ key: keyof TLAllotmentMetric | 'net_growth', direction: 'asc' | 'desc' } | null>({ key: 'active_rider_count', direction: 'desc' });
-
-
-    // Date Range State - Default to TODAY (IST) for daily tracking
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => {
-        const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-        const now = new Date();
-        const istDateStr = istFormatter.format(now);
-
-        // Create a date object that represents the start of the day in IST
-        const [year, month, day] = istDateStr.split('-').map(Number);
-        const istDate = new Date(year, month - 1, day);
-        return [istDate, istDate];
+    const [sortConfig, setSortConfig] = useState<{ key: keyof TLMetric | 'net_growth'; direction: 'asc' | 'desc' }>({
+        key: 'active_rider_count',
+        direction: 'desc',
     });
+
+    const todayIST = toISTDate();
+    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([todayIST, todayIST]);
     const [startDate, endDate] = dateRange;
 
     const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
-        const now = new Date();
-        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-        const [year, month, day] = istDateStr.split('-').map(Number);
-
-        // Use UTC Date objects to represent IST dates, preventing browser local timezone shifts
-        // Midnight in our working UTC represents midnight in IST for DatePicker
-        const workingDateUTC = new Date(year, month - 1, day); // Local browser date object trick
-
+        const today = toISTDate();
         switch (preset) {
-            case 'today':
-                setDateRange([workingDateUTC, workingDateUTC]);
-                break;
-            case 'yesterday':
-                const yesterday = new Date(workingDateUTC);
-                yesterday.setDate(workingDateUTC.getDate() - 1);
-                setDateRange([yesterday, yesterday]);
-                break;
-            case 'week':
-                const weekStart = new Date(workingDateUTC);
-                weekStart.setDate(workingDateUTC.getDate() - 7);
-                setDateRange([weekStart, workingDateUTC]);
-                break;
-            case 'month':
-                const monthStart = new Date(workingDateUTC.getFullYear(), workingDateUTC.getMonth(), 1);
-                setDateRange([monthStart, workingDateUTC]);
-                break;
+            case 'today': setDateRange([today, today]); break;
+            case 'yesterday': { const y = new Date(today); y.setDate(today.getDate() - 1); setDateRange([y, y]); break; }
+            case 'week': { const w = new Date(today); w.setDate(today.getDate() - 6); setDateRange([w, today]); break; }
+            case 'month': setDateRange([startOfMonth(today), today]); break;
         }
     };
 
-    const fetchMetrics = async () => {
+    const fetchMetrics = useCallback(async () => {
         setLoading(true);
         try {
-            const { data: metrics, error } = await supabase.rpc('get_tl_allotment_metrics', {
-                p_start_date: startDate ? format(startDate, 'yyyy-MM-dd') : '1970-01-01',
-                p_end_date: endDate ? format(endDate, 'yyyy-MM-dd') : '9999-12-31'
+            const pStart = startDate ? format(startDate, 'yyyy-MM-dd') : '1970-01-01';
+            const pEnd = endDate ? format(endDate, 'yyyy-MM-dd') : '9999-12-31';
+
+            // Step 1: Get all active TLs
+            const { data: tls, error: tlErr } = await supabase
+                .from('users')
+                .select('id, full_name, email')
+                .eq('role', 'teamLeader')
+                .eq('status', 'active');
+            if (tlErr) throw tlErr;
+            if (!tls || tls.length === 0) { setData([]); return; }
+
+            // Step 2: Get all riders (not deleted)
+            const { data: riders, error: rErr } = await supabase
+                .from('riders')
+                .select('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at')
+                .is('deleted_at', null);
+            if (rErr) throw rErr;
+
+            // Step 3: Get wallet_ledger entries for the period (collections only)
+            const { data: ledger, error: lErr } = await supabase
+                .from('wallet_ledger')
+                .select('rider_id, amount, transaction_type, mode, created_at, transaction_date, metadata')
+                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                .eq('mode', 'ADD');
+            if (lErr) throw lErr;
+
+            // Build a rider→TL map
+            const riderTLMap = new Map<string, string>();
+            (riders || []).forEach(r => { if (r.id && r.team_leader_id) riderTLMap.set(r.id, r.team_leader_id); });
+
+            // Pre-filter ledger entries to the date range in IST
+            const filteredLedger = (ledger || []).filter(entry => {
+                // Pick the best date: metadata.date_on_sheet > transaction_date > created_at
+                let rawDate: string | null = null;
+                try {
+                    const meta = entry.metadata as Record<string, any> | null;
+                    const dos = meta?.date_on_sheet as string | undefined;
+                    rawDate = dos && dos.trim() !== '' ? dos : null;
+                } catch { rawDate = null; }
+
+                const ts = rawDate ? rawDate : (entry.transaction_date || entry.created_at);
+                if (!ts) return false;
+
+                const entryISTDate = toISTDateStr(new Date(ts));
+                return entryISTDate >= pStart && entryISTDate <= pEnd;
             });
 
-            if (error) throw error;
-            setData(metrics || []);
-        } catch (error: any) {
-            console.error('Error fetching allotment metrics:', error);
-            toast.error('Failed to load metrics: ' + error.message);
+            // Aggregate collection per TL
+            const collectionByTL = new Map<string, number>();
+            filteredLedger.forEach(entry => {
+                const tlId = riderTLMap.get(entry.rider_id);
+                if (!tlId) return;
+                collectionByTL.set(tlId, (collectionByTL.get(tlId) || 0) + Number(entry.amount || 0));
+            });
+
+            // Aggregate rider stats per TL
+            const ridersByTL = new Map<string, typeof riders>();
+            (riders || []).forEach(r => {
+                if (!r.team_leader_id) return;
+                const arr = ridersByTL.get(r.team_leader_id) || [];
+                arr.push(r);
+                ridersByTL.set(r.team_leader_id, arr);
+            });
+
+            // Pre-filter allotments and submissions for period
+            const allotmentsByTL = new Map<string, number>();
+            const submissionsByTL = new Map<string, number>();
+
+            (riders || []).forEach(r => {
+                if (!r.team_leader_id) return;
+
+                // Allotment: allotment_date or created_at falls in range
+                const allotDate = r.allotment_date || r.created_at;
+                if (allotDate) {
+                    const d = toISTDateStr(new Date(allotDate));
+                    if (d >= pStart && d <= pEnd) {
+                        allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
+                    }
+                }
+
+                // Submission: inactive status with inactivated_at or updated_at in range
+                if (r.status === 'inactive') {
+                    const subDate = r.inactivated_at || r.updated_at;
+                    if (subDate) {
+                        const d = toISTDateStr(new Date(subDate));
+                        if (d >= pStart && d <= pEnd) {
+                            submissionsByTL.set(r.team_leader_id, (submissionsByTL.get(r.team_leader_id) || 0) + 1);
+                        }
+                    }
+                }
+            });
+
+            // Build final metrics
+            const metrics: TLMetric[] = tls.map(tl => {
+                const tlRiders = ridersByTL.get(tl.id) || [];
+                const activeRiders = tlRiders.filter(r => r.status === 'active');
+                const inactiveRiders = tlRiders.filter(r => r.status === 'inactive');
+
+                const posRiders = tlRiders.filter(r => (r.wallet_amount || 0) > 0);
+                const negRiders = activeRiders.filter(r => (r.wallet_amount || 0) < 0); // Only active for negative
+
+                return {
+                    team_leader_id: tl.id,
+                    tl_name: tl.full_name || 'Unknown',
+                    tl_email: tl.email || '',
+                    active_rider_count: activeRiders.length,
+                    inactive_rider_count: inactiveRiders.length,
+                    positive_wallet_count: posRiders.length,
+                    positive_wallet_total: posRiders.reduce((s, r) => s + (r.wallet_amount || 0), 0),
+                    negative_wallet_count: negRiders.length,
+                    negative_wallet_total: negRiders.reduce((s, r) => s + (r.wallet_amount || 0), 0),
+                    allotment_count: allotmentsByTL.get(tl.id) || 0,
+                    submission_count: submissionsByTL.get(tl.id) || 0,
+                    rent_collection_total: collectionByTL.get(tl.id) || 0,
+                };
+            });
+
+            setData(metrics);
+        } catch (err: any) {
+            console.error('TLAllotment fetch error:', err);
+            toast.error('Failed to load metrics: ' + (err.message || 'Unknown error'));
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
-    };
-
-    useEffect(() => {
-        fetchMetrics();
     }, [startDate, endDate]);
+
+    useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchMetrics();
+        toast.success('Data refreshed');
+    };
 
     const filteredData = useMemo(() => {
         let result = data.filter(item =>
             item.tl_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.tl_email.toLowerCase().includes(searchTerm.toLowerCase())
         );
+        if (filterRisk === 'high_risk') result = result.filter(i => Math.abs(i.negative_wallet_total) > i.positive_wallet_total);
+        else if (filterRisk === 'low_risk') result = result.filter(i => Math.abs(i.negative_wallet_total) <= i.positive_wallet_total);
+        if (filterPerformers === 'growing') result = result.filter(i => i.allotment_count - i.submission_count > 0);
+        else if (filterPerformers === 'shrinking') result = result.filter(i => i.allotment_count - i.submission_count < 0);
 
-        if (filterRisk === 'high_risk') {
-            result = result.filter(item => Math.abs(Number(item.negative_wallet_total)) > Number(item.positive_wallet_total));
-        } else if (filterRisk === 'low_risk') {
-            result = result.filter(item => Math.abs(Number(item.negative_wallet_total)) <= Number(item.positive_wallet_total));
-        }
-
-        if (filterPerformers === 'growing') {
-            result = result.filter(item => (Number(item.allotment_count) - Number(item.submission_count)) > 0);
-        } else if (filterPerformers === 'shrinking') {
-            result = result.filter(item => (Number(item.allotment_count) - Number(item.submission_count)) < 0);
-        }
-
-        if (sortConfig) {
-            result.sort((a, b) => {
-                let aVal: number | string = 0;
-                let bVal: number | string = 0;
-
-                if (sortConfig.key === 'net_growth') {
-                    aVal = Number(a.allotment_count) - Number(a.submission_count);
-                    bVal = Number(b.allotment_count) - Number(b.submission_count);
-                } else {
-                    aVal = a[sortConfig.key] as number | string;
-                    bVal = b[sortConfig.key] as number | string;
-                    // Coerce string numbers to actual numbers for correct sorting
-                    if (!isNaN(Number(aVal))) aVal = Number(aVal);
-                    if (!isNaN(Number(bVal))) bVal = Number(bVal);
-                }
-
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-
+        result = [...result].sort((a, b) => {
+            let aVal: number | string, bVal: number | string;
+            if (sortConfig.key === 'net_growth') {
+                aVal = a.allotment_count - a.submission_count;
+                bVal = b.allotment_count - b.submission_count;
+            } else {
+                aVal = a[sortConfig.key] as number | string;
+                bVal = b[sortConfig.key] as number | string;
+                if (!isNaN(Number(aVal))) aVal = Number(aVal);
+                if (!isNaN(Number(bVal))) bVal = Number(bVal);
+            }
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
         return result;
     }, [data, searchTerm, filterRisk, filterPerformers, sortConfig]);
 
-    const handleSort = (key: keyof TLAllotmentMetric | 'net_growth') => {
-        let direction: 'asc' | 'desc' = 'desc';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
-            direction = 'asc';
-        }
-        setSortConfig({ key, direction });
+    const handleSort = (key: keyof TLMetric | 'net_growth') => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev?.key === key && prev?.direction === 'desc' ? 'asc' : 'desc',
+        }));
     };
 
-    const stats = useMemo(() => {
-        return filteredData.reduce((acc, curr) => ({
-            totalAllotments: acc.totalAllotments + Number(curr.allotment_count),
-            totalSubmissions: acc.totalSubmissions + Number(curr.submission_count),
-            totalRiders: acc.totalRiders + Number(curr.active_rider_count),
-            totalInactive: acc.totalInactive + Number(curr.inactive_rider_count),
-            totalCollection: acc.totalCollection + Number(curr.rent_collection_total)
-        }), { totalAllotments: 0, totalSubmissions: 0, totalRiders: 0, totalInactive: 0, totalCollection: 0 });
-    }, [filteredData]);
+    const stats = useMemo(() => filteredData.reduce((acc, curr) => ({
+        totalAllotments: acc.totalAllotments + curr.allotment_count,
+        totalSubmissions: acc.totalSubmissions + curr.submission_count,
+        totalActive: acc.totalActive + curr.active_rider_count,
+        totalInactive: acc.totalInactive + curr.inactive_rider_count,
+        totalCollection: acc.totalCollection + curr.rent_collection_total,
+        totalNetGrowth: acc.totalNetGrowth + (curr.allotment_count - curr.submission_count),
+    }), { totalAllotments: 0, totalSubmissions: 0, totalActive: 0, totalInactive: 0, totalCollection: 0, totalNetGrowth: 0 }), [filteredData]);
 
     const exportToExcel = () => {
-        const exportData = filteredData.map(item => ({
+        const ws = XLSX.utils.json_to_sheet(filteredData.map(item => ({
             'Team Leader': item.tl_name,
             'Email': item.tl_email,
             'Active Riders': item.active_rider_count,
@@ -186,95 +274,123 @@ const TLAllotment: React.FC = () => {
             'Net Growth': item.allotment_count - item.submission_count,
             'Rent Collection (Period)': item.rent_collection_total,
             'Positive Wallet Count': item.positive_wallet_count,
-            'Positive Wallet Vol.': item.positive_wallet_total,
-            'Negative Wallet Count (Active Only)': item.negative_wallet_count,
-            'Negative Wallet Vol.': item.negative_wallet_total
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(exportData);
+            'Positive Wallet Total': item.positive_wallet_total,
+            'Negative Wallet Count (Active)': item.negative_wallet_count,
+            'Negative Wallet Total': item.negative_wallet_total,
+        })));
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "TL Allotments");
+        XLSX.utils.book_append_sheet(wb, ws, 'TL Allotments');
         XLSX.writeFile(wb, `tl_allotments_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-        toast.success('Excel report exported');
+        toast.success('Excel exported');
         setIsExportOpen(false);
     };
 
     const exportToPDF = () => {
         const doc = new jsPDF('l', 'mm', 'a4');
-        doc.setFontSize(20);
+        doc.setFontSize(18);
         doc.setTextColor(79, 70, 229);
-        doc.text('TL Allotment & Submission Report', 14, 20);
-
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Period: ${startDate ? format(startDate, 'PP') : 'Start'} - ${endDate ? format(endDate, 'PP') : 'End'}`, 14, 28);
-
-        const tableColumn = ["TL Name", "Active", "Inactive", "Allotments", "Submissions", "Net Growth", "Rent Col.", "Risk Vol."];
-        const tableRows = filteredData.map(item => [
-            item.tl_name,
-            item.active_rider_count,
-            item.inactive_rider_count,
-            item.allotment_count,
-            item.submission_count,
-            item.allotment_count - item.submission_count,
-            `INR ${Number(item.rent_collection_total).toLocaleString()}`,
-            `INR ${Math.abs(item.negative_wallet_total).toLocaleString()}`
-        ]);
-
+        doc.text('TL Allotment & Rent Recovery Report', 14, 20);
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        doc.text(`Period: ${startDate ? format(startDate, 'PP') : '—'} → ${endDate ? format(endDate, 'PP') : '—'}`, 14, 28);
         (doc as any).autoTable({
-            head: [tableColumn],
-            body: tableRows,
+            head: [['TL Name', 'Active', 'Inactive', 'Allotments', 'Submissions', 'Net Growth', 'Rent Recovery (₹)', 'Risk Vol (₹)']],
+            body: filteredData.map(item => [
+                item.tl_name,
+                item.active_rider_count,
+                item.inactive_rider_count,
+                item.allotment_count,
+                item.submission_count,
+                item.allotment_count - item.submission_count,
+                `₹${Number(item.rent_collection_total).toLocaleString('en-IN')}`,
+                `₹${Math.abs(item.negative_wallet_total).toLocaleString('en-IN')}`,
+            ]),
             startY: 35,
             theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229] },
-            styles: { fontSize: 8 }
+            headStyles: { fillColor: [79, 70, 229], fontSize: 8 },
+            styles: { fontSize: 7.5 },
         });
-
         doc.save(`tl_allotments_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast.success('PDF report exported');
+        toast.success('PDF exported');
         setIsExportOpen(false);
+    };
+
+    const SortIcon = ({ colKey }: { colKey: keyof TLMetric | 'net_growth' }) =>
+        sortConfig.key === colKey
+            ? <ChevronDown className={`w-3 h-3 transition-transform text-primary ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+            : <ChevronDown className="w-3 h-3 opacity-20 group-hover:opacity-50 transition-opacity" />;
+
+    const isActivePreset = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
+        if (!startDate || !endDate) return false;
+        const today = toISTDate();
+        if (preset === 'today') return format(startDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd') && format(endDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+        if (preset === 'yesterday') { const y = new Date(today); y.setDate(today.getDate() - 1); return format(startDate, 'yyyy-MM-dd') === format(y, 'yyyy-MM-dd') && format(endDate, 'yyyy-MM-dd') === format(y, 'yyyy-MM-dd'); }
+        if (preset === 'week') { const w = new Date(today); w.setDate(today.getDate() - 6); return format(startDate, 'yyyy-MM-dd') === format(w, 'yyyy-MM-dd'); }
+        if (preset === 'month') return format(startDate, 'yyyy-MM-dd') === format(startOfMonth(today), 'yyyy-MM-dd');
+        return false;
     };
 
     return (
         <div className="p-6 space-y-6 bg-background min-h-screen pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* ─── Header ─── */}
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">TL Allotment System</h1>
-                    <p className="text-muted-foreground italic">Comprehensive tracking of Allotments vs EV Submissions (Inactivations).</p>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/10 border border-violet-500/20">
+                            <BarChart3 className="h-6 w-6 text-violet-500" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-violet-600 to-indigo-500 bg-clip-text text-transparent">
+                                TL Allotment System
+                            </h1>
+                            <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                                Live tracking · Allotments · Submissions · Rent Recovery
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 bg-muted/30 p-1 rounded-xl border border-border/40">
-                        <button onClick={() => setPreset('today')} className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${!startDate || (startDate.toDateString() === new Date().toDateString() && (!endDate || endDate.toDateString() === new Date().toDateString())) ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Today</button>
-                        <button onClick={() => setPreset('yesterday')} className="px-3 py-1 text-[10px] font-black uppercase rounded-lg hover:bg-muted transition-all">Yesterday</button>
-                        <button onClick={() => setPreset('week')} className="px-3 py-1 text-[10px] font-black uppercase rounded-lg hover:bg-muted transition-all">Last 7D</button>
-                        <button onClick={() => setPreset('month')} className="px-3 py-1 text-[10px] font-black uppercase rounded-lg hover:bg-muted transition-all">This Month</button>
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Presets */}
+                    <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/40">
+                        {(['today', 'yesterday', 'week', 'month'] as const).map(p => (
+                            <button key={p} onClick={() => setPreset(p)}
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${isActivePreset(p) ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30' : 'hover:bg-muted text-muted-foreground'}`}>
+                                {p === 'week' ? 'Last 7D' : p === 'month' ? 'This Month' : p.charAt(0).toUpperCase() + p.slice(1)}
+                            </button>
+                        ))}
                     </div>
 
-                    <div className="flex items-center bg-card border border-border rounded-xl px-3 py-1.5 shadow-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
+                    {/* Date Picker */}
+                    <div className="flex items-center bg-card border border-border/50 rounded-xl px-3 py-1.5 shadow-sm gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
                         <DatePicker
-                            selectsRange={true}
+                            selectsRange
                             startDate={startDate}
                             endDate={endDate}
                             onChange={(update) => setDateRange(update)}
-                            className="bg-transparent text-sm font-bold w-41 outline-none"
+                            className="bg-transparent text-xs font-bold w-40 outline-none"
                             placeholderText="Custom Range"
                         />
                     </div>
 
+                    {/* Refresh */}
+                    <button onClick={handleRefresh} disabled={refreshing}
+                        className="p-2 rounded-xl bg-card border border-border/50 hover:bg-muted transition-all"
+                        title="Refresh data">
+                        <RefreshCw className={`h-4 w-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
+                    </button>
+
+                    {/* Export */}
                     <div className="relative">
-                        <button
-                            onClick={() => setIsExportOpen(!isExportOpen)}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
-                        >
+                        <button onClick={() => setIsExportOpen(!isExportOpen)}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-500 text-white rounded-xl text-sm font-bold hover:opacity-90 hover:shadow-lg hover:shadow-violet-500/30 transition-all active:scale-95">
                             <Download className="h-4 w-4" />
                             Export
                         </button>
                         {isExportOpen && (
                             <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in fade-in slide-in-from-top-2">
                                 <button onClick={exportToExcel} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel Sheet (.xlsx)
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel (.xlsx)
                                 </button>
                                 <button onClick={exportToPDF} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-rose-500" /> PDF Report (.pdf)
@@ -285,36 +401,37 @@ const TLAllotment: React.FC = () => {
                 </div>
             </div>
 
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* ─── Stats Cards ─── */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                    { label: 'Period Allotments', value: stats.totalAllotments, icon: ArrowUpRight, color: 'text-emerald-500', bg: 'from-emerald-500/10' },
-                    { label: 'Period Submissions', value: stats.totalSubmissions, icon: ArrowDownRight, color: 'text-rose-500', bg: 'from-rose-500/10' },
-                    { label: 'Total Fleet Force', value: `${stats.totalRiders} A / ${stats.totalInactive} I`, icon: Users, color: 'text-indigo-500', bg: 'from-indigo-500/10' },
-                    { label: 'Total Collections', value: `₹${stats.totalCollection.toLocaleString()}`, icon: TrendingUp, color: 'text-amber-500', bg: 'from-amber-500/10' },
-                ].map((stat, i) => (
-                    <div key={i} className={`p-5 rounded-2xl border border-border/50 bg-gradient-to-br ${stat.bg} to-transparent shadow-sm flex items-center justify-between`}>
-                        <div>
-                            <p className="text-xs font-black uppercase text-muted-foreground/60 tracking-widest">{stat.label}</p>
-                            <h3 className="text-2xl font-black mt-1">{stat.value}</h3>
+                    { label: 'Allotments', value: stats.totalAllotments, icon: ArrowUpRight, color: 'text-emerald-500', bg: 'from-emerald-500/10 to-transparent', border: 'border-emerald-500/20' },
+                    { label: 'Submissions', value: stats.totalSubmissions, icon: ArrowDownRight, color: 'text-rose-500', bg: 'from-rose-500/10 to-transparent', border: 'border-rose-500/20' },
+                    { label: 'Net Growth', value: (stats.totalNetGrowth > 0 ? '+' : '') + stats.totalNetGrowth, icon: TrendingUp, color: stats.totalNetGrowth >= 0 ? 'text-indigo-500' : 'text-rose-500', bg: 'from-indigo-500/10 to-transparent', border: 'border-indigo-500/20' },
+                    { label: 'Active Fleet', value: stats.totalActive, icon: Users, color: 'text-sky-500', bg: 'from-sky-500/10 to-transparent', border: 'border-sky-500/20' },
+                    { label: 'Inactive', value: stats.totalInactive, icon: Activity, color: 'text-amber-500', bg: 'from-amber-500/10 to-transparent', border: 'border-amber-500/20' },
+                    { label: 'Rent Recovery', value: `₹${stats.totalCollection.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'text-violet-500', bg: 'from-violet-500/10 to-transparent', border: 'border-violet-500/20' },
+                ].map((s, i) => (
+                    <div key={i} className={`p-4 rounded-2xl border bg-gradient-to-br ${s.bg} ${s.border} flex flex-col gap-2 shadow-sm`}>
+                        <div className="flex items-center justify-between">
+                            <p className="text-[9px] font-black uppercase text-muted-foreground/60 tracking-widest">{s.label}</p>
+                            <s.icon className={`h-3.5 w-3.5 ${s.color}`} />
                         </div>
-                        <div className={`p-3 rounded-xl bg-background border border-border/50 ${stat.color}`}>
-                            <stat.icon className="h-5 w-5" />
-                        </div>
+                        <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
                     </div>
                 ))}
             </div>
 
-            {/* Main Table Container */}
+            {/* ─── Table Container ─── */}
             <div className="bg-card border border-border/40 rounded-3xl shadow-2xl overflow-hidden">
-                <div className="p-4 border-b border-border/40 flex flex-col md:flex-row justify-between items-center gap-4 bg-muted/20">
-                    <div className="flex items-center gap-4 w-full md:w-auto flex-1">
-                        <div className="relative w-full md:w-96">
+                {/* Table Toolbar */}
+                <div className="p-4 border-b border-border/40 flex flex-col md:flex-row justify-between items-center gap-3 bg-gradient-to-r from-violet-500/5 via-transparent to-indigo-500/5">
+                    <div className="flex items-center gap-3 w-full md:w-auto flex-1">
+                        <div className="relative w-full md:w-80">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <input
                                 type="text"
-                                placeholder="Search by Team Leader..."
-                                className="w-full pl-10 pr-4 py-2.5 bg-background border border-border/60 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                                placeholder="Search Team Leader..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-background border border-border/60 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -323,41 +440,45 @@ const TLAllotment: React.FC = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold border transition-all ${isFilterOpen || filterRisk !== 'all' || filterPerformers !== 'all' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-background border-border/60 hover:bg-muted'}`}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold border transition-all ${isFilterOpen || filterRisk !== 'all' || filterPerformers !== 'all'
+                                    ? 'bg-primary/10 border-primary/30 text-primary'
+                                    : 'bg-background border-border/60 hover:bg-muted'}`}
                             >
                                 <Filter className="w-4 h-4" />
                                 Filters
                                 {(filterRisk !== 'all' || filterPerformers !== 'all') && (
-                                    <div className="w-2 h-2 rounded-full bg-primary" />
+                                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                                 )}
                             </button>
-
                             {isFilterOpen && (
                                 <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
                                     <div className="space-y-4">
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Risk Profile</p>
+                                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Risk Profile</p>
                                             <div className="grid grid-cols-3 gap-2">
-                                                <button onClick={() => setFilterRisk('all')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRisk === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}>All</button>
-                                                <button onClick={() => setFilterRisk('high_risk')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRisk === 'high_risk' ? 'bg-rose-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>High</button>
-                                                <button onClick={() => setFilterRisk('low_risk')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRisk === 'low_risk' ? 'bg-emerald-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>Low</button>
+                                                {['all', 'high_risk', 'low_risk'].map(v => (
+                                                    <button key={v} onClick={() => setFilterRisk(v as any)}
+                                                        className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${filterRisk === v ? (v === 'high_risk' ? 'bg-rose-500 text-white' : v === 'low_risk' ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground') : 'bg-muted hover:bg-muted/80'}`}>
+                                                        {v === 'high_risk' ? 'High' : v === 'low_risk' ? 'Low' : 'All'}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Growth Performance</p>
+                                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Growth</p>
                                             <div className="grid grid-cols-3 gap-2">
-                                                <button onClick={() => setFilterPerformers('all')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}>All</button>
-                                                <button onClick={() => setFilterPerformers('growing')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === 'growing' ? 'bg-emerald-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>Up</button>
-                                                <button onClick={() => setFilterPerformers('shrinking')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === 'shrinking' ? 'bg-rose-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>Down</button>
+                                                {['all', 'growing', 'shrinking'].map(v => (
+                                                    <button key={v} onClick={() => setFilterPerformers(v as any)}
+                                                        className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === v ? (v === 'growing' ? 'bg-emerald-500 text-white' : v === 'shrinking' ? 'bg-rose-500 text-white' : 'bg-primary text-primary-foreground') : 'bg-muted hover:bg-muted/80'}`}>
+                                                        {v === 'growing' ? '▲ Up' : v === 'shrinking' ? '▼ Down' : 'All'}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
-                                    {/* Clear Filters mapping */}
                                     <div className="mt-4 pt-3 border-t border-border/40">
-                                        <button
-                                            onClick={() => { setFilterRisk('all'); setFilterPerformers('all'); setIsFilterOpen(false); }}
-                                            className="w-full py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-                                        >
+                                        <button onClick={() => { setFilterRisk('all'); setFilterPerformers('all'); setIsFilterOpen(false); }}
+                                            className="w-full py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
                                             Clear All Filters
                                         </button>
                                     </div>
@@ -366,135 +487,175 @@ const TLAllotment: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-background px-4 py-2 rounded-2xl border border-border/40 shadow-sm">
-                        <span className="text-xs font-black text-muted-foreground/60 uppercase tracking-tighter">
-                            Live Allotment Sync
-                        </span>
-                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="flex items-center gap-2 bg-background/80 px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-sm">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">Live · Direct Query</span>
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     </div>
                 </div>
 
+                {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left border-collapse">
-                        <thead className="bg-muted/30 text-[10px] uppercase font-black tracking-widest text-muted-foreground border-b border-border/40">
+                        <thead className="bg-muted/30 text-[9px] uppercase font-black tracking-widest text-muted-foreground border-b border-border/40">
                             <tr>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('tl_name')}>
-                                    <div className="flex items-center gap-2">Team Leader {sortConfig?.key === 'tl_name' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
-                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('active_rider_count')}>
-                                    <div className="flex items-center justify-center gap-2">Fleet (Riders) {sortConfig?.key === 'active_rider_count' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
-                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('positive_wallet_total')}>
-                                    <div className="flex items-center justify-center gap-2">Wallet Status {sortConfig?.key === 'positive_wallet_total' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
-                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('allotment_count')}>
-                                    <div className="flex items-center justify-center gap-2">Allotments {sortConfig?.key === 'allotment_count' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
-                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('submission_count')}>
-                                    <div className="flex items-center justify-center gap-2">Submissions {sortConfig?.key === 'submission_count' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
-                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('rent_collection_total')}>
-                                    <div className="flex items-center justify-center gap-2">Rent Recovery {sortConfig?.key === 'rent_collection_total' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
-                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('net_growth')}>
-                                    <div className="flex items-center justify-center gap-2">Net Growth {sortConfig?.key === 'net_growth' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
-                                </th>
+                                {[
+                                    { label: 'Team Leader', key: 'tl_name', align: 'left' },
+                                    { label: 'Active Riders', key: 'active_rider_count', align: 'center' },
+                                    { label: 'Wallet Status', key: 'positive_wallet_total', align: 'center' },
+                                    { label: 'Allotments', key: 'allotment_count', align: 'center' },
+                                    { label: 'Submissions', key: 'submission_count', align: 'center' },
+                                    { label: 'Rent Recovery', key: 'rent_collection_total', align: 'center' },
+                                    { label: 'Net Growth', key: 'net_growth', align: 'center' },
+                                ].map(col => (
+                                    <th key={col.key}
+                                        className={`px-5 py-4 cursor-pointer hover:bg-muted/60 transition-colors group whitespace-nowrap ${col.align === 'center' ? 'text-center' : ''}`}
+                                        onClick={() => handleSort(col.key as any)}>
+                                        <div className={`flex items-center gap-1.5 ${col.align === 'center' ? 'justify-center' : ''}`}>
+                                            {col.label}
+                                            <SortIcon colKey={col.key as any} />
+                                        </div>
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/20">
                             {loading ? (
-                                Array(5).fill(0).map((_, i) => (
+                                Array(6).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={7} className="px-6 py-8"><div className="h-8 bg-muted/40 rounded-xl w-full"></div></td>
+                                        <td colSpan={7} className="px-5 py-6">
+                                            <div className="h-10 bg-muted/40 rounded-xl w-full" />
+                                        </td>
                                     </tr>
                                 ))
                             ) : filteredData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-24 text-center">
+                                    <td colSpan={7} className="px-5 py-24 text-center">
                                         <div className="flex flex-col items-center gap-3">
-                                            <SearchX className="h-12 w-12 text-muted-foreground/20" />
-                                            <p className="text-xl font-bold text-muted-foreground">No metrics found for this period.</p>
+                                            <SearchX className="h-14 w-14 text-muted-foreground/20" />
+                                            <p className="text-lg font-bold text-muted-foreground">No data found for this period.</p>
+                                            <button onClick={handleRefresh} className="text-xs text-primary font-bold hover:underline">Try refreshing</button>
                                         </div>
                                     </td>
                                 </tr>
-                            ) : (
-                                filteredData.map((tl) => (
-                                    <tr key={tl.team_leader_id} className="group hover:bg-primary/5 transition-all duration-300">
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary border border-primary/20">
-                                                    {tl.tl_name.charAt(0)}
+                            ) : filteredData.map((tl) => {
+                                const netGrowth = tl.allotment_count - tl.submission_count;
+                                const isHighRisk = Math.abs(tl.negative_wallet_total) > tl.positive_wallet_total;
+
+                                return (
+                                    <tr key={tl.team_leader_id}
+                                        className="group hover:bg-violet-500/3 transition-all duration-200 border-b border-border/10 last:border-0">
+                                        {/* TL Name */}
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 flex items-center justify-center font-black text-violet-600 border border-violet-500/20 text-sm shadow-sm">
+                                                        {tl.tl_name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    {isHighRisk && (
+                                                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500 border-2 border-background" title="High Risk" />
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <p className="font-black text-foreground">{tl.tl_name}</p>
-                                                    <p className="text-[10px] text-muted-foreground font-medium">{tl.tl_email}</p>
+                                                    <p className="font-black text-foreground text-sm leading-tight">{tl.tl_name}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{tl.tl_email}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-center">
-                                            <div className="inline-flex flex-col items-center">
-                                                <div className="flex items-baseline gap-1.5">
-                                                    <span className="text-base font-black text-emerald-500">{tl.active_rider_count || 0}</span>
-                                                    <span className="text-muted-foreground/40 font-black">/</span>
-                                                    <span className="text-sm font-bold text-rose-500">{tl.inactive_rider_count || 0}</span>
+
+                                        {/* Active Riders */}
+                                        <td className="px-5 py-4 text-center">
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-base font-black text-emerald-500">{tl.active_rider_count}</span>
+                                                    <span className="text-muted-foreground/30 font-bold text-sm">|</span>
+                                                    <span className="text-sm font-bold text-rose-400">{tl.inactive_rider_count}</span>
                                                 </div>
-                                                <div className="flex gap-2 text-[8px] font-black tracking-widest uppercase mt-0.5">
+                                                <div className="flex gap-1.5 text-[7px] font-black tracking-widest uppercase">
                                                     <span className="text-emerald-500/70">ACT</span>
-                                                    <span className="text-rose-500/70">INACT</span>
+                                                    <span className="text-rose-400/70">INACT</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col items-center gap-1.5">
-                                                <div className="flex gap-2">
-                                                    <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded border border-emerald-500/10">
+
+                                        {/* Wallet Status */}
+                                        <td className="px-5 py-4 text-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className="flex gap-1.5">
+                                                    <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md border border-emerald-500/15">
                                                         {tl.positive_wallet_count} POS
                                                     </span>
-                                                    <span className="text-[9px] font-black bg-rose-500/10 text-rose-600 px-2 py-0.5 rounded border border-rose-500/10">
+                                                    <span className="text-[9px] font-black bg-rose-500/10 text-rose-600 px-2 py-0.5 rounded-md border border-rose-500/15">
                                                         {tl.negative_wallet_count} NEG
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between w-full max-w-[120px] text-[10px] font-bold px-1">
-                                                    <span className="text-emerald-500">₹{Number(tl.positive_wallet_total).toLocaleString()}</span>
-                                                    <span className="text-rose-500">₹{Math.abs(tl.negative_wallet_total).toLocaleString()}</span>
+                                                <div className="flex gap-2 text-[9px] font-bold">
+                                                    <span className="text-emerald-600">₹{Number(tl.positive_wallet_total).toLocaleString('en-IN')}</span>
+                                                    <span className="text-rose-500">₹{Math.abs(tl.negative_wallet_total).toLocaleString('en-IN')}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-center">
-                                            <div className="inline-flex flex-col items-center p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20">
-                                                <span className="text-lg font-black text-emerald-600">+{tl.allotment_count}</span>
-                                                <Activity className="h-3 w-3 text-emerald-400 mt-1" />
+
+                                        {/* Allotments */}
+                                        <td className="px-5 py-4 text-center">
+                                            <div className="inline-flex flex-col items-center px-3 py-1.5 rounded-xl bg-emerald-500/8 border border-emerald-500/15">
+                                                <span className="text-base font-black text-emerald-600">+{tl.allotment_count}</span>
+                                                <ArrowUpRight className="h-3 w-3 text-emerald-400" />
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-center">
-                                            <div className="inline-flex flex-col items-center p-2 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/20">
-                                                <span className="text-lg font-black text-rose-600">-{tl.submission_count}</span>
-                                                <ArrowDownRight className="h-3 w-3 text-rose-400 mt-1" />
+
+                                        {/* Submissions */}
+                                        <td className="px-5 py-4 text-center">
+                                            <div className="inline-flex flex-col items-center px-3 py-1.5 rounded-xl bg-rose-500/8 border border-rose-500/15">
+                                                <span className="text-base font-black text-rose-600">–{tl.submission_count}</span>
+                                                <ArrowDownRight className="h-3 w-3 text-rose-400" />
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-center font-mono">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-black text-indigo-600">₹{Number(tl.rent_collection_total).toLocaleString()}</span>
-                                                <span className="text-[9px] font-bold text-muted-foreground uppercase mt-0.5">Recovered</span>
+
+                                        {/* Rent Recovery — THE KEY COLUMN */}
+                                        <td className="px-5 py-4 text-center">
+                                            <div className="inline-flex flex-col items-center px-3 py-2 rounded-xl bg-violet-500/8 border border-violet-500/20">
+                                                <div className="flex items-center gap-1">
+                                                    <IndianRupee className="h-3 w-3 text-violet-500" />
+                                                    <span className="text-base font-black text-violet-600 font-mono">
+                                                        {Number(tl.rent_collection_total).toLocaleString('en-IN')}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-violet-400 mt-0.5">Collected</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5 text-center">
-                                            <div className={`inline-flex flex-col items-center px-4 py-2 rounded-2xl border ${(tl.allotment_count - tl.submission_count) >= 0
-                                                ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600'
-                                                : 'bg-rose-500/5 border-rose-500/20 text-rose-600'
-                                                }`}>
-                                                <span className="text-lg font-black">
-                                                    {(tl.allotment_count - tl.submission_count) > 0 ? '+' : ''}{tl.allotment_count - tl.submission_count}
+
+                                        {/* Net Growth */}
+                                        <td className="px-5 py-4 text-center">
+                                            <div className={`inline-flex flex-col items-center px-4 py-2 rounded-2xl border transition-all group-hover:scale-105 ${netGrowth >= 0
+                                                ? 'bg-emerald-500/8 border-emerald-500/20 text-emerald-600'
+                                                : 'bg-rose-500/8 border-rose-500/20 text-rose-600'}`}>
+                                                <span className="text-base font-black">
+                                                    {netGrowth > 0 ? '+' : ''}{netGrowth}
                                                 </span>
-                                                <span className="text-[9px] font-black uppercase tracking-widest mt-0.5 italic">Net Growth</span>
+                                                <span className="text-[7px] font-black uppercase tracking-widest opacity-70">Net Growth</span>
                                             </div>
                                         </td>
                                     </tr>
-                                ))
-                            )}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
+
+                {/* Table Footer */}
+                {!loading && filteredData.length > 0 && (
+                    <div className="px-5 py-3 border-t border-border/30 bg-muted/10 flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-muted-foreground">
+                            Showing <span className="text-foreground">{filteredData.length}</span> of <span className="text-foreground">{data.length}</span> Team Leaders
+                        </p>
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold">
+                            <Wallet className="h-3 w-3 text-violet-500" />
+                            Total Rent Recovery:
+                            <span className="text-violet-600 font-black">₹{stats.totalCollection.toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
