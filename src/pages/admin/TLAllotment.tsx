@@ -10,6 +10,8 @@ import {
     ArrowDownRight,
     SearchX,
     TrendingUp,
+    Filter,
+    ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -24,6 +26,7 @@ interface TLAllotmentMetric {
     tl_name: string;
     tl_email: string;
     active_rider_count: number;
+    inactive_rider_count: number;
     positive_wallet_count: number;
     positive_wallet_total: number;
     negative_wallet_count: number;
@@ -38,6 +41,13 @@ const TLAllotment: React.FC = () => {
     const [data, setData] = useState<TLAllotmentMetric[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isExportOpen, setIsExportOpen] = useState(false);
+
+    // New Filters & Sorting States
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [filterRisk, setFilterRisk] = useState<'all' | 'high_risk' | 'low_risk'>('all');
+    const [filterPerformers, setFilterPerformers] = useState<'all' | 'growing' | 'shrinking'>('all');
+    const [sortConfig, setSortConfig] = useState<{ key: keyof TLAllotmentMetric | 'net_growth', direction: 'asc' | 'desc' } | null>({ key: 'active_rider_count', direction: 'desc' });
+
 
     // Date Range State - Default to TODAY (IST) for daily tracking
     const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() => {
@@ -105,19 +115,64 @@ const TLAllotment: React.FC = () => {
     }, [startDate, endDate]);
 
     const filteredData = useMemo(() => {
-        return data.filter(item =>
+        let result = data.filter(item =>
             item.tl_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.tl_email.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [data, searchTerm]);
+
+        if (filterRisk === 'high_risk') {
+            result = result.filter(item => Math.abs(Number(item.negative_wallet_total)) > Number(item.positive_wallet_total));
+        } else if (filterRisk === 'low_risk') {
+            result = result.filter(item => Math.abs(Number(item.negative_wallet_total)) <= Number(item.positive_wallet_total));
+        }
+
+        if (filterPerformers === 'growing') {
+            result = result.filter(item => (Number(item.allotment_count) - Number(item.submission_count)) > 0);
+        } else if (filterPerformers === 'shrinking') {
+            result = result.filter(item => (Number(item.allotment_count) - Number(item.submission_count)) < 0);
+        }
+
+        if (sortConfig) {
+            result.sort((a, b) => {
+                let aVal: number | string = 0;
+                let bVal: number | string = 0;
+
+                if (sortConfig.key === 'net_growth') {
+                    aVal = Number(a.allotment_count) - Number(a.submission_count);
+                    bVal = Number(b.allotment_count) - Number(b.submission_count);
+                } else {
+                    aVal = a[sortConfig.key] as number | string;
+                    bVal = b[sortConfig.key] as number | string;
+                    // Coerce string numbers to actual numbers for correct sorting
+                    if (!isNaN(Number(aVal))) aVal = Number(aVal);
+                    if (!isNaN(Number(bVal))) bVal = Number(bVal);
+                }
+
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    }, [data, searchTerm, filterRisk, filterPerformers, sortConfig]);
+
+    const handleSort = (key: keyof TLAllotmentMetric | 'net_growth') => {
+        let direction: 'asc' | 'desc' = 'desc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+            direction = 'asc';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const stats = useMemo(() => {
         return filteredData.reduce((acc, curr) => ({
             totalAllotments: acc.totalAllotments + Number(curr.allotment_count),
             totalSubmissions: acc.totalSubmissions + Number(curr.submission_count),
             totalRiders: acc.totalRiders + Number(curr.active_rider_count),
+            totalInactive: acc.totalInactive + Number(curr.inactive_rider_count),
             totalCollection: acc.totalCollection + Number(curr.rent_collection_total)
-        }), { totalAllotments: 0, totalSubmissions: 0, totalRiders: 0, totalCollection: 0 });
+        }), { totalAllotments: 0, totalSubmissions: 0, totalRiders: 0, totalInactive: 0, totalCollection: 0 });
     }, [filteredData]);
 
     const exportToExcel = () => {
@@ -125,13 +180,14 @@ const TLAllotment: React.FC = () => {
             'Team Leader': item.tl_name,
             'Email': item.tl_email,
             'Active Riders': item.active_rider_count,
+            'Inactive Riders': item.inactive_rider_count,
             'Allotments (Period)': item.allotment_count,
             'Submissions (Period)': item.submission_count,
             'Net Growth': item.allotment_count - item.submission_count,
             'Rent Collection (Period)': item.rent_collection_total,
             'Positive Wallet Count': item.positive_wallet_count,
             'Positive Wallet Vol.': item.positive_wallet_total,
-            'Negative Wallet Count': item.negative_wallet_count,
+            'Negative Wallet Count (Active Only)': item.negative_wallet_count,
             'Negative Wallet Vol.': item.negative_wallet_total
         }));
 
@@ -153,10 +209,11 @@ const TLAllotment: React.FC = () => {
         doc.setTextColor(100);
         doc.text(`Period: ${startDate ? format(startDate, 'PP') : 'Start'} - ${endDate ? format(endDate, 'PP') : 'End'}`, 14, 28);
 
-        const tableColumn = ["TL Name", "Active Riders", "Allotments", "Submissions", "Net Growth", "Rent Col.", "Wallet Risk"];
+        const tableColumn = ["TL Name", "Active", "Inactive", "Allotments", "Submissions", "Net Growth", "Rent Col.", "Risk Vol."];
         const tableRows = filteredData.map(item => [
             item.tl_name,
             item.active_rider_count,
+            item.inactive_rider_count,
             item.allotment_count,
             item.submission_count,
             item.allotment_count - item.submission_count,
@@ -233,7 +290,7 @@ const TLAllotment: React.FC = () => {
                 {[
                     { label: 'Period Allotments', value: stats.totalAllotments, icon: ArrowUpRight, color: 'text-emerald-500', bg: 'from-emerald-500/10' },
                     { label: 'Period Submissions', value: stats.totalSubmissions, icon: ArrowDownRight, color: 'text-rose-500', bg: 'from-rose-500/10' },
-                    { label: 'Active Force', value: stats.totalRiders, icon: Users, color: 'text-indigo-500', bg: 'from-indigo-500/10' },
+                    { label: 'Total Fleet Force', value: `${stats.totalRiders} A / ${stats.totalInactive} I`, icon: Users, color: 'text-indigo-500', bg: 'from-indigo-500/10' },
                     { label: 'Total Collections', value: `₹${stats.totalCollection.toLocaleString()}`, icon: TrendingUp, color: 'text-amber-500', bg: 'from-amber-500/10' },
                 ].map((stat, i) => (
                     <div key={i} className={`p-5 rounded-2xl border border-border/50 bg-gradient-to-br ${stat.bg} to-transparent shadow-sm flex items-center justify-between`}>
@@ -250,20 +307,68 @@ const TLAllotment: React.FC = () => {
 
             {/* Main Table Container */}
             <div className="bg-card border border-border/40 rounded-3xl shadow-2xl overflow-hidden">
-                <div className="p-6 border-b border-border/40 flex flex-col md:flex-row justify-between items-center gap-4 bg-muted/20">
-                    <div className="relative w-full md:w-96">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <input
-                            type="text"
-                            placeholder="Search by Team Leader..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border/60 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                <div className="p-4 border-b border-border/40 flex flex-col md:flex-row justify-between items-center gap-4 bg-muted/20">
+                    <div className="flex items-center gap-4 w-full md:w-auto flex-1">
+                        <div className="relative w-full md:w-96">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Search by Team Leader..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-background border border-border/60 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold border transition-all ${isFilterOpen || filterRisk !== 'all' || filterPerformers !== 'all' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-background border-border/60 hover:bg-muted'}`}
+                            >
+                                <Filter className="w-4 h-4" />
+                                Filters
+                                {(filterRisk !== 'all' || filterPerformers !== 'all') && (
+                                    <div className="w-2 h-2 rounded-full bg-primary" />
+                                )}
+                            </button>
+
+                            {isFilterOpen && (
+                                <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Risk Profile</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button onClick={() => setFilterRisk('all')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRisk === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}>All</button>
+                                                <button onClick={() => setFilterRisk('high_risk')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRisk === 'high_risk' ? 'bg-rose-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>High</button>
+                                                <button onClick={() => setFilterRisk('low_risk')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRisk === 'low_risk' ? 'bg-emerald-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>Low</button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Growth Performance</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button onClick={() => setFilterPerformers('all')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'}`}>All</button>
+                                                <button onClick={() => setFilterPerformers('growing')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === 'growing' ? 'bg-emerald-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>Up</button>
+                                                <button onClick={() => setFilterPerformers('shrinking')} className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPerformers === 'shrinking' ? 'bg-rose-500 text-white' : 'bg-muted hover:bg-muted/80'}`}>Down</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Clear Filters mapping */}
+                                    <div className="mt-4 pt-3 border-t border-border/40">
+                                        <button
+                                            onClick={() => { setFilterRisk('all'); setFilterPerformers('all'); setIsFilterOpen(false); }}
+                                            className="w-full py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                                        >
+                                            Clear All Filters
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 bg-background px-4 py-2 rounded-2xl border border-border/40 shadow-sm">
                         <span className="text-xs font-black text-muted-foreground/60 uppercase tracking-tighter">
-                            Live Allotment Sourcing Sync
+                            Live Allotment Sync
                         </span>
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     </div>
@@ -273,13 +378,27 @@ const TLAllotment: React.FC = () => {
                     <table className="w-full text-sm text-left border-collapse">
                         <thead className="bg-muted/30 text-[10px] uppercase font-black tracking-widest text-muted-foreground border-b border-border/40">
                             <tr>
-                                <th className="px-6 py-5">Team Leader</th>
-                                <th className="px-6 py-5 text-center">Active Riders</th>
-                                <th className="px-6 py-5 text-center">Wallet Status</th>
-                                <th className="px-6 py-5 text-center">Allotments</th>
-                                <th className="px-6 py-5 text-center">Submissions</th>
-                                <th className="px-6 py-5 text-center">Rent Recovery</th>
-                                <th className="px-6 py-5 text-center">Net Growth</th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('tl_name')}>
+                                    <div className="flex items-center gap-2">Team Leader {sortConfig?.key === 'tl_name' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
+                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('active_rider_count')}>
+                                    <div className="flex items-center justify-center gap-2">Fleet (Riders) {sortConfig?.key === 'active_rider_count' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
+                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('positive_wallet_total')}>
+                                    <div className="flex items-center justify-center gap-2">Wallet Status {sortConfig?.key === 'positive_wallet_total' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
+                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('allotment_count')}>
+                                    <div className="flex items-center justify-center gap-2">Allotments {sortConfig?.key === 'allotment_count' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
+                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('submission_count')}>
+                                    <div className="flex items-center justify-center gap-2">Submissions {sortConfig?.key === 'submission_count' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
+                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('rent_collection_total')}>
+                                    <div className="flex items-center justify-center gap-2">Rent Recovery {sortConfig?.key === 'rent_collection_total' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
+                                <th className="px-6 py-5 text-center cursor-pointer hover:bg-muted/50 transition-colors group" onClick={() => handleSort('net_growth')}>
+                                    <div className="flex items-center justify-center gap-2">Net Growth {sortConfig?.key === 'net_growth' && <ChevronDown className={`w-3 h-3 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />}</div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/20">
@@ -314,8 +433,15 @@ const TLAllotment: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-5 text-center">
                                             <div className="inline-flex flex-col items-center">
-                                                <span className="text-base font-black text-foreground">{tl.active_rider_count}</span>
-                                                <span className="text-[9px] font-bold text-muted-foreground uppercase">Riders</span>
+                                                <div className="flex items-baseline gap-1.5">
+                                                    <span className="text-base font-black text-emerald-500">{tl.active_rider_count || 0}</span>
+                                                    <span className="text-muted-foreground/40 font-black">/</span>
+                                                    <span className="text-sm font-bold text-rose-500">{tl.inactive_rider_count || 0}</span>
+                                                </div>
+                                                <div className="flex gap-2 text-[8px] font-black tracking-widest uppercase mt-0.5">
+                                                    <span className="text-emerald-500/70">ACT</span>
+                                                    <span className="text-rose-500/70">INACT</span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
