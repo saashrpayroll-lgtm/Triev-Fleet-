@@ -69,7 +69,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
             const sumRunrate = records.reduce((sum, r) => sum + (r.total_collection / r.active_riders_count), 0);
             const sumRiders = records.reduce((sum, r) => sum + r.active_riders_count, 0);
 
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
             const todayRecord = records.find(r => r.date === todayStr);
 
             setStats({

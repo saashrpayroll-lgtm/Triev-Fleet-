@@ -50,7 +50,7 @@ const TLPerformance: React.FC = () => {
     const fetchData = async () => {
         try {
             const [ridersRes, leadsRes, usersRes, dailyRes] = await Promise.all([
-                supabase.from('riders').select('*'),
+                supabase.from('riders').select('*').limit(5000),
                 supabase.from('leads').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('*')

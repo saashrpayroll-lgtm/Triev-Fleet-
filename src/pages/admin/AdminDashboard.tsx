@@ -64,7 +64,7 @@ const Dashboard: React.FC = () => {
                     inactivatedAt:inactivated_at,
                     updatedAt:updated_at,
                     createdAt:created_at
-                `),
+                `).limit(5000),
                 supabase.from('leads').select(`
                     id,
                     leadId:lead_id,
