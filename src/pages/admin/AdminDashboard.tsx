@@ -310,11 +310,12 @@ const Dashboard: React.FC = () => {
 
             // Period-specific collection for accurate Avg calculation
             let periodCollection = tlCollectionAllTime;
+            let activeDays = 1;
             if (period) {
                 const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
-                periodCollection = tlDailyData
-                    .filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end)
-                    .reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                const filteredData = tlDailyData.filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end);
+                periodCollection = filteredData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                activeDays = Math.max(1, new Set(filteredData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size);
             }
 
             const metrics = calculateAIScore(tl, riders, leads, tlCollectionAllTime, period);
@@ -349,6 +350,8 @@ const Dashboard: React.FC = () => {
                 dailyCollection: dailyCollections[tl.id] || 0,
                 weeklyCollection: weeklyCollections[tl.id] || 0,
                 avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
+                perDayAverageCollection: Math.round(periodCollection / activeDays),
+                activeDays, // Added activeDays here
                 leadsToday: tlLeads.filter(l => {
                     const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
                     const leadDate = istFormatter.format(new Date(l.createdAt));

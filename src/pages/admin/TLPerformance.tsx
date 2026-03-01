@@ -210,6 +210,20 @@ const TLPerformance: React.FC = () => {
                 })
                 .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
 
+            // Daily Average Collection (Total Collection / Number of Active Days in Period)
+            const activeDays = Math.max(1, new Set(
+                rawData.collections
+                    .filter(item => {
+                        const isTL = item.team_leader_id === tlId;
+                        if (!isTL) return false;
+                        const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                        return dDateStr >= startDateStr && dDateStr <= endDateStr && Number(item.total_collection) > 0;
+                    })
+                    .map(item => item.date)
+            ).size);
+
+            const perDayAverageCollection = Math.round(rangeCollection / activeDays);
+
             const avgRiderCollection = activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0;
 
             const totalCollection = rawData.collections
@@ -231,6 +245,7 @@ const TLPerformance: React.FC = () => {
                 status: tl.status,
                 totalCollection,
                 rangeCollection,
+                perDayAverageCollection,
                 avgRiderCollection,
                 leadsToday,
                 churnLeads,
@@ -666,10 +681,18 @@ const TLPerformance: React.FC = () => {
                                                 <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
                                             )}
                                         </div>
-                                        <div className="flex flex-col text-[8px] font-medium text-muted-foreground capitalize mt-1">
+                                        <div className="flex justify-between items-center text-[8px] font-medium text-muted-foreground capitalize mt-1 border-t border-border/40 pt-1">
                                             <span>Range: ₹{performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}</span>
-                                            <span className="text-emerald-500 font-bold">Avg/R: ₹{performanceData.length > 0 ? Math.round(performanceData.reduce((a, b) => a + b.rangeCollection, 0) / (performanceData.reduce((a, b) => a + b.activeRiders, 0) || 1)).toLocaleString() : 0}</span>
+                                            <span className="text-emerald-500 font-bold ml-2">Avg/R: ₹{performanceData.length > 0 ? Math.round(performanceData.reduce((a, b) => a + b.rangeCollection, 0) / (performanceData.reduce((a, b) => a + b.activeRiders, 0) || 1)).toLocaleString() : 0}</span>
                                         </div>
+                                    </div>
+                                </th>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('perDayAverageCollection')}>
+                                    <div className="flex items-center gap-1">
+                                        Per Day Avg
+                                        {sortConfig?.key === 'perDayAverageCollection' && (
+                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        )}
                                     </div>
                                 </th>
                                 <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('netGrowth')}>

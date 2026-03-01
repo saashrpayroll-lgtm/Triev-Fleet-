@@ -50,7 +50,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
         try {
             const { data, error } = await supabase
                 .from('daily_collections')
-                .select('date, total_collection, active_riders_count')
+                .select('date, total_collection, active_riders_count, runrate')
                 .eq('team_leader_id', teamLeaderId)
                 .order('date', { ascending: false });
 
@@ -59,14 +59,15 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
             const records = (data || []).map(d => ({
                 date: d.date,
                 total_collection: Number(d.total_collection) || 0,
-                active_riders_count: Number(d.active_riders_count) || 1
+                active_riders_count: Number(d.active_riders_count) || 1,
+                runrate: Number(d.runrate) || 0
             }));
 
             setHistory(records);
 
             // Calculate deep stats
             const totalColl = records.reduce((sum, r) => sum + r.total_collection, 0);
-            const sumRunrate = records.reduce((sum, r) => sum + (r.total_collection / r.active_riders_count), 0);
+            const sumRunrate = records.reduce((sum, r) => sum + r.runrate, 0);
             const sumRiders = records.reduce((sum, r) => sum + r.active_riders_count, 0);
 
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());

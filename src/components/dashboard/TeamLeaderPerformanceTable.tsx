@@ -38,6 +38,8 @@ export interface TLSnapshot {
     submissions: number;
     netGrowth: number;
     avgRiderCollection: number;
+    perDayAverageCollection: number;
+    activeDays: number;
     lastActivity?: string;
 }
 
@@ -172,7 +174,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                 Risk & Critical Dues
                             </th>
                             <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('avgRiderCollection')}>
-                                Avg Collection
+                                Avg Metrics (Per Rider / Per Day)
                             </th>
                             <th className="p-4 font-black text-[10px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground bg-card" onClick={() => handleSort('dailyCollection')}>
                                 Collections (D/W/T)
@@ -248,10 +250,16 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                 </td>
 
                                 <td className="p-4">
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Avg/Rider</span>
-                                        <span className="text-sm font-black text-indigo-600">₹{tl.avgRiderCollection.toLocaleString()}</span>
-                                        <span className="text-[8px] text-muted-foreground mt-1 italic whitespace-nowrap">Based on active force</span>
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Avg/Rider</span>
+                                            <span className="text-sm font-black text-indigo-600">₹{tl.avgRiderCollection.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-muted/50 pt-1">
+                                            <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">Per Day Avg</span>
+                                            <span className="text-[11px] font-black text-emerald-600">₹{tl.perDayAverageCollection.toLocaleString()}</span>
+                                        </div>
+                                        <span className="text-[8px] text-muted-foreground mt-0.5 italic text-right">Based on {tl.activeDays || 1} day(s)</span>
                                     </div>
                                 </td>
 
