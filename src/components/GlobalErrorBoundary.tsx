@@ -9,25 +9,65 @@ interface State {
     hasError: boolean;
     error: Error | null;
     errorInfo: ErrorInfo | null;
+    isReloading: boolean;
 }
 
 class GlobalErrorBoundary extends Component<Props, State> {
     public state: State = {
         hasError: false,
         error: null,
-        errorInfo: null
+        errorInfo: null,
+        isReloading: false
     };
 
     public static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, error, errorInfo: null };
+        if (
+            error.message.includes('Failed to fetch dynamically imported module') ||
+            error.message.includes('Importing a module script failed')
+        ) {
+            const reloadCount = parseInt(sessionStorage.getItem('dynamic_import_reload') || '0', 10);
+            if (reloadCount < 1) {
+                return { hasError: true, error, errorInfo: null, isReloading: true };
+            }
+        }
+        return { hasError: true, error, errorInfo: null, isReloading: false };
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("Uncaught error:", error, errorInfo);
+
+        // Auto-reload on dynamic import failure (usually due to a new deployment on Vercel)
+        if (
+            error.message.includes('Failed to fetch dynamically imported module') ||
+            error.message.includes('Importing a module script failed')
+        ) {
+            const reloadCount = parseInt(sessionStorage.getItem('dynamic_import_reload') || '0', 10);
+            if (reloadCount < 1) {
+                sessionStorage.setItem('dynamic_import_reload', '1');
+                console.log('Dynamic import failed, reloading page to fetch new chunks...');
+                window.location.reload();
+                return;
+            }
+        }
+
         this.setState({ errorInfo });
     }
 
     public render() {
+        if (this.state.isReloading) {
+            return (
+                <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                        <div className="text-center space-y-1">
+                            <h2 className="text-lg font-bold">Installing Updates...</h2>
+                            <p className="text-sm text-muted-foreground animate-pulse">Please wait while we refresh the application.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         if (this.state.hasError) {
             return (
                 <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
