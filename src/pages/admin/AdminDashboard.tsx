@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
         if (isInitial) setLoading(true);
 
         try {
-            const [ridersRes, leadsRes, requestsRes, usersRes, dailyRes] = await Promise.all([
+            const [ridersRes, leadsRes, requestsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
                 supabase.from('riders').select(`
                     id,
                     trievId:triev_id,
@@ -89,7 +89,23 @@ const Dashboard: React.FC = () => {
                 supabase.from('daily_collections').select('team_leader_id, total_collection, date')
                     .gte('date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
                     .order('date', { ascending: false })
-                    .limit(10000)
+                    .limit(10000),
+                supabase.from('wallet_ledger').select(`
+                    amount,
+                    rider:riders!inner (
+                        team_leader_id
+                    )
+                `)
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .gte('created_at', (() => {
+                        const now = new Date();
+                        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const [year, month, day] = istDateStr.split('-').map(Number);
+                        const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+                        midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
+                        return midnightIST.toISOString();
+                    })())
             ]);
 
             // Note: Removed wallet_transactions fetch to avoid double counting. 
@@ -134,6 +150,17 @@ const Dashboard: React.FC = () => {
                 // Weekly Collection - Robust match
                 if (dDateStr >= weekStart) {
                     weekMap[tlId] = (weekMap[tlId] || 0) + amt;
+                }
+            });
+
+            // Instead of populating dayMap from daily_collections (which has timezone lag), 
+            // populate it accurately from raw wallet ledger for today.
+            const todayLedger = (todayLedgerRes?.data as any[]) || [];
+            todayLedger.forEach(txn => {
+                if (txn.rider && txn.rider.team_leader_id) {
+                    const tlId = txn.rider.team_leader_id;
+                    const amt = Number(txn.amount) || 0;
+                    dayMap[tlId] = (dayMap[tlId] || 0) + amt;
                 }
             });
 

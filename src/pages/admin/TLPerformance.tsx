@@ -49,13 +49,29 @@ const TLPerformance: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [ridersRes, leadsRes, usersRes, dailyRes] = await Promise.all([
+            const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
                 supabase.from('riders').select('*').limit(5000),
                 supabase.from('leads').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('*')
                     .order('date', { ascending: false })
-                    .limit(10000)
+                    .limit(10000),
+                supabase.from('wallet_ledger').select(`
+                    amount,
+                    rider:riders!inner (
+                        team_leader_id
+                    )
+                `)
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .gte('created_at', (() => {
+                        const now = new Date();
+                        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const [year, month, day] = istDateStr.split('-').map(Number);
+                        const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+                        midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
+                        return midnightIST.toISOString();
+                    })())
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -88,15 +104,29 @@ const TLPerformance: React.FC = () => {
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
 
                 totals[tlId] = (totals[tlId] || 0) + amt;
-                if (dDateStr === todayStr) daily[tlId] = (daily[tlId] || 0) + amt;
                 if (dDateStr >= weekStartStr) weekly[tlId] = (weekly[tlId] || 0) + amt;
             });
 
+            const todayLedger = (todayLedgerRes?.data as any[]) || [];
+            todayLedger.forEach(txn => {
+                if (txn.rider && txn.rider.team_leader_id) {
+                    const tlId = txn.rider.team_leader_id;
+                    const amt = Number(txn.amount) || 0;
+                    daily[tlId] = (daily[tlId] || 0) + amt;
+                }
+            });
+
+            // Make sure these maps are available to the rest of the component
+            // if we need them.
+            // setDailyCollections(daily); 
+            // We need to pass this down through rawData or state. Let's add it to rawData
             setRawData({
                 riders: ridersRes.data || [],
                 leads: leadsRes.data || [],
                 teamLeaders: usersRes.data || [],
-                collections: dailyRes.data || []
+                collections: dailyRes.data || [],
+                dailyCollectionsMap: daily,
+                weeklyCollectionsMap: weekly
             });
         } catch (error: any) {
             toast.error('Failed to load performance data: ' + error.message);
@@ -201,14 +231,19 @@ const TLPerformance: React.FC = () => {
             const netGrowth = allotments - submissions;
 
             // Collection for selected range
-            const rangeCollection = rawData.collections
-                .filter(item => {
-                    const isTL = item.team_leader_id === tlId;
-                    if (!isTL) return false;
-                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                    return dDateStr >= startDateStr && dDateStr <= endDateStr;
-                })
-                .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+            let rangeCollection = 0;
+            if (dateFilter === 'today') {
+                rangeCollection = (rawData as any).dailyCollectionsMap[tlId] || 0;
+            } else {
+                rangeCollection = rawData.collections
+                    .filter(item => {
+                        const isTL = item.team_leader_id === tlId;
+                        if (!isTL) return false;
+                        const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                        return dDateStr >= startDateStr && dDateStr <= endDateStr;
+                    })
+                    .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+            }
 
             // Daily Average Collection (Total Collection / Number of Active Days in Period)
             const activeDays = Math.max(1, new Set(
