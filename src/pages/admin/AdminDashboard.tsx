@@ -446,222 +446,239 @@ const Dashboard: React.FC = () => {
     const isTL = userData?.role === 'teamLeader';
 
     return (
-        <div className="space-y-3 pb-6">
-            {/* Header Section */}
-            <div className="space-y-2">
+        <div className="space-y-4 pb-8 px-1 sm:px-0">
 
-
-                <div className="flex flex-col md:flex-row gap-3 justify-between items-end">
-                    <div>
-                        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1 animate-in slide-in-from-left duration-500">
-                            {isTL ? "Team Command Center" : "Admin Command Center"}
-                        </h1>
-
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-muted/40 p-1 rounded-lg border">
-                        <Filter size={14} className="text-muted-foreground ml-2" />
-                        <span className="w-px h-3 bg-border mx-1"></span>
-                        {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
-                            <button
-                                key={filter}
-                                onClick={() => setDateFilter(filter)}
-                                className={`
-                                    px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all
-                                    ${dateFilter === filter
-                                        ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-indigo-400'
-                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                    }
-                                `}
-                            >
-                                {filter === 'all' ? 'All Time' : filter === 'day' ? 'Today' : filter === 'month' ? 'This Month' : 'This Week'}
-                            </button>
-                        ))}
-                    </div>
+            {/* ── HEADER ── */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-end">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-0.5 animate-in slide-in-from-left duration-500">
+                        {isTL ? "Team Command Center" : "Admin Command Center"}
+                    </h1>
+                    <p className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        {isTL ? 'Team Leader Access' : 'Admin Panel'} &mdash; Live Dashboard
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 bg-muted/40 p-1 rounded-lg border self-start">
+                    <Filter size={13} className="text-muted-foreground ml-2" />
+                    <span className="w-px h-3 bg-border mx-1" />
+                    {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
+                        <button
+                            key={filter}
+                            onClick={() => setDateFilter(filter)}
+                            className={`
+                                px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all
+                                ${dateFilter === filter
+                                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-indigo-400'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                }
+                            `}
+                        >
+                            {filter === 'all' ? 'All Time' : filter === 'day' ? 'Today' : filter === 'month' ? 'Month' : 'Week'}
+                        </button>
+                    ))}
                 </div>
             </div>
 
+            {/* Wallet Sync Widget */}
+            <WalletSyncWidget />
 
+            {/* ── SECTION: Fleet & Operations ── */}
+            <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
+                    <span className="w-4 h-px bg-muted-foreground/30" /> Fleet & Operations
+                    <span className="flex-1 h-px bg-muted-foreground/20" />
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                    <SmartMetricCard
+                        title="System Health"
+                        value={`${stats.activeRiders}/${stats.totalRiders}`}
+                        icon={Activity}
+                        color="emerald"
+                        trend={{ value: 94, label: 'uptime', direction: 'up' }}
+                        subtitle="Active Riders Ratio"
+                        className="shadow-emerald-500/10"
+                        progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
+                        isCurrency={false}
+                    />
 
-            {/* Wallet Sync Widget (Shows only if strictly required) */}
-            <div className="mb-4">
-                <WalletSyncWidget />
+                    <SmartMetricCard
+                        title="Team Strength"
+                        value={stats.totalTLs.toString()}
+                        icon={Users}
+                        color="orange"
+                        subtitle={`${stats.activeTLs} Active Leaders`}
+                        onClick={() => navigate('/portal/users?role=teamLeader')}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Pending Ops"
+                        value={stats.pendingRequests}
+                        icon={Inbox}
+                        color="blue"
+                        aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
+                        subtitle={`${stats.criticalRequests} High Priority`}
+                        onClick={() => navigate('/portal/requests?status=pending')}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Growth Engine"
+                        value={`${stats.conversionRate}%`}
+                        icon={UserPlus}
+                        color="fuchsia"
+                        trend={{ value: 5, label: 'velocity', direction: 'up' }}
+                        subtitle={`${stats.newLeadsToday} New Leads Today`}
+                        progress={stats.conversionRate}
+                        onClick={() => navigate('/portal/leads?status=New')}
+                        isCurrency={false}
+                    />
+                </div>
             </div>
 
-            {/* BENTO GRID: 12+ Smart Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 delay-100 font-jakarta">
+            {/* ── SECTION: Financial Performance ── */}
+            <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
+                    <span className="w-4 h-px bg-muted-foreground/30" /> Financial Performance
+                    <span className="flex-1 h-px bg-muted-foreground/20" />
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                    {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
+                    <SmartMetricCard
+                        title="Total Collections"
+                        value={stats.totalCollection}
+                        icon={Wallet}
+                        color="indigo"
+                        trend={{ value: 12, label: 'revenue', direction: 'up' }}
+                        subtitle={`${stats.positiveWalletCount} Positive Wallets`}
+                        progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
+                    />
 
-                {/* --- ROW 1: MISSION CRITICAL & OPS --- */}
-                <SmartMetricCard
-                    title="System Health"
-                    value={`${stats.activeRiders}/${stats.totalRiders}`}
-                    icon={Activity}
-                    color="emerald"
-                    trend={{ value: 94, label: 'uptime', direction: 'up' }}
-                    subtitle="Active Riders Ratio"
-                    className="shadow-emerald-500/10"
-                    progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
-                    isCurrency={false}
-                />
+                    <TodaysCollectionCard />
 
-                <SmartMetricCard
-                    title="Team Strength"
-                    value={stats.totalTLs.toString()}
-                    icon={Users}
-                    color="orange"
-                    subtitle={`${stats.activeTLs} Active Leaders`}
-                    onClick={() => navigate('/portal/users?role=teamLeader')}
-                    isCurrency={false}
-                />
+                    <SmartMetricCard
+                        title="Net Liquidity"
+                        value={stats.netBalance}
+                        icon={Smartphone}
+                        color="violet"
+                        subtitle="Total System Value"
+                        onClick={() => navigate('/portal/riders')}
+                    />
 
-                <SmartMetricCard
-                    title="Pending Ops"
-                    value={stats.pendingRequests}
-                    icon={Inbox}
-                    color="blue"
-                    aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
-                    subtitle={`${stats.criticalRequests} High Priority`}
-                    onClick={() => navigate('/portal/requests?status=pending')}
-                    isCurrency={false}
-                />
-
-                <SmartMetricCard
-                    title="Growth Engine"
-                    value={`${stats.conversionRate}%`}
-                    icon={UserPlus}
-                    color="fuchsia"
-                    trend={{ value: 5, label: 'velocity', direction: 'up' }}
-                    subtitle={`${stats.newLeadsToday} New Leads Today`}
-                    progress={stats.conversionRate}
-                    onClick={() => navigate('/portal/leads?status=New')}
-                    isCurrency={false}
-                />
-
-                {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
-                <SmartMetricCard
-                    title="Total Collections"
-                    value={stats.totalCollection}
-                    icon={Wallet}
-                    color="indigo"
-                    trend={{ value: 12, label: 'revenue', direction: 'up' }}
-                    subtitle={`${stats.positiveWalletCount} Positive Wallets`}
-                    progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                    onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
-                />
-
-                <TodaysCollectionCard />
-
-                <SmartMetricCard
-                    title="Net Liquidity"
-                    value={stats.netBalance}
-                    icon={Smartphone}
-                    color="violet"
-                    subtitle="Total System Value"
-                    onClick={() => navigate('/portal/riders')}
-                />
-
-                <SmartMetricCard
-                    title="Avg Wallet"
-                    value={stats.avgBalance}
-                    icon={TrendingUp}
-                    color="cyan"
-                    subtitle="Mean Fleet Balance"
-                    onClick={() => navigate('/portal/riders')}
-                />
-
-                {/* --- ROW 3: RIDER WALLET HEALTH (COUNTS) --- */}
-                <SmartMetricCard
-                    title="Positive Riders"
-                    value={stats.positiveWalletCount}
-                    icon={TrendingUp}
-                    color="emerald"
-                    subtitle="Wallet > 0"
-                    trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
-                    progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
-                    isCurrency={false}
-                />
-
-                <SmartMetricCard
-                    title="Negative Riders"
-                    value={stats.negativeWalletCount}
-                    icon={TrendingDown}
-                    color="rose"
-                    subtitle="Wallet < 0"
-                    trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
-                    progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                    isCurrency={false}
-                />
-
-                <SmartMetricCard
-                    title="Zero Balance"
-                    value={stats.zeroWalletCount}
-                    icon={Coins}
-                    color="amber"
-                    subtitle="Dormant Wallets"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
-                    isCurrency={false}
-                />
-
-                <SmartMetricCard
-                    title="Low Balance (0-250)"
-                    value={stats.lowBalanceCount}
-                    icon={AlertTriangle}
-                    color="orange"
-                    className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
-                    subtitle="At-Risk of Rejection"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
-                    isCurrency={false}
-                />
-
-                <SmartMetricCard
-                    title="Highly Indebted"
-                    value={stats.highDebtCount}
-                    icon={TrendingDown}
-                    color="red"
-                    className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
-                    subtitle="Debt > ₹3000"
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
-                    isCurrency={false}
-                />
-
-                {/* --- ROW 4: SYSTEM RISK & CHURN --- */}
-                <SmartMetricCard
-                    title="Outstanding Risk"
-                    value={stats.outstandingDues}
-                    icon={AlertTriangle}
-                    color="rose"
-                    aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
-                    subtitle={`${stats.negativeWalletCount} Negative Wallets`}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                    isCurrency={true}
-                />
-
-                <SmartMetricCard
-                    title="Conversion"
-                    value={stats.convertedLeads}
-                    icon={Sparkles}
-                    color="lime"
-                    subtitle="Last 30 Days"
-                    onClick={() => navigate('/portal/leads?status=Convert')}
-                    isCurrency={false}
-                />
-
-                <SmartMetricCard
-                    title="Churn Monitor"
-                    value={stats.inactiveRiders}
-                    icon={UserCheck}
-                    color="slate"
-                    subtitle={`${stats.deletedRiders} Permanently Deleted`}
-                    onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
-                    isCurrency={false}
-                />
+                    <SmartMetricCard
+                        title="Avg Wallet"
+                        value={stats.avgBalance}
+                        icon={TrendingUp}
+                        color="cyan"
+                        subtitle="Mean Fleet Balance"
+                        onClick={() => navigate('/portal/riders')}
+                    />
+                </div>
             </div>
 
-            {/* Charts & Activity Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 animate-in slide-in-from-bottom duration-700 delay-300">
+            {/* ── SECTION: Wallet Health & Risk ── */}
+            <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
+                    <span className="w-4 h-px bg-muted-foreground/30" /> Wallet Health & Risk
+                    <span className="flex-1 h-px bg-muted-foreground/20" />
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                    {/* --- ROW 3: RIDER WALLET HEALTH --- */}
+                    <SmartMetricCard
+                        title="Positive Riders"
+                        value={stats.positiveWalletCount}
+                        icon={TrendingUp}
+                        color="emerald"
+                        subtitle="Wallet > 0"
+                        trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
+                        progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Negative Riders"
+                        value={stats.negativeWalletCount}
+                        icon={TrendingDown}
+                        color="rose"
+                        subtitle="Wallet < 0"
+                        trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
+                        progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Zero Balance"
+                        value={stats.zeroWalletCount}
+                        icon={Coins}
+                        color="amber"
+                        subtitle="Dormant Wallets"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Low Balance (0-250)"
+                        value={stats.lowBalanceCount}
+                        icon={AlertTriangle}
+                        color="orange"
+                        className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
+                        subtitle="At-Risk of Rejection"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Highly Indebted"
+                        value={stats.highDebtCount}
+                        icon={TrendingDown}
+                        color="red"
+                        className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
+                        subtitle="Debt > ₹3000"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
+                        isCurrency={false}
+                    />
+
+                    {/* --- ROW 4: SYSTEM RISK & CHURN --- */}
+                    <SmartMetricCard
+                        title="Outstanding Risk"
+                        value={stats.outstandingDues}
+                        icon={AlertTriangle}
+                        color="rose"
+                        aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
+                        subtitle={`${stats.negativeWalletCount} Negative Wallets`}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                        isCurrency={true}
+                    />
+
+                    <SmartMetricCard
+                        title="Conversion"
+                        value={stats.convertedLeads}
+                        icon={Sparkles}
+                        color="lime"
+                        subtitle="Last 30 Days"
+                        onClick={() => navigate('/portal/leads?status=Convert')}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Churn Monitor"
+                        value={stats.inactiveRiders}
+                        icon={UserCheck}
+                        color="slate"
+                        subtitle={`${stats.deletedRiders} Permanently Deleted`}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                        isCurrency={false}
+                    />
+                </div>
+            </div>
+
+            {/* ── Charts & Activity ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
                 {/* Charts Area (2/3 width) */}
                 <div className="lg:col-span-2">
                     <DashboardCharts
@@ -672,8 +689,8 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Activity Feed (1/3 width) */}
-                <div className="lg:col-span-1 h-[650px] flex flex-col gap-2">
-                    <div className="h-[300px]">
+                <div className="lg:col-span-1 flex flex-col gap-3">
+                    <div>
                         <WeeklyCollectionChart />
                     </div>
                     <div className="flex-grow">
@@ -703,46 +720,42 @@ const Dashboard: React.FC = () => {
 
             {/* Premium AI Leaderboard Section */}
             <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.5 }}
-                className="relative mt-4 md:mt-8 rounded-[2rem] md:rounded-[3rem] p-1 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 shadow-2xl overflow-hidden"
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="relative rounded-2xl sm:rounded-3xl p-[3px] bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 shadow-2xl overflow-hidden"
             >
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
-                <div className="bg-white/40 dark:bg-slate-950/60 backdrop-blur-3xl rounded-[1.8rem] md:rounded-[2.8rem] p-4 md:p-10 border border-white/20">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 mb-8 px-2 md:px-4">
-                        <div className="space-y-4 group cursor-default">
-                            <div className="flex items-center gap-5">
-                                <motion.div
-                                    whileHover={{ rotate: [0, -10, 10, 0] }}
-                                    className="p-3.5 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-2xl border border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]"
-                                >
-                                    <Trophy size={40} className="text-yellow-500 drop-shadow-[0_0_12px_rgba(234,179,8,0.6)]" />
-                                </motion.div>
-                                <div>
-                                    <h2 className="text-3xl md:text-5xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
-                                        Fleet Champions
-                                    </h2>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground/30 mt-1">
-                                        Live Performance Network
-                                    </p>
-                                </div>
+                <div className="bg-card/80 dark:bg-slate-950/70 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-white/10">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+                        <div className="flex items-center gap-3">
+                            <motion.div
+                                whileHover={{ rotate: [0, -8, 8, 0] }}
+                                className="p-2.5 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-xl border border-yellow-500/30"
+                            >
+                                <Trophy size={24} className="text-yellow-500" />
+                            </motion.div>
+                            <div>
+                                <h2 className="text-xl sm:text-2xl font-black tracking-tight bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
+                                    Fleet Champions
+                                </h2>
+                                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 mt-0.5">
+                                    Live Performance Network
+                                </p>
                             </div>
-
-                            {/* Neural Sync Pill - Refined Position */}
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/90 border border-white/20 rounded-full w-fit shadow-xl">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                                </span>
-                                <span className="text-[9px] font-black tracking-[0.2em] text-white uppercase italic">Neural Realtime Sync</span>
-                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/90 border border-white/20 rounded-full shadow-xl w-fit">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                            </span>
+                            <span className="text-[9px] font-black tracking-widest text-white uppercase">Neural Realtime Sync</span>
                         </div>
 
                         <button
                             onClick={() => navigate('/portal/leaderboard')}
-                            className="group relative flex items-center gap-3 px-8 py-4 bg-slate-900 dark:bg-white rounded-2xl font-black text-xs uppercase tracking-widest text-white dark:text-slate-950 shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                            className="group relative flex items-center gap-2 px-5 py-2.5 bg-slate-900 dark:bg-white rounded-xl font-black text-xs uppercase tracking-widest text-white dark:text-slate-950 shadow-xl hover:scale-105 active:scale-95 transition-all self-start sm:self-auto"
                         >
                             <span className="relative z-10">Expand Rankings</span>
                             <ArrowRight size={18} className="relative z-10 group-hover:translate-x-1 transition-transform" />
