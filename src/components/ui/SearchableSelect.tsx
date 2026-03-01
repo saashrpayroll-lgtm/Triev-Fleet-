@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface Option {
     value: string;
@@ -25,76 +26,113 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Close on click outside
+    /* position dropdown on open */
+    const openDropdown = () => {
+        if (triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            const top = spaceBelow >= 240 || spaceBelow >= spaceAbove
+                ? rect.bottom + window.scrollY + 4
+                : rect.top + window.scrollY - 244;
+            setDropdownPos({ top, left: rect.left + window.scrollX, width: rect.width });
+        }
+        setIsOpen(true);
+    };
+
+    /* close on outside click */
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        if (!isOpen) return;
+        const handler = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (!triggerRef.current?.contains(target) && !dropdownRef.current?.contains(target)) {
                 setIsOpen(false);
+                setSearchTerm('');
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [isOpen]);
 
-    const filteredOptions = options.filter(option =>
-        (option.label || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    /* reposition on scroll/resize */
+    useEffect(() => {
+        if (!isOpen) return;
+        const update = () => {
+            if (triggerRef.current) {
+                const rect = triggerRef.current.getBoundingClientRect();
+                setDropdownPos(p => ({ ...p, top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: rect.width }));
+            }
+        };
+        window.addEventListener('scroll', update, true);
+        window.addEventListener('resize', update);
+        return () => { window.removeEventListener('scroll', update, true); window.removeEventListener('resize', update); };
+    }, [isOpen]);
 
-    const selectedFormat = options.find(o => o.value === value);
+    const filtered = options.filter(o => (o.label || '').toLowerCase().includes(searchTerm.toLowerCase()));
+    const selected = options.find(o => o.value === value);
 
     return (
-        <div className={`relative ${className}`} ref={containerRef}>
+        <div className={`relative ${className}`}>
+            {/* Trigger */}
             <div
-                className="w-full px-3 py-2 rounded-lg border border-input bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 shadow-sm cursor-pointer flex items-center justify-between hover:border-primary/50 transition-colors"
-                onClick={() => setIsOpen(!isOpen)}
+                ref={triggerRef}
+                onClick={isOpen ? () => { setIsOpen(false); setSearchTerm(''); } : openDropdown}
+                className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground shadow-sm cursor-pointer flex items-center justify-between hover:border-blue-400 transition-colors select-none"
             >
-                <span className={`block truncate ${!selectedFormat ? 'text-muted-foreground' : ''}`}>
-                    {selectedFormat ? selectedFormat.label : placeholder}
+                <span className={`block truncate text-sm font-medium ${!selected ? 'text-muted-foreground' : ''}`}>
+                    {selected ? selected.label : placeholder}
                 </span>
-                <ChevronDown size={16} className={`text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={15} className={`text-muted-foreground transition-transform shrink-0 ml-1 ${isOpen ? 'rotate-180' : ''}`} />
             </div>
 
-            {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-950 border border-border rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">
-                    <div className="p-2 border-b border-border sticky top-0 bg-white dark:bg-slate-950">
+            {/* Dropdown — rendered in a portal so overflow:hidden NEVER clips it */}
+            {isOpen && createPortal(
+                <div
+                    ref={dropdownRef}
+                    style={{ position: 'absolute', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 99999 }}
+                    className="bg-white dark:bg-slate-900 border border-border rounded-xl shadow-2xl max-h-64 flex flex-col overflow-hidden"
+                >
+                    {/* Search input */}
+                    <div className="p-2 border-b border-border/60 bg-white dark:bg-slate-900 shrink-0">
                         <div className="relative">
-                            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
                             <input
                                 type="text"
-                                className="w-full pl-8 pr-2 py-1.5 text-sm bg-muted/30 rounded-md border border-input focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                                autoFocus
+                                className="w-full pl-7 pr-2.5 py-1.5 text-sm bg-muted/40 rounded-lg border border-input focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 text-foreground"
                                 placeholder={searchPlaceholder}
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                autoFocus
-                                onClick={(e) => e.stopPropagation()}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                onClick={e => e.stopPropagation()}
                             />
                         </div>
                     </div>
 
+                    {/* Options list */}
                     <div className="overflow-y-auto flex-1">
-                        {filteredOptions.length > 0 ? (
-                            filteredOptions.map((option) => (
+                        {filtered.length > 0 ? (
+                            filtered.map(option => (
                                 <div
                                     key={option.value}
-                                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors ${value === option.value ? 'bg-primary/5 text-primary font-medium' : 'text-foreground'}`}
-                                    onClick={() => {
-                                        onChange(option.value);
-                                        setIsOpen(false);
-                                        setSearchTerm('');
-                                    }}
+                                    onClick={() => { onChange(option.value); setIsOpen(false); setSearchTerm(''); }}
+                                    className={`px-3 py-2.5 text-sm cursor-pointer transition-colors ${value === option.value
+                                            ? 'bg-blue-500/10 text-blue-600 font-semibold'
+                                            : 'text-foreground hover:bg-muted/60'
+                                        }`}
                                 >
                                     {option.label}
                                 </div>
                             ))
                         ) : (
-                            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                                No results found
-                            </div>
+                            <div className="px-3 py-5 text-center text-xs text-muted-foreground/60">No results found</div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

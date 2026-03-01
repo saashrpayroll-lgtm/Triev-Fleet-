@@ -299,69 +299,71 @@ const WalletHistory: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Advanced Filters */}
-                <AnimatePresence>
-                    {showFilters && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-border/50">
-                                {/* Type */}
+                {/* Advanced Filters — NO overflow:hidden so portal dropdowns are visible */}
+                {showFilters && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-border/50">
+                            {/* Type */}
+                            <div>
+                                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Transaction Type</label>
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'All Types' },
+                                        { value: 'DAILY_COLLECTION', label: '🟢 Daily Collection' },
+                                        { value: 'RENT_COLLECTION', label: '🔵 Rent Collection' },
+                                        { value: 'FTD_COLLECTION', label: '🟣 FTD Collection' },
+                                        { value: 'DAY_OPENING_BALANCE', label: '🟠 Day Opening Balance' },
+                                        { value: 'SYSTEM_RENT_CHARGE', label: '🔴 System Rent Charge' },
+                                        { value: 'MANUAL_ADJUSTMENT', label: '🔷 Manual Adjustment' },
+                                        { value: 'SYSTEM_IMPORT', label: '⬜ System Import' },
+                                    ]}
+                                    value={filterType} onChange={v => setFilterType(v as string)} placeholder="All Types" />
+                            </div>
+                            {/* Mode */}
+                            <div>
+                                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Mode</label>
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'All Modes' },
+                                        { value: 'ADD', label: '🟢 ADD – Credits' },
+                                        { value: 'SUBTRACT', label: '🔴 SUBTRACT – Debits' },
+                                        { value: 'SET', label: '🔵 SET' },
+                                        { value: 'RESET', label: '🟡 RESET – Opening' },
+                                    ]}
+                                    value={filterMode} onChange={v => setFilterMode(v as string)} placeholder="All Modes" />
+                            </div>
+                            {/* TL (admin only) */}
+                            {isAdmin && (
                                 <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Transaction Type</label>
+                                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Team Leader</label>
                                     <SearchableSelect
-                                        options={[
-                                            { value: 'all', label: 'All Types' },
-                                            { value: 'DAILY_COLLECTION', label: '🟢 Daily Collection' },
-                                            { value: 'RENT_COLLECTION', label: '🔵 Rent Collection' },
-                                            { value: 'FTD_COLLECTION', label: '🟣 FTD Collection' },
-                                            { value: 'DAY_OPENING_BALANCE', label: '🟠 Day Opening Balance' },
-                                            { value: 'SYSTEM_RENT_CHARGE', label: '🔴 System Rent Charge' },
-                                            { value: 'MANUAL_ADJUSTMENT', label: '🔷 Manual Adjustment' },
-                                            { value: 'SYSTEM_IMPORT', label: '⬜ System Import' },
-                                        ]}
-                                        value={filterType} onChange={v => setFilterType(v as string)} placeholder="All Types" />
+                                        options={[{ value: 'all', label: 'All Team Leaders' }, ...teamLeaders.map(tl => ({ value: tl.id, label: tl.fullName }))]}
+                                        value={filterTL} onChange={v => setFilterTL(v)} placeholder="All TLs" searchPlaceholder="Search TL…" />
                                 </div>
-                                {/* Mode */}
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Mode</label>
-                                    <SearchableSelect
-                                        options={[
-                                            { value: 'all', label: 'All Modes' },
-                                            { value: 'ADD', label: '🟢 ADD – Credits' },
-                                            { value: 'SUBTRACT', label: '🔴 SUBTRACT – Debits' },
-                                            { value: 'SET', label: '🔵 SET' },
-                                            { value: 'RESET', label: '🟡 RESET – Opening' },
-                                        ]}
-                                        value={filterMode} onChange={v => setFilterMode(v as string)} placeholder="All Modes" />
-                                </div>
-                                {/* TL (admin only) */}
-                                {isAdmin && (
-                                    <div>
-                                        <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Team Leader</label>
-                                        <SearchableSelect
-                                            options={[{ value: 'all', label: 'All Team Leaders' }, ...teamLeaders.map(tl => ({ value: tl.id, label: tl.fullName }))]}
-                                            value={filterTL} onChange={v => setFilterTL(v)} placeholder="All TLs" searchPlaceholder="Search TL…" />
-                                    </div>
-                                )}
-                                {/* Date Range */}
-                                <div>
-                                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Date Range</label>
-                                    <div className="flex items-center gap-2">
-                                        <input type="date" value={dateRange.start}
-                                            onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))}
-                                            style={{ colorScheme: 'light dark' }}
-                                            className="flex-1 px-2.5 py-2.5 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-blue-500/30" />
-                                        <span className="text-muted-foreground/50 font-bold">—</span>
-                                        <input type="date" value={dateRange.end}
-                                            onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))}
-                                            style={{ colorScheme: 'light dark' }}
-                                            className="flex-1 px-2.5 py-2.5 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-blue-500/30" />
-                                    </div>
+                            )}
+                            {/* Date Range */}
+                            <div>
+                                <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-1.5 block">Date Range</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="date" value={dateRange.start}
+                                        onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))}
+                                        style={{ colorScheme: 'light dark' }}
+                                        className="flex-1 px-2.5 py-2.5 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-blue-500/30" />
+                                    <span className="text-muted-foreground/50 font-bold">—</span>
+                                    <input type="date" value={dateRange.end}
+                                        onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))}
+                                        style={{ colorScheme: 'light dark' }}
+                                        className="flex-1 px-2.5 py-2.5 rounded-lg border border-input bg-background text-sm outline-none focus:ring-2 focus:ring-blue-500/30" />
                                 </div>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        </div>
+                    </motion.div>
+                )}
             </div>
 
             {/* ── TABLE ──────────────────────────────────────────────────────── */}
@@ -637,7 +639,7 @@ const WalletHistory: React.FC = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 };
 
