@@ -54,6 +54,8 @@ const TLPerformance: React.FC = () => {
                 supabase.from('leads').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('*')
+                    .order('date', { ascending: false })
+                    .limit(10000)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;

@@ -88,6 +88,8 @@ const Dashboard: React.FC = () => {
                 `).eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('team_leader_id, total_collection, date')
                     .gte('date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
+                    .order('date', { ascending: false })
+                    .limit(10000)
             ]);
 
             // Note: Removed wallet_transactions fetch to avoid double counting. 
