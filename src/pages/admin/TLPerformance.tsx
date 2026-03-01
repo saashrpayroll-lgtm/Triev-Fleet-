@@ -51,32 +51,46 @@ const TLPerformance: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            // Compute IST midnight in UTC: IST is UTC+5:30, so 00:00 IST = 18:30 UTC of the previous UTC day
+            // ── IST midnight (start of today) ────────────────────────────────────
             const istMidnightUTC = (() => {
                 const now = new Date();
-                // Get today's date string in IST (YYYY-MM-DD)
                 const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                 const [y, m, d] = istDateStr.split('-').map(Number);
-                // 00:00 IST  ==  (prev day) 18:30 UTC  =  Date.UTC(y, m-1, d) - 5.5 * 3600 * 1000
                 return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             })();
 
-            const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
+            // ── IST Monday midnight of the current week ──────────────────────────
+            const weekMondayMidnightUTC = (() => {
+                const now = new Date();
+                const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                const [y, m, d] = istDateStr.split('-').map(Number);
+                const istDate = new Date(Date.UTC(y, m - 1, d));
+                // ISO week: 0=Sun → 6=Sat; shift so Monday=0
+                const dayOfWeek = istDate.getUTCDay(); // 0=Sun
+                const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                const mondayUTC = new Date(istDate);
+                mondayUTC.setUTCDate(istDate.getUTCDate() - daysFromMonday);
+                // Monday 00:00 IST = Monday 00:00 IST - 5.5h UTC
+                return new Date(mondayUTC.getTime() - 5.5 * 60 * 60 * 1000).toISOString();
+            })();
+
+            const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes, weeklyLedgerRes] = await Promise.all([
                 supabase.from('riders').select('*').limit(5000),
                 supabase.from('leads').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('*')
                     .order('date', { ascending: false })
                     .limit(10000),
-                supabase.from('wallet_ledger').select(`
-                    amount,
-                    rider:riders!inner (
-                        team_leader_id
-                    )
-                `)
+                // Today: from IST midnight → now
+                supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                    .gte('created_at', istMidnightUTC)
+                    .gte('created_at', istMidnightUTC),
+                // This Week: from Monday IST midnight → now
+                supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .gte('created_at', weekMondayMidnightUTC)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -84,6 +98,7 @@ const TLPerformance: React.FC = () => {
             if (usersRes.error) throw usersRes.error;
             if (dailyRes.error) throw dailyRes.error;
             if (todayLedgerRes.error) throw todayLedgerRes.error;
+            if (weeklyLedgerRes.error) throw weeklyLedgerRes.error;
 
             // Process Collections - ALIGN TO IST (India Standard Time)
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -113,26 +128,32 @@ const TLPerformance: React.FC = () => {
                 if (dDateStr >= weekStartStr) weekly[tlId] = (weekly[tlId] || 0) + amt;
             });
 
+            // Build daily map from live wallet_ledger
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
-                if (txn.rider && txn.rider.team_leader_id) {
+                if (txn.rider?.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
-                    const amt = Number(txn.amount) || 0;
-                    daily[tlId] = (daily[tlId] || 0) + amt;
+                    daily[tlId] = (daily[tlId] || 0) + (Number(txn.amount) || 0);
                 }
             });
 
-            // Make sure these maps are available to the rest of the component
-            // if we need them.
-            // setDailyCollections(daily); 
-            // We need to pass this down through rawData or state. Let's add it to rawData
+            // Build weekly map from live wallet_ledger (Mon 00:00 IST → now)
+            const weeklyLive: Record<string, number> = {};
+            const weeklyLedger = (weeklyLedgerRes?.data as any[]) || [];
+            weeklyLedger.forEach(txn => {
+                if (txn.rider?.team_leader_id) {
+                    const tlId = txn.rider.team_leader_id;
+                    weeklyLive[tlId] = (weeklyLive[tlId] || 0) + (Number(txn.amount) || 0);
+                }
+            });
+
             setRawData({
                 riders: (ridersRes.data || []).map((r: any) => ({ ...r, wallet_amount: r.status === 'active' ? r.wallet_amount : 0 })),
                 leads: leadsRes.data || [],
                 teamLeaders: usersRes.data || [],
                 collections: dailyRes.data || [],
                 dailyCollectionsMap: daily,
-                weeklyCollectionsMap: weekly
+                weeklyCollectionsMap: weeklyLive
             });
         } catch (error: any) {
             toast.error('Failed to load performance data: ' + error.message);
@@ -151,25 +172,42 @@ const TLPerformance: React.FC = () => {
             supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData).subscribe()
         ];
 
-        // ── Auto-reset at IST midnight (00:00 IST) ────────────────────────────
-        // Computes ms until next IST midnight and schedules a fetchData + page reload.
+        // ── Auto-reset at IST midnight every day ──────────────────────────────
         const scheduleISTMidnightReset = () => {
             const now = new Date();
             const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
             const [y, m, d] = istDateStr.split('-').map(Number);
-            // Next IST midnight in UTC
             const nextMidnightUTC = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
             const msUntilMidnight = nextMidnightUTC.getTime() - now.getTime();
             return window.setTimeout(() => {
-                fetchData(); // Refresh data immediately
-                scheduleISTMidnightReset(); // Re-schedule for next day
-            }, msUntilMidnight + 500); // +500ms buffer
+                fetchData();
+                scheduleISTMidnightReset();
+            }, msUntilMidnight + 500);
         };
         const midnightTimer = scheduleISTMidnightReset();
+
+        // ── Auto-reset at IST Sunday midnight (weekly reset) ─────────────────
+        // Fires at 00:00 IST every Monday so weekly collection clears for new week.
+        const scheduleWeeklyReset = () => {
+            const now = new Date();
+            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const [y, m, d] = istDateStr.split('-').map(Number);
+            const istDate = new Date(Date.UTC(y, m - 1, d));
+            const dayOfWeek = istDate.getUTCDay(); // 0=Sun
+            const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek; // days until next Monday
+            const nextMondayUTC = new Date(Date.UTC(y, m - 1, d + daysUntilMonday, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+            const msUntilMonday = nextMondayUTC.getTime() - now.getTime();
+            return window.setTimeout(() => {
+                fetchData(); // Re-fetch — weekly map will now start from new Monday 00:00 IST
+                scheduleWeeklyReset(); // Re-schedule for following week
+            }, msUntilMonday + 500);
+        };
+        const weeklyTimer = scheduleWeeklyReset();
 
         return () => {
             channels.forEach(ch => supabase.removeChannel(ch));
             window.clearTimeout(midnightTimer);
+            window.clearTimeout(weeklyTimer);
         };
     }, []);
 
@@ -313,6 +351,19 @@ const TLPerformance: React.FC = () => {
                 .filter(item => item.team_leader_id === tlId)
                 .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
 
+            // Weekly collection — from live weeklyCollectionsMap (Mon 00:00 IST → now)
+            const weeklyCollection = (rawData as any).weeklyCollectionsMap?.[tlId] || 0;
+
+            // Days in current week elapsed (Mon=1 … Sun=7)
+            const weekDayIST = (() => {
+                const d = new Date();
+                const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', weekday: 'short' }).format(d);
+                const map: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+                return map[day] || 1;
+            })();
+            const weeklyPerDayAvg = weekDayIST > 0 ? Math.round(weeklyCollection / weekDayIST) : 0;
+            const weeklyPerRiderAvg = activeRiders > 0 ? Math.round(weeklyCollection / activeRiders) : 0;
+
             return {
                 id: tlId,
                 name: tl.full_name || tl.fullName || 'Unknown',
@@ -328,6 +379,10 @@ const TLPerformance: React.FC = () => {
                 status: tl.status,
                 totalCollection,
                 rangeCollection,
+                weeklyCollection,
+                weeklyPerDayAvg,
+                weeklyPerRiderAvg,
+                weekDayIST,
                 perDayAverageCollection,
                 avgRiderCollection,
                 leadsToday,
@@ -729,7 +784,7 @@ const TLPerformance: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1100px] text-sm text-left">
+                    <table className="w-full min-w-[1300px] text-sm text-left">
                         <thead className="text-[10px] text-muted-foreground uppercase bg-muted/10 font-black tracking-widest border-b border-border/40">
                             <tr>
                                 <th className="px-5 py-4 min-w-[200px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('name')}>
@@ -768,6 +823,20 @@ const TLPerformance: React.FC = () => {
                                         {sortConfig?.key === 'perDayAverageCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
+                                {/* ── NEW: This Week column ─────────────────────── */}
+                                <th className="px-5 py-4 min-w-[210px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('weeklyCollection')}>
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider text-violet-600">
+                                            <Calendar className="h-3 w-3" />
+                                            This Week
+                                            {sortConfig?.key === 'weeklyCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground mt-0.5">
+                                            <span>Total: <span className="text-violet-600">₹{performanceData.reduce((a, b) => a + (b as any).weeklyCollection, 0).toLocaleString()}</span></span>
+                                            <span className="text-violet-400">Resets Mon 12AM</span>
+                                        </div>
+                                    </div>
+                                </th>
                                 <th className="px-5 py-4 min-w-[190px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('netGrowth')}>
                                     <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider">
                                         Fleet Flow
@@ -787,7 +856,7 @@ const TLPerformance: React.FC = () => {
                             {loading ? (
                                 Array(6).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={8} className="px-6 py-8"><div className="h-8 bg-muted/40 rounded-lg w-full"></div></td>
+                                        <td colSpan={9} className="px-6 py-8"><div className="h-8 bg-muted/40 rounded-lg w-full"></div></td>
                                     </tr>
                                 ))
                             ) : filteredData.length === 0 ? (
@@ -886,6 +955,26 @@ const TLPerformance: React.FC = () => {
                                             </p>
                                         </td>
 
+                                        {/* 5b. This Week */}
+                                        <td className="px-5 py-4 min-w-[210px]">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex flex-col border-r pr-3 border-violet-500/20">
+                                                    <span className="text-[9px] text-violet-400 font-black uppercase">Week Total</span>
+                                                    <span className="text-base font-black text-violet-600">₹{((tl as any).weeklyCollection || 0).toLocaleString()}</span>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Day Avg</span>
+                                                        <span className="text-xs font-black text-violet-500">₹{((tl as any).weeklyPerDayAvg || 0).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Per Rider</span>
+                                                        <span className="text-xs font-bold text-violet-400">₹{((tl as any).weeklyPerRiderAvg || 0).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+
                                         {/* 6. Fleet Flow */}
                                         <td className="px-5 py-4 min-w-[190px]">
                                             <div className="flex items-center gap-4">
@@ -936,8 +1025,8 @@ const TLPerformance: React.FC = () => {
                                         {/* 8. Status */}
                                         <td className="px-5 py-4 min-w-[90px] text-right">
                                             <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-wide ${tl.status === 'active'
-                                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                                : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                                 }`}>
                                                 {tl.status}
                                             </span>
