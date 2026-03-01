@@ -247,9 +247,32 @@ const TLPerformance: React.FC = () => {
                     .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
             }
 
-            // Daily Average Collection (Total Collection / Number of Active Days in Period)
+            // Daily Average Collection
             let activeDays = 1;
-            if (dateFilter !== 'today') {
+            let perDayAverageCollection = 0;
+
+            if (dateFilter === 'today') {
+                // When viewing Today, "Per Day Avg" should act as a benchmark (Month-To-Date Average)
+                const monthStartUTC_local = new Date(Date.UTC(year, month - 1, 1));
+                const monthStartStr_local = monthStartUTC_local.toISOString().split('T')[0];
+
+                const mtdData = rawData.collections.filter(item => {
+                    if (item.team_leader_id !== tlId) return false;
+                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                    // Include up to yesterday, today's data is in rangeCollection
+                    return dDateStr >= monthStartStr_local && dDateStr < nowISTStr;
+                });
+
+                const mtdHistoricalTotal = mtdData.reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+                const mtdActiveDays = new Set(mtdData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size;
+
+                // Total MTD = historical + today's live
+                const totalMTD = mtdHistoricalTotal + rangeCollection;
+                const totalMTDDays = mtdActiveDays + (rangeCollection > 0 ? 1 : 0);
+
+                perDayAverageCollection = Math.round(totalMTDDays > 0 ? (totalMTD / totalMTDDays) : 0);
+                activeDays = 1; // Unused for today's 'rangeCollection', purely for local block
+            } else {
                 activeDays = Math.max(1, new Set(
                     rawData.collections
                         .filter(item => {
@@ -260,9 +283,8 @@ const TLPerformance: React.FC = () => {
                         })
                         .map(item => item.date)
                 ).size);
+                perDayAverageCollection = Math.round(rangeCollection / activeDays);
             }
-
-            const perDayAverageCollection = Math.round(rangeCollection / activeDays);
 
             const avgRiderCollection = activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0;
 

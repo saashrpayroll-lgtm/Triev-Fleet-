@@ -338,16 +338,44 @@ const Dashboard: React.FC = () => {
             // Period-specific collection for accurate Avg calculation
             let periodCollection = tlCollectionAllTime;
             let activeDays = 1;
+            let perDayAverageCollection = 0;
 
             if (dateFilter === 'day') {
-                // If today, use the highly-accurate real-time ledger map instead of historical daily_collections
-                periodCollection = dailyCollections[tl.id] || 0;
-                activeDays = 1;
+                // When viewing Today, "Per Day Avg" should act as a benchmark (Month-To-Date Average)
+                periodCollection = dailyCollections[tl.id] || 0; // Today's actual
+
+                const now = new Date();
+                const year = now.getUTCFullYear();
+                const month = now.getUTCMonth() + 1; // 1-12
+                const monthStartUTC_local = new Date(Date.UTC(year, month - 1, 1));
+                const monthStartStr_local = monthStartUTC_local.toISOString().split('T')[0];
+
+                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                const nowISTStr = formatter.format(now);
+
+                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                const mtdData = tlDailyData.filter((d: any) => {
+                    if (d.team_leader_id !== tl.id) return false;
+                    const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                    // Include up to yesterday, today's data is in periodCollection
+                    return dDateStr >= monthStartStr_local && dDateStr < nowISTStr;
+                });
+
+                const mtdHistoricalTotal = mtdData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                const mtdActiveDays = new Set(mtdData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size;
+
+                // Total MTD = historical + today's live
+                const totalMTD = mtdHistoricalTotal + periodCollection;
+                const totalMTDDays = mtdActiveDays + (periodCollection > 0 ? 1 : 0);
+
+                perDayAverageCollection = Math.round(totalMTDDays > 0 ? (totalMTD / totalMTDDays) : 0);
+                activeDays = 1; // Unused for today's 'periodCollection', purely for local block return
             } else if (period) {
                 const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
                 const filteredData = tlDailyData.filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end);
                 periodCollection = filteredData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
                 activeDays = Math.max(1, new Set(filteredData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size);
+                perDayAverageCollection = Math.round(periodCollection / activeDays);
             }
 
             const metrics = calculateAIScore(tl, riders, leads, tlCollectionAllTime, period);
@@ -382,7 +410,7 @@ const Dashboard: React.FC = () => {
                 dailyCollection: dailyCollections[tl.id] || 0,
                 weeklyCollection: weeklyCollections[tl.id] || 0,
                 avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
-                perDayAverageCollection: Math.round(periodCollection / activeDays),
+                perDayAverageCollection: perDayAverageCollection || 0,
                 activeDays, // Added activeDays here
                 leadsToday: tlLeads.filter(l => {
                     const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
