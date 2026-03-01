@@ -22,8 +22,9 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             // Create a Date object for Midnight IST (UTC offset is +05:30)
             // 00:00 IST is 18:30 UTC of the PREVIOUS day.
             // A foolproof way is to create the localized string and parse it, or just use the exact offset.
-            const midnightIST = new Date(Date.UTC(year, month - 1, day, -5, -30, 0, 0));
-            const todayIso = midnightIST.toISOString(); // This is the UTC string that exactly matches 12:00 AM IST.
+            const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330); // Shift back by 5h 30m to get UTC equivalent of 00:00 IST
+            const todayIso = midnightIST.toISOString();
 
 
             // Use wallet_ledger as source of truth
@@ -39,7 +40,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     )
                 `)
                 .eq('mode', 'ADD') // Only collections/credits
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION']) // SYNC FIX: Match v8 trigger
+                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION']) // SYNC FIX: Match v9 trigger
                 .gte('created_at', todayIso);
 
             if (teamLeaderId) {
