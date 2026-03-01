@@ -53,11 +53,11 @@ const CollectionHistory: React.FC = () => {
 
             let records = data || [];
 
-            // OVERRIDE FOR TODAY: Fetch directly from wallet_ledger to bypass any daily_collections timezone lag
+            // Compute IST midnight in UTC: 00:00 IST = 18:30 UTC of the previous calendar day
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
             const [year, month, day] = todayStr.split('-').map(Number);
-            const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
+            // Correct formula: Date.UTC(y, m-1, d) - 5.5 hours
+            const istMidnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [{ data: todayLedger }, { count: liveActiveCount }] = await Promise.all([
                 supabase
@@ -66,7 +66,7 @@ const CollectionHistory: React.FC = () => {
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                     .eq('rider.team_leader_id', userData!.id)
-                    .gte('created_at', midnightIST.toISOString()),
+                    .gte('created_at', istMidnightUTC),
                 supabase
                     .from('riders')
                     .select('*', { count: 'exact', head: true })
