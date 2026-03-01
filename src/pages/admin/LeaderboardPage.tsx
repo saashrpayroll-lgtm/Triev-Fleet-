@@ -113,6 +113,7 @@ const LeaderboardPage: React.FC = () => {
                     dailyRes.forEach((d: any) => {
                         const tlId = d.team_leader_id;
                         const amt = Number(d.total_collection) || 0;
+                        // Robust date matching
                         colMap[tlId] = (colMap[tlId] || 0) + amt;
                     });
                     setCollections(colMap);

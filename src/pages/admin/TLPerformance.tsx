@@ -82,9 +82,12 @@ const TLPerformance: React.FC = () => {
                 const tlId = item.team_leader_id;
                 const amt = Number(item.total_collection) || 0;
 
+                // Normalize date string from database (handle potential time suffix)
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+
                 totals[tlId] = (totals[tlId] || 0) + amt;
-                if (item.date === todayStr) daily[tlId] = (daily[tlId] || 0) + amt;
-                if (item.date >= weekStartStr) weekly[tlId] = (weekly[tlId] || 0) + amt;
+                if (dDateStr === todayStr) daily[tlId] = (daily[tlId] || 0) + amt;
+                if (dDateStr >= weekStartStr) weekly[tlId] = (weekly[tlId] || 0) + amt;
             });
 
             setRawData({
@@ -200,7 +203,8 @@ const TLPerformance: React.FC = () => {
                 .filter(item => {
                     const isTL = item.team_leader_id === tlId;
                     if (!isTL) return false;
-                    return item.date >= startDateStr && item.date <= endDateStr;
+                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                    return dDateStr >= startDateStr && dDateStr <= endDateStr;
                 })
                 .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
 

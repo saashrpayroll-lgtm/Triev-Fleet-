@@ -118,16 +118,19 @@ const Dashboard: React.FC = () => {
                 const tlId = d.team_leader_id;
                 const amt = Number(d.total_collection) || 0;
 
+                // Normalize date string from database (handle potential time suffix)
+                const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+
                 // Total Collection (All Time)
                 collections[tlId] = (collections[tlId] || 0) + amt;
 
-                // Daily Collection
-                if (d.date === todayStr) {
+                // Daily Collection - Robust match
+                if (dDateStr === todayStr) {
                     dayMap[tlId] = (dayMap[tlId] || 0) + amt;
                 }
 
-                // Weekly Collection
-                if (d.date >= weekStart) {
+                // Weekly Collection - Robust match
+                if (dDateStr >= weekStart) {
                     weekMap[tlId] = (weekMap[tlId] || 0) + amt;
                 }
             });
