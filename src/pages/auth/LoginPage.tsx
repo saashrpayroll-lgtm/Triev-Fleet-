@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Eye, EyeOff, LogIn, Sparkles, Mail, Lock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Mail, Lock, AlertTriangle, CheckCircle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
@@ -80,7 +80,7 @@ const LoginPage: React.FC = () => {
 
     const itemVariants = {
         hidden: { opacity: 0, y: 24 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
     };
 
     return (
@@ -256,7 +256,7 @@ const LoginPage: React.FC = () => {
                                 type="submit"
                                 disabled={loading}
                                 className="w-full relative bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-4 sm:py-5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_8px_25px_rgba(234,88,12,0.35)] disabled:opacity-50 overflow-hidden group/btn"
-                                whileHover={!loading ? { scale: 1.02, shadow: '0 12px 35px rgba(234,88,12,0.45)' } : {}}
+                                whileHover={!loading ? { scale: 1.02 } : {}}
                                 whileTap={!loading ? { scale: 0.98 } : {}}
                             >
                                 {/* Shimmer sweep */}
