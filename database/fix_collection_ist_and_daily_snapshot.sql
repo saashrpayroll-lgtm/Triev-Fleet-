@@ -162,34 +162,23 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
--- PART 4: SCHEDULE with pg_cron (Supabase native scheduler)
--- This schedules the snapshot to run at 11:59 PM IST = 18:29 UTC every night.
--- Only run this if pg_cron is enabled in your Supabase project.
--- Go to: Dashboard → Database → Extensions and enable pg_cron first.
+-- PART 4: pg_cron SCHEDULING (OPTIONAL — skip if pg_cron not enabled)
+-- To enable: Supabase Dashboard → Database → Extensions → enable "pg_cron"
+-- Then run the two SELECT statements below manually.
+-- Schedule: 18:29 UTC = 11:59 PM IST every night
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
--- Remove any existing schedule with this name first
-SELECT cron.unschedule('daily-collection-midnight-snapshot')
-WHERE EXISTS (
-    SELECT 1 FROM cron.job WHERE jobname = 'daily-collection-midnight-snapshot'
-);
-
--- Schedule: 18:29 UTC = 11:59 PM IST (just before midnight)
-SELECT cron.schedule(
-    'daily-collection-midnight-snapshot',
-    '29 18 * * *',  -- Every night at 18:29 UTC = 23:59 IST
-    $$SELECT public.snapshot_daily_collections();$$
-);
+-- !! ONLY RUN THIS AFTER ENABLING pg_cron extension !!
+-- SELECT cron.unschedule('daily-collection-midnight-snapshot');
+-- SELECT cron.schedule(
+--     'daily-collection-midnight-snapshot',
+--     '29 18 * * *',
+--     $$SELECT public.snapshot_daily_collections();$$
+-- );
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
--- VERIFICATION QUERIES  (Run separately after the above)
+-- VERIFICATION (run separately after the above)
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
--- Check March 1 data:
--- SELECT date, SUM(total_collection), COUNT(*) 
--- FROM daily_collections 
--- WHERE date = '2026-03-01'
--- GROUP BY date;
-
--- Check cron schedule:
--- SELECT * FROM cron.job WHERE jobname = 'daily-collection-midnight-snapshot';
+-- SELECT date, SUM(total_collection) FROM daily_collections
+-- WHERE date = '2026-03-01' GROUP BY date;
+-- SELECT public.snapshot_daily_collections(); -- manual test run
