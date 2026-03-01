@@ -26,6 +26,8 @@ const TLPerformance: React.FC = () => {
         leads: any[];
         teamLeaders: any[];
         collections: any[];
+        dailyCollectionsMap?: Record<string, number>;
+        weeklyCollectionsMap?: Record<string, number>;
     }>({ riders: [], leads: [], teamLeaders: [], collections: [] });
 
     // const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
