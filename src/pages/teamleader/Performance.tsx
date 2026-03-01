@@ -78,8 +78,8 @@ const TLPersonalPerformance: React.FC = () => {
             // Compute today's IST midnight as UTC for wallet_ledger gte filter
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
             const [yr, mo, dy] = todayStr.split('-').map(Number);
-            const midnightIST = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0));
-            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330); // IST = UTC+5:30
+            // Correct IST midnight: Date.UTC(y, m-1, d) - 5.5 hours
+            const istMidnightUTC = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 // All TL's non-deleted riders
@@ -112,7 +112,7 @@ const TLPersonalPerformance: React.FC = () => {
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                     .eq('rider.team_leader_id', userData.id)
-                    .gte('created_at', midnightIST.toISOString()),
+                    .gte('created_at', istMidnightUTC),
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -681,7 +681,15 @@ const TLPersonalPerformance: React.FC = () => {
                                         ₹{filteredLedger.reduce((s, r) => s + r.collections, 0).toLocaleString('en-IN')}
                                     </td>
                                     <td className="px-5 py-3 text-center text-violet-500">
-                                        ₹{Math.round(filteredLedger.reduce((s, r) => s + r.collections, 0) / (filteredLedger.filter(r => r.collections > 0).length || 1)).toLocaleString('en-IN')}
+                                        {/* Avg/Rider = total collection ÷ weighted-avg active riders across collection days */}
+                                        {(() => {
+                                            const activeDays = filteredLedger.filter(r => r.collections > 0);
+                                            const totalCol = activeDays.reduce((s, r) => s + r.collections, 0);
+                                            const weightedRiders = activeDays.reduce((s, r) => s + r.activeRiders, 0);
+                                            const avgRiders = activeDays.length > 0 ? weightedRiders / activeDays.length : 1;
+                                            const avgPerRider = avgRiders > 0 ? Math.round(totalCol / avgRiders) : 0;
+                                            return `₹${avgPerRider.toLocaleString('en-IN')}`;
+                                        })()}
                                     </td>
                                     <td className="px-5 py-3 text-center">—</td>
                                     <td className="px-5 py-3 text-center text-indigo-500">
