@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Wallet, Users, BarChart3, TrendingUp } from 'lucide-react';
+import { X, TrendingUp, Users, Zap, Award, Calendar, RefreshCw } from 'lucide-react';
 import { supabase } from '@/config/supabase';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface CollectionHistoryModalProps {
     isOpen: boolean;
@@ -15,15 +15,7 @@ interface CollectionRecord {
     date: string;
     total_collection: number;
     active_riders_count: number;
-}
-
-interface MetricTileProps {
-    label: string;
-    value: string;
-    icon: React.ElementType;
-    color: string;
-    subtitle: string;
-    trend?: string;
+    runrate?: number;
 }
 
 const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
@@ -31,45 +23,32 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
 }) => {
     const [history, setHistory] = useState<CollectionRecord[]>([]);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({
-        totalCollection: 0,
-        todayCollection: 0,
-        avgActiveRiders: 0,
-        avgPerRider: 0,
-        bestDay: 0
-    });
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-    useEffect(() => {
-        if (isOpen && teamLeaderId) {
-            fetchHistory();
-        }
-    }, [isOpen, teamLeaderId]);
+    // ── Correct IST midnight UTC ────────────────────────────────────────────
+    const getISTMidnightUTC = () => {
+        const now = new Date();
+        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+        const [y, m, d] = istDateStr.split('-').map(Number);
+        return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+    };
 
-    const fetchHistory = async () => {
-        setLoading(true);
+    const getTodayIST = () =>
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+    const fetchHistory = useCallback(async () => {
+        if (!teamLeaderId) return;
         try {
-            const { data, error } = await supabase
-                .from('daily_collections')
-                .select('date, total_collection, active_riders_count, runrate')
-                .eq('team_leader_id', teamLeaderId)
-                .order('date', { ascending: false });
+            const todayStr = getTodayIST();
+            const istMidnightUTC = getISTMidnightUTC();
 
-            if (error) throw error;
-
-            let records = (data || []).map(d => ({
-                date: d.date,
-                total_collection: Number(d.total_collection) || 0,
-                active_riders_count: Number(d.active_riders_count) || 1,
-                runrate: Number(d.runrate) || 0
-            }));
-
-            // Compute IST midnight in UTC: 00:00 IST = 18:30 UTC of the previous calendar day
-            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-            const [year, month, day] = todayStr.split('-').map(Number);
-            // Correct formula: Date.UTC(y, m-1, d, 0, 0, 0) - 5.5 * 3600 * 1000
-            const istMidnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-
-            const [{ data: todayLedger }, { count: liveActiveCount }] = await Promise.all([
+            const [{ data }, { data: todayLedger }, { count: liveCount }] = await Promise.all([
+                supabase
+                    .from('daily_collections')
+                    .select('date, total_collection, active_riders_count, runrate')
+                    .eq('team_leader_id', teamLeaderId)
+                    .order('date', { ascending: false })
+                    .limit(30),
                 supabase
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
@@ -81,278 +60,273 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     .from('riders')
                     .select('*', { count: 'exact', head: true })
                     .eq('team_leader_id', teamLeaderId)
-                    .eq('status', 'active')
+                    .eq('status', 'active'),
             ]);
 
-            const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+            const realToday = (todayLedger || []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
-            // If we found money today but daily_collections didn't log it yet, overwrite or inject
-            const existingTodayIndex = records.findIndex(r => r.date === todayStr);
-            if (existingTodayIndex >= 0) {
-                records[existingTodayIndex].total_collection = realTodayCollection;
-                records[existingTodayIndex].active_riders_count = liveActiveCount !== null ? liveActiveCount : records[existingTodayIndex].active_riders_count;
-                records[existingTodayIndex].runrate = records[existingTodayIndex].active_riders_count > 0 ? Math.round(realTodayCollection / records[existingTodayIndex].active_riders_count) : 0;
-            } else if (realTodayCollection > 0 || (liveActiveCount && liveActiveCount > 0)) {
-                records = [{
-                    date: todayStr,
-                    total_collection: realTodayCollection,
-                    active_riders_count: liveActiveCount || 0,
-                    runrate: liveActiveCount && liveActiveCount > 0 ? Math.round(realTodayCollection / liveActiveCount) : 0
-                }, ...records];
-            }
+            let records: CollectionRecord[] = (data || []).map(d => ({
+                date: d.date,
+                total_collection: Number(d.total_collection) || 0,
+                active_riders_count: Number(d.active_riders_count) || 1,
+                runrate: Number(d.runrate) || 0,
+            }));
+
+            const todayIdx = records.findIndex(r => r.date === todayStr);
+            const todayRec: CollectionRecord = {
+                date: todayStr,
+                total_collection: realToday,
+                active_riders_count: liveCount ?? (todayIdx >= 0 ? records[todayIdx].active_riders_count : 1),
+                runrate: 0,
+            };
+            todayRec.runrate = todayRec.active_riders_count > 0
+                ? Math.round(todayRec.total_collection / todayRec.active_riders_count) : 0;
+
+            if (todayIdx >= 0) records[todayIdx] = todayRec;
+            else records = [todayRec, ...records];
 
             setHistory(records);
-
-            // Calculate deep stats based on accurate real-time records
-            const totalColl = records.reduce((sum, r) => sum + r.total_collection, 0);
-            const sumRunrate = records.reduce((sum, r) => sum + r.runrate, 0);
-            const sumRiders = records.reduce((sum, r) => sum + r.active_riders_count, 0);
-
-            const todayRecord = records.find(r => r.date === todayStr);
-
-            setStats({
-                totalCollection: totalColl,
-                todayCollection: todayRecord ? todayRecord.total_collection : 0,
-                avgActiveRiders: records.length > 0 ? Math.round(sumRiders / records.length) : 0,
-                avgPerRider: records.length > 0 ? Math.round(sumRunrate / records.length) : 0,
-                bestDay: records.length > 0 ? Math.max(...records.map(r => r.total_collection)) : 0
-            });
+            setLastUpdated(new Date());
         } catch (err) {
-            console.error('Error fetching collection history:', err);
+            // silent
         } finally {
             setLoading(false);
         }
-    };
+    }, [teamLeaderId]);
+
+    // Initial fetch + real-time subscription
+    useEffect(() => {
+        if (!isOpen || !teamLeaderId) return;
+        setLoading(true);
+        fetchHistory();
+
+        const channel = supabase
+            .channel(`col-intel-${teamLeaderId}`)
+            .on('postgres_changes', {
+                event: '*', schema: 'public', table: 'wallet_ledger'
+            }, fetchHistory)
+            .on('postgres_changes', {
+                event: '*', schema: 'public', table: 'daily_collections',
+                filter: `team_leader_id=eq.${teamLeaderId}`
+            }, fetchHistory)
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [isOpen, teamLeaderId, fetchHistory]);
 
     if (!isOpen) return null;
 
-    return createPortal(
-        <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl animate-in fade-in duration-700 overflow-y-auto scrollbar-none py-4 px-4">
-            <div className="bg-background/95 border w-full max-w-[95rem] rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_150px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-500 border-white/20 relative backdrop-saturate-[2.5]">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[120px] -z-10 rounded-full" />
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 blur-[120px] -z-10 rounded-full" />
+    // ── Derived stats ─────────────────────────────────────────────────────
+    const todayStr = getTodayIST();
+    const todayRec = history.find(r => r.date === todayStr);
+    const pastRecords = history.filter(r => r.date !== todayStr && r.total_collection > 0);
 
-                {/* Header: Squeezed height */}
-                <div className="px-6 sm:px-10 py-4 sm:py-5 border-b flex justify-between items-center bg-muted/20 backdrop-blur-md sticky top-0 z-20 flex-shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[1rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 flex-shrink-0">
-                            <BarChart3 size={20} className="sm:hidden" />
-                            <BarChart3 size={24} className="hidden sm:block" />
+    const totalAll = history.reduce((s, r) => s + r.total_collection, 0);
+    const avgPerDay = pastRecords.length > 0
+        ? Math.round(pastRecords.reduce((s, r) => s + r.total_collection, 0) / pastRecords.length) : 0;
+    const bestDay = history.reduce((m, r) => Math.max(m, r.total_collection), 0);
+    const avgPerRider = history.length > 0 && history[0]?.active_riders_count > 0
+        ? Math.round(totalAll / (history.reduce((s, r) => s + r.active_riders_count, 0) / history.length)) : 0;
+
+    const statCards = [
+        { label: 'Today', value: `₹${(todayRec?.total_collection || 0).toLocaleString()}`, sub: `${todayRec?.active_riders_count || 0} riders`, color: 'emerald', icon: Zap },
+        { label: 'Total', value: `₹${totalAll.toLocaleString()}`, sub: `${history.length} days`, color: 'indigo', icon: TrendingUp },
+        { label: 'Day Avg', value: `₹${avgPerDay.toLocaleString()}`, sub: 'Historical', color: 'blue', icon: Calendar },
+        { label: 'Rider Avg', value: `₹${avgPerRider.toLocaleString()}`, sub: 'Per head', color: 'violet', icon: Users },
+        { label: 'Peak Day', value: `₹${bestDay.toLocaleString()}`, sub: 'All-time high', color: 'amber', icon: Award },
+    ];
+
+    const colorMap: Record<string, string> = {
+        emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600',
+        indigo: 'bg-indigo-500/10  border-indigo-500/20  text-indigo-600',
+        blue: 'bg-blue-500/10    border-blue-500/20    text-blue-600',
+        violet: 'bg-violet-500/10  border-violet-500/20  text-violet-600',
+        amber: 'bg-amber-500/10   border-amber-500/20   text-amber-600',
+    };
+    const iconColorMap: Record<string, string> = {
+        emerald: 'text-emerald-500', indigo: 'text-indigo-500',
+        blue: 'text-blue-500', violet: 'text-violet-500', amber: 'text-amber-500'
+    };
+
+    const maxAmt = Math.max(...history.map(r => r.total_collection), 1);
+
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+        >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
+
+            {/* Modal */}
+            <div className="relative z-10 w-full max-w-4xl max-h-[88vh] flex flex-col bg-background border border-border/60 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+
+                {/* Ambient glows */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/5 blur-3xl pointer-events-none" />
+
+                {/* ── Header ─────────────────────────────────────────────── */}
+                <div className="relative flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-muted/30 backdrop-blur-sm flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 flex-shrink-0">
+                            <TrendingUp size={15} className="text-white" />
                         </div>
                         <div>
-                            <h3 className="font-black text-xl sm:text-2xl tracking-tight text-foreground leading-tight">Collection Intelligence</h3>
-                            <div className="flex items-center gap-2 mt-1 sm:mt-2">
-                                <span className="bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">Supervisor</span>
-                                <p className="text-xs sm:text-base text-muted-foreground font-bold">{teamLeaderName}</p>
-                            </div>
+                            <h3 className="font-black text-sm leading-tight text-foreground">Collection Intelligence</h3>
+                            <p className="text-[10px] text-muted-foreground font-medium">{teamLeaderName}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 sm:p-4 bg-muted hover:bg-rose-500/10 hover:text-rose-500 rounded-2xl transition-all active:scale-95 border border-transparent hover:border-rose-500/20 group ml-4"
-                    >
-                        <X size={20} className="sm:hidden text-muted-foreground group-hover:text-rose-500 transition-colors" />
-                        <X size={28} className="hidden sm:block text-muted-foreground group-hover:text-rose-500 transition-colors" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                    {/* Summary Metrics Grid: High Contrast V2 Compact (5 Columns) */}
-                    {!loading && history.length > 0 && (
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 p-4 sm:p-6 bg-muted/5 flex-shrink-0">
-                            <MetricTile
-                                label="Aggregate Sourcing"
-                                value={`₹${stats.totalCollection.toLocaleString()}`}
-                                icon={Wallet}
-                                color="indigo"
-                                subtitle="Total historical volume"
-                                trend="Global"
-                            />
-                            <MetricTile
-                                label="Today Collection"
-                                value={`₹${stats.todayCollection.toLocaleString()}`}
-                                icon={TrendingUp}
-                                color="emerald"
-                                subtitle="Live daily recovery"
-                                trend="Real-time"
-                            />
-                            <MetricTile
-                                label="Fleet Force"
-                                value={stats.avgActiveRiders.toString()}
-                                icon={Users}
-                                color="purple"
-                                subtitle="Mean active riders"
-                                trend="Avg."
-                            />
-                            <MetricTile
-                                label="Efficiency rate"
-                                value={`₹${stats.avgPerRider.toLocaleString()}`}
-                                icon={TrendingUp}
-                                color="amber"
-                                subtitle="Sourcing per head"
-                                trend="KPI"
-                            />
-                            <MetricTile
-                                label="Historical Peak"
-                                value={`₹${stats.bestDay.toLocaleString()}`}
-                                icon={BarChart3}
-                                color="indigo"
-                                subtitle="Highest day recorded"
-                                trend="Peak"
-                            />
-                        </div>
-                    )}
-
-                    {/* Enhanced Data Table V2: Compact Cinematic View */}
-                    <div className="flex-grow overflow-auto p-6 sm:p-8 pt-0 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
-                        {loading ? (
-                            <div className="h-[500px] flex flex-col items-center justify-center">
-                                <div className="relative w-32 h-32">
-                                    <div className="absolute inset-0 border-[10px] border-indigo-500/5 rounded-full" />
-                                    <div className="absolute inset-0 border-[10px] border-t-indigo-500 rounded-full animate-spin shadow-[0_0_30px_rgba(99,102,241,0.4)]" />
-                                </div>
-                                <p className="mt-10 text-xs font-black text-muted-foreground uppercase tracking-[0.4em] animate-pulse">Synchronizing Intelligence Stream...</p>
-                            </div>
-                        ) : history.length === 0 ? (
-                            <div className="h-[500px] flex flex-col items-center justify-center opacity-30">
-                                <Calendar size={120} className="mb-8 text-muted-foreground/50" />
-                                <p className="text-3xl font-black uppercase tracking-[0.5em] text-center">Historical Vacuum <br /><span className="text-sm tracking-[0.2em] font-bold opacity-60">No digital footprints detected</span></p>
-                            </div>
-                        ) : (
-                            <div className="bg-card/40 border border-white/5 rounded-[3rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-white/[0.03] border-b border-white/5 sticky top-0 z-10 backdrop-blur-3xl">
-                                            <th className="px-6 py-4 sm:px-8 sm:py-5 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/50">Temporal Marker</th>
-                                            <th className="px-6 py-4 sm:px-8 sm:py-5 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/50">Gross Recovery</th>
-                                            <th className="px-6 py-4 sm:px-8 sm:py-5 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/50 text-center">Active Force</th>
-                                            <th className="px-6 py-4 sm:px-8 sm:py-5 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-muted-foreground/50 text-right">Unit Efficiency</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/[0.03]">
-                                        {history.map((record, idx) => (
-                                            <tr key={idx} className="hover:bg-indigo-500/[0.07] transition-all group cursor-default relative overflow-hidden">
-                                                <td className="px-6 py-3 sm:px-8 sm:py-4 relative">
-                                                    {/* Left margin indicator */}
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 transition-opacity opacity-0 group-hover:opacity-100" />
-                                                    <div className="flex items-center gap-4 sm:gap-6">
-                                                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground group-hover:bg-indigo-500 group-hover:text-white group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-all duration-500 border border-white/5">
-                                                            <Calendar size={18} className="group-hover:scale-110 transition-transform sm:hidden" />
-                                                            <Calendar size={20} className="hidden sm:block group-hover:scale-110 transition-transform" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-black text-lg sm:text-xl tracking-tighter text-foreground/90 group-hover:text-indigo-400 transition-colors uppercase">
-                                                                {format(new Date(record.date), 'dd MMM yyyy')}
-                                                            </p>
-                                                            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.15em] mt-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                                                                {format(new Date(record.date), 'EEEE')} Cycle
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-3 sm:px-8 sm:py-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-black text-emerald-500 text-xl sm:text-2xl tracking-tighter group-hover:scale-105 transition-transform origin-left">
-                                                            ₹{record.total_collection.toLocaleString()}
-                                                        </span>
-                                                        <span className="text-[9px] sm:text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-1 opacity-50">Sourced Total</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-3 sm:px-8 sm:py-4 text-center">
-                                                    <div className="inline-flex items-center gap-2 sm:gap-3 px-4 py-1.5 sm:px-5 sm:py-2 rounded-[1rem] sm:rounded-2xl bg-muted/30 border border-white/5 group-hover:border-indigo-500/30 group-hover:bg-indigo-500/10 transition-all duration-300">
-                                                        <Users size={12} className="text-muted-foreground group-hover:text-indigo-400" />
-                                                        <span className="text-xs sm:text-sm font-black text-foreground/80 tracking-tight">
-                                                            {record.active_riders_count} Units
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-3 sm:px-8 sm:py-4 text-right">
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="font-black text-amber-500 text-lg sm:text-xl leading-none group-hover:text-indigo-400 transition-colors">
-                                                            ₹{Math.round(record.total_collection / record.active_riders_count).toLocaleString()}
-                                                        </span>
-                                                        <span className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter mt-2 opacity-50">Avg / Rider Efficiency</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                    <div className="flex items-center gap-2">
+                        {lastUpdated && (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wide">Live</span>
                             </div>
                         )}
+                        <button onClick={fetchHistory} className="p-1.5 hover:bg-muted rounded-lg transition-colors group" title="Refresh">
+                            <RefreshCw size={13} className="text-muted-foreground group-hover:text-foreground group-hover:rotate-180 transition-all duration-500" />
+                        </button>
+                        <button onClick={onClose} className="p-1.5 hover:bg-rose-500/10 hover:text-rose-500 rounded-lg transition-colors group">
+                            <X size={15} className="text-muted-foreground group-hover:text-rose-500 transition-colors" />
+                        </button>
                     </div>
                 </div>
 
-                {/* Footer Insight: Squeezed Information Rich */}
-                <div className="px-8 sm:px-12 py-4 sm:py-5 bg-muted/20 border-t border-white/5 flex justify-between items-center sm:rounded-b-[2.5rem] flex-shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-emerald-500 blur-md opacity-20 animate-pulse" />
-                            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)] relative z-10" />
-                        </div>
-                        <div>
-                            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-foreground/80 block leading-none">Intelligence Online</span>
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1 block opacity-60">
-                                {history.length} Critical Data Points Synchronized
-                            </span>
-                        </div>
+                {/* ── Stat Cards ─────────────────────────────────────────── */}
+                {!loading && (
+                    <div className="grid grid-cols-5 gap-2 p-3 flex-shrink-0 border-b border-border/30">
+                        {statCards.map((s) => {
+                            const Icon = s.icon;
+                            return (
+                                <div
+                                    key={s.label}
+                                    className={`group relative p-3 rounded-xl border cursor-default transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${colorMap[s.color]}`}
+                                >
+                                    <div className="flex items-start justify-between mb-1.5">
+                                        <p className="text-[9px] font-black uppercase tracking-wider opacity-70">{s.label}</p>
+                                        <Icon size={12} className={`${iconColorMap[s.color]} opacity-60 group-hover:opacity-100 transition-opacity`} />
+                                    </div>
+                                    <p className="text-base font-black leading-none">{s.value}</p>
+                                    <p className="text-[9px] mt-1 opacity-60 font-medium">{s.sub}</p>
+                                </div>
+                            );
+                        })}
                     </div>
-                    <div className="hidden sm:flex items-center gap-8">
-                        <InsightBadge label="Recovery" color="indigo" />
-                        <InsightBadge label="Deployment" color="purple" />
-                        <InsightBadge label="Efficiency" color="emerald" />
-                    </div>
+                )}
+
+                {/* ── Table ──────────────────────────────────────────────── */}
+                <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-border/50">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center h-48 gap-3">
+                            <div className="w-8 h-8 border-2 border-t-indigo-500 border-indigo-500/20 rounded-full animate-spin" />
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest animate-pulse">Syncing…</p>
+                        </div>
+                    ) : history.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-48 gap-2 opacity-30">
+                            <Calendar size={36} className="text-muted-foreground" />
+                            <p className="text-xs font-black uppercase tracking-widest">No data found</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-sm text-left">
+                            <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-md border-b border-border/40">
+                                <tr>
+                                    <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Date</th>
+                                    <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground">Collection</th>
+                                    <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground text-center">Riders</th>
+                                    <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground text-right">Avg/Rider</th>
+                                    <th className="px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground w-28">Pace</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {history.map((rec, idx) => {
+                                    const isToday = rec.date === todayStr;
+                                    const avgRider = rec.active_riders_count > 0
+                                        ? Math.round(rec.total_collection / rec.active_riders_count) : 0;
+                                    const pct = maxAmt > 0 ? (rec.total_collection / maxAmt) * 100 : 0;
+                                    const isBest = rec.total_collection === bestDay && bestDay > 0;
+
+                                    return (
+                                        <tr
+                                            key={idx}
+                                            className={`group border-b border-border/20 last:border-0 transition-all duration-150 cursor-default
+                                                ${isToday
+                                                    ? 'bg-emerald-500/5 hover:bg-emerald-500/10'
+                                                    : 'hover:bg-muted/40'}`}
+                                        >
+                                            {/* Date */}
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className={`w-1 h-8 rounded-full transition-all ${isToday ? 'bg-emerald-500' : isBest ? 'bg-amber-500' : 'bg-border/40 group-hover:bg-indigo-500/40'}`} />
+                                                    <div>
+                                                        <p className={`text-xs font-black ${isToday ? 'text-emerald-600' : 'text-foreground'}`}>
+                                                            {isToday ? 'Today' : format(parseISO(rec.date), 'dd MMM')}
+                                                        </p>
+                                                        <p className="text-[9px] text-muted-foreground font-medium">
+                                                            {format(parseISO(rec.date), isToday ? 'dd MMM yyyy' : 'EEE')}
+                                                        </p>
+                                                    </div>
+                                                    {isBest && <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded text-[8px] font-black">PEAK</span>}
+                                                    {isToday && <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded text-[8px] font-black animate-pulse">LIVE</span>}
+                                                </div>
+                                            </td>
+
+                                            {/* Collection */}
+                                            <td className="px-4 py-3">
+                                                <p className={`text-sm font-black ${isToday ? 'text-emerald-600' : 'text-foreground group-hover:text-indigo-600 transition-colors'}`}>
+                                                    ₹{rec.total_collection.toLocaleString()}
+                                                </p>
+                                                <p className="text-[9px] text-muted-foreground font-medium">gross</p>
+                                            </td>
+
+                                            {/* Riders */}
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/60 border border-border/30 group-hover:border-indigo-500/30 group-hover:bg-indigo-500/5 transition-all">
+                                                    <Users size={10} className="text-muted-foreground" />
+                                                    <span className="text-xs font-black">{rec.active_riders_count}</span>
+                                                </div>
+                                            </td>
+
+                                            {/* Avg/Rider */}
+                                            <td className="px-4 py-3 text-right">
+                                                <p className="text-xs font-black text-indigo-600">₹{avgRider.toLocaleString()}</p>
+                                                <p className="text-[9px] text-muted-foreground">per head</p>
+                                            </td>
+
+                                            {/* Pace bar */}
+                                            <td className="px-4 py-3 w-28">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-700 ${isToday ? 'bg-emerald-500' : isBest ? 'bg-amber-500' : 'bg-indigo-500/70'}`}
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-[9px] font-black text-muted-foreground w-7 text-right">{Math.round(pct)}%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                {/* ── Footer ─────────────────────────────────────────────── */}
+                <div className="px-5 py-2.5 bg-muted/20 border-t border-border/30 flex items-center justify-between flex-shrink-0">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                        {history.length} records · Auto-synced
+                    </p>
+                    {lastUpdated && (
+                        <p className="text-[9px] text-muted-foreground">
+                            Updated {format(lastUpdated, 'HH:mm:ss')}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>,
         document.body
     );
 };
-
-interface MetricTileProps {
-    label: string;
-    value: string;
-    icon: React.ElementType;
-    color: string;
-    subtitle: string;
-    trend?: string;
-}
-
-const MetricTile: React.FC<MetricTileProps> = ({ label, value, icon: Icon, color, subtitle, trend }) => {
-    return (
-        <div className="bg-card/40 border border-white/5 rounded-[1.5rem] p-4 sm:p-5 shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 relative overflow-hidden group hover:-translate-y-1 backdrop-blur-md">
-            <div className={`absolute top-0 right-0 p-3 opacity-[0.03] scale-150 transform translate-x-1 translate-y-1 group-hover:scale-[1.8] group-hover:opacity-[0.07] transition-all duration-700 font-black`}>
-                <Icon size={48} />
-            </div>
-
-            <div className="relative z-10">
-                <div className="flex justify-between items-start mb-3">
-                    <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-muted-foreground/60 leading-tight pr-1 sm:pr-2">{label}</p>
-                    {trend && (
-                        <span className={`text-[8px] font-black px-2 py-0.5 rounded-md self-start flex-shrink-0 ${color === 'indigo' ? 'bg-indigo-500/10 text-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.2)]' :
-                            'bg-emerald-500/10 text-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-                            }`}>
-                            {trend}
-                        </span>
-                    )}
-                </div>
-                <p className="text-2xl sm:text-3xl font-black tracking-tighter mb-1.5">{value}</p>
-                <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground/60 leading-tight pr-2 sm:pr-4">{subtitle}</p>
-                <div className={`w-8 sm:w-10 h-1 sm:h-1.5 rounded-full mt-3 bg-gradient-to-r ${color === 'indigo' ? 'from-indigo-600 to-violet-600' :
-                    color === 'purple' ? 'from-purple-600 to-fuchsia-600' :
-                        color === 'emerald' ? 'from-emerald-600 to-teal-600' :
-                            'from-amber-500 to-orange-500'
-                    }`} />
-            </div>
-        </div>
-    );
-};
-
-const InsightBadge: React.FC<{ label: string, color: string }> = ({ label, color }) => (
-    <div className="flex items-center gap-2.5">
-        <div className={`w-1.5 h-1.5 rounded-full bg-${color}-500 shadow-[0_0_8px_rgba(var(--${color}-500),0.4)]`} />
-        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-foreground/40">{label}</span>
-    </div>
-);
 
 export default CollectionHistoryModal;
