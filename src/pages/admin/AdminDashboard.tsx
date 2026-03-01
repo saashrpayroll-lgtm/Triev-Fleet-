@@ -130,6 +130,9 @@ const Dashboard: React.FC = () => {
             const weekStart = weekStartUTC.toISOString().split('T')[0];
 
             const dailyData = dailyRes.data || [];
+            // Collect today's daily_collections TL IDs so we can track which to override
+            const todayTLIds = new Set<string>();
+
             dailyData.forEach((d: any) => {
                 const tlId = d.team_leader_id;
                 const amt = Number(d.total_collection) || 0;
@@ -140,27 +143,36 @@ const Dashboard: React.FC = () => {
                 // Total Collection (All Time)
                 collections[tlId] = (collections[tlId] || 0) + amt;
 
-                // Daily Collection - Robust match
+                // Daily Collection — populated from daily_collections initially,
+                // but will be REPLACED by live wallet_ledger data for today below
                 if (dDateStr === todayStr) {
-                    dayMap[tlId] = (dayMap[tlId] || 0) + amt;
+                    dayMap[tlId] = amt; // Set (not accumulate) — will be overridden by live data
+                    todayTLIds.add(tlId);
                 }
 
-                // Weekly Collection - Robust match
+                // Weekly Collection
                 if (dDateStr >= weekStart) {
                     weekMap[tlId] = (weekMap[tlId] || 0) + amt;
                 }
             });
 
-            // Instead of populating dayMap from daily_collections (which has timezone lag), 
-            // populate it accurately from raw wallet ledger for today.
+            // ★ FIX: REPLACE today's dayMap with LIVE wallet_ledger data (not add to it)
+            // Build fresh live totals per TL from today's wallet_ledger
+            const liveTodayByTL: Record<string, number> = {};
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
                 if (txn.rider && txn.rider.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
-                    const amt = Number(txn.amount) || 0;
-                    dayMap[tlId] = (dayMap[tlId] || 0) + amt;
+                    liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
                 }
             });
+
+            // Override today's dayMap with live data (for any TL that has live data)
+            // For TLs with no live data yet but had daily_collections, keep daily_collections value
+            Object.keys(liveTodayByTL).forEach(tlId => {
+                dayMap[tlId] = liveTodayByTL[tlId]; // REPLACE, not accumulate
+            });
+
 
             setTlCollections(collections);
             setDailyCollections(dayMap);
