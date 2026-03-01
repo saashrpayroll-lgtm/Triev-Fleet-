@@ -493,6 +493,25 @@ export const processWalletUpdate = async (
     // Log Import History
     await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
 
+    // ─── Auto-Cleanup: Remove stale DAY_OPENING_BALANCE (RESET) entries ───────
+    // Only entries from PREVIOUS dates with mode=RESET and type=DAY_OPENING_BALANCE
+    // are removed. Today's entries are preserved. Runs silently — any failure here
+    // is non-fatal and does not affect the summary returned to the UI.
+    if (summary.success > 0) {
+        try {
+            const { data: cleanupResult, error: cleanupError } = await supabase.rpc('cleanup_wallet_ledger');
+            if (cleanupError) {
+                console.warn('[Auto-Cleanup] cleanup_wallet_ledger RPC failed:', cleanupError.message);
+            } else if (cleanupResult?.deleted_count > 0) {
+                console.log(`[Auto-Cleanup] Removed ${cleanupResult.deleted_count} stale DAY_OPENING_BALANCE entries from previous dates.`);
+            }
+        } catch (cleanupErr) {
+            // Non-fatal: log and move on
+            console.warn('[Auto-Cleanup] Failed silently:', cleanupErr);
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     return summary;
 };
 
