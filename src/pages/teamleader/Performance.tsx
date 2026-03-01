@@ -70,13 +70,19 @@ const TLPersonalPerformance: React.FC = () => {
     const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [showOnlyActive, setShowOnlyActive] = useState(false); // Only show days with collection
 
-    // ─── Fetch Everything ────────────────────────────────────────────────
+    // ─── Fetch Everything ─────────────────────────────────────────────────
     const fetchAll = useCallback(async () => {
         if (!userData?.id) return;
         setLoading(true);
         try {
-            const [ridersRes, leadsRes, ledgerRes] = await Promise.all([
-                // Fetch all non-deleted riders for this TL (including inactivated_at)
+            // Compute today's IST midnight as UTC for wallet_ledger gte filter
+            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+            const [yr, mo, dy] = todayStr.split('-').map(Number);
+            const midnightIST = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0));
+            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330); // IST = UTC+5:30
+
+            const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
+                // All TL's non-deleted riders
                 supabase
                     .from('riders')
                     .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at')
@@ -84,48 +90,58 @@ const TLPersonalPerformance: React.FC = () => {
                     .is('deleted_at', null)
                     .limit(5000),
 
-                // Fetch leads created by this TL
+                // Leads for this TL
                 supabase
                     .from('leads')
                     .select('status, created_at')
                     .eq('created_by', userData.id)
                     .limit(5000),
 
-                // Fetch wallet_ledger entries server-side filtered to this TL's riders via JOIN
+                // ✅ PROVEN: daily_collections has correct TL RLS policies
+                supabase
+                    .from('daily_collections')
+                    .select('date, total_collection, active_riders_count')
+                    .eq('team_leader_id', userData.id)
+                    .order('date', { ascending: false })
+                    .limit(1000),
+
+                // ✅ PROVEN: wallet_ledger today-only live override (same as CollectionHistory.tsx)
                 supabase
                     .from('wallet_ledger')
-                    .select(`
-                        rider_id,
-                        amount,
-                        transaction_type,
-                        mode,
-                        created_at,
-                        transaction_date,
-                        metadata,
-                        rider:riders!inner ( team_leader_id )
-                    `)
+                    .select('amount, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                     .eq('rider.team_leader_id', userData.id)
-                    .limit(10000),
+                    .gte('created_at', midnightIST.toISOString()),
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
-            if (ledgerRes.error) {
-                console.error('Ledger fetch error:', ledgerRes.error);
-                // Don't throw — fallback to client-side filter
-            }
+            if (dailyRes.error) throw dailyRes.error;
 
             const riderData = ridersRes.data || [];
+            const activeNow = riderData.filter((r: any) => r.status === 'active').length;
 
-            // Fallback: if the server-side join filter didn't work, client-side filter
-            const myRiderIds = new Set(riderData.map((r: any) => r.id as string));
-            const rawLedger = (ledgerRes.data || []);
-            const myLedger = rawLedger.filter((e: any) => myRiderIds.has(e.rider_id));
+            // Build merged daily records: daily_collections as base, override today
+            let dailyRecords: Array<{ date: string; total_collection: number; active_riders_count: number }> =
+                (dailyRes.data || []).map((r: any) => ({
+                    date: r.date as string,
+                    total_collection: Number(r.total_collection) || 0,
+                    active_riders_count: Number(r.active_riders_count) || 0,
+                }));
+
+            const realTodayCol = (todayLedgerRes.data || []).reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+            const existingTodayIdx = dailyRecords.findIndex(r => r.date === todayStr);
+            if (existingTodayIdx >= 0) {
+                dailyRecords[existingTodayIdx].total_collection = realTodayCol;
+                dailyRecords[existingTodayIdx].active_riders_count = activeNow;
+            } else {
+                // Today not yet in daily_collections — inject it as first entry
+                dailyRecords = [{ date: todayStr, total_collection: realTodayCol, active_riders_count: activeNow }, ...dailyRecords];
+            }
 
             setRiders(riderData);
             setLeads(leadsRes.data || []);
-            setLedgerEntries(myLedger);
+            setLedgerEntries(dailyRecords as any); // Repurpose ledgerEntries to hold daily records
         } catch (err: any) {
             console.error('Performance fetch error:', err);
             toast.error('Failed to load data: ' + err.message);
@@ -167,73 +183,51 @@ const TLPersonalPerformance: React.FC = () => {
 
     // ─── Main Computation ──────────────────────────────────────────────────
     const { summary, ledger } = useMemo(() => {
-        const pStart = format(rangeStart, 'yyyy-MM-dd');
-        const pEnd = format(rangeEnd, 'yyyy-MM-dd');
-
-        // Get the effective collection date from a ledger entry
-        const getEntryDate = (e: any): string => {
-            try {
-                const dos = (e.metadata as any)?.date_on_sheet as string | undefined;
-                if (dos && dos.trim() !== '') return toISTStr(new Date(dos));
-            } catch { }
-            if (e.transaction_date) return toISTStr(new Date(e.transaction_date));
-            return toISTStr(new Date(e.created_at));
-        };
-
-        // Filter ledger to our period
-        const periodLedger = ledgerEntries.filter(e => {
-            const d = getEntryDate(e);
-            return d >= pStart && d <= pEnd;
+        // ledgerEntries now contains daily_collections records: {date, total_collection, active_riders_count}
+        // Build a map from date → { collection, activeRiders }
+        const dailyMap = new Map<string, { col: number; active: number }>();
+        (ledgerEntries as any[]).forEach((rec: any) => {
+            const d = rec.date as string;
+            if (!d) return;
+            dailyMap.set(d, {
+                col: Number(rec.total_collection) || 0,
+                active: Number(rec.active_riders_count) || 0,
+            });
         });
 
-        // Build collection by date
-        const collectByDate = new Map<string, number>();
-        periodLedger.forEach(e => {
-            const d = getEntryDate(e);
-            collectByDate.set(d, (collectByDate.get(d) || 0) + Number(e.amount || 0));
-        });
-
-        // Build daily ledger rows
+        // Build daily ledger rows for every day in the selected range
         const days = eachDayOfInterval({ start: rangeStart, end: rangeEnd }).reverse();
         const dailyLedger: DailyRow[] = days.map(day => {
             const ds = format(day, 'yyyy-MM-dd');
-            const col = collectByDate.get(ds) || 0;
+            const dayData = dailyMap.get(ds);
+            const col = dayData?.col || 0;
+            const activeFromDB = dayData?.active || 0;
 
-            // Allotments: allotment_date is a plain DATE string "YYYY-MM-DD"
-            // Compare directly without timezone conversion to avoid date drift
+            // Allotments: allotment_date is stored as plain DATE "YYYY-MM-DD" — compare directly
             const dayAllotments = riders.filter(r => {
                 const ad: string | null = r.allotment_date;
-                if (!ad) return false;
-                // Plain DATE: just compare the first 10 chars
-                return ad.substring(0, 10) === ds;
+                return ad ? ad.substring(0, 10) === ds : false;
             }).length;
 
-            // Submissions: check ALL riders (they might have been re-activated later)
-            // inactivated_at is a TIMESTAMPTZ — convert to IST date
+            // Submissions: inactive riders whose inactivated_at (IST date) == ds
             const daySubmissions = riders.filter(r => {
+                if (r.status !== 'inactive') return false;
                 const iat: string | null = r.inactivated_at;
                 const uat: string | null = r.updated_at;
-                // Only count if rider is currently inactive and inactivated on this day
-                if (r.status !== 'inactive') return false;
                 const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
                 return inactDate === ds;
             }).length;
 
-            // Active fleet on this day = riders allotted on or before ds, not yet inactivated by ds
-            const activeOnDay = riders.filter(r => {
+            // Active fleet: prefer daily_collections record; fallback to historical calculation
+            const activeOnDay = activeFromDB > 0 ? activeFromDB : riders.filter(r => {
                 const ad: string | null = r.allotment_date;
                 if (!ad) return false;
-                const allotDs = ad.substring(0, 10);
-                if (allotDs > ds) return false; // Not yet allotted
-                if (r.status === 'active') return true; // Still active today
-                if (r.status === 'inactive') {
-                    // Was inactivated after this day?
-                    const iat: string | null = r.inactivated_at;
-                    const uat: string | null = r.updated_at;
-                    const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
-                    return inactDate ? inactDate > ds : false;
-                }
-                return false;
+                if (ad.substring(0, 10) > ds) return false;
+                if (r.status === 'active') return true;
+                const iat: string | null = r.inactivated_at;
+                const uat: string | null = r.updated_at;
+                const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
+                return inactDate ? inactDate > ds : false;
             }).length;
 
             const dayLeads = leads.filter(l => l.created_at && toISTStr(new Date(l.created_at)) === ds);
@@ -248,9 +242,10 @@ const TLPersonalPerformance: React.FC = () => {
                 netGrowth: dayAllotments - daySubmissions,
                 leads: dayLeads.length,
                 conversions: dayConv,
-                avgCollection: activeOnDay > 0 ? Math.round(col / activeOnDay) : 0,
+                avgCollection: activeOnDay > 0 && col > 0 ? Math.round(col / activeOnDay) : 0,
             };
         });
+
 
 
         // Summary
