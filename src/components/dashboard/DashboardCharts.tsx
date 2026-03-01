@@ -1,46 +1,72 @@
+import React from 'react';
+import { motion } from 'framer-motion';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     Cell, PieChart, Pie, Legend
 } from 'recharts';
-import { safeRender } from '@/utils/safeRender';
 
 interface DashboardChartsProps {
-    riderData: { name: string; value: number; color: string }[]; // Active, Inactive, Deleted
-    walletData: { name: string; value: number; color?: string }[]; // Inflow, Outflow
-    leadData: { name: string; value: number; color: string }[]; // Converted, Lost
+    riderData: { name: string; value: number; color: string }[];
+    walletData: { name: string; value: number; color?: string }[];
+    leadData: { name: string; value: number; color: string }[];
 }
+
+const CHART_GRADIENTS = [
+    { id: 'grad0', from: '#6366f1', to: '#8b5cf6' },
+    { id: 'grad1', from: '#f43f5e', to: '#fb923c' },
+    { id: 'grad2', from: '#94a3b8', to: '#64748b' },
+];
+
+const CustomBarTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-popover/95 backdrop-blur-md border border-border/60 rounded-2xl shadow-2xl p-3 text-sm">
+                <p className="font-black text-foreground mb-1">{label}</p>
+                <p className="text-emerald-500 font-bold tabular-nums">₹{Number(payload[0].value).toLocaleString('en-IN')}</p>
+            </div>
+        );
+    }
+    return null;
+};
 
 const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData, leadData }) => {
 
-    // Prepare Lead Data for simpler display
     const totalLeads = leadData.reduce((sum, item) => sum + item.value, 0);
-    const leadConversionRate = totalLeads > 0
-        ? Math.round((leadData.find(d => d.name === 'Converted')?.value || 0) / totalLeads * 100)
-        : 0;
+    const convertedCount = leadData.find(d => d.name === 'Converted')?.value || 0;
+    const leadConversionRate = totalLeads > 0 ? Math.round((convertedCount / totalLeads) * 100) : 0;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom duration-700 delay-300">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom duration-700 delay-300">
 
-            {/* 1. Fleet Composition (Vibrant Donut Chart) */}
-            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-zinc-200 dark:border-t-white/20 group">
-                <div className="mb-6 flex justify-between items-center">
+            {/* ── 1. Fleet Composition (Donut) ── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-card/60 dark:bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-sm p-5 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 group"
+            >
+                <div className="mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 rounded-full bg-gradient-to-b from-indigo-400 to-violet-600 group-hover:scale-y-110 transition-transform" />
                     <div>
-                        <h3 className="text-xl font-black tracking-tighter text-foreground flex items-center gap-2">
-                            <span className="w-1.5 h-6 bg-indigo-500 rounded-full group-hover:scale-y-125 transition-transform" />
-                            Fleet Status
-                        </h3>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-3.5">Real-time Distribution</p>
+                        <h3 className="text-base font-black tracking-tight text-foreground">Fleet Status</h3>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Real-time distribution</p>
                     </div>
                 </div>
-                <div className="h-[320px] w-full">
+                <div className="h-[260px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <defs>
-                                <filter id="shadow" height="200%">
-                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                                {CHART_GRADIENTS.map((g) => (
+                                    <linearGradient key={g.id} id={g.id} x1="0" y1="0" x2="1" y2="1">
+                                        <stop offset="0%" stopColor={g.from} />
+                                        <stop offset="100%" stopColor={g.to} />
+                                    </linearGradient>
+                                ))}
+                                <filter id="pieShadow" height="200%">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
                                     <feOffset dx="0" dy="4" result="offsetblur" />
                                     <feComponentTransfer>
-                                        <feFuncA type="linear" slope="0.3" />
+                                        <feFuncA type="linear" slope="0.25" />
                                     </feComponentTransfer>
                                     <feMerge>
                                         <feMergeNode />
@@ -51,130 +77,179 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                             <Pie
                                 data={riderData}
                                 cx="50%"
-                                cy="50%"
-                                innerRadius={70}
-                                outerRadius={100}
-                                paddingAngle={8}
+                                cy="46%"
+                                innerRadius={60}
+                                outerRadius={95}
+                                paddingAngle={6}
                                 dataKey="value"
                                 stroke="none"
-                                filter="url(#shadow)"
+                                filter="url(#pieShadow)"
+                                animationBegin={200}
+                                animationDuration={900}
                             >
-                                {riderData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity cursor-pointer" />
+                                {riderData.map((_entry, index) => (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={`url(#grad${index % 3})`}
+                                        className="hover:opacity-80 transition-opacity cursor-pointer"
+                                    />
                                 ))}
                             </Pie>
                             <Tooltip
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold', backgroundColor: 'var(--background)', color: 'var(--foreground)' }}
-                                itemStyle={{ fontSize: '12px', color: 'var(--foreground)' }}
+                                contentStyle={{
+                                    borderRadius: '16px', border: 'none',
+                                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                                    fontWeight: 'bold',
+                                    backgroundColor: 'hsl(var(--popover))',
+                                    color: 'hsl(var(--popover-foreground))'
+                                }}
+                                itemStyle={{ fontSize: '12px' }}
                             />
                             <Legend
                                 verticalAlign="bottom"
                                 height={36}
                                 iconType="circle"
-                                formatter={(value) => <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{value}</span>}
+                                iconSize={8}
+                                formatter={(value) => (
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{value}</span>
+                                )}
                             />
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* 2. Financial Overview (Horizontal Bar Chart) */}
-            <div className="bg-card/50 backdrop-blur-xl border rounded-3xl shadow-sm p-6 hover:shadow-2xl transition-all duration-500 border-t-zinc-200 dark:border-t-white/20 group">
-                <div className="mb-6">
-                    <h3 className="text-xl font-black tracking-tighter text-foreground flex items-center gap-2">
-                        <span className="w-1.5 h-6 bg-emerald-500 rounded-full group-hover:scale-y-125 transition-transform" />
-                        Wallet Dynamics
-                    </h3>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-3.5">Inflow vs Risk Analysis</p>
+            {/* ── 2. Wallet Dynamics (Vertical Bar) ── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-card/60 dark:bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-sm p-5 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-500 group"
+            >
+                <div className="mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 rounded-full bg-gradient-to-b from-emerald-400 to-teal-600 group-hover:scale-y-110 transition-transform" />
+                    <div>
+                        <h3 className="text-base font-black tracking-tight text-foreground">Wallet Dynamics</h3>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Inflow vs Risk analysis</p>
+                    </div>
                 </div>
-                <div className="h-[320px] w-full">
+                <div className="h-[260px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             layout="vertical"
                             data={walletData}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                            margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} stroke="currentColor" />
+                            <defs>
+                                <linearGradient id="barGreen" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#34d399" />
+                                    <stop offset="100%" stopColor="#10b981" />
+                                </linearGradient>
+                                <linearGradient id="barRed" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#fb7185" />
+                                    <stop offset="100%" stopColor="#f43f5e" />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.15} />
                             <XAxis type="number" hide />
                             <YAxis
                                 dataKey="name"
                                 type="category"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fontSize: 11, fontWeight: 'bold', fill: 'hsl(var(--foreground))' }}
-                                width={80}
+                                tick={{ fontSize: 10, fontWeight: 700, fill: 'hsl(var(--muted-foreground))' }}
+                                width={90}
                             />
-                            <Tooltip
-                                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1 }}
-                                contentStyle={{
-                                    borderRadius: '16px',
-                                    border: 'none',
-                                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-                                    fontWeight: 'bold',
-                                    backgroundColor: 'hsl(var(--popover))',
-                                    color: 'hsl(var(--popover-foreground))'
-                                }}
-                                itemStyle={{ color: 'hsl(var(--foreground))' }}
-                                formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, 'Amount']}
-                                labelFormatter={(label) => safeRender(label)}
-                            />
-                            <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={32} label={{ position: 'insideRight', fill: '#fff', fontSize: 11, fontWeight: 'bold' }}>
-                                {walletData.map((entry, index) => (
+                            <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(99,102,241,0.05)' }} />
+                            <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28} animationDuration={800}>
+                                {walletData.map((_entry, index) => (
                                     <Cell
                                         key={`cell-${index}`}
-                                        fill={entry.name.includes('Collections') ? '#10b981' : '#f43f5e'}
+                                        fill={walletData[index].name.toLowerCase().includes('collection') ? 'url(#barGreen)' : 'url(#barRed)'}
                                     />
                                 ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* 3. Lead Conversion Analytics (Vibrant Progress View) */}
-            <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl shadow-xl p-8 text-white relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                    <svg width="200" height="200" viewBox="0 0 200 200" fill="none">
-                        <circle cx="100" cy="100" r="80" stroke="white" strokeWidth="20" strokeDasharray="10 20" />
+            {/* ── 3. Conversion Efficiency ── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="col-span-1 md:col-span-2 relative overflow-hidden rounded-2xl shadow-xl group"
+            >
+                {/* Gradient bg */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700" />
+                {/* Mesh overlay */}
+                <div className="absolute inset-0 opacity-10">
+                    <svg className="w-full h-full" viewBox="0 0 400 160" preserveAspectRatio="xMidYMid slice">
+                        <defs>
+                            <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                                <path d="M 30 0 L 0 0 0 30" fill="none" stroke="white" strokeWidth="0.5" />
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)" />
                     </svg>
                 </div>
+                {/* Glow orbs */}
+                <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700" />
+                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-purple-400/20 rounded-full blur-2xl" />
 
-                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 font-jakarta">
-                    <div className="text-center md:text-left space-y-2 flex-grow">
-                        <h3 className="text-2xl font-black tracking-tighter">Conversion Efficiency</h3>
-                        <p className="text-indigo-100 text-sm font-medium">Your lead-to-rider pipeline is performing at <span className="bg-white/20 px-2 py-0.5 rounded font-black">{leadConversionRate}%</span></p>
+                <div className="relative z-10 p-6 sm:p-8 text-white">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
 
-                        <div className="mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 min-w-[120px]">
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total Leads</p>
-                                <p className="text-2xl font-black">{totalLeads}</p>
+                        {/* Left: stats */}
+                        <div className="space-y-3 flex-grow">
+                            <div>
+                                <h3 className="text-xl sm:text-2xl font-black tracking-tight">Conversion Efficiency</h3>
+                                <p className="text-indigo-200 text-xs font-medium mt-0.5">
+                                    Lead-to-rider pipeline performing at{' '}
+                                    <span className="bg-white/20 px-2 py-0.5 rounded-lg font-black text-white">{leadConversionRate}%</span>
+                                </p>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 min-w-[120px]">
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Converted</p>
-                                <p className="text-2xl font-black text-emerald-300">{leadData.find(d => d.name === 'Converted')?.value || 0}</p>
+                            <div className="flex flex-wrap gap-3">
+                                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 min-w-[100px]">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-indigo-200 mb-1">Total Leads</p>
+                                    <p className="text-2xl font-black tabular-nums">{totalLeads}</p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 min-w-[100px]">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-indigo-200 mb-1">Converted</p>
+                                    <p className="text-2xl font-black tabular-nums text-emerald-300">{convertedCount}</p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 min-w-[100px]">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-indigo-200 mb-1">Lost</p>
+                                    <p className="text-2xl font-black tabular-nums text-rose-300">
+                                        {leadData.find(d => d.name === 'Not Convert')?.value || 0}
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex-shrink-0 relative w-40 h-40">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-4xl font-black">{leadConversionRate}%</span>
+                        {/* Right: radial progress */}
+                        <div className="flex-shrink-0 relative w-28 h-28 sm:w-36 sm:h-36 self-center">
+                            <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" className="fill-none stroke-white/10" strokeWidth="10" />
+                                <motion.circle
+                                    cx="60" cy="60" r="50"
+                                    className="fill-none stroke-emerald-400"
+                                    strokeWidth="10"
+                                    strokeLinecap="round"
+                                    strokeDasharray={314}
+                                    initial={{ strokeDashoffset: 314 }}
+                                    animate={{ strokeDashoffset: 314 - (314 * leadConversionRate) / 100 }}
+                                    transition={{ duration: 1.5, ease: 'easeOut', delay: 0.4 }}
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-2xl sm:text-3xl font-black tabular-nums">{leadConversionRate}%</span>
+                            </div>
                         </div>
-                        <svg className="w-full h-full -rotate-90">
-                            <circle cx="80" cy="80" r="70" className="stroke-white/10 fill-none" strokeWidth="12" />
-                            <circle
-                                cx="80" cy="80" r="70"
-                                className="stroke-emerald-400 fill-none transition-all duration-1000"
-                                strokeWidth="12"
-                                strokeDasharray={440}
-                                strokeDashoffset={440 - (440 * leadConversionRate) / 100}
-                                strokeLinecap="round"
-                            />
-                        </svg>
                     </div>
                 </div>
-            </div>
-
+            </motion.div>
         </div>
     );
 };

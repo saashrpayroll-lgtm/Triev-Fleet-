@@ -1,98 +1,73 @@
 
 import React from 'react';
-import { LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { LucideIcon, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { safeRender } from '@/utils/safeRender';
-// import { cn } from '@/lib/utils'; // Removed to avoid dependency issues
 
 interface SmartMetricCardProps {
     title: string;
     value: string | number;
     icon: LucideIcon;
     trend?: {
-        value: number; // percentage
-        label: string; // e.g., "vs last month"
+        value: number;
+        label: string;
         direction: 'up' | 'down' | 'neutral';
     };
     color: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'indigo' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'slate' | 'lime' | 'violet' | 'fuchsia';
     onClick?: () => void;
     subtitle?: string;
-    aiInsight?: string; // New prop for AI insights
+    aiInsight?: string;
     loading?: boolean;
-    className?: string; // For additional styling
-    progress?: number; // 0-100 for Circular Progress Bar
+    className?: string;
+    progress?: number;
     isCurrency?: boolean;
 }
 
-const colorMap = {
-    blue: 'bg-blue-500/10 text-blue-600 border-blue-500/20 hover:shadow-blue-500/20 hover:border-blue-500/40',
-    green: 'bg-green-500/10 text-green-600 border-green-500/20 hover:shadow-green-500/20 hover:border-green-500/40',
-    red: 'bg-red-500/10 text-red-600 border-red-500/20 hover:shadow-red-500/20 hover:border-red-500/40',
-    orange: 'bg-orange-500/10 text-orange-600 border-orange-500/20 hover:shadow-orange-500/20 hover:border-orange-500/40',
-    purple: 'bg-purple-500/10 text-purple-600 border-purple-500/20 hover:shadow-purple-500/20 hover:border-purple-500/40',
-    indigo: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 hover:shadow-indigo-500/20 hover:border-indigo-500/40',
-    cyan: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20 hover:shadow-cyan-500/20 hover:border-cyan-500/40',
-    emerald: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:shadow-emerald-500/20 hover:border-emerald-500/40',
-    amber: 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:shadow-amber-500/20 hover:border-amber-500/40',
-    rose: 'bg-rose-500/10 text-rose-600 border-rose-500/20 hover:shadow-rose-500/20 hover:border-rose-500/40',
-    slate: 'bg-slate-500/10 text-slate-600 border-slate-500/20 hover:shadow-slate-500/20 hover:border-slate-500/40',
-    lime: 'bg-lime-500/10 text-lime-600 border-lime-500/20 hover:shadow-lime-500/20 hover:border-lime-500/40',
-    violet: 'bg-violet-500/10 text-violet-600 border-violet-500/20 hover:shadow-violet-500/20 hover:border-violet-500/40',
-    fuchsia: 'bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20 hover:shadow-fuchsia-500/20 hover:border-fuchsia-500/40',
+// Per-color design tokens
+const colorTokens: Record<string, {
+    card: string;
+    icon: string;
+    iconBg: string;
+    glow: string;
+    bar: string;
+    badge: string;
+    text: string;
+    dot: string;
+    ring: string;
+}> = {
+    blue: { card: 'from-blue-500/15 via-blue-500/5 to-transparent border-blue-400/20', icon: 'text-blue-500', iconBg: 'bg-blue-500/10 ring-blue-500/20', glow: 'hover:shadow-blue-500/25', bar: 'from-blue-400 to-blue-600', badge: 'bg-blue-500/10 text-blue-500 border-blue-500/20', text: 'text-blue-500', dot: 'bg-blue-500', ring: 'group-hover:ring-blue-500/30' },
+    green: { card: 'from-green-500/15 via-green-500/5 to-transparent border-green-400/20', icon: 'text-green-500', iconBg: 'bg-green-500/10 ring-green-500/20', glow: 'hover:shadow-green-500/25', bar: 'from-green-400 to-green-600', badge: 'bg-green-500/10 text-green-500 border-green-500/20', text: 'text-green-500', dot: 'bg-green-500', ring: 'group-hover:ring-green-500/30' },
+    red: { card: 'from-red-500/15 via-red-500/5 to-transparent border-red-400/20', icon: 'text-red-500', iconBg: 'bg-red-500/10 ring-red-500/20', glow: 'hover:shadow-red-500/25', bar: 'from-red-400 to-red-600', badge: 'bg-red-500/10 text-red-500 border-red-500/20', text: 'text-red-500', dot: 'bg-red-500', ring: 'group-hover:ring-red-500/30' },
+    orange: { card: 'from-orange-500/15 via-orange-500/5 to-transparent border-orange-400/20', icon: 'text-orange-500', iconBg: 'bg-orange-500/10 ring-orange-500/20', glow: 'hover:shadow-orange-500/25', bar: 'from-orange-400 to-orange-600', badge: 'bg-orange-500/10 text-orange-500 border-orange-500/20', text: 'text-orange-500', dot: 'bg-orange-500', ring: 'group-hover:ring-orange-500/30' },
+    purple: { card: 'from-purple-500/15 via-purple-500/5 to-transparent border-purple-400/20', icon: 'text-purple-500', iconBg: 'bg-purple-500/10 ring-purple-500/20', glow: 'hover:shadow-purple-500/25', bar: 'from-purple-400 to-purple-600', badge: 'bg-purple-500/10 text-purple-500 border-purple-500/20', text: 'text-purple-500', dot: 'bg-purple-500', ring: 'group-hover:ring-purple-500/30' },
+    indigo: { card: 'from-indigo-500/15 via-indigo-500/5 to-transparent border-indigo-400/20', icon: 'text-indigo-500', iconBg: 'bg-indigo-500/10 ring-indigo-500/20', glow: 'hover:shadow-indigo-500/25', bar: 'from-indigo-400 to-indigo-600', badge: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20', text: 'text-indigo-500', dot: 'bg-indigo-500', ring: 'group-hover:ring-indigo-500/30' },
+    cyan: { card: 'from-cyan-500/15 via-cyan-500/5 to-transparent border-cyan-400/20', icon: 'text-cyan-500', iconBg: 'bg-cyan-500/10 ring-cyan-500/20', glow: 'hover:shadow-cyan-500/25', bar: 'from-cyan-400 to-cyan-600', badge: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20', text: 'text-cyan-500', dot: 'bg-cyan-500', ring: 'group-hover:ring-cyan-500/30' },
+    emerald: { card: 'from-emerald-500/15 via-emerald-500/5 to-transparent border-emerald-400/20', icon: 'text-emerald-500', iconBg: 'bg-emerald-500/10 ring-emerald-500/20', glow: 'hover:shadow-emerald-500/25', bar: 'from-emerald-400 to-emerald-600', badge: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', text: 'text-emerald-500', dot: 'bg-emerald-500', ring: 'group-hover:ring-emerald-500/30' },
+    amber: { card: 'from-amber-500/15 via-amber-500/5 to-transparent border-amber-400/20', icon: 'text-amber-500', iconBg: 'bg-amber-500/10 ring-amber-500/20', glow: 'hover:shadow-amber-500/25', bar: 'from-amber-400 to-amber-600', badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20', text: 'text-amber-500', dot: 'bg-amber-500', ring: 'group-hover:ring-amber-500/30' },
+    rose: { card: 'from-rose-500/15 via-rose-500/5 to-transparent border-rose-400/20', icon: 'text-rose-500', iconBg: 'bg-rose-500/10 ring-rose-500/20', glow: 'hover:shadow-rose-500/25', bar: 'from-rose-400 to-rose-600', badge: 'bg-rose-500/10 text-rose-500 border-rose-500/20', text: 'text-rose-500', dot: 'bg-rose-500', ring: 'group-hover:ring-rose-500/30' },
+    slate: { card: 'from-slate-500/15 via-slate-500/5 to-transparent border-slate-400/20', icon: 'text-slate-500', iconBg: 'bg-slate-500/10 ring-slate-500/20', glow: 'hover:shadow-slate-500/25', bar: 'from-slate-400 to-slate-600', badge: 'bg-slate-500/10 text-slate-500 border-slate-500/20', text: 'text-slate-500', dot: 'bg-slate-500', ring: 'group-hover:ring-slate-500/30' },
+    lime: { card: 'from-lime-500/15 via-lime-500/5 to-transparent border-lime-400/20', icon: 'text-lime-500', iconBg: 'bg-lime-500/10 ring-lime-500/20', glow: 'hover:shadow-lime-500/25', bar: 'from-lime-400 to-lime-600', badge: 'bg-lime-500/10 text-lime-500 border-lime-500/20', text: 'text-lime-500', dot: 'bg-lime-500', ring: 'group-hover:ring-lime-500/30' },
+    violet: { card: 'from-violet-500/15 via-violet-500/5 to-transparent border-violet-400/20', icon: 'text-violet-500', iconBg: 'bg-violet-500/10 ring-violet-500/20', glow: 'hover:shadow-violet-500/25', bar: 'from-violet-400 to-violet-600', badge: 'bg-violet-500/10 text-violet-500 border-violet-500/20', text: 'text-violet-500', dot: 'bg-violet-500', ring: 'group-hover:ring-violet-500/30' },
+    fuchsia: { card: 'from-fuchsia-500/15 via-fuchsia-500/5 to-transparent border-fuchsia-400/20', icon: 'text-fuchsia-500', iconBg: 'bg-fuchsia-500/10 ring-fuchsia-500/20', glow: 'hover:shadow-fuchsia-500/25', bar: 'from-fuchsia-400 to-fuchsia-600', badge: 'bg-fuchsia-500/10 text-fuchsia-500 border-fuchsia-500/20', text: 'text-fuchsia-500', dot: 'bg-fuchsia-500', ring: 'group-hover:ring-fuchsia-500/30' },
 };
 
-const iconColorMap: Record<string, string> = {
-    blue: 'text-blue-500',
-    green: 'text-green-500',
-    red: 'text-red-500',
-    orange: 'text-orange-500',
-    purple: 'text-purple-500',
-    indigo: 'text-indigo-500',
-    cyan: 'text-cyan-500',
-    emerald: 'text-emerald-500',
-    amber: 'text-amber-500',
-    rose: 'text-rose-500',
-    slate: 'text-slate-500',
-    lime: 'text-lime-500',
-    violet: 'text-violet-500',
-    fuchsia: 'text-fuchsia-500',
-};
-
-const CircleProgress = ({ value, colorClass }: { value: number; colorClass: string }) => {
-    const radius = 24;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (value / 100) * circumference;
-
-    return (
-        <div className="relative w-16 h-16 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90">
-                {/* Background Circle */}
-                <circle
-                    cx="32"
-                    cy="32"
-                    r={radius}
-                    stroke="currentColor"
-                    strokeWidth="5"
-                    fill="transparent"
-                    className="text-gray-200 dark:text-gray-700/50"
-                />
-                {/* Progress Circle */}
-                <circle
-                    cx="32"
-                    cy="32"
-                    r={radius}
-                    stroke="currentColor"
-                    strokeWidth="5"
-                    fill="transparent"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    strokeLinecap="round"
-                    className={`${colorClass} transition-all duration-1000 ease-out`}
-                />
-            </svg>
-            <span className={`absolute text-sm font-bold ${colorClass}`}>{Math.round(value)}%</span>
+/** Animated progress bar (replaces the SVG circle for cleaner mobile look) */
+const ProgressBar = ({ value, barClass }: { value: number; barClass: string }) => (
+    <div className="mt-2.5">
+        <div className="flex justify-between items-center mb-1">
+            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Progress</span>
+            <span className="text-[10px] font-black tabular-nums">{Math.round(value)}%</span>
         </div>
-    );
-};
+        <div className="w-full h-1.5 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+            <motion.div
+                className={`h-full rounded-full bg-gradient-to-r ${barClass}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(value, 100)}%` }}
+                transition={{ duration: 1.2, ease: 'easeOut', delay: 0.2 }}
+            />
+        </div>
+    </div>
+);
 
 const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     title,
@@ -105,111 +80,132 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     aiInsight,
     loading = false,
     className,
-    progress, // New Prop
-    isCurrency = true // Default to true to prevent breaking existing usages
+    progress,
+    isCurrency = true
 }) => {
+    const t = colorTokens[color] || colorTokens.indigo;
+
+    const displayValue = typeof value === 'number'
+        ? (isCurrency ? `₹${value.toLocaleString('en-IN')}` : value.toLocaleString('en-IN'))
+        : safeRender(value);
+
     return (
-        <div
+        <motion.div
             onClick={onClick}
+            whileHover={{ y: -4, scale: 1.015 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             className={`
-                relative overflow-hidden rounded-2xl border p-4 sm:p-5 
-                transition-all duration-500 hover:scale-[1.03] hover:-translate-y-2 cursor-pointer
-                backdrop-blur-md bg-white/40 dark:bg-black/20
-                hover:shadow-xl active:scale-95
-                ${colorMap[color]}
-                bg-gradient-to-br from-white/60 to-white/10 dark:from-white/5 dark:to-transparent
-                shadow-sm
-                group
+                relative overflow-hidden rounded-2xl border p-3.5 sm:p-4
+                cursor-pointer group
+                bg-gradient-to-br ${t.card}
+                bg-card/70 dark:bg-black/25 backdrop-blur-md
+                shadow-sm hover:shadow-xl ${t.glow}
+                ring-2 ring-transparent ${t.ring}
+                transition-shadow duration-300
                 ${className || ''}
             `}
         >
-            {/* Animated Shine Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[200%] group-hover:animate-shine z-0 pointer-events-none" />
+            {/* Shine sweep on hover */}
+            <div className="pointer-events-none absolute inset-0 translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 z-10" />
 
-            {/* Background Icon Decoration (Hidden if Progress is shown to avoid clutter) */}
-            {!progress && (
-                <div className={`absolute -right-6 -bottom-6 opacity-[0.08] transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 ${iconColorMap[color]}`}>
-                    <Icon size={120} />
-                </div>
-            )}
+            {/* Ghost icon watermark */}
+            <div className={`absolute -right-5 -bottom-5 opacity-[0.07] group-hover:opacity-[0.12] group-hover:rotate-12 group-hover:scale-110 transition-all duration-500 ${t.icon}`}>
+                <Icon size={96} />
+            </div>
 
-            <div className="relative z-10 flex flex-col justify-between h-full">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-4">
-                    <div className={`
-                        p-3 rounded-2xl bg-gradient-to-br from-white/80 to-white/20 dark:from-white/10 dark:to-transparent
-                        backdrop-blur-xl border border-white/20 shadow-inner
-                        ${iconColorMap[color]}
-                    `}>
-                        <Icon size={24} strokeWidth={2.5} />
-                    </div>
+            <div className="relative z-10 flex flex-col gap-2.5">
 
-                    <div className="flex flex-col items-end gap-2">
-                        {/* Show Progress Circle instead of Trend if available, or both? Let's show Progress on right if exists */}
-                        {progress !== undefined ? (
-                            <CircleProgress value={progress} colorClass={iconColorMap[color]} />
-                        ) : (
-                            trend && (
-                                <div className={`
-                                    flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border backdrop-blur-sm
-                                    ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''}
-                                    ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/20' : ''}
-                                    ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' : ''}
-                                `}>
-                                    {trend.direction === 'up' && <TrendingUp size={12} />}
-                                    {trend.direction === 'down' && <TrendingDown size={12} />}
-                                    {trend.direction === 'neutral' && <Minus size={12} />}
-                                    {Math.abs(trend.value)}%
-                                </div>
-                            )
+                {/* ── TOP ROW: Icon + Badges ── */}
+                <div className="flex items-start justify-between">
+                    <motion.div
+                        whileHover={{ rotate: [0, -8, 8, 0] }}
+                        transition={{ duration: 0.4 }}
+                        className={`
+                            p-2 sm:p-2.5 rounded-xl
+                            ${t.iconBg} ring-1
+                            ${t.icon}
+                            group-hover:scale-110 transition-transform duration-300
+                        `}
+                    >
+                        <Icon size={18} strokeWidth={2.5} />
+                    </motion.div>
+
+                    <div className="flex flex-col items-end gap-1.5">
+                        {trend && (
+                            <div className={`
+                                flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full border
+                                ${trend.direction === 'up' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25 dark:text-emerald-400' : ''}
+                                ${trend.direction === 'down' ? 'bg-rose-500/10 text-rose-600 border-rose-500/25 dark:text-rose-400' : ''}
+                                ${trend.direction === 'neutral' ? 'bg-slate-500/10 text-slate-500 border-slate-500/25' : ''}
+                            `}>
+                                {trend.direction === 'up' && <TrendingUp size={9} />}
+                                {trend.direction === 'down' && <TrendingDown size={9} />}
+                                {trend.direction === 'neutral' && <Minus size={9} />}
+                                <span className="tabular-nums">{Math.abs(trend.value)}%</span>
+                            </div>
                         )}
-
                         {aiInsight && (
-                            <div className="flex items-center gap-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse shadow-sm shadow-indigo-500/10">
-                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
-                                AI Insight
+                            <div className="flex items-center gap-1 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 px-2 py-0.5 rounded-full text-[8px] font-black animate-pulse">
+                                <Sparkles size={8} />
+                                AI
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Content */}
+                {/* ── VALUE ── */}
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80 mb-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/70 mb-0.5 truncate">
                         {title}
                     </p>
                     {loading ? (
-                        <div className="h-10 w-32 bg-current/10 animate-pulse rounded-lg" />
+                        <div className="h-7 w-28 bg-current/10 animate-pulse rounded-lg" />
                     ) : (
-                        <h3 className="text-3xl font-black tracking-tighter flex items-baseline gap-1 text-foreground drop-shadow-sm transition-transform duration-500 group-hover:scale-110 origin-left">
-                            {typeof value === 'number'
-                                ? (isCurrency ? `₹${value.toLocaleString('en-IN')}` : value.toLocaleString('en-IN'))
-                                : safeRender(value)}
-                        </h3>
-                    )}
-
-                    {aiInsight && safeRender(aiInsight) ? (
-                        <div className="mt-3 p-2 rounded-xl bg-white/30 dark:bg-black/20 border border-white/40 dark:border-white/5 backdrop-blur-sm">
-                            <p className="text-[10px] leading-relaxed font-bold italic text-indigo-600 dark:text-indigo-300">
-                                "{safeRender(aiInsight)}"
-                            </p>
-                        </div>
-                    ) : (
-                        subtitle && (
-                            <div className="flex items-center gap-1 mt-2">
-                                <div className={`w-1 h-1 rounded-full ${trend?.direction === 'up' || progress !== undefined ? 'bg-green-500' : 'bg-amber-500'}`} />
-                                <p className="text-[10px] font-bold opacity-70 truncate max-w-[180px]">
-                                    {subtitle}
-                                </p>
-                            </div>
-                        )
+                        <motion.p
+                            key={String(value)}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className="text-2xl sm:text-[1.6rem] font-black tracking-tight text-foreground tabular-nums leading-none"
+                        >
+                            {displayValue}
+                        </motion.p>
                     )}
                 </div>
 
-                {/* Decorative Gradient Line at Bottom */}
-                <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-20 ${iconColorMap[color]}`} />
+                {/* ── SUBTITLE / AI INSIGHT ── */}
+                {aiInsight && safeRender(aiInsight) ? (
+                    <div className="bg-indigo-500/5 border border-indigo-500/15 rounded-xl p-2">
+                        <p className="text-[10px] leading-relaxed font-semibold italic text-indigo-600 dark:text-indigo-400 line-clamp-2">
+                            "{safeRender(aiInsight)}"
+                        </p>
+                    </div>
+                ) : subtitle ? (
+                    <div className="flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${t.dot} opacity-70`} />
+                        <p className="text-[10px] font-semibold text-muted-foreground truncate leading-tight">
+                            {subtitle}
+                        </p>
+                    </div>
+                ) : null}
+
+                {/* ── PROGRESS BAR ── */}
+                {progress !== undefined && (
+                    <ProgressBar value={progress} barClass={t.bar} />
+                )}
+
+                {/* Trend label below progress */}
+                {trend && progress === undefined && (
+                    <p className="text-[8px] font-semibold text-muted-foreground/60 tracking-wider uppercase">
+                        {trend.label}
+                    </p>
+                )}
             </div>
-        </div>
+
+            {/* Bottom accent line */}
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${t.bar} opacity-40 group-hover:opacity-70 transition-opacity duration-300`} />
+        </motion.div>
     );
 };
 

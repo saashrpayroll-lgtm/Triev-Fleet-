@@ -206,9 +206,16 @@ const Dashboard: React.FC = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[600px]">
-                <div className="flex flex-col items-center">
-                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-muted-foreground font-medium animate-pulse">Loading Dashboard...</p>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-16 h-16">
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-violet-500 to-indigo-500 opacity-20 animate-ping" />
+                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-500 border-r-indigo-400 animate-spin" />
+                        <div className="absolute inset-2 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-500/20 backdrop-blur-sm" />
+                    </div>
+                    <div className="text-center">
+                        <p className="text-sm font-black text-foreground">Loading Dashboard</p>
+                        <p className="text-[10px] text-muted-foreground font-medium animate-pulse mt-0.5">Fetching real-time fleet data...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -258,33 +265,38 @@ const Dashboard: React.FC = () => {
 
 
     return (
-        <div className="space-y-4 pb-8 px-1 sm:px-0">
+        <div className="space-y-5 pb-10">
 
-            {/* â”€â”€ HEADER â”€â”€ */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2">
+            {/* ─── HEADER ─── */}
+            <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2"
+            >
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent">
-                        Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}!
+                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500 bg-clip-text text-transparent">
+                        Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}! 👋
                     </h1>
                     <p className="text-muted-foreground text-xs mt-0.5 font-medium flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        {format(new Date(), 'EEEE, MMMM do, yyyy')}
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {format(new Date(), 'EEEE, MMMM do, yyyy')} &mdash; Live
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="px-3 py-1 bg-card border rounded-full text-[10px] font-semibold shadow-sm flex items-center gap-1.5">
-                        <Shield size={10} className="text-primary" />
-                        Team Leader View
-                    </div>
+                <div className="px-3 py-1.5 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-400/20 rounded-full text-[10px] font-black flex items-center gap-1.5">
+                    <Shield size={10} className="text-violet-500" />
+                    <span className="text-violet-600 dark:text-violet-400">Team Leader</span>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* â”€â”€ SECTION: Fleet & Operations â”€â”€ */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Fleet & Operations
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* ─── Fleet & Operations ─── */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <UserCheck size={10} className="text-emerald-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Fleet & Operations</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
                     {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
                         <SmartMetricCard
@@ -336,14 +348,17 @@ const Dashboard: React.FC = () => {
                         />
                     )}
                 </div>
-            </div>
+            </motion.div>
 
-            {/* â”€â”€ SECTION: Financial Performance â”€â”€ */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Wallet Health
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* --- Wallet Health --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                        <Wallet size={10} className="text-indigo-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Wallet Health</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
                     <TodaysCollectionCard teamLeaderId={userData.id} />
                     <SmartMetricCard
@@ -391,25 +406,32 @@ const Dashboard: React.FC = () => {
                         />
                     )}
                 </div>
-            </div>
+            </motion.div>
 
-            {/* â”€â”€ SECTION: Debt Recovery â”€â”€ */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Debt Recovery Tasks
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+
+            {/* --- Debt Recovery Tasks --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-rose-500/15 border border-rose-500/20 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle size={10} className="text-rose-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Debt Recovery Tasks</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-rose-500/30 to-transparent" />
+                </div>
                 <ComponentErrorBoundary name="Debt Recovery Tasks">
                     <DebtRecoveryTasks riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
                 </ComponentErrorBoundary>
-            </div>
+            </motion.div>
 
-            {/* â”€â”€ SECTION: Analytics & AI Coach â”€â”€ */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Analytics & AI Coach
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* --- Analytics & AI Coach --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+                        <Sparkles size={10} className="text-violet-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Analytics & AI Coach</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-violet-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     {/* Charts (2/3 width) */}
                     <div className="lg:col-span-2">
@@ -502,14 +524,17 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* â”€â”€ SECTION: Quick Actions â”€â”€ */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Quick Actions
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* --- Quick Actions --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-cyan-500/15 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                        <Zap size={10} className="text-cyan-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Quick Actions</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                     {[
                         { id: 'addRider', label: 'Add Rider', icon: Users, path: '/team-leader/riders?action=new', color: 'text-blue-500', bg: 'bg-blue-500/10', permission: userData.permissions?.riders?.create },
@@ -521,21 +546,24 @@ const Dashboard: React.FC = () => {
                     ].filter(action => action.permission ?? true).map((action, idx) => (
                         <motion.button
                             key={idx}
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.96 }}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.05 * idx }}
+                            whileHover={{ scale: 1.06, y: -2 }}
+                            whileTap={{ scale: 0.94 }}
                             onClick={() => handleNavigate(action.path)}
-                            className="flex flex-col items-center justify-center p-3 rounded-2xl bg-card border hover:border-primary/50 shadow-sm transition-all group gap-1.5"
+                            className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-card/70 border border-border/60 hover:border-primary/40 shadow-sm hover:shadow-lg hover:shadow-primary/10 transition-all group gap-2 backdrop-blur-sm"
                         >
-                            <div className={`p-2 rounded-full ${action.bg} ${action.color} group-hover:scale-110 transition-transform`}>
-                                <action.icon size={15} />
+                            <div className={`p-2.5 rounded-xl ${action.bg} ${action.color} group-hover:scale-110 transition-transform duration-200 ring-1 ring-current/20`}>
+                                <action.icon size={14} />
                             </div>
-                            <span className="font-bold text-[10px] text-foreground leading-tight text-center">{action.label}</span>
+                            <span className="font-black text-[9px] text-foreground leading-tight text-center uppercase tracking-wide">{action.label}</span>
                         </motion.button>
                     ))}
                 </div>
-            </div>
+            </motion.div>
 
-            {/* â”€â”€ SECTION: Fleet Champions Leaderboard â”€â”€ */}
+            {/* --- Fleet Champions Leaderboard --- */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}

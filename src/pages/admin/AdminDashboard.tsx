@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+﻿import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -446,16 +446,20 @@ const Dashboard: React.FC = () => {
     const isTL = userData?.role === 'teamLeader';
 
     return (
-        <div className="space-y-4 pb-8 px-1 sm:px-0">
+        <div className="space-y-5 pb-10">
 
-            {/* ── HEADER ── */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-end">
+            {/* --- HEADER --- */}
+            <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-end"
+            >
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-0.5 animate-in slide-in-from-left duration-500">
-                        {isTL ? "Team Command Center" : "Admin Command Center"}
+                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-0.5">
+                        {isTL ? "Team Command Center" : "Admin Command Center"} 🚀
                     </h1>
                     <p className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         {isTL ? 'Team Leader Access' : 'Admin Panel'} &mdash; Live Dashboard
                     </p>
                 </div>
@@ -467,9 +471,9 @@ const Dashboard: React.FC = () => {
                             key={filter}
                             onClick={() => setDateFilter(filter)}
                             className={`
-                                px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all
+                                px-2.5 py-1 rounded-md text-[10px] font-bold transition-all
                                 ${dateFilter === filter
-                                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 dark:bg-zinc-800 dark:text-indigo-400'
+                                    ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm'
                                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                 }
                             `}
@@ -478,17 +482,19 @@ const Dashboard: React.FC = () => {
                         </button>
                     ))}
                 </div>
-            </div>
+            </motion.div>
 
             {/* Wallet Sync Widget */}
             <WalletSyncWidget />
-
-            {/* ── SECTION: Fleet & Operations ── */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Fleet & Operations
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* --- Fleet & Operations --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <Activity size={10} className="text-emerald-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Fleet & Operations</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
                     <SmartMetricCard
                         title="System Health"
@@ -536,14 +542,17 @@ const Dashboard: React.FC = () => {
                         isCurrency={false}
                     />
                 </div>
-            </div>
+            </motion.div>
 
-            {/* ── SECTION: Financial Performance ── */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Financial Performance
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* --- Financial Performance --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                        <TrendingUp size={10} className="text-indigo-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Financial Performance</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
                     {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
                     <SmartMetricCard
@@ -577,14 +586,17 @@ const Dashboard: React.FC = () => {
                         onClick={() => navigate('/portal/riders')}
                     />
                 </div>
-            </div>
+            </motion.div>
 
-            {/* ── SECTION: Wallet Health & Risk ── */}
-            <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 flex items-center gap-2">
-                    <span className="w-4 h-px bg-muted-foreground/30" /> Wallet Health & Risk
-                    <span className="flex-1 h-px bg-muted-foreground/20" />
-                </p>
+            {/* --- Wallet Health & Risk --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                        <Shield size={10} className="text-amber-500" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Wallet Health & Risk</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/30 to-transparent" />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
                     {/* --- ROW 3: RIDER WALLET HEALTH --- */}
                     <SmartMetricCard
@@ -675,7 +687,7 @@ const Dashboard: React.FC = () => {
                         isCurrency={false}
                     />
                 </div>
-            </div>
+            </motion.div>
 
             {/* ── Charts & Activity ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
