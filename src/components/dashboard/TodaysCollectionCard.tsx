@@ -12,9 +12,9 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
     const fetchTodaysCollection = async () => {
         try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayIso = today.toISOString();
+            // NEW: Robust IST date calculation to match SQL trigger logic
+            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+            const todayIso = `${istDateStr}T00:00:00Z`; // Match start of day in IST as a UTC-formatted string for PG storage
 
             // Use wallet_ledger as source of truth
             // Query construction depends on whether we filter by TL
@@ -29,7 +29,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     )
                 `)
                 .eq('mode', 'ADD') // Only collections/credits
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION']) // SYNC FIX: Match v7 trigger
+                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION']) // SYNC FIX: Match v8 trigger
                 .gte('created_at', todayIso);
 
             if (teamLeaderId) {
@@ -88,12 +88,10 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     }
 
 
-                    // Check timestamp to ensure it's from today
-                    const logDate = new Date(newLog.created_at);
-                    const today = new Date();
-                    const isToday = logDate.getDate() === today.getDate() &&
-                        logDate.getMonth() === today.getMonth() &&
-                        logDate.getFullYear() === today.getFullYear();
+                    // Check timestamp to ensure it's from today (IST)
+                    const logIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(newLog.created_at));
+                    const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+                    const isToday = logIst === todayIst;
 
                     if (isToday) {
                         const amt = Number(newLog.amount);

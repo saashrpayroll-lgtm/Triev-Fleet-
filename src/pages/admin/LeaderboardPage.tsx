@@ -96,10 +96,18 @@ const LeaderboardPage: React.FC = () => {
                     setLeads(mapped);
                 }
 
-                // Fetch Collections
-                const { data: dailyRes } = await supabase
+                // Fetch Collections based on period filter if applicable
+                let collectionQuery = supabase
                     .from('daily_collections')
-                    .select('team_leader_id, total_collection');
+                    .select('team_leader_id, total_collection, date');
+
+                if (period) {
+                    collectionQuery = collectionQuery
+                        .gte('date', period.start)
+                        .lte('date', period.end);
+                }
+
+                const { data: dailyRes } = await collectionQuery;
                 const colMap: Record<string, number> = {};
                 if (dailyRes) {
                     dailyRes.forEach((d: any) => {
