@@ -306,31 +306,17 @@ const TLPerformance: React.FC = () => {
                     .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
             }
 
-            // Daily Average Collection
+            // Per Day Average Collection
             let activeDays = 1;
             let perDayAverageCollection = 0;
 
             if (dateFilter === 'today') {
-                // When viewing Today, "Per Day Avg" should act as a benchmark (Month-To-Date Average)
-                const monthStartUTC_local = new Date(Date.UTC(year, month - 1, 1));
-                const monthStartStr_local = monthStartUTC_local.toISOString().split('T')[0];
-
-                const mtdData = rawData.collections.filter(item => {
-                    if (item.team_leader_id !== tlId) return false;
-                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                    // Include up to yesterday, today's data is in rangeCollection
-                    return dDateStr >= monthStartStr_local && dDateStr < nowISTStr;
-                });
-
-                const mtdHistoricalTotal = mtdData.reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
-                const mtdActiveDays = new Set(mtdData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size;
-
-                // Total MTD = historical + today's live
-                const totalMTD = mtdHistoricalTotal + rangeCollection;
-                const totalMTDDays = mtdActiveDays + (rangeCollection > 0 ? 1 : 0);
-
-                perDayAverageCollection = Math.round(totalMTDDays > 0 ? (totalMTD / totalMTDDays) : 0);
-                activeDays = 1; // Unused for today's 'rangeCollection', purely for local block
+                // ✅ For "Today" view: show today's per-rider avg.
+                // rangeCollection = live wallet_ledger sum from IST midnight → now.
+                // At 00:00 IST it is ₹0 and grows as collections come in.
+                // This resets automatically at midnight when fetchData() re-runs.
+                perDayAverageCollection = activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0;
+                activeDays = 1;
             } else {
                 activeDays = Math.max(1, new Set(
                     rawData.collections
@@ -951,7 +937,7 @@ const TLPerformance: React.FC = () => {
                                         <td className="px-5 py-4 min-w-[120px] text-center">
                                             <span className="text-base font-black text-foreground">₹{(tl.perDayAverageCollection || 0).toLocaleString()}</span>
                                             <p className="text-[9px] text-muted-foreground font-medium mt-0.5">
-                                                {dateFilter === 'today' ? 'MTD Runrate' : 'Daily Pace'}
+                                                {dateFilter === 'today' ? 'Per Rider' : 'Daily Pace'}
                                             </p>
                                         </td>
 
