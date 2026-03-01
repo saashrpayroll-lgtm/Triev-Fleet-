@@ -248,16 +248,19 @@ const TLPerformance: React.FC = () => {
             }
 
             // Daily Average Collection (Total Collection / Number of Active Days in Period)
-            const activeDays = Math.max(1, new Set(
-                rawData.collections
-                    .filter(item => {
-                        const isTL = item.team_leader_id === tlId;
-                        if (!isTL) return false;
-                        const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                        return dDateStr >= startDateStr && dDateStr <= endDateStr && Number(item.total_collection) > 0;
-                    })
-                    .map(item => item.date)
-            ).size);
+            let activeDays = 1;
+            if (dateFilter !== 'today') {
+                activeDays = Math.max(1, new Set(
+                    rawData.collections
+                        .filter(item => {
+                            const isTL = item.team_leader_id === tlId;
+                            if (!isTL) return false;
+                            const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                            return dDateStr >= startDateStr && dDateStr <= endDateStr && Number(item.total_collection) > 0;
+                        })
+                        .map(item => item.date)
+                ).size);
+            }
 
             const perDayAverageCollection = Math.round(rangeCollection / activeDays);
 

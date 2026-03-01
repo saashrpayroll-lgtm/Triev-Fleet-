@@ -338,7 +338,12 @@ const Dashboard: React.FC = () => {
             // Period-specific collection for accurate Avg calculation
             let periodCollection = tlCollectionAllTime;
             let activeDays = 1;
-            if (period) {
+
+            if (dateFilter === 'day') {
+                // If today, use the highly-accurate real-time ledger map instead of historical daily_collections
+                periodCollection = dailyCollections[tl.id] || 0;
+                activeDays = 1;
+            } else if (period) {
                 const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
                 const filteredData = tlDailyData.filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end);
                 periodCollection = filteredData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
