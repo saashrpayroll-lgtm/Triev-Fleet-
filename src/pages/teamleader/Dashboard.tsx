@@ -77,7 +77,7 @@ const Dashboard: React.FC = () => {
                 riderName: r.rider_name,
                 mobileNumber: r.mobile_number,
                 status: r.status,
-                walletAmount: r.wallet_amount,
+                walletAmount: r.status === 'active' ? r.wallet_amount : 0,
                 teamLeaderId: r.team_leader_id
             })) as Rider[];
 
@@ -134,7 +134,7 @@ const Dashboard: React.FC = () => {
                 status: r.status,
                 riderName: r.rider_name,
                 mobileNumber: r.mobile_number,
-                walletAmount: r.wallet_amount,
+                walletAmount: r.status === 'active' ? r.wallet_amount : 0,
                 teamLeaderId: r.team_leader_id,
                 allotmentDate: r.allotment_date,
                 inactivatedAt: r.inactivated_at,

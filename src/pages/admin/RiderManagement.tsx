@@ -230,7 +230,8 @@ const RiderManagement: React.FC = () => {
             `).eq('role', 'teamLeader');
             if (usersError) throw usersError;
 
-            setRiders((ridersData as Rider[]) || []);
+            const mappedRiders = ((ridersData as Rider[]) || []).map(r => ({ ...r, walletAmount: r.status === 'active' ? r.walletAmount : 0 }));
+            setRiders(mappedRiders);
             setTeamLeaders((teamLeadersData as unknown as User[]) || []);
         } catch (error) {
             console.error('Error fetching data:', error);

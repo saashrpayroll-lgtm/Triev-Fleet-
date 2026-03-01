@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
             setWeeklyCollections(weekMap);
 
             setRawData({
-                riders: ridersRes.data as Rider[] || [],
+                riders: (ridersRes.data as Rider[] || []).map(r => ({ ...r, walletAmount: r.status === 'active' ? r.walletAmount : 0 })),
                 leads: leadsRes.data as Lead[] || [],
                 requests: requestsRes.data as Request[] || [],
                 teamLeaders: sanitizeArray(usersRes.data as User[] || []),

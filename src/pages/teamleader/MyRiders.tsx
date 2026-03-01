@@ -76,7 +76,7 @@ const MyRiders: React.FC = () => {
         chassisNumber: data.chassis_number,
         clientName: data.client_name,
         clientId: data.client_id,
-        walletAmount: data.wallet_amount,
+        walletAmount: data.status === 'active' ? data.wallet_amount : 0,
         allotmentDate: data.allotment_date,
         remarks: data.remarks,
         status: data.status,

@@ -123,7 +123,7 @@ const TLPerformance: React.FC = () => {
             // setDailyCollections(daily); 
             // We need to pass this down through rawData or state. Let's add it to rawData
             setRawData({
-                riders: ridersRes.data || [],
+                riders: (ridersRes.data || []).map((r: any) => ({ ...r, wallet_amount: r.status === 'active' ? r.wallet_amount : 0 })),
                 leads: leadsRes.data || [],
                 teamLeaders: usersRes.data || [],
                 collections: dailyRes.data || [],
