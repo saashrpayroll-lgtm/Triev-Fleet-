@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    Plus, Link as LinkIcon, Edit2, Trash2, ExternalLink, Loader2,
+    Plus, Link as LinkIcon, Edit2, Trash2, ExternalLink,
     FileText, CheckCircle2, XCircle, GripVertical, X, TableProperties, Save
 } from 'lucide-react';
 import { toast } from 'sonner';

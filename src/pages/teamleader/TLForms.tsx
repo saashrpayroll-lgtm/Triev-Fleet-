@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
-import { ExternalLink, FileText, Loader2, Link2Off, TableProperties, ArrowUpRight } from 'lucide-react';
+import { ExternalLink, FileText, Link2Off, TableProperties, ArrowUpRight } from 'lucide-react';
 
 interface ExternalForm {
     id: string;
