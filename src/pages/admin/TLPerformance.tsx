@@ -63,12 +63,16 @@ const TLPerformance: React.FC = () => {
 
             // Process Collections - ALIGN TO IST (India Standard Time)
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-            const todayStr = formatter.format(new Date());
+            const now = new Date();
+            const todayStr = formatter.format(now);
+            const [year, month, day] = todayStr.split('-').map(Number);
+            const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
 
-            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-            const weekStart = new Date(nowIST);
-            weekStart.setDate(nowIST.getDate() - nowIST.getDay() + (nowIST.getDay() === 0 ? -6 : 1));
-            const weekStartStr = formatter.format(weekStart);
+            const weekDay = workingDateUTC.getUTCDay();
+            const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
+            const weekStartUTC = new Date(workingDateUTC);
+            weekStartUTC.setUTCDate(diff);
+            const weekStartStr = weekStartUTC.toISOString().split('T')[0];
 
             const totals: Record<string, number> = {};
             const daily: Record<string, number> = {};
@@ -113,20 +117,26 @@ const TLPerformance: React.FC = () => {
 
     const performanceData = useMemo(() => {
         const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-        const nowISTStr = formatter.format(new Date());
-        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const now = new Date();
+        const nowISTStr = formatter.format(now);
+        const [year, month, day] = nowISTStr.split('-').map(Number);
+
+        // Use UTC Date object as a safe container for IST date math
+        const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
 
         // Determine Start and End dates for the selected filter
         let startDateStr = nowISTStr;
         let endDateStr = nowISTStr;
 
         if (dateFilter === 'week') {
-            const weekStart = new Date(nowIST);
-            weekStart.setDate(nowIST.getDate() - nowIST.getDay() + (nowIST.getDay() === 0 ? -6 : 1));
-            startDateStr = formatter.format(weekStart);
+            const weekDay = workingDateUTC.getUTCDay();
+            const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
+            const weekStartUTC = new Date(workingDateUTC);
+            weekStartUTC.setUTCDate(diff);
+            startDateStr = weekStartUTC.toISOString().split('T')[0];
         } else if (dateFilter === 'month') {
-            const monthStart = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1);
-            startDateStr = formatter.format(monthStart);
+            const monthStartUTC = new Date(Date.UTC(year, month - 1, 1));
+            startDateStr = monthStartUTC.toISOString().split('T')[0];
         } else if (dateFilter === 'custom' && customDateRange.start && customDateRange.end) {
             startDateStr = customDateRange.start;
             endDateStr = customDateRange.end;

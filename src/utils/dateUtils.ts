@@ -16,28 +16,35 @@ export const resolvePerformancePeriod = (
 ): PerformancePeriod | undefined => {
     if (filter === 'all') return undefined;
 
-    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const nowISTStr = formatter.format(nowIST);
+    // A robust way to get current IST Date components
+    const now = new Date();
+    const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    const [year, month, day] = istDateStr.split('-').map(Number);
 
-    let start = nowISTStr;
-    let end = nowISTStr;
+    // Create a working Date object set exactly to Midnight IST for today, but represented in the local time 
+    // to allow safe use of .getDate(), .getDay(), etc., without timezone shift issues.
+    // Actually, the simplest foolproof way to do date math without external libraries is to use UTC.
+    // We treat the IST year/month/day as a UTC date, do the math, and extract the string.
+    const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
+
+    let start = istDateStr;
+    let end = istDateStr;
 
     switch (filter) {
         case 'day':
             // Already set to today
             break;
         case 'week':
-            const weekStart = new Date(nowIST);
             // ISO Week (Monday start)
-            const day = weekStart.getDay();
-            const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
-            weekStart.setDate(diff);
-            start = formatter.format(weekStart);
+            const weekDay = workingDateUTC.getUTCDay();
+            const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
+            const weekStartUTC = new Date(workingDateUTC);
+            weekStartUTC.setUTCDate(diff);
+            start = weekStartUTC.toISOString().split('T')[0];
             break;
         case 'month':
-            const monthStart = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1);
-            start = formatter.format(monthStart);
+            const monthStartUTC = new Date(Date.UTC(year, month - 1, 1));
+            start = monthStartUTC.toISOString().split('T')[0];
             break;
         case 'custom':
             if (customRange?.start && customRange?.end) {

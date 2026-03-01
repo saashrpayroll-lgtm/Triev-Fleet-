@@ -48,28 +48,31 @@ const TLAllotment: React.FC = () => {
     const [startDate, endDate] = dateRange;
 
     const setPreset = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
-        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-        const nowISTStr = formatter.format(new Date());
-        const istNow = new Date(nowISTStr);
+        const now = new Date();
+        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+        const [year, month, day] = istDateStr.split('-').map(Number);
+
+        // Use UTC Date objects to represent IST dates, preventing browser local timezone shifts
+        // Midnight in our working UTC represents midnight in IST for DatePicker
+        const workingDateUTC = new Date(year, month - 1, day); // Local browser date object trick
 
         switch (preset) {
             case 'today':
-                setDateRange([istNow, istNow]);
+                setDateRange([workingDateUTC, workingDateUTC]);
                 break;
             case 'yesterday':
-                const yesterday = new Date(istNow);
-                yesterday.setDate(istNow.getDate() - 1);
+                const yesterday = new Date(workingDateUTC);
+                yesterday.setDate(workingDateUTC.getDate() - 1);
                 setDateRange([yesterday, yesterday]);
                 break;
             case 'week':
-                const weekStart = new Date(istNow);
-                weekStart.setDate(istNow.getDate() - 7);
-                setDateRange([weekStart, istNow]);
+                const weekStart = new Date(workingDateUTC);
+                weekStart.setDate(workingDateUTC.getDate() - 7);
+                setDateRange([weekStart, workingDateUTC]);
                 break;
             case 'month':
-                // Resetting to start of month in IST
-                const monthStart = new Date(istNow.getFullYear(), istNow.getMonth(), 1);
-                setDateRange([monthStart, istNow]);
+                const monthStart = new Date(workingDateUTC.getFullYear(), workingDateUTC.getMonth(), 1);
+                setDateRange([monthStart, workingDateUTC]);
                 break;
         }
     };

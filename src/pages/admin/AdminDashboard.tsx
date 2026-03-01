@@ -101,15 +101,17 @@ const Dashboard: React.FC = () => {
             const weekMap: Record<string, number> = {};
 
             const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-            const todayStr = istFormatter.format(nowIST);
+            const now = new Date();
+            const todayStr = istFormatter.format(now);
+            const [year, month, day] = todayStr.split('-').map(Number);
+            const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
 
             // Week logic (Monday start in IST)
-            const weekStartPoint = new Date(nowIST);
-            const dayNum = weekStartPoint.getDay();
-            const diff = weekStartPoint.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
-            weekStartPoint.setDate(diff);
-            const weekStart = istFormatter.format(weekStartPoint);
+            const weekDay = workingDateUTC.getUTCDay();
+            const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
+            const weekStartUTC = new Date(workingDateUTC);
+            weekStartUTC.setUTCDate(diff);
+            const weekStart = weekStartUTC.toISOString().split('T')[0];
 
             const dailyData = dailyRes.data || [];
             dailyData.forEach((d: any) => {

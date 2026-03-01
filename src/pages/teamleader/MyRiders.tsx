@@ -640,13 +640,13 @@ const MyRiders: React.FC = () => {
                                                         {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
                                                     </span>
                                                     {rider.status === 'active' && rider.walletAmount < 0 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="p-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-colors" title="Send Reminder">
-                                                            <AlertTriangle size={16} />
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Reminder">
+                                                            <AlertTriangle size={16} /> Remind
                                                         </button>
                                                     )}
                                                     {rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
-                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="p-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-colors" title="Send Low Balance WhatsApp Reminder">
-                                                            <MessageCircle size={16} />
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Low Balance WhatsApp Reminder">
+                                                            <MessageCircle size={16} /> Low Bal.
                                                         </button>
                                                     )}
                                                 </div>
