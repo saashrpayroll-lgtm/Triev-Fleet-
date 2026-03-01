@@ -51,6 +51,16 @@ const TLPerformance: React.FC = () => {
 
     const fetchData = async () => {
         try {
+            // Compute IST midnight in UTC: IST is UTC+5:30, so 00:00 IST = 18:30 UTC of the previous UTC day
+            const istMidnightUTC = (() => {
+                const now = new Date();
+                // Get today's date string in IST (YYYY-MM-DD)
+                const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                const [y, m, d] = istDateStr.split('-').map(Number);
+                // 00:00 IST  ==  (prev day) 18:30 UTC  =  Date.UTC(y, m-1, d) - 5.5 * 3600 * 1000
+                return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            })();
+
             const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
                 supabase.from('riders').select('*').limit(5000),
                 supabase.from('leads').select('*'),
@@ -66,20 +76,14 @@ const TLPerformance: React.FC = () => {
                 `)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                    .gte('created_at', (() => {
-                        const now = new Date();
-                        const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-                        const [year, month, day] = istDateStr.split('-').map(Number);
-                        const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-                        midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
-                        return midnightIST.toISOString();
-                    })())
+                    .gte('created_at', istMidnightUTC)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
             if (usersRes.error) throw usersRes.error;
             if (dailyRes.error) throw dailyRes.error;
+            if (todayLedgerRes.error) throw todayLedgerRes.error;
 
             // Process Collections - ALIGN TO IST (India Standard Time)
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -147,8 +151,25 @@ const TLPerformance: React.FC = () => {
             supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData).subscribe()
         ];
 
+        // ── Auto-reset at IST midnight (00:00 IST) ────────────────────────────
+        // Computes ms until next IST midnight and schedules a fetchData + page reload.
+        const scheduleISTMidnightReset = () => {
+            const now = new Date();
+            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const [y, m, d] = istDateStr.split('-').map(Number);
+            // Next IST midnight in UTC
+            const nextMidnightUTC = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+            const msUntilMidnight = nextMidnightUTC.getTime() - now.getTime();
+            return window.setTimeout(() => {
+                fetchData(); // Refresh data immediately
+                scheduleISTMidnightReset(); // Re-schedule for next day
+            }, msUntilMidnight + 500); // +500ms buffer
+        };
+        const midnightTimer = scheduleISTMidnightReset();
+
         return () => {
             channels.forEach(ch => supabase.removeChannel(ch));
+            window.clearTimeout(midnightTimer);
         };
     }, []);
 
@@ -708,72 +729,58 @@ const TLPerformance: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
+                    <table className="w-full min-w-[1100px] text-sm text-left">
                         <thead className="text-[10px] text-muted-foreground uppercase bg-muted/10 font-black tracking-widest border-b border-border/40">
                             <tr>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('name')}>
-                                    <div className="flex items-center gap-1">
+                                <th className="px-5 py-4 min-w-[200px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('name')}>
+                                    <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider">
                                         Team Leader
-                                        {sortConfig?.key === 'name' && (
-                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                        )}
+                                        {sortConfig?.key === 'name' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('activeRiders')}>
-                                    <div className="flex items-center justify-center gap-1">
-                                        Rider Force
-                                        {sortConfig?.key === 'activeRiders' && (
-                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                        )}
+                                <th className="px-5 py-4 min-w-[110px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('activeRiders')}>
+                                    <div className="flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider">
+                                        Riders
+                                        {sortConfig?.key === 'activeRiders' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('walletHealth')}>
-                                    <div className="flex items-center justify-center gap-1">
-                                        Wallet Health (Risk)
-                                        {sortConfig?.key === 'walletHealth' && (
-                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                        )}
+                                <th className="px-5 py-4 min-w-[180px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('walletHealth')}>
+                                    <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider">
+                                        Wallet Health
+                                        {sortConfig?.key === 'walletHealth' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('rangeCollection')}>
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-1">
-                                            Collection Analytics
-                                            {sortConfig?.key === 'rangeCollection' && (
-                                                <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                            )}
+                                <th className="px-5 py-4 min-w-[220px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('rangeCollection')}>
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider">
+                                            Collection ({dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Week' : dateFilter === 'month' ? 'Month' : 'Range'})
+                                            {sortConfig?.key === 'rangeCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                         </div>
-                                        <div className="flex items-center gap-4 text-[9px] font-bold text-muted-foreground mt-1.5 pt-1.5 border-t border-border/40">
-                                            <span>Range: ₹{performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}</span>
+                                        <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground mt-0.5">
+                                            <span>Total: <span className="text-foreground">₹{performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}</span></span>
                                             <span className="text-emerald-500">Avg/R: ₹{performanceData.length > 0 ? Math.round(performanceData.reduce((a, b) => a + b.rangeCollection, 0) / (performanceData.reduce((a, b) => a + b.activeRiders, 0) || 1)).toLocaleString() : 0}</span>
                                         </div>
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('perDayAverageCollection')}>
-                                    <div className="flex items-center justify-center gap-1">
+                                <th className="px-5 py-4 min-w-[120px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('perDayAverageCollection')}>
+                                    <div className="flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider">
                                         Per Day Avg
-                                        {sortConfig?.key === 'perDayAverageCollection' && (
-                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                        )}
+                                        {sortConfig?.key === 'perDayAverageCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('netGrowth')}>
-                                    <div className="flex items-center gap-1">
+                                <th className="px-5 py-4 min-w-[190px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('netGrowth')}>
+                                    <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider">
                                         Fleet Flow
-                                        {sortConfig?.key === 'netGrowth' && (
-                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                        )}
+                                        {sortConfig?.key === 'netGrowth' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('conversion')}>
-                                    <div className="flex items-center justify-center gap-1">
+                                <th className="px-5 py-4 min-w-[160px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('conversion')}>
+                                    <div className="flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider">
                                         Leads %
-                                        {sortConfig?.key === 'conversion' && (
-                                            <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
-                                        )}
+                                        {sortConfig?.key === 'conversion' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 text-right">Status</th>
+                                <th className="px-5 py-4 min-w-[90px] text-right text-xs font-black uppercase tracking-wider">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/20">
@@ -799,155 +806,138 @@ const TLPerformance: React.FC = () => {
                                 </tr>
                             ) : (
                                 filteredData.map((tl) => (
-                                    <tr key={tl.id} className="group hover:bg-muted/5 transition-colors">
+                                    <tr key={tl.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors border-b border-border/20 last:border-0">
                                         {/* 1. Team Leader */}
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-4">
+                                        <td className="px-5 py-4 min-w-[200px]">
+                                            <div className="flex items-center gap-3">
                                                 <div className="relative shrink-0">
-                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-black text-indigo-600 text-lg">
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-black text-indigo-600 text-base">
                                                         {tl.name.charAt(0)}
                                                     </div>
                                                     {tl.lastActivity && (new Date().getTime() - new Date(tl.lastActivity).getTime() < 30 * 60 * 1000) && (
-                                                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                                                        <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
                                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                            <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-background"></span>
+                                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-background"></span>
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div>
-                                                    <p className="font-black text-foreground text-sm flex items-center gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-foreground text-sm flex items-center gap-1.5 truncate">
                                                         {tl.name}
                                                         {tl.leadsToday > 3 && (
-                                                            <span className="px-1.5 py-0.5 bg-orange-500 rounded text-[9px] text-white font-black animate-bounce">
-                                                                HOT
-                                                            </span>
+                                                            <span className="shrink-0 px-1 py-0.5 bg-orange-500 rounded text-[8px] text-white font-black">HOT</span>
                                                         )}
                                                     </p>
-                                                    <p className="text-[11px] text-muted-foreground font-medium">{tl.email}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{tl.email}</p>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* 2. Rider Force */}
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <span className="text-lg font-black text-foreground leading-none">{tl.activeRiders} <span className="text-xs font-bold text-muted-foreground/60">/ {tl.totalRiders}</span></span>
-                                                <div className="w-20 h-1.5 bg-muted/50 rounded-full overflow-hidden border border-border/20">
-                                                    <div
-                                                        className="h-full bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)] transition-all duration-1000"
-                                                        style={{ width: `${tl.totalRiders > 0 ? (tl.activeRiders / tl.totalRiders) * 100 : 0}%` }}
-                                                    />
+                                        <td className="px-5 py-4 min-w-[110px]">
+                                            <div className="flex flex-col items-center gap-1.5">
+                                                <span className="text-base font-black text-foreground">{tl.activeRiders} <span className="text-xs font-medium text-muted-foreground">/ {tl.totalRiders}</span></span>
+                                                <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                                                        style={{ width: `${tl.totalRiders > 0 ? (tl.activeRiders / tl.totalRiders) * 100 : 0}%` }} />
                                                 </div>
                                             </div>
                                         </td>
 
-                                        {/* 3. Wallet Health (Risk) */}
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col items-center gap-3">
-                                                <div className="flex gap-2">
-                                                    <span className="shrink-0 bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-emerald-500/10 italic">
-                                                        {tl.wallet.positiveCount} POS
-                                                    </span>
-                                                    <span className="shrink-0 bg-rose-500/10 text-rose-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-rose-500/10 italic">
-                                                        {tl.wallet.negativeCount} NEG
-                                                    </span>
+                                        {/* 3. Wallet Health */}
+                                        <td className="px-5 py-4 min-w-[180px]">
+                                            <div className="space-y-2">
+                                                <div className="flex gap-1.5 flex-wrap">
+                                                    <span className="bg-emerald-500 text-white px-2 py-0.5 rounded text-[10px] font-black">{tl.wallet.positiveCount} POS</span>
+                                                    <span className="bg-rose-500 text-white px-2 py-0.5 rounded text-[10px] font-black">{tl.wallet.negativeCount} NEG</span>
                                                 </div>
-                                                <div className="flex justify-between items-center w-full max-w-[140px] text-[11px] font-black">
-                                                    <span className="text-emerald-500">₹{tl.wallet.positiveAmount.toLocaleString()}</span>
+                                                <div className="flex gap-4 text-[11px] font-bold">
+                                                    <span className="text-emerald-600">₹{tl.wallet.positiveAmount.toLocaleString()}</span>
                                                     <span className="text-rose-600">₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
                                                 </div>
                                             </div>
                                         </td>
 
-                                        {/* 4. Collection Analytics (Now wider and horizontal) */}
-                                        <td className="px-6 py-5 font-mono">
-                                            <div className="grid grid-cols-2 gap-x-6 gap-y-2 items-center">
-                                                <div className="flex flex-col border-r pr-6 border-border/40">
-                                                    <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">
-                                                        {dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Vol.
-                                                    </span>
+                                        {/* 4. Collection Analytics */}
+                                        <td className="px-5 py-4 min-w-[220px]">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex flex-col border-r pr-4 border-border/40">
+                                                    <span className="text-[9px] text-muted-foreground font-black uppercase">{dateFilter === 'today' ? 'Today Vol.' : dateFilter === 'week' ? 'Weekly Vol.' : dateFilter === 'month' ? 'Monthly Vol.' : 'Range Vol.'}</span>
                                                     <span className="text-base font-black text-emerald-600">₹{tl.rangeCollection.toLocaleString()}</span>
                                                 </div>
-                                                <div className="flex flex-col space-y-1">
-                                                    <div className="flex justify-between items-center w-[120px]">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center justify-between gap-3">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Avg/Rider</span>
-                                                        <span className="text-xs font-black text-foreground">₹{tl.avgRiderCollection.toLocaleString()}</span>
+                                                        <span className="text-xs font-black text-blue-600">₹{tl.avgRiderCollection.toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex justify-between items-center w-[120px]">
-                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Grand</span>
-                                                        <span className="text-xs font-black text-foreground/50">₹{tl.totalCollection.toLocaleString()}</span>
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Grand Total</span>
+                                                        <span className="text-xs font-bold text-muted-foreground">₹{tl.totalCollection.toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* 5. Per Day Avg */}
-                                        <td className="px-6 py-5 text-center font-mono">
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-base font-black text-foreground">₹{(tl.perDayAverageCollection || 0).toLocaleString()}</span>
-                                                <span className="text-[9px] text-muted-foreground font-bold mt-1 max-w-[80px] leading-tight text-center">
-                                                    {dateFilter === 'today' ? '(MTD Runrate)' : '(Daily Pace)'}
-                                                </span>
-                                            </div>
+                                        <td className="px-5 py-4 min-w-[120px] text-center">
+                                            <span className="text-base font-black text-foreground">₹{(tl.perDayAverageCollection || 0).toLocaleString()}</span>
+                                            <p className="text-[9px] text-muted-foreground font-medium mt-0.5">
+                                                {dateFilter === 'today' ? 'MTD Runrate' : 'Daily Pace'}
+                                            </p>
                                         </td>
 
                                         {/* 6. Fleet Flow */}
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex flex-col border-r pr-6 border-border/40">
-                                                    <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">Net Growth</span>
+                                        <td className="px-5 py-4 min-w-[190px]">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex flex-col border-r pr-4 border-border/40">
+                                                    <span className="text-[9px] text-muted-foreground font-black uppercase">Net Growth</span>
                                                     <span className={`text-xl font-black ${tl.netGrowth > 0 ? 'text-emerald-600' : tl.netGrowth < 0 ? 'text-rose-600' : 'text-foreground'}`}>
                                                         {tl.netGrowth > 0 ? '+' : ''}{tl.netGrowth}
                                                     </span>
                                                 </div>
-                                                <div className="flex flex-col space-y-1">
-                                                    <div className="flex justify-between items-center w-[100px]">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center justify-between gap-3">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Allotment</span>
                                                         <span className="text-xs font-black text-indigo-600">+{tl.allotments}</span>
                                                     </div>
-                                                    <div className="flex justify-between items-center w-[100px]">
+                                                    <div className="flex items-center justify-between gap-3">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Submission</span>
                                                         <span className="text-xs font-black text-rose-500">-{tl.submissions}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
+
                                         {/* 7. Leads % */}
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-4">
-                                                <div className="relative w-11 h-11 shrink-0">
-                                                    <svg className="w-full h-full transform -rotate-90">
-                                                        <circle cx="22" cy="22" r="18" stroke="currentColor" strokeWidth="3" fill="transparent" className="text-muted/10" />
-                                                        <circle
-                                                            cx="22" cy="22" r="18"
-                                                            stroke="currentColor" strokeWidth="3" fill="transparent"
-                                                            strokeDasharray={113}
-                                                            strokeDashoffset={113 - (113 * tl.leads.conversionRate) / 100}
-                                                            className="text-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
-                                                        />
+                                        <td className="px-5 py-4 min-w-[160px]">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative w-10 h-10 shrink-0">
+                                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 44 44">
+                                                        <circle cx="22" cy="22" r="18" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-muted/20" />
+                                                        <circle cx="22" cy="22" r="18" stroke="currentColor" strokeWidth="4" fill="transparent"
+                                                            strokeDasharray={113} strokeDashoffset={113 - (113 * tl.leads.conversionRate) / 100}
+                                                            className="text-indigo-500 transition-all duration-1000" />
                                                     </svg>
-                                                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black">
-                                                        {tl.leads.conversionRate}%
-                                                    </span>
+                                                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black">{tl.leads.conversionRate}%</span>
                                                 </div>
-                                                <div className="space-y-1 text-[11px] font-black">
-                                                    <div className="flex justify-between gap-4">
-                                                        <span className="text-muted-foreground uppercase text-[9px]">Sourced</span>
-                                                        <span className="text-indigo-600 italic">+{tl.leadsToday}</span>
+                                                <div className="space-y-1 text-[10px]">
+                                                    <div className="flex gap-2 items-center">
+                                                        <span className="text-muted-foreground uppercase font-bold">Sourced</span>
+                                                        <span className="text-indigo-600 font-black">+{tl.leadsToday}</span>
                                                     </div>
-                                                    <div className="flex justify-between gap-4">
-                                                        <span className="text-muted-foreground uppercase text-[9px]">Churned</span>
-                                                        <span className="text-rose-500 italic">-{tl.churnLeads}</span>
+                                                    <div className="flex gap-2 items-center">
+                                                        <span className="text-muted-foreground uppercase font-bold">Churned</span>
+                                                        <span className="text-rose-500 font-black">-{tl.churnLeads}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* 8. Status */}
-                                        <td className="px-6 py-5 text-right">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest ${tl.status === 'active'
-                                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                                                : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                        <td className="px-5 py-4 min-w-[90px] text-right">
+                                            <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-wide ${tl.status === 'active'
+                                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                                 }`}>
                                                 {tl.status}
                                             </span>
