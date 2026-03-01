@@ -51,7 +51,41 @@ const CollectionHistory: React.FC = () => {
 
             if (error) throw error;
 
-            setHistory(data || []);
+            let records = data || [];
+
+            // OVERRIDE FOR TODAY: Fetch directly from wallet_ledger to bypass any daily_collections timezone lag
+            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+            const [year, month, day] = todayStr.split('-').map(Number);
+            const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
+
+            const { data: todayLedger } = await supabase
+                .from('wallet_ledger')
+                .select('amount, rider:riders!inner(team_leader_id)')
+                .eq('mode', 'ADD')
+                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                .eq('rider.team_leader_id', userData!.id)
+                .gte('created_at', midnightIST.toISOString());
+
+            const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+            // If we found money today but daily_collections didn't log it yet, overwrite or inject
+            const existingTodayIndex = records.findIndex(r => r.date === todayStr);
+            if (existingTodayIndex >= 0) {
+                records[existingTodayIndex].total_collection = realTodayCollection;
+            } else if (realTodayCollection > 0) {
+                // Determine active riders from yesterday's record or default to 1 (ascending order, so last record is yesterday)
+                const yesterdayRecord = records.length > 0 ? records[records.length - 1] : null;
+                const activeRiders = yesterdayRecord ? yesterdayRecord.active_riders_count : 1;
+                records = [...records, {
+                    date: todayStr,
+                    total_collection: realTodayCollection,
+                    active_riders_count: activeRiders,
+                    team_leader_id: userData!.id
+                }];
+            }
+
+            setHistory(records);
         } catch (error) {
             console.error('Error fetching collection history:', error);
             toast.error('Failed to load history');
