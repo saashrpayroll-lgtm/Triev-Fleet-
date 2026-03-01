@@ -33,7 +33,7 @@ export const SystemHealthWidget: React.FC = () => {
                 const { data: collectionData } = await supabase
                     .from('wallet_ledger')
                     .select('created_at')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'])
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();

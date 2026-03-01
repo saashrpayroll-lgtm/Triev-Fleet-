@@ -165,7 +165,7 @@ const Reports: React.FC = () => {
                     const { data: collectionData, error: collectionError } = await supabase
                         .from('wallet_ledger')
                         .select('amount, created_at, rider:riders!inner(rider_name, mobile_number)')
-                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'])
+                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                         .eq('mode', 'ADD')
                         .gte('created_at', thirtyDaysAgo.toISOString())
                         .order('created_at', { ascending: false });

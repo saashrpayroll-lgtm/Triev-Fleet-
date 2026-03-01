@@ -94,7 +94,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     const newLog = payload.new as any;
 
                     // STRICT FILTER: Match the SQL trigger exactly
-                    if (!['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'].includes(newLog.transaction_type)) {
+                    if (!['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'].includes(newLog.transaction_type)) {
                         return;
                     }
 
