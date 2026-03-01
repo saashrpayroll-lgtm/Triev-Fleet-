@@ -1,11 +1,8 @@
-﻿import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import {
-    Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight
-} from 'lucide-react';
-import { Shield } from 'lucide-react';
+import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -593,7 +590,7 @@ const Dashboard: React.FC = () => {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-2.5">
                 <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
-                        <Shield size={10} className="text-amber-500" />
+                        <ShieldCheck size={10} className="text-amber-500" />
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Wallet Health & Risk</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-amber-500/30 to-transparent" />
