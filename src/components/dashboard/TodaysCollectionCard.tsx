@@ -12,9 +12,19 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
     const fetchTodaysCollection = async () => {
         try {
-            // NEW: Robust IST date calculation to match SQL trigger logic
-            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-            const todayIso = `${istDateStr}T00:00:00Z`; // Match start of day in IST as a UTC-formatted string for PG storage
+            // NEW: Robust IST start-of-day UTC calculation
+            const now = new Date();
+
+            // Parse the IST date components to construct midnight IST
+            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const [year, month, day] = istDateStr.split('-').map(Number);
+
+            // Create a Date object for Midnight IST (UTC offset is +05:30)
+            // 00:00 IST is 18:30 UTC of the PREVIOUS day.
+            // A foolproof way is to create the localized string and parse it, or just use the exact offset.
+            const midnightIST = new Date(Date.UTC(year, month - 1, day, -5, -30, 0, 0));
+            const todayIso = midnightIST.toISOString(); // This is the UTC string that exactly matches 12:00 AM IST.
+
 
             // Use wallet_ledger as source of truth
             // Query construction depends on whether we filter by TL
