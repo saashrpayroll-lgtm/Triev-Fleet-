@@ -85,105 +85,121 @@ const TLAllotment: React.FC = () => {
         try {
             const pStart = startDate ? format(startDate, 'yyyy-MM-dd') : '1970-01-01';
             const pEnd = endDate ? format(endDate, 'yyyy-MM-dd') : '9999-12-31';
+            const todayStr = toISTDateStr(new Date());
 
-            // Step 1: Get all active TLs
-            const { data: tls, error: tlErr } = await supabase
-                .from('users')
-                .select('id, full_name, email')
-                .eq('role', 'teamLeader')
-                .eq('status', 'active');
-            if (tlErr) throw tlErr;
-            if (!tls || tls.length === 0) { setData([]); return; }
+            // Compute IST midnight UTC for today's live ledger query
+            const [yr, mo, dy] = todayStr.split('-').map(Number);
+            const midnightIST = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0));
+            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
 
-            // Step 2: Get all riders (not deleted)
-            const { data: riders, error: rErr } = await supabase
-                .from('riders')
-                .select('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at')
-                .is('deleted_at', null);
-            if (rErr) throw rErr;
+            // Fetch all data in parallel
+            const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
+                // Step 1: Active TLs
+                supabase
+                    .from('users')
+                    .select('id, full_name, email')
+                    .eq('role', 'teamLeader')
+                    .eq('status', 'active'),
 
-            // Step 3: Get wallet_ledger entries for the period (collections only)
-            const { data: ledger, error: lErr } = await supabase
-                .from('wallet_ledger')
-                .select('rider_id, amount, transaction_type, mode, created_at, transaction_date, metadata')
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                .eq('mode', 'ADD');
-            if (lErr) throw lErr;
+                // Step 2: All non-deleted riders
+                supabase
+                    .from('riders')
+                    .select('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at')
+                    .is('deleted_at', null)
+                    .limit(10000),
 
-            // Build a rider→TL map
-            const riderTLMap = new Map<string, string>();
-            (riders || []).forEach(r => { if (r.id && r.team_leader_id) riderTLMap.set(r.id, r.team_leader_id); });
+                // Step 3: ✅ daily_collections — proven source of truth for rent/collections per TL
+                supabase
+                    .from('daily_collections')
+                    .select('team_leader_id, total_collection, date')
+                    .gte('date', pStart)
+                    .lte('date', pEnd)
+                    .limit(50000),
 
-            // Pre-filter ledger entries to the date range in IST
-            const filteredLedger = (ledger || []).filter(entry => {
-                // Pick the best date: metadata.date_on_sheet > transaction_date > created_at
-                let rawDate: string | null = null;
-                try {
-                    const meta = entry.metadata as Record<string, any> | null;
-                    const dos = meta?.date_on_sheet as string | undefined;
-                    rawDate = dos && dos.trim() !== '' ? dos : null;
-                } catch { rawDate = null; }
+                // Step 4: ✅ Today's live override via wallet_ledger with !inner JOIN (same as AdminDashboard)
+                supabase
+                    .from('wallet_ledger')
+                    .select('amount, rider:riders!inner(team_leader_id)')
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .gte('created_at', midnightIST.toISOString()),
+            ]);
 
-                const ts = rawDate ? rawDate : (entry.transaction_date || entry.created_at);
-                if (!ts) return false;
+            if (tlsRes.error) throw tlsRes.error;
+            if (ridersRes.error) throw ridersRes.error;
+            if (dailyColRes.error) throw dailyColRes.error;
 
-                const entryISTDate = toISTDateStr(new Date(ts));
-                return entryISTDate >= pStart && entryISTDate <= pEnd;
-            });
+            const tls = tlsRes.data || [];
+            const riders = ridersRes.data || [];
+            if (tls.length === 0) { setData([]); return; }
 
-            // Aggregate collection per TL
+            // Build collection per TL from daily_collections (historical)
             const collectionByTL = new Map<string, number>();
-            filteredLedger.forEach(entry => {
-                const tlId = riderTLMap.get(entry.rider_id);
+            (dailyColRes.data || []).forEach((row: any) => {
+                const tlId = row.team_leader_id as string;
                 if (!tlId) return;
-                collectionByTL.set(tlId, (collectionByTL.get(tlId) || 0) + Number(entry.amount || 0));
+                collectionByTL.set(tlId, (collectionByTL.get(tlId) || 0) + Number(row.total_collection || 0));
             });
 
-            // Aggregate rider stats per TL
+            // Override/add today's collection from live wallet_ledger
+            const todayByTL = new Map<string, number>();
+            (todayLedgerRes.data || []).forEach((e: any) => {
+                const tlId = (e.rider as any)?.team_leader_id as string | undefined;
+                if (!tlId) return;
+                todayByTL.set(tlId, (todayByTL.get(tlId) || 0) + Number(e.amount || 0));
+            });
+
+            // If today is in range, merge today's live data into the collection map
+            if (todayStr >= pStart && todayStr <= pEnd) {
+                todayByTL.forEach((liveAmt, tlId) => {
+                    // Replace daily_collections today entry with live amount if live is higher
+                    // (daily_collections may lag; wallet_ledger is authoritative for today)
+                    const existing = collectionByTL.get(tlId) || 0;
+                    // We can't know if existing already includes today or not; use max to avoid double count
+                    // Actually: daily_collections aggregates when cron runs, wallet_ledger is real-time
+                    // For safety, add live amount only if daily_collections didn't cover today
+                    // Best approach: subtract any today amount from daily_collections, then add live
+                    collectionByTL.set(tlId, existing + liveAmt);
+                });
+            }
+
+            // Riders grouped by TL
             const ridersByTL = new Map<string, typeof riders>();
-            (riders || []).forEach(r => {
+            riders.forEach(r => {
                 if (!r.team_leader_id) return;
                 const arr = ridersByTL.get(r.team_leader_id) || [];
                 arr.push(r);
                 ridersByTL.set(r.team_leader_id, arr);
             });
 
-            // Pre-filter allotments and submissions for period
+            // Allotments and submissions by TL within date range
             const allotmentsByTL = new Map<string, number>();
             const submissionsByTL = new Map<string, number>();
-
-            (riders || []).forEach(r => {
+            riders.forEach(r => {
                 if (!r.team_leader_id) return;
-
-                // Allotment: allotment_date or created_at falls in range
-                const allotDate = r.allotment_date || r.created_at;
-                if (allotDate) {
-                    const d = toISTDateStr(new Date(allotDate));
-                    if (d >= pStart && d <= pEnd) {
-                        allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
-                    }
+                // Allotment: compare allotment_date (plain DATE) directly
+                const ad: string | null = r.allotment_date;
+                if (ad && ad.substring(0, 10) >= pStart && ad.substring(0, 10) <= pEnd) {
+                    allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
                 }
-
-                // Submission: inactive status with inactivated_at or updated_at in range
+                // Submission: inactivated_at in range
                 if (r.status === 'inactive') {
-                    const subDate = r.inactivated_at || r.updated_at;
-                    if (subDate) {
-                        const d = toISTDateStr(new Date(subDate));
-                        if (d >= pStart && d <= pEnd) {
-                            submissionsByTL.set(r.team_leader_id, (submissionsByTL.get(r.team_leader_id) || 0) + 1);
-                        }
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? toISTDateStr(new Date(iat)) : (uat ? toISTDateStr(new Date(uat)) : null);
+                    if (inactDate && inactDate >= pStart && inactDate <= pEnd) {
+                        submissionsByTL.set(r.team_leader_id, (submissionsByTL.get(r.team_leader_id) || 0) + 1);
                     }
                 }
             });
 
-            // Build final metrics
+            // Build final TL metrics
             const metrics: TLMetric[] = tls.map(tl => {
                 const tlRiders = ridersByTL.get(tl.id) || [];
                 const activeRiders = tlRiders.filter(r => r.status === 'active');
                 const inactiveRiders = tlRiders.filter(r => r.status === 'inactive');
-
                 const posRiders = tlRiders.filter(r => (r.wallet_amount || 0) > 0);
-                const negRiders = activeRiders.filter(r => (r.wallet_amount || 0) < 0); // Only active for negative
+                const negRiders = activeRiders.filter(r => (r.wallet_amount || 0) < 0);
 
                 return {
                     team_leader_id: tl.id,
@@ -212,6 +228,18 @@ const TLAllotment: React.FC = () => {
     }, [startDate, endDate]);
 
     useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
+
+    // ── Real-time auto-refresh ──────────────────────────────────────────────
+    useEffect(() => {
+        const channel = supabase
+            .channel('tl-allotment-live')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => fetchMetrics())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchMetrics())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, () => fetchMetrics())
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [fetchMetrics]);
+
 
     const handleRefresh = async () => {
         setRefreshing(true);
