@@ -76,35 +76,58 @@ const TLPersonalPerformance: React.FC = () => {
         setLoading(true);
         try {
             const [ridersRes, leadsRes, ledgerRes] = await Promise.all([
+                // Fetch all non-deleted riders for this TL (including inactivated_at)
                 supabase
                     .from('riders')
                     .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at')
                     .eq('team_leader_id', userData.id)
-                    .is('deleted_at', null),
+                    .is('deleted_at', null)
+                    .limit(5000),
+
+                // Fetch leads created by this TL
                 supabase
                     .from('leads')
                     .select('status, created_at')
-                    .eq('created_by', userData.id),
+                    .eq('created_by', userData.id)
+                    .limit(5000),
+
+                // Fetch wallet_ledger entries server-side filtered to this TL's riders via JOIN
                 supabase
                     .from('wallet_ledger')
-                    .select('rider_id, amount, transaction_type, mode, created_at, transaction_date, metadata')
+                    .select(`
+                        rider_id,
+                        amount,
+                        transaction_type,
+                        mode,
+                        created_at,
+                        transaction_date,
+                        metadata,
+                        rider:riders!inner ( team_leader_id )
+                    `)
+                    .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                    .eq('mode', 'ADD'),
+                    .eq('rider.team_leader_id', userData.id)
+                    .limit(10000),
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
-            if (ledgerRes.error) throw ledgerRes.error;
+            if (ledgerRes.error) {
+                console.error('Ledger fetch error:', ledgerRes.error);
+                // Don't throw — fallback to client-side filter
+            }
 
-            // Build rider ID set belonging to this TL
-            const myRiderIds = new Set((ridersRes.data || []).map((r: any) => r.id));
+            const riderData = ridersRes.data || [];
 
-            // Filter ledger to only this TL's riders
-            const myLedger = (ledgerRes.data || []).filter((e: any) => myRiderIds.has(e.rider_id));
+            // Fallback: if the server-side join filter didn't work, client-side filter
+            const myRiderIds = new Set(riderData.map((r: any) => r.id as string));
+            const rawLedger = (ledgerRes.data || []);
+            const myLedger = rawLedger.filter((e: any) => myRiderIds.has(e.rider_id));
 
-            setRiders(ridersRes.data || []);
+            setRiders(riderData);
             setLeads(leadsRes.data || []);
             setLedgerEntries(myLedger);
         } catch (err: any) {
+            console.error('Performance fetch error:', err);
             toast.error('Failed to load data: ' + err.message);
         } finally {
             setLoading(false);
@@ -176,19 +199,42 @@ const TLPersonalPerformance: React.FC = () => {
             const ds = format(day, 'yyyy-MM-dd');
             const col = collectByDate.get(ds) || 0;
 
+            // Allotments: allotment_date is a plain DATE string "YYYY-MM-DD"
+            // Compare directly without timezone conversion to avoid date drift
             const dayAllotments = riders.filter(r => {
-                const ad = r.allotment_date || r.created_at;
-                return ad && toISTStr(new Date(ad)) === ds;
+                const ad: string | null = r.allotment_date;
+                if (!ad) return false;
+                // Plain DATE: just compare the first 10 chars
+                return ad.substring(0, 10) === ds;
             }).length;
 
+            // Submissions: check ALL riders (they might have been re-activated later)
+            // inactivated_at is a TIMESTAMPTZ — convert to IST date
             const daySubmissions = riders.filter(r => {
+                const iat: string | null = r.inactivated_at;
+                const uat: string | null = r.updated_at;
+                // Only count if rider is currently inactive and inactivated on this day
                 if (r.status !== 'inactive') return false;
-                const sd = r.inactivated_at || r.updated_at;
-                return sd && toISTStr(new Date(sd)) === ds;
+                const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
+                return inactDate === ds;
             }).length;
 
-            // Current active at this day (approximate based on allotment/inactivation)
-            const activeNow = riders.filter(r => r.status === 'active').length;
+            // Active fleet on this day = riders allotted on or before ds, not yet inactivated by ds
+            const activeOnDay = riders.filter(r => {
+                const ad: string | null = r.allotment_date;
+                if (!ad) return false;
+                const allotDs = ad.substring(0, 10);
+                if (allotDs > ds) return false; // Not yet allotted
+                if (r.status === 'active') return true; // Still active today
+                if (r.status === 'inactive') {
+                    // Was inactivated after this day?
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
+                    return inactDate ? inactDate > ds : false;
+                }
+                return false;
+            }).length;
 
             const dayLeads = leads.filter(l => l.created_at && toISTStr(new Date(l.created_at)) === ds);
             const dayConv = dayLeads.filter(l => l.status === 'Convert').length;
@@ -196,15 +242,16 @@ const TLPersonalPerformance: React.FC = () => {
             return {
                 date: ds,
                 collections: col,
-                activeRiders: activeNow, // current active
+                activeRiders: activeOnDay,
                 allotments: dayAllotments,
                 submissions: daySubmissions,
                 netGrowth: dayAllotments - daySubmissions,
                 leads: dayLeads.length,
                 conversions: dayConv,
-                avgCollection: activeNow > 0 ? Math.round(col / activeNow) : 0,
+                avgCollection: activeOnDay > 0 ? Math.round(col / activeOnDay) : 0,
             };
         });
+
 
         // Summary
         const totalCol = dailyLedger.reduce((s, d) => s + d.collections, 0);
