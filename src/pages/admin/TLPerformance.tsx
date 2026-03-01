@@ -719,7 +719,7 @@ const TLPerformance: React.FC = () => {
                                         )}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('activeRiders')}>
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('activeRiders')}>
                                     <div className="flex items-center justify-center gap-1">
                                         Rider Force
                                         {sortConfig?.key === 'activeRiders' && (
@@ -727,8 +727,8 @@ const TLPerformance: React.FC = () => {
                                         )}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('walletHealth')}>
-                                    <div className="flex items-center gap-1">
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('walletHealth')}>
+                                    <div className="flex items-center justify-center gap-1">
                                         Wallet Health (Risk)
                                         {sortConfig?.key === 'walletHealth' && (
                                             <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
@@ -743,14 +743,14 @@ const TLPerformance: React.FC = () => {
                                                 <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
                                             )}
                                         </div>
-                                        <div className="flex justify-between items-center text-[8px] font-medium text-muted-foreground capitalize mt-1 border-t border-border/40 pt-1">
+                                        <div className="flex items-center gap-4 text-[9px] font-bold text-muted-foreground mt-1.5 pt-1.5 border-t border-border/40">
                                             <span>Range: ₹{performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}</span>
-                                            <span className="text-emerald-500 font-bold ml-2">Avg/R: ₹{performanceData.length > 0 ? Math.round(performanceData.reduce((a, b) => a + b.rangeCollection, 0) / (performanceData.reduce((a, b) => a + b.activeRiders, 0) || 1)).toLocaleString() : 0}</span>
+                                            <span className="text-emerald-500">Avg/R: ₹{performanceData.length > 0 ? Math.round(performanceData.reduce((a, b) => a + b.rangeCollection, 0) / (performanceData.reduce((a, b) => a + b.activeRiders, 0) || 1)).toLocaleString() : 0}</span>
                                         </div>
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('perDayAverageCollection')}>
-                                    <div className="flex items-center gap-1">
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('perDayAverageCollection')}>
+                                    <div className="flex items-center justify-center gap-1">
                                         Per Day Avg
                                         {sortConfig?.key === 'perDayAverageCollection' && (
                                             <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
@@ -765,8 +765,8 @@ const TLPerformance: React.FC = () => {
                                         )}
                                     </div>
                                 </th>
-                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group" onClick={() => handleSort('conversion')}>
-                                    <div className="flex items-center gap-1">
+                                <th className="px-6 py-5 cursor-pointer hover:bg-muted/30 transition-colors group text-center" onClick={() => handleSort('conversion')}>
+                                    <div className="flex items-center justify-center gap-1">
                                         Leads %
                                         {sortConfig?.key === 'conversion' && (
                                             <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
@@ -780,12 +780,12 @@ const TLPerformance: React.FC = () => {
                             {loading ? (
                                 Array(6).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={6} className="px-6 py-8"><div className="h-8 bg-muted/40 rounded-lg w-full"></div></td>
+                                        <td colSpan={8} className="px-6 py-8"><div className="h-8 bg-muted/40 rounded-lg w-full"></div></td>
                                     </tr>
                                 ))
                             ) : filteredData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-24 text-center">
+                                    <td colSpan={8} className="px-6 py-24 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-4">
                                             <div className="p-4 bg-muted/30 rounded-full">
                                                 <SearchX className="h-10 w-10 text-muted-foreground/40" />
@@ -800,6 +800,7 @@ const TLPerformance: React.FC = () => {
                             ) : (
                                 filteredData.map((tl) => (
                                     <tr key={tl.id} className="group hover:bg-muted/5 transition-colors">
+                                        {/* 1. Team Leader */}
                                         <td className="px-6 py-5">
                                             <div className="flex items-center gap-4">
                                                 <div className="relative shrink-0">
@@ -827,10 +828,11 @@ const TLPerformance: React.FC = () => {
                                             </div>
                                         </td>
 
+                                        {/* 2. Rider Force */}
                                         <td className="px-6 py-5">
                                             <div className="flex flex-col items-center gap-2">
                                                 <span className="text-lg font-black text-foreground leading-none">{tl.activeRiders} <span className="text-xs font-bold text-muted-foreground/60">/ {tl.totalRiders}</span></span>
-                                                <div className="w-24 h-2 bg-muted/50 rounded-full overflow-hidden border border-border/20">
+                                                <div className="w-20 h-1.5 bg-muted/50 rounded-full overflow-hidden border border-border/20">
                                                     <div
                                                         className="h-full bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)] transition-all duration-1000"
                                                         style={{ width: `${tl.totalRiders > 0 ? (tl.activeRiders / tl.totalRiders) * 100 : 0}%` }}
@@ -839,70 +841,78 @@ const TLPerformance: React.FC = () => {
                                             </div>
                                         </td>
 
+                                        {/* 3. Wallet Health (Risk) */}
                                         <td className="px-6 py-5">
-                                            <div className="space-y-2.5">
-                                                <div className="flex flex-wrap gap-1.5">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="flex gap-2">
                                                     <span className="shrink-0 bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-emerald-500/10 italic">
                                                         {tl.wallet.positiveCount} POS
                                                     </span>
                                                     <span className="shrink-0 bg-rose-500/10 text-rose-600 px-2 py-0.5 rounded-md text-[10px] font-black border border-rose-500/10 italic">
                                                         {tl.wallet.negativeCount} NEG
                                                     </span>
-                                                    {tl.criticalDebtCount > 0 && (
-                                                        <span className="shrink-0 bg-rose-600 text-white px-2 py-0.5 rounded-md text-[10px] font-black animate-pulse shadow-lg shadow-rose-500/20">
-                                                            {tl.criticalDebtCount} CRITICAL
-                                                        </span>
-                                                    )}
                                                 </div>
-                                                <div className="flex justify-between items-center text-[11px] font-black px-1">
+                                                <div className="flex justify-between items-center w-full max-w-[140px] text-[11px] font-black">
                                                     <span className="text-emerald-500">₹{tl.wallet.positiveAmount.toLocaleString()}</span>
                                                     <span className="text-rose-600">₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
                                                 </div>
                                             </div>
                                         </td>
 
+                                        {/* 4. Collection Analytics (Now wider and horizontal) */}
                                         <td className="px-6 py-5 font-mono">
-                                            <div className="space-y-2">
-                                                <div className="flex flex-col">
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-2 items-center">
+                                                <div className="flex flex-col border-r pr-6 border-border/40">
                                                     <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">
                                                         {dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Vol.
                                                     </span>
                                                     <span className="text-base font-black text-emerald-600">₹{tl.rangeCollection.toLocaleString()}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[8px] text-muted-foreground font-black uppercase">Avg/Rider</span>
-                                                        <span className="text-xs font-black text-foreground/80 font-mono">₹{tl.avgRiderCollection.toLocaleString()}</span>
+                                                <div className="flex flex-col space-y-1">
+                                                    <div className="flex justify-between items-center w-[120px]">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Avg/Rider</span>
+                                                        <span className="text-xs font-black text-foreground">₹{tl.avgRiderCollection.toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex flex-col text-right">
-                                                        <span className="text-[8px] text-muted-foreground font-black uppercase">Grand</span>
-                                                        <span className="text-xs font-black text-foreground/50 font-mono">₹{tl.totalCollection.toLocaleString()}</span>
+                                                    <div className="flex justify-between items-center w-[120px]">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Grand</span>
+                                                        <span className="text-xs font-black text-foreground/50">₹{tl.totalCollection.toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
 
+                                        {/* 5. Per Day Avg */}
+                                        <td className="px-6 py-5 text-center font-mono">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <span className="text-base font-black text-foreground">₹{(tl.perDayAverageCollection || 0).toLocaleString()}</span>
+                                                <span className="text-[9px] text-muted-foreground font-bold mt-1 max-w-[80px] leading-tight text-center">
+                                                    {dateFilter === 'today' ? '(MTD Runrate)' : '(Daily Pace)'}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        {/* 6. Fleet Flow */}
                                         <td className="px-6 py-5">
-                                            <div className="space-y-2">
-                                                <div className="flex flex-col">
+                                            <div className="flex items-center gap-6">
+                                                <div className="flex flex-col border-r pr-6 border-border/40">
                                                     <span className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">Net Growth</span>
-                                                    <span className={`text-base font-black ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    <span className={`text-xl font-black ${tl.netGrowth > 0 ? 'text-emerald-600' : tl.netGrowth < 0 ? 'text-rose-600' : 'text-foreground'}`}>
                                                         {tl.netGrowth > 0 ? '+' : ''}{tl.netGrowth}
                                                     </span>
                                                 </div>
-                                                <div className="flex justify-between items-center border-t border-border/40 pt-1.5">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[8px] text-muted-foreground font-black uppercase">Allotment</span>
+                                                <div className="flex flex-col space-y-1">
+                                                    <div className="flex justify-between items-center w-[100px]">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Allotment</span>
                                                         <span className="text-xs font-black text-indigo-600">+{tl.allotments}</span>
                                                     </div>
-                                                    <div className="flex flex-col text-right">
-                                                        <span className="text-[8px] text-muted-foreground font-black uppercase">Submission</span>
+                                                    <div className="flex justify-between items-center w-[100px]">
+                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Submission</span>
                                                         <span className="text-xs font-black text-rose-500">-{tl.submissions}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
-
+                                        {/* 7. Leads % */}
                                         <td className="px-6 py-5">
                                             <div className="flex items-center gap-4">
                                                 <div className="relative w-11 h-11 shrink-0">
@@ -933,6 +943,7 @@ const TLPerformance: React.FC = () => {
                                             </div>
                                         </td>
 
+                                        {/* 8. Status */}
                                         <td className="px-6 py-5 text-right">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest ${tl.status === 'active'
                                                 ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
