@@ -93,22 +93,26 @@ const LeaderboardPage: React.FC = () => {
                 })) as Lead[]);
             }
 
-            // Collections
+            // Collections — daily_collections.date is authoritative for all periods
             let colQuery = supabase.from('daily_collections').select('team_leader_id, total_collection, date');
             if (period) { colQuery = colQuery.gte('date', period.start).lte('date', period.end); }
             const { data: dailyRes } = await colQuery;
             const colMap: Record<string, number> = {};
+            // Track TLs with today's snapshot (to avoid double-counting with live ledger)
+            const tlsWithTodaySnap = new Set<string>();
+            const now = new Date();
+            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
             if (dailyRes) {
                 dailyRes.forEach((d: any) => {
+                    const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
                     colMap[d.team_leader_id] = (colMap[d.team_leader_id] || 0) + (Number(d.total_collection) || 0);
+                    if (dDate === istDateStr) tlsWithTodaySnap.add(d.team_leader_id);
                 });
             }
 
-            // Merge today's live wallet_ledger for today's collections
-            const now = new Date();
-            const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-            const [year, month, day] = istDateStr.split('-').map(Number);
-            const midnightIST = new Date(Date.UTC(year, month - 1, day));
+            // Today's live from wallet_ledger — ONLY for TLs without snapshot, to avoid double-count
+            const [year3, month3, day3] = istDateStr.split('-').map(Number);
+            const midnightIST = new Date(Date.UTC(year3, month3 - 1, day3));
             midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
 
             const { data: ledgerRes } = await supabase
@@ -122,7 +126,10 @@ const LeaderboardPage: React.FC = () => {
                 (ledgerRes as any[]).forEach(txn => {
                     if (txn.rider?.team_leader_id) {
                         const tlId = txn.rider.team_leader_id;
-                        colMap[tlId] = (colMap[tlId] || 0) + (Number(txn.amount) || 0);
+                        // Only add live amount if no daily_collections snapshot exists for today
+                        if (!tlsWithTodaySnap.has(tlId)) {
+                            colMap[tlId] = (colMap[tlId] || 0) + (Number(txn.amount) || 0);
+                        }
                     }
                 });
             }

@@ -59,38 +59,31 @@ const TLPerformance: React.FC = () => {
                 return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             })();
 
-            // ── IST Monday midnight of the current week ──────────────────────────
-            const weekMondayMidnightUTC = (() => {
-                const now = new Date();
-                const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-                const [y, m, d] = istDateStr.split('-').map(Number);
-                const istDate = new Date(Date.UTC(y, m - 1, d));
-                // ISO week: 0=Sun → 6=Sat; shift so Monday=0
-                const dayOfWeek = istDate.getUTCDay(); // 0=Sun
-                const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                const mondayUTC = new Date(istDate);
-                mondayUTC.setUTCDate(istDate.getUTCDate() - daysFromMonday);
-                // Monday 00:00 IST = Monday 00:00 IST - 5.5h UTC
-                return new Date(mondayUTC.getTime() - 5.5 * 60 * 60 * 1000).toISOString();
-            })();
+            // ── IST date/week helpers ─────────────────────────────────────────────
+            const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+            const now = new Date();
+            const todayStr = formatter.format(now);
+            const [year2, month2, day2] = todayStr.split('-').map(Number);
+            const workingDateUTC2 = new Date(Date.UTC(year2, month2 - 1, day2));
+            const weekDay2 = workingDateUTC2.getUTCDay();
+            const diff2 = workingDateUTC2.getUTCDate() - weekDay2 + (weekDay2 === 0 ? -6 : 1);
+            const weekStartUTC2 = new Date(workingDateUTC2);
+            weekStartUTC2.setUTCDate(diff2);
+            const weekStartStr = weekStartUTC2.toISOString().split('T')[0];
 
-            const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes, weeklyLedgerRes] = await Promise.all([
+            const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
                 supabase.from('riders').select('*').limit(5000),
                 supabase.from('leads').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('*')
                     .order('date', { ascending: false })
                     .limit(10000),
-                // Today: from IST midnight → now
+                // Today's live: wallet_ledger entries from IST midnight → now
+                // ONLY used for "today" snapshot; NOT used for weekly/total (daily_collections.date is authoritative)
                 supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                    .gte('created_at', istMidnightUTC),
-                // This Week: from Monday IST midnight → now
-                supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
-                    .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
-                    .gte('created_at', weekMondayMidnightUTC)
+                    .gte('created_at', istMidnightUTC)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -98,54 +91,72 @@ const TLPerformance: React.FC = () => {
             if (usersRes.error) throw usersRes.error;
             if (dailyRes.error) throw dailyRes.error;
             if (todayLedgerRes.error) throw todayLedgerRes.error;
-            if (weeklyLedgerRes.error) throw weeklyLedgerRes.error;
 
-            // Process Collections - ALIGN TO IST (India Standard Time)
-            const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-            const now = new Date();
-            const todayStr = formatter.format(now);
-            const [year, month, day] = todayStr.split('-').map(Number);
-            const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
+            // ── AUTHORITATIVE DATE-BASED COLLECTION MAP ─────────────────────────────
+            // daily_collections.date is the SINGLE SOURCE OF TRUTH for all period calcs.
+            // wallet_ledger.created_at is ONLY used for today's live running total.
+            // Changing created_at in wallet_ledger does NOT affect weekly/total figures.
 
-            const weekDay = workingDateUTC.getUTCDay();
-            const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
-            const weekStartUTC = new Date(workingDateUTC);
-            weekStartUTC.setUTCDate(diff);
-            const weekStartStr = weekStartUTC.toISOString().split('T')[0];
-
-            const totals: Record<string, number> = {};
-            const daily: Record<string, number> = {};
-            const weekly: Record<string, number> = {};
+            const totals: Record<string, number> = {};   // all-time from daily_collections
+            const weekly: Record<string, number> = {};   // week from daily_collections.date
 
             dailyRes.data?.forEach(item => {
                 const tlId = item.team_leader_id;
                 const amt = Number(item.total_collection) || 0;
-
-                // Normalize date string from database (handle potential time suffix)
+                // Normalize date (strip time suffix if any)
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
 
                 totals[tlId] = (totals[tlId] || 0) + amt;
-                if (dDateStr >= weekStartStr) weekly[tlId] = (weekly[tlId] || 0) + amt;
+
+                // ✅ Weekly: use daily_collections.date >= weekStart (date string comparison)
+                if (dDateStr >= weekStartStr) {
+                    weekly[tlId] = (weekly[tlId] || 0) + amt;
+                }
             });
 
-            // Build daily map from live wallet_ledger
+            // ── TODAY'S LIVE MAP: wallet_ledger for entries since IST midnight ───────
+            // Used ONLY for the "Today" filter. Entries here may not yet be snapshotted
+            // into daily_collections. If they already are, they are already in daily_collections
+            // for today's date, so we need to de-duplicate against daily_collections.
+            //
+            // De-dup strategy: if daily_collections already has a record for today for this TL,
+            // that IS the authoritative total (from a bulk snap). Use it directly.
+            // If not, use the live ledger sum.
+            const daily: Record<string, number> = {};
+
+            // Collect which TLs already have a daily_collections snapshot for today
+            const tlsWithTodaySnapshot = new Set<string>();
+            dailyRes.data?.forEach(item => {
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                if (dDateStr === todayStr) {
+                    tlsWithTodaySnapshot.add(item.team_leader_id);
+                    daily[item.team_leader_id] = (daily[item.team_leader_id] || 0) + (Number(item.total_collection) || 0);
+                }
+            });
+
+            // For TLs that do NOT yet have a today snapshot, use live ledger
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
                 if (txn.rider?.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
-                    daily[tlId] = (daily[tlId] || 0) + (Number(txn.amount) || 0);
+                    if (!tlsWithTodaySnapshot.has(tlId)) {
+                        // No snapshot yet — use live ledger
+                        daily[tlId] = (daily[tlId] || 0) + (Number(txn.amount) || 0);
+                    }
+                    // If snapshot exists, daily already set above — don't double-count
                 }
             });
 
-            // Build weekly map from live wallet_ledger (Mon 00:00 IST → now)
-            const weeklyLive: Record<string, number> = {};
-            const weeklyLedger = (weeklyLedgerRes?.data as any[]) || [];
-            weeklyLedger.forEach(txn => {
-                if (txn.rider?.team_leader_id) {
-                    const tlId = txn.rider.team_leader_id;
-                    weeklyLive[tlId] = (weeklyLive[tlId] || 0) + (Number(txn.amount) || 0);
+            // ── Also add today's live into weekly (from daily_collections or live ledger) ─
+            // Since weekly above excludes today if no snapshot yet, we add today's total:
+            Object.keys(daily).forEach(tlId => {
+                if (!tlsWithTodaySnapshot.has(tlId)) {
+                    // Only add live amount for TLs without today's snapshot
+                    // (snapshot-based TLs already included via daily_collections.date >= weekStart)
+                    weekly[tlId] = (weekly[tlId] || 0) + (daily[tlId] || 0);
                 }
             });
+
 
             setRawData({
                 riders: (ridersRes.data || []).map((r: any) => ({ ...r, wallet_amount: r.status === 'active' ? r.wallet_amount : 0 })),
@@ -153,7 +164,7 @@ const TLPerformance: React.FC = () => {
                 teamLeaders: usersRes.data || [],
                 collections: dailyRes.data || [],
                 dailyCollectionsMap: daily,
-                weeklyCollectionsMap: weeklyLive
+                weeklyCollectionsMap: weekly
             });
         } catch (error: any) {
             toast.error('Failed to load performance data: ' + error.message);

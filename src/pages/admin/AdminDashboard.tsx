@@ -111,7 +111,12 @@ const Dashboard: React.FC = () => {
 
             if (ridersRes.error) throw ridersRes.error;
 
-            // Process Collections
+            // ── AUTHORITATIVE DATE-BASED COLLECTION MAPS ─────────────────────────
+            // daily_collections.date = single source of truth for period calcs.
+            // wallet_ledger.created_at = ONLY used for live today amounts for TLs
+            //   that do NOT yet have a daily_collections snapshot for today.
+            // Changing wallet_ledger.created_at does NOT affect weekly/total figures.
+
             const collections: Record<string, number> = {};
             const dayMap: Record<string, number> = {};
             const weekMap: Record<string, number> = {};
@@ -130,49 +135,45 @@ const Dashboard: React.FC = () => {
             const weekStart = weekStartUTC.toISOString().split('T')[0];
 
             const dailyData = dailyRes.data || [];
-            // Collect today's daily_collections TL IDs so we can track which to override
-            const todayTLIds = new Set<string>();
+            // Track TLs that already have a today snapshot in daily_collections
+            const tlsWithTodaySnapshot = new Set<string>();
 
             dailyData.forEach((d: any) => {
                 const tlId = d.team_leader_id;
                 const amt = Number(d.total_collection) || 0;
-
-                // Normalize date string from database (handle potential time suffix)
                 const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
 
-                // Total Collection (All Time)
+                // All-time total
                 collections[tlId] = (collections[tlId] || 0) + amt;
 
-                // Daily Collection — populated from daily_collections initially,
-                // but will be REPLACED by live wallet_ledger data for today below
+                // Today snapshot
                 if (dDateStr === todayStr) {
-                    dayMap[tlId] = amt; // Set (not accumulate) — will be overridden by live data
-                    todayTLIds.add(tlId);
+                    tlsWithTodaySnapshot.add(tlId);
+                    dayMap[tlId] = (dayMap[tlId] || 0) + amt;
                 }
 
-                // Weekly Collection — EXCLUDE TODAY: today's value comes from live wallet_ledger
-                // This prevents double-counting: daily_collections(today) + ledger(today)
-                if (dDateStr >= weekStart && dDateStr < todayStr) {
+                // Weekly: use date string (authoritative) — includes today if snapshot exists
+                if (dDateStr >= weekStart) {
                     weekMap[tlId] = (weekMap[tlId] || 0) + amt;
                 }
             });
 
-            // ★ FIX: REPLACE today's dayMap with LIVE wallet_ledger data (not add to it)
-            // Build fresh live totals per TL from today's wallet_ledger
+            // Live today from wallet_ledger — ONLY for TLs without a today snapshot
             const liveTodayByTL: Record<string, number> = {};
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
                 if (txn.rider && txn.rider.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
-                    liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
+                    if (!tlsWithTodaySnapshot.has(tlId)) {
+                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
+                    }
+                    // If snapshot exists: daily_collections is authoritative, skip ledger
                 }
             });
 
-            // Override today's dayMap with live data (for any TL that has live data)
-            // For TLs with no live data yet but had daily_collections, keep daily_collections value
+            // Merge live today into dayMap and weekMap (only for no-snapshot TLs)
             Object.keys(liveTodayByTL).forEach(tlId => {
-                dayMap[tlId] = liveTodayByTL[tlId]; // REPLACE, not accumulate
-                // Also ADD today's live collection to weekMap (excluded above to prevent double-count)
+                dayMap[tlId] = liveTodayByTL[tlId]; // replace (live data is fresh total)
                 weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
             });
 
