@@ -1,30 +1,18 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- DEFINITIVE FIX: Wallet Balance 100% Accuracy
--- Version: FINAL
+-- FINAL CORRECT FIX: Wallet Balance = DAY_OPENING_BALANCE only
 --
--- THE REAL ROOT CAUSE (Why previous fixes failed):
---   The bulk-import file contains the FINAL balance from the source platform
---   (Swiggy / Zomato / Rapido portal) at the time of export — this number
---   ALREADY includes all collections earned so far.
+-- BUSINESS RULE (confirmed):
+--   • riders.wallet_amount = Latest DAY_OPENING_BALANCE (RESET) value only.
+--   • DAILY_COLLECTION entries are for TL collection tracking ONLY.
+--   • DAILY_COLLECTION must NOT be added to wallet balance.
 --
---   Old calculate_rider_balance used transaction_date to find ADDs, which meant
---   ALL of today's DAILY_COLLECTION ADD entries were summed on top of the RESET.
---   Result:  balance = ₹500 (RESET) + ₹200 (today's collections)  = ₹700 ❌
---            But correct balance = ₹500 (portal already has ₹200 inside it) ✅
---
--- THE CORRECT MODEL:
---   RESET entry created_at = the exact moment of import (e.g. 14:20 IST).
---   Only ADDs with created_at STRICTLY AFTER that moment are new/unaccounted.
---   Balance = RESET_amount + SUM(ADDs after RESET.created_at)
---           − SUM(SUBTRACTs after RESET.created_at)
---
--- HOW TO RUN: Paste ENTIRE script in Supabase SQL Editor → Run All.
+-- HOW TO RUN: Paste entire script in Supabase SQL Editor → Run All.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- STEP 1: DEFINITIVE calculate_rider_balance
---   Uses RESET/SET created_at as the hard cutoff for subsequent ADDs.
---   No more transaction_date ambiguity.
+-- STEP 1: Fix calculate_rider_balance
+--   Returns ONLY the latest RESET/SET (DAY_OPENING_BALANCE) amount.
+--   DAILY_COLLECTION ADDs are completely ignored for wallet balance.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.calculate_rider_balance(p_rider_id UUID)
 RETURNS NUMERIC
@@ -32,51 +20,25 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_reset_amount  NUMERIC := 0;
-    v_reset_ts      TIMESTAMPTZ := '2000-01-01 00:00:00+00'::TIMESTAMPTZ;
-    v_adds          NUMERIC := 0;
-    v_subtracts     NUMERIC := 0;
-    v_reset_row     RECORD;
+    v_balance NUMERIC := 0;
 BEGIN
-    -- A. Find the most-recent RESET or SET entry.
-    --    Order by created_at DESC (actual insertion time — source of truth).
-    SELECT amount, created_at
-    INTO   v_reset_row
+    -- Wallet balance = the latest RESET (DAY_OPENING_BALANCE) amount only.
+    -- DAILY_COLLECTION is NOT part of wallet balance.
+    SELECT COALESCE(amount, 0)
+    INTO   v_balance
     FROM   public.wallet_ledger
     WHERE  rider_id = p_rider_id
       AND  mode IN ('RESET', 'SET')
     ORDER BY created_at DESC
     LIMIT 1;
 
-    IF v_reset_row IS NOT NULL THEN
-        v_reset_amount := v_reset_row.amount;
-        v_reset_ts     := v_reset_row.created_at;  -- hard cutoff timestamp
-    END IF;
-
-    -- B. Sum ADDs created STRICTLY AFTER the RESET (post-import collections).
-    --    Collections from before the import are already inside the RESET amount.
-    SELECT COALESCE(SUM(amount), 0) INTO v_adds
-    FROM   public.wallet_ledger
-    WHERE  rider_id   = p_rider_id
-      AND  mode       = 'ADD'
-      AND  created_at > v_reset_ts;
-
-    -- C. Sum SUBTRACTs created STRICTLY AFTER the RESET (post-import adjustments).
-    SELECT COALESCE(SUM(amount), 0) INTO v_subtracts
-    FROM   public.wallet_ledger
-    WHERE  rider_id   = p_rider_id
-      AND  mode       = 'SUBTRACT'
-      AND  created_at > v_reset_ts;
-
-    RETURN v_reset_amount + v_adds - v_subtracts;
+    RETURN COALESCE(v_balance, 0);
 END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- STEP 2: DEFINITIVE handle_daily_wallet_update
---   • Deletes stale previous-day RESET entries.
---   • Upserts today's RESET with created_at = NOW() (the import timestamp).
---   • Forces wallet_amount = calculated balance immediately (no drift).
+-- STEP 2: Fix handle_daily_wallet_update (clean & simple)
+--   Sets wallet_amount = p_new_balance directly (no calculation needed).
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.handle_daily_wallet_update(
     p_rider_id    UUID,
@@ -92,12 +54,11 @@ DECLARE
     v_today_ist     DATE;
     v_deleted_count INTEGER;
     v_ledger_id     UUID;
-    v_final_balance NUMERIC;
 BEGIN
-    -- 1. Resolve today in IST
+    -- 1. Today's date in IST
     v_today_ist := (NOW() AT TIME ZONE 'Asia/Kolkata')::DATE;
 
-    -- 2. Auto-cleanup: delete ALL previous-date RESET/DAY_OPENING_BALANCE entries
+    -- 2. Delete stale previous-date RESET entries for this rider
     DELETE FROM public.wallet_ledger wl
     WHERE wl.rider_id         = p_rider_id
       AND wl.mode             = 'RESET'
@@ -106,9 +67,7 @@ BEGIN
 
     GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
 
-    -- 3. Upsert today's RESET entry.
-    --    created_at = NOW() acts as the import timestamp cutoff.
-    --    transaction_date = p_date stored for audit purposes only.
+    -- 3. Upsert today's DAY_OPENING_BALANCE entry
     INSERT INTO public.wallet_ledger (
         rider_id,
         amount,
@@ -125,15 +84,14 @@ BEGIN
         p_new_balance,
         'DAY_OPENING_BALANCE',
         'RESET',
-        'Bulk wallet update — source platform balance',
+        'Bulk wallet update',
         jsonb_build_object(
-            'source',              'bulk_wallet_update',
-            'ist_date',            v_today_ist::TEXT,
-            'import_time_ist',     (NOW() AT TIME ZONE 'Asia/Kolkata')::TEXT,
-            'cleaned_old_entries', v_deleted_count
+            'source',    'bulk_wallet_update',
+            'ist_date',  v_today_ist::TEXT,
+            'cleaned',   v_deleted_count
         ),
         COALESCE(p_external_id, 'RESET_' || p_rider_id::TEXT || '_' || v_today_ist::TEXT),
-        NOW(),    -- ★ created_at = exact import timestamp (cutoff for balance calc)
+        NOW(),
         COALESCE(p_date, NOW()),
         'RESET'
     )
@@ -141,27 +99,21 @@ BEGIN
     DO UPDATE SET
         amount           = EXCLUDED.amount,
         metadata         = EXCLUDED.metadata,
-        created_at       = NOW(),   -- ★ Re-anchor cutoff to new import time
-        transaction_date = EXCLUDED.transaction_date
+        created_at       = NOW()
     RETURNING id INTO v_ledger_id;
 
-    -- 4. Calculate the correct final balance using the updated function.
-    --    After the RESET insert, only ADDs with created_at > NOW() will be added.
-    --    Since there can be none yet, v_final_balance = p_new_balance exactly.
-    v_final_balance := public.calculate_rider_balance(p_rider_id);
-
-    -- 5. Write the authoritative balance directly to riders table.
+    -- 4. Directly set wallet_amount = the imported balance (no calculation needed)
     UPDATE public.riders
-    SET wallet_amount = v_final_balance,
+    SET wallet_amount = p_new_balance,
         updated_at    = NOW()
     WHERE id = p_rider_id;
 
     RETURN jsonb_build_object(
-        'success',      true,
-        'ledger_id',    v_ledger_id,
-        'old_deleted',  v_deleted_count,
-        'new_balance',  v_final_balance,
-        'ist_date',     v_today_ist
+        'success',     true,
+        'ledger_id',   v_ledger_id,
+        'old_deleted', v_deleted_count,
+        'new_balance', p_new_balance,
+        'ist_date',    v_today_ist
     );
 
 EXCEPTION WHEN OTHERS THEN
@@ -170,8 +122,7 @@ END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- STEP 3: Update sync_wallet_balance_for_rider (helper used by trigger)
---   Ensures it uses the same definitive calculate_rider_balance above.
+-- STEP 3: Fix sync_wallet_balance_for_rider helper
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.sync_wallet_balance_for_rider(p_rider_id UUID)
 RETURNS VOID
@@ -187,40 +138,55 @@ END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- STEP 4: Full balance resync — recalculate wallet_amount for ALL riders
+-- STEP 4: Fix the wallet_ledger trigger — DAILY_COLLECTION must NOT touch
+--   riders.wallet_amount. Only RESET/SET entries update the balance.
 -- ─────────────────────────────────────────────────────────────────────────────
-DO $$
-DECLARE
-    r RECORD;
+CREATE OR REPLACE FUNCTION public.trigger_wallet_ledger_sync()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
 BEGIN
-    FOR r IN SELECT id FROM public.riders LOOP
-        PERFORM public.sync_wallet_balance_for_rider(r.id);
-    END LOOP;
-END $$;
+    -- ★ Only sync wallet balance when a RESET or SET entry changes.
+    -- DAILY_COLLECTION / MANUAL_ADJUSTMENT ADDs do NOT affect wallet_amount.
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.mode IN ('RESET', 'SET') THEN
+            PERFORM public.sync_wallet_balance_for_rider(OLD.rider_id);
+        END IF;
+        RETURN OLD;
+    ELSE
+        IF NEW.mode IN ('RESET', 'SET') THEN
+            PERFORM public.sync_wallet_balance_for_rider(NEW.rider_id);
+        END IF;
+        RETURN NEW;
+    END IF;
+END;
+$$;
+
+-- Re-attach the trigger with the updated function
+DROP TRIGGER IF EXISTS trg_wallet_ledger_main_sync ON public.wallet_ledger;
+CREATE TRIGGER trg_wallet_ledger_main_sync
+AFTER INSERT OR UPDATE OR DELETE ON public.wallet_ledger
+FOR EACH ROW
+EXECUTE FUNCTION public.trigger_wallet_ledger_sync();
+
+-- Also replace old trigger names in case any still exist
+DROP TRIGGER IF EXISTS trg_sync_wallet_balance ON public.wallet_ledger;
+DROP TRIGGER IF EXISTS trg_update_wallet_balance ON public.wallet_ledger;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- VERIFICATION — run these SELECT queries SEPARATELY after the above to confirm
+-- STEP 5: Full resync — set wallet_amount = latest RESET for all riders
 -- ─────────────────────────────────────────────────────────────────────────────
-
--- Query 1: Check for any drift between cached and recalculated balance.
--- Expected: All rows show drift = 0.
---
--- SELECT
---     r.rider_name,
---     r.wallet_amount                        AS cached_balance,
---     public.calculate_rider_balance(r.id)   AS recalculated_balance,
---     r.wallet_amount
---       - public.calculate_rider_balance(r.id) AS drift
--- FROM public.riders r
--- WHERE r.status = 'active'
--- ORDER BY ABS(r.wallet_amount - public.calculate_rider_balance(r.id)) DESC
--- LIMIT 30;
-
--- Query 2: Show wallet_ledger entries for a specific rider to audit the model.
--- Replace 'RIDER_ID_HERE' with an actual rider UUID.
---
--- SELECT mode, transaction_type, amount, source_type, created_at, transaction_date
--- FROM public.wallet_ledger
--- WHERE rider_id = 'RIDER_ID_HERE'
--- ORDER BY created_at DESC
--- LIMIT 20;
+UPDATE public.riders r
+SET wallet_amount = COALESCE(
+    (
+        SELECT wl.amount
+        FROM   public.wallet_ledger wl
+        WHERE  wl.rider_id = r.id
+          AND  wl.mode IN ('RESET', 'SET')
+        ORDER BY wl.created_at DESC
+        LIMIT 1
+    ),
+    0  -- no RESET entry found → keep 0
+),
+updated_at = NOW()
+WHERE r.status = 'active';
