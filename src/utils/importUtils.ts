@@ -39,6 +39,18 @@ export const parseCurrency = (value: any): number => {
     return Number(str.replace(/[^0-9.-]/g, ''));
 };
 
+// Helper: Normalize mobile to last 10 digits (handles +91, 91, 0 prefixes)
+const normalizeMobile = (raw: string): string => {
+    const digits = String(raw || '').replace(/[^0-9]/g, '');
+    if (!digits) return '';
+    // Always use last 10 digits as canonical form
+    return digits.length > 10 ? digits.slice(-10) : digits;
+};
+
+// Helper: Normalize Triev ID (strip whitespace, Excel .0 float suffix, lowercase trim)
+const normalizeTrievId = (raw: string): string =>
+    String(raw || '').trim().replace(/\.0+$/, '').trim();
+
 // Helper: Log History
 const logImportHistory = async (
     adminId: string,
@@ -66,6 +78,13 @@ const logImportHistory = async (
     }
 };
 
+// Helper: chunk array for parallel batching
+const chunkArray = <T>(arr: T[], size: number): T[][] => {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+};
+
 // Start: Bulk Rider Import Logic
 export const processRiderImport = async (
     fileData: any[],
@@ -74,252 +93,241 @@ export const processRiderImport = async (
     strictMirror = false
 ): Promise<ImportSummary> => {
     const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], updated: 0, skipped: 0, skippedDetails: [] };
-    const processedRiderIds = new Set<string>();
 
-    // 1. Pre-fetch Potential Team Leaders
-    const teamLeaderMap = new Map<string, string>(); // Name -> ID
-    const teamLeaderEmailMap = new Map<string, string>(); // Email -> ID
-    const teamLeaderIdMap = new Set<string>(); // Valid IDs
+    // ── 1. Pre-fetch Team Leaders ────────────────────────────────────────────
+    const teamLeaderMap = new Map<string, string>();
+    const teamLeaderEmailMap = new Map<string, string>();
     let users: any[] = [];
-
     try {
         const { data: fetchedUsers, error } = await supabase
             .from('users')
             .select('id, fullName:full_name, email, role')
             .in('role', ['teamLeader', 'admin', 'manager'])
             .range(0, 4999);
-
         if (error) throw error;
         users = fetchedUsers || [];
-
         users.forEach((user: any) => {
-            const fullNameRaw = (user.fullName || '').trim();
+            const nameRaw = (user.fullName || '').trim();
             const email = (user.email || '').trim().toLowerCase();
-            const userId = user.id;
-
-            if (userId) teamLeaderIdMap.add(userId);
-            if (email) teamLeaderEmailMap.set(email, userId);
-            if (fullNameRaw) {
-                const normalizedFull = fullNameRaw.toLowerCase();
-                teamLeaderMap.set(normalizedFull, userId);
-
-                // Strategy: Extract Unique ID (e.g. "KONTI/357")
-                const idMatch = fullNameRaw.match(/KONTI\s*[\/\-]?\s*\d+/i);
-                if (idMatch) {
-                    const numericPart = idMatch[0].match(/\d+/)?.[0];
-                    if (numericPart) {
-                        teamLeaderMap.set(`konti/${numericPart}`, userId);
-                    }
-                }
-
-                const cleanName = fullNameRaw.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase();
-                if (cleanName && cleanName !== normalizedFull) {
-                    teamLeaderMap.set(cleanName, userId);
+            const uid = user.id;
+            if (email) teamLeaderEmailMap.set(email, uid);
+            if (nameRaw) {
+                teamLeaderMap.set(nameRaw.toLowerCase(), uid);
+                const clean = nameRaw.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase();
+                if (clean) teamLeaderMap.set(clean, uid);
+                const kontiMatch = nameRaw.match(/KONTI\s*[\/\-]?\s*\d+/i);
+                if (kontiMatch) {
+                    const num = kontiMatch[0].match(/\d+/)?.[0];
+                    if (num) teamLeaderMap.set(`konti/${num}`, uid);
                 }
             }
         });
-    } catch (error) {
-        console.error("Error pre-fetching users:", error);
-    }
+    } catch (err) { console.error('Error pre-fetching users:', err); }
 
-    // 2. High-Performance Pre-fetch: Load ALL Riders into Memory
-    const riderTrievMap = new Map<string, any>();
-    const riderMobileMap = new Map<string, any>();
+    // ── 2. Pre-fetch ALL Riders into memory (normalized keys) ────────────────
+    //    KEY FIX: both Triev ID and Mobile are normalized the same way
+    //    as we will normalize the incoming Excel values.
+    const riderTrievMap = new Map<string, any>();   // normalizeTrievId(triev_id) → rider
+    const riderMobileMap = new Map<string, any>();  // normalizeMobile(mobile)    → rider
     try {
         const { data: allRiders, error: riderError } = await supabase
             .from('riders')
-            .select('*');
-
+            .select('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status');
         if (riderError) throw riderError;
         allRiders?.forEach(r => {
-            if (r.triev_id) riderTrievMap.set(String(r.triev_id).trim(), r);
-            if (r.mobile_number) riderMobileMap.set(String(r.mobile_number).trim(), r);
+            const tid = normalizeTrievId(String(r.triev_id || ''));
+            const mob = normalizeMobile(String(r.mobile_number || ''));
+            if (tid) riderTrievMap.set(tid, r);
+            if (mob) riderMobileMap.set(mob, r);
         });
-    } catch (error) {
-        console.error("Error pre-fetching riders:", error);
-        throw new Error("Critical: Failed to pre-fetch rider data for deduplication.");
+    } catch (err) {
+        console.error('Error pre-fetching riders:', err);
+        throw new Error('Critical: Failed to pre-fetch rider data for deduplication.');
     }
 
     summary.total = fileData.length;
+
+    // ── 3. PASS 1: Classify rows — NO DB calls inside this loop ─────────────
+    const pendingInserts: any[] = [];
+    const pendingUpdates: { id: string; payload: any; rowNum: number }[] = [];
 
     for (let i = 0; i < fileData.length; i++) {
         const row = fileData[i];
         const rowNum = i + 2;
         let currentRiderName = '';
-
         try {
-            // Data Prep
-            const normalizedRow: any = {};
-            Object.keys(row).forEach(key => normalizedRow[normalizeKey(key)] = row[key]);
-
+            const nr: any = {};
+            Object.keys(row).forEach(k => nr[normalizeKey(k)] = row[k]);
             const getValue = (keys: string[]) => {
-                for (const key of keys) {
-                    const val = normalizedRow[normalizeKey(key)];
-                    if (val !== undefined && val !== null && String(val).trim() !== '') return String(val).trim();
+                for (const k of keys) {
+                    const v = nr[normalizeKey(k)];
+                    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
                 }
                 return '';
             };
 
             currentRiderName = getValue(['Rider Name', 'Name', 'FullName', 'Full Name']);
-            const trievId = getValue(['Triev ID', 'TrievId', 'ID', 'RiderId']);
+            const trievIdRaw = getValue(['Triev ID', 'TrievId', 'ID', 'RiderId']);
+            const trievId = normalizeTrievId(trievIdRaw);   // ← normalize
             const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Contact']);
-            const mobile = mobileRaw.replace(/[^0-9]/g, '');
+            const mobile = normalizeMobile(mobileRaw);       // ← normalize to last-10
             const chassis = getValue(['Chassis Number', 'Chassis', 'ChassisNo']);
             const teamLeaderName = getValue(['Team Leader', 'TeamLeader', 'TL', 'Base']);
             const clientRaw = getValue(['Client Name', 'Client', 'Brand']);
             const remarks = getValue(['Remarks', 'Remark', 'Note']);
             const dateRaw = getValue(['Allotment Date', 'Date', 'Joining Date']);
 
-            if (!trievId && !mobile) throw new Error("Missing Unique Identifier (Triev ID or Mobile required)");
-            if (!currentRiderName) throw new Error("Missing Rider Name");
+            if (!trievId && !mobile) throw new Error('Missing Unique Identifier (Triev ID or Mobile required)');
+            if (!currentRiderName) throw new Error('Missing Rider Name');
 
-            // Team Leader Logic
+            // Resolve Team Leader
             let teamLeaderId: string | null = null;
             let finalTLName = teamLeaderName || 'Unassigned';
-
             if (teamLeaderName) {
-                const normalizedTL = teamLeaderName.toLowerCase();
-                const cleanTL = normalizedTL.replace(/\s*\(.*?\)\s*/g, '').trim();
-
-                // 1. Direct Maps
-                teamLeaderId = teamLeaderEmailMap.get(normalizedTL) ||
-                    teamLeaderMap.get(normalizedTL) ||
-                    teamLeaderMap.get(cleanTL) || null;
-
-                // 2. KONTI ID Matching
+                const nl = teamLeaderName.toLowerCase();
+                const cl = nl.replace(/\s*\(.*?\)\s*/g, '').trim();
+                teamLeaderId = teamLeaderEmailMap.get(nl) || teamLeaderMap.get(nl) || teamLeaderMap.get(cl) || null;
                 if (!teamLeaderId) {
-                    const kontiMatch = teamLeaderName.match(/KONTI\s*[\/\-]?\s*\d+/i);
-                    if (kontiMatch) {
-                        const numeric = kontiMatch[0].match(/\d+/)?.[0];
-                        if (numeric) teamLeaderId = teamLeaderMap.get(`konti/${numeric}`) || null;
-                    }
+                    const km = teamLeaderName.match(/KONTI\s*[\/\-]?\s*\d+/i);
+                    if (km) { const num = km[0].match(/\d+/)?.[0]; if (num) teamLeaderId = teamLeaderMap.get(`konti/${num}`) || null; }
                 }
-
-                // 3. Fuzzy Matching Fallback
                 if (!teamLeaderId) {
-                    const match = users.find(u => {
-                        const dbName = (u.fullName || '').toLowerCase();
-                        return dbName.includes(cleanTL) || cleanTL.includes(dbName);
-                    });
-                    if (match) teamLeaderId = match.id;
+                    const fuzzy = users.find(u => { const d = (u.fullName || '').toLowerCase(); return d.includes(cl) || cl.includes(d); });
+                    if (fuzzy) teamLeaderId = fuzzy.id;
                 }
-
-                if (teamLeaderId) {
-                    const matchedUser = users.find(u => u.id === teamLeaderId);
-                    finalTLName = matchedUser?.fullName || teamLeaderName;
-                } else {
-                    // STORE NAME BUT NO ID (User Request)
-                    finalTLName = teamLeaderName;
-                }
+                if (teamLeaderId) finalTLName = users.find(u => u.id === teamLeaderId)?.fullName || teamLeaderName;
             }
 
             const clientName = isValidClient(clientRaw) ? clientRaw : 'Other';
             let allotmentDate = '';
-            if (dateRaw) {
-                const d = new Date(dateRaw);
-                if (!isNaN(d.getTime())) allotmentDate = d.toISOString();
-            }
+            if (dateRaw) { const d = new Date(dateRaw); if (!isNaN(d.getTime())) allotmentDate = d.toISOString(); }
 
-            // 3. DUPLICACY CHECK (Map-based)
-            const existingRider = (trievId ? riderTrievMap.get(trievId) : null) || (mobile ? riderMobileMap.get(mobile) : null);
+            // ── Lookup: prefer Triev ID, fallback to mobile ──────────────────
+            const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
+                ?? (mobile ? riderMobileMap.get(mobile) : null);
 
             if (existingRider) {
-                // SMART SKIP & UPDATE LOGIC
+                // ── Check what changed ───────────────────────────────────────
                 const updatePayload: any = {};
-
-                // Helper: Compare and mark for update
                 const addIfDiff = (dbProp: string, newVal: any) => {
-                    const dbVal = existingRider[dbProp];
-                    if (newVal && String(newVal).trim() !== String(dbVal || '').trim()) {
+                    if (newVal && String(newVal).trim() !== String(existingRider[dbProp] || '').trim())
                         updatePayload[dbProp] = String(newVal).trim();
-                    }
                 };
-
                 addIfDiff('rider_name', currentRiderName);
                 addIfDiff('chassis_number', chassis);
                 addIfDiff('remarks', remarks);
                 addIfDiff('client_name', clientName);
                 if (allotmentDate) addIfDiff('allotment_date', allotmentDate);
-
-                // TL Update Logic
                 if (teamLeaderId !== existingRider.team_leader_id || finalTLName !== existingRider.team_leader_name) {
                     updatePayload.team_leader_id = teamLeaderId;
                     updatePayload.team_leader_name = finalTLName;
                 }
-
-                // WALLET PROTECTION: Never update wallet_amount via bulk rider import
+                // WALLET PROTECTION: never touch wallet_amount in rider import
 
                 if (Object.keys(updatePayload).length > 0) {
                     updatePayload.updated_at = new Date().toISOString();
-                    const { error } = await supabase.from('riders').update(updatePayload).eq('id', existingRider.id);
-                    if (error) throw error;
-                    summary.updated = (summary.updated || 0) + 1;
-                    summary.success++;
+                    pendingUpdates.push({ id: existingRider.id, payload: updatePayload, rowNum });
                 } else {
+                    // Truly identical — skip
                     summary.skipped = (summary.skipped || 0) + 1;
-                    if (!summary.skippedDetails) summary.skippedDetails = [];
-                    summary.skippedDetails.push({ row: rowNum, identifier: trievId || mobile, reason: "Identical Data", data: row });
+                    summary.skippedDetails!.push({ row: rowNum, identifier: trievId || mobile, reason: 'No changes detected (identical data)', data: row });
                 }
-                processedRiderIds.add(existingRider.id);
-                continue;
+            } else {
+                // ── Brand new rider ─────────────────────────────────────────
+                pendingInserts.push({
+                    rider_name: currentRiderName,
+                    triev_id: trievId || null,
+                    mobile_number: mobile || null,   // store normalized 10-digit
+                    chassis_number: chassis,
+                    client_name: clientName,
+                    team_leader_id: teamLeaderId,
+                    team_leader_name: finalTLName,
+                    allotment_date: allotmentDate || new Date().toISOString(),
+                    remarks,
+                    wallet_amount: 0,
+                    status: 'active',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    _rowNum: rowNum  // temp field, stripped before insert
+                });
             }
-
-            // 4. INSERT NEW RIDER
-            const { error: insertError, data: newRider } = await supabase.from('riders').insert({
-                rider_name: currentRiderName,
-                triev_id: trievId,
-                mobile_number: mobile,
-                chassis_number: chassis,
-                client_name: clientName,
-                team_leader_id: teamLeaderId,
-                team_leader_name: finalTLName,
-                allotment_date: allotmentDate || new Date().toISOString(),
-                remarks: remarks,
-                wallet_amount: 0, // STRICT: Start with 0. Walle update tool handles balance.
-                status: 'active',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }).select('id').single();
-
-            if (insertError) throw insertError;
-            summary.success++;
-            if (newRider) processedRiderIds.add(newRider.id);
-
         } catch (err: any) {
             summary.failed++;
             summary.errors.push({ row: rowNum, identifier: currentRiderName || `Row ${rowNum}`, reason: err.message });
         }
     }
 
-    // Strict Mirror (Optional deactivation)
-    if (strictMirror && processedRiderIds.size > 0 && summary.success > (fileData.length * 0.1)) {
+    // ── 4. PASS 2: Execute pending updates in parallel chunks ────────────────
+    const updateChunks = chunkArray(pendingUpdates, 20);
+    for (const chunk of updateChunks) {
+        await Promise.all(chunk.map(async ({ id, payload, rowNum }) => {
+            try {
+                const { error } = await supabase.from('riders').update(payload).eq('id', id);
+                if (error) throw error;
+                summary.updated = (summary.updated || 0) + 1;
+            } catch (err: any) {
+                summary.failed++;
+                summary.errors.push({ row: rowNum, identifier: id, reason: err.message });
+            }
+        }));
+    }
+
+    // ── 5. PASS 2: Bulk-insert all new riders in one call ───────────────────
+    if (pendingInserts.length > 0) {
+        // Strip temp _rowNum field before insert
+        const insertBatches = chunkArray(pendingInserts, 200); // Supabase safe limit
+        for (const batch of insertBatches) {
+            const cleanBatch = batch.map(({ _rowNum: _, ...rest }) => rest);
+            try {
+                const { error } = await supabase.from('riders').insert(cleanBatch);
+                if (error) throw error;
+                summary.success += cleanBatch.length;
+            } catch (err: any) {
+                // If batch fails, fall back to individual inserts for granular error reporting
+                for (const item of batch) {
+                    const { _rowNum: rn, ...clean } = item;
+                    try {
+                        const { error } = await supabase.from('riders').insert(clean);
+                        if (error) throw error;
+                        summary.success++;
+                    } catch (e: any) {
+                        summary.failed++;
+                        summary.errors.push({ row: rn, identifier: clean.rider_name || `Row ${rn}`, reason: e.message });
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Strict Mirror (Optional) ─────────────────────────────────────────────
+    if (strictMirror && summary.success > fileData.length * 0.1) {
         try {
             const { data: activeRiders } = await supabase.from('riders').select('id').eq('status', 'active');
             if (activeRiders) {
-                const idsToDeactivate = activeRiders.filter(r => !processedRiderIds.has(r.id)).map(r => r.id);
+                const idsToDeactivate = activeRiders.filter(r => {
+                    return !riderTrievMap.has(r.id) && !riderMobileMap.has(r.id);
+                }).map(r => r.id);
                 if (idsToDeactivate.length > 0) {
                     await supabase.from('riders').update({ status: 'deleted', remarks: 'Removed via Sync' }).in('id', idsToDeactivate);
-                    summary.success += idsToDeactivate.length;
                 }
             }
-        } catch (e) {
-            console.error("Mirror cleanup failed", e);
-        }
+        } catch (e) { console.error('Mirror cleanup failed', e); }
     }
 
     await logActivity({
         actionType: 'bulkImport',
         targetType: 'system',
         targetId: 'multiple',
-        details: `Imported ${summary.total} records: ${summary.success} success, ${summary.updated} updated, ${summary.skipped} skipped.`,
+        details: `Rider Import: ${summary.success} new, ${summary.updated} updated, ${summary.skipped} skipped, ${summary.failed} failed. Total: ${summary.total}`,
         metadata: { adminName, summary }
     });
-
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);
     return summary;
 };
 
+
 // Start: Bulk Wallet Update Logic
+
 export const processWalletUpdate = async (
     fileData: any[],
     adminId: string,
