@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    Bell, CheckCircle2, Clock, Search, Trash2, Inbox,
+    Bell, CheckCircle2, Clock, Search, Trash2,
     AlertCircle, AlertTriangle, Info, Check, CheckCheck,
     BellOff, Wallet, Flag, Zap, Calendar, Filter, X,
     RefreshCw, Square, CheckSquare
