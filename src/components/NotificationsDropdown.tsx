@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, AlertCircle, AlertTriangle, CheckCircle, Info, X, Wallet, Flag, Zap, Calendar } from 'lucide-react';
+import {
+    Bell, Check, AlertCircle, AlertTriangle, CheckCircle, Info, X,
+    Wallet, Flag, Zap, Calendar, CheckCheck, Trash2, BellOff, ExternalLink
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/config/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -16,10 +19,13 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [filter, setFilter] = useState<'all' | 'unread'>('all');
+    const [isMarkingAll, setIsMarkingAll] = useState(false);
+    const [isDeletingAll, setIsDeletingAll] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const navigate = useNavigate();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Close on click outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -30,7 +36,6 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Helper to map DB notification to App model
     const mapNotification = (n: any): Notification => ({
         id: n.id,
         userId: n.user_id,
@@ -38,7 +43,6 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
         message: n.message,
         type: n.type,
         priority: n.priority,
-        // Map tags from related_entity if available, or column if it exists later
         tags: n.tags || (n.related_entity && n.related_entity.tags) || [],
         relatedEntity: n.related_entity,
         isRead: n.is_read,
@@ -46,313 +50,292 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
         readAt: n.read_at
     });
 
-    useEffect(() => {
+    const fetchNotifications = async () => {
         if (!userId) return;
-
-        const fetchNotifications = async () => {
-            const { data, error } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_id', userId) // FIXED: snake_case
-                .order('created_at', { ascending: false }) // FIXED: snake_case
-                .limit(50);
-
-            if (error) {
-                console.error("Error fetching notifications:", error);
-                return;
-            }
-
-            if (data) {
-                const fetchedNotifications = data.map(mapNotification);
-                setNotifications(fetchedNotifications);
-                setUnreadCount(fetchedNotifications.filter(n => !n.isRead).length);
-            }
-        };
-
-        fetchNotifications();
-
-        const channel = supabase.channel('notifications-dropdown')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${userId}` // FIXED: snake_case
-                },
-                () => {
-                    fetchNotifications();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [userId]);
-
-    const handleMarkAsRead = async (notificationId: string) => {
-        try {
-            // Optimistic update
-            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
-
-            const { error } = await supabase
-                .from('notifications')
-                .update({ is_read: true })
-                .eq('id', notificationId);
-
-            if (error) {
-                console.error('Error marking read:', error);
-                // Revert optimistic update
-                setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: false } : n));
-                setUnreadCount(prev => prev + 1);
-                toast.error("Could not mark as read");
-            }
-
-        } catch (error) { console.error('Error marking read:', error); }
-    };
-
-    const handleMarkAllRead = async () => {
-        if (unreadCount === 0) return;
-
-        try {
-            const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-            if (unreadIds.length === 0) return;
-
-            // Try the RPC first (bypasses RLS issues and URL limits)
-            const { error: rpcError } = await supabase.rpc('mark_all_notifications_read', { p_user_id: userId });
-
-            if (rpcError) {
-                console.warn("RPC failed, falling back to standard update...", rpcError);
-                const { error } = await supabase
-                    .from('notifications')
-                    .update({ is_read: true })
-                    .in('id', unreadIds);
-
-                if (error) throw error;
-            }
-
-            // Optimistic update for local state
-            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-            setUnreadCount(0);
-            toast.success("All notifications marked as read");
-
-        } catch (error: any) {
-            console.error('Error marking all read:', error);
-            toast.error(`Database Error: ${error.message || 'Check RLS policies'}`);
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if (!error && data) {
+            const fetched = data.map(mapNotification);
+            setNotifications(fetched);
+            setUnreadCount(fetched.filter(n => !n.isRead).length);
         }
     };
 
-    const handleDelete = async (e: React.MouseEvent, notificationId: string) => {
-        e.stopPropagation();
+    useEffect(() => {
+        if (!userId) return;
+        fetchNotifications();
+        const channel = supabase.channel('notifications-dropdown')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => fetchNotifications())
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [userId]);
+
+    const handleMarkAsRead = async (notificationId: string, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        const { error } = await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', notificationId);
+        if (error) {
+            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: false } : n));
+            setUnreadCount(prev => prev + 1);
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        if (unreadCount === 0 || isMarkingAll) return;
+        setIsMarkingAll(true);
         try {
-            const { error } = await supabase
-                .from('notifications')
-                .delete()
-                .eq('id', notificationId);
+            const { error } = await supabase.rpc('mark_all_notifications_read', { p_user_id: userId });
+            if (error) {
+                const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+                await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).in('id', unreadIds);
+            }
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            setUnreadCount(0);
+            toast.success('All notifications marked as read');
+        } catch { toast.error('Failed to mark all as read'); }
+        finally { setIsMarkingAll(false); }
+    };
 
-            if (error) throw error;
-
+    const handleDelete = async (notificationId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDeletingId(notificationId);
+        const { error } = await supabase.from('notifications').delete().eq('id', notificationId);
+        if (!error) {
+            const wasUnread = notifications.find(n => n.id === notificationId)?.isRead === false;
             setNotifications(prev => prev.filter(n => n.id !== notificationId));
-        } catch (error) { console.error('Error deleting:', error); }
+            if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+        } else {
+            toast.error('Failed to delete');
+        }
+        setDeletingId(null);
     };
 
     const handleClearAll = async () => {
-        if (!confirm('Clear all notifications?')) return;
+        if (notifications.length === 0 || isDeletingAll) return;
+        setIsDeletingAll(true);
         try {
             const ids = notifications.map(n => n.id);
-            const { error } = await supabase
-                .from('notifications')
-                .delete()
-                .in('id', ids);
-
+            const { error } = await supabase.from('notifications').delete().in('id', ids);
             if (error) throw error;
-
             setNotifications([]);
             setUnreadCount(0);
-        } catch (error) { console.error('Error clearing all:', error); }
+            toast.success('All notifications cleared');
+        } catch { toast.error('Failed to clear notifications'); }
+        finally { setIsDeletingAll(false); }
     };
 
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.isRead) handleMarkAsRead(notification.id);
         setIsOpen(false);
-
-        // Navigation Logic
         if (notification.relatedEntity) {
             const { type, id } = notification.relatedEntity;
-            if (type === 'rider') {
-                navigate(userRole === 'admin' ? '/admin/riders' : '/teamleader/my-riders', {
-                    state: { highlightRiderId: id }
-                });
-            }
-            else if (type === 'user') {
-                navigate('/admin/users', {
-                    state: { highlightUserId: id }
-                });
-            }
+            if (type === 'rider') navigate(userRole === 'admin' ? '/admin/riders' : '/teamleader/my-riders', { state: { highlightRiderId: id } });
+            else if (type === 'user') navigate('/admin/users', { state: { highlightUserId: id } });
         } else {
-            // Default routes based on type
-            if (notification.type === 'permissionChange') navigate('/admin/profile');
-            else if (notification.type === 'wallet' || notification.type === 'recharge') navigate('/admin/wallet');
-            else if (notification.type === 'issue') navigate('/admin/requests'); // Assuming issues go to requests/support
-            else navigate('/admin/activity-log');
+            if (notification.type === 'wallet' || notification.type === 'recharge') navigate('/admin/wallet');
+            else if (notification.type === 'issue') navigate('/admin/requests');
+            else navigate(userRole === 'admin' ? '/portal/notifications' : '/team-leader/notifications');
         }
     };
 
-    const getIcon = (type: string) => {
-        const size = 18;
-        switch (type) {
-            case 'alert':
-            case 'riderAlert': return <div className="bg-red-100 text-red-600 p-2 rounded-full"><AlertCircle size={size} /></div>;
-            case 'warning':
-            case 'walletAlert': return <div className="bg-amber-100 text-amber-600 p-2 rounded-full"><AlertTriangle size={size} /></div>;
-            case 'success':
-            case 'allotment': return <div className="bg-green-100 text-green-600 p-2 rounded-full"><CheckCircle size={size} /></div>;
-            case 'permissionChange': return <div className="bg-purple-100 text-purple-600 p-2 rounded-full"><Check size={size} /></div>;
-            case 'wallet':
-            case 'recharge': return <div className="bg-emerald-100 text-emerald-600 p-2 rounded-full"><Wallet size={size} /></div>;
-            case 'issue': return <div className="bg-orange-100 text-orange-600 p-2 rounded-full"><Flag size={size} /></div>;
-            case 'feature': return <div className="bg-indigo-100 text-indigo-600 p-2 rounded-full"><Zap size={size} /></div>;
-            case 'reminder': return <div className="bg-blue-100 text-blue-600 p-2 rounded-full"><Calendar size={size} /></div>;
-            default: return <div className="bg-blue-50 text-blue-600 p-2 rounded-full"><Info size={size} /></div>;
-        }
+    const getIconConfig = (type: string): { icon: React.ReactNode; bg: string; color: string } => {
+        const configs: Record<string, { icon: React.ReactNode; bg: string; color: string }> = {
+            alert: { icon: <AlertCircle size={16} />, bg: 'bg-red-500/15', color: 'text-red-500' },
+            riderAlert: { icon: <AlertCircle size={16} />, bg: 'bg-red-500/15', color: 'text-red-500' },
+            warning: { icon: <AlertTriangle size={16} />, bg: 'bg-amber-500/15', color: 'text-amber-500' },
+            walletAlert: { icon: <AlertTriangle size={16} />, bg: 'bg-amber-500/15', color: 'text-amber-500' },
+            success: { icon: <CheckCircle size={16} />, bg: 'bg-green-500/15', color: 'text-green-500' },
+            allotment: { icon: <CheckCircle size={16} />, bg: 'bg-green-500/15', color: 'text-green-500' },
+            permissionChange: { icon: <Check size={16} />, bg: 'bg-purple-500/15', color: 'text-purple-500' },
+            wallet: { icon: <Wallet size={16} />, bg: 'bg-emerald-500/15', color: 'text-emerald-500' },
+            recharge: { icon: <Wallet size={16} />, bg: 'bg-emerald-500/15', color: 'text-emerald-500' },
+            issue: { icon: <Flag size={16} />, bg: 'bg-orange-500/15', color: 'text-orange-500' },
+            feature: { icon: <Zap size={16} />, bg: 'bg-indigo-500/15', color: 'text-indigo-500' },
+            reminder: { icon: <Calendar size={16} />, bg: 'bg-blue-500/15', color: 'text-blue-500' },
+        };
+        return configs[type] || { icon: <Info size={16} />, bg: 'bg-primary/10', color: 'text-primary' };
     };
 
-    const getPriorityBorder = (priority?: string) => {
+    const getPriorityAccent = (priority?: string) => {
         switch (priority) {
-            case 'high': return 'border-l-4 border-l-red-500';
-            case 'medium': return 'border-l-4 border-l-orange-400';
-            case 'low': return 'border-l-4 border-l-blue-300';
-            default: return 'border-l-4 border-l-transparent';
+            case 'high': return 'border-l-red-500';
+            case 'medium': return 'border-l-amber-400';
+            case 'low': return 'border-l-blue-400';
+            default: return 'border-l-transparent';
         }
     };
+
+    const displayed = filter === 'unread' ? notifications.filter(n => !n.isRead) : notifications;
 
     return (
         <div className="relative" ref={dropdownRef}>
+            {/* Bell Button */}
             <button
+                id="notifications-bell-btn"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`relative p-2.5 rounded-full transition-all duration-200 ${isOpen ? 'bg-primary/10 text-primary' : 'hover:bg-accent text-muted-foreground'}`}
+                className={`relative p-2.5 rounded-full transition-all duration-200 ${isOpen ? 'bg-primary/15 text-primary scale-110' : 'hover:bg-accent text-muted-foreground hover:text-foreground'}`}
             >
-                <Bell size={22} />
+                <Bell size={22} className={isOpen ? 'animate-none' : unreadCount > 0 ? 'animate-[wiggle_1s_ease-in-out]' : ''} />
                 {unreadCount > 0 && (
-                    <span className="absolute top-0.5 right-0.5 bg-red-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center border-2 border-background animate-in zoom-in">
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center border-2 border-background shadow-lg animate-in zoom-in">
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
             </button>
 
+            {/* Dropdown Panel */}
             {isOpen && (
-                <div className="absolute right-0 mt-3 w-[400px] bg-card/95 backdrop-blur-sm border border-border/50 rounded-xl shadow-2xl z-[9999] flex flex-col max-h-[85vh] animate-in fade-in slide-in-from-top-2 origin-top-right">
+                <div className="absolute right-0 mt-3 w-[420px] bg-card border border-border/60 rounded-2xl shadow-2xl z-[9999] flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                    style={{ maxHeight: 'min(85vh, 640px)' }}>
+
                     {/* Header */}
-                    <div className="p-4 border-b border-border/50 flex items-center justify-between bg-muted/30 rounded-t-xl">
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-sm">Notifications</h3>
-                            {unreadCount > 0 && (
-                                <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-medium">
-                                    {unreadCount} New
-                                </span>
-                            )}
+                    <div className="px-5 py-4 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 bg-primary/10 rounded-lg">
+                                    <Bell size={15} className="text-primary" />
+                                </div>
+                                <span className="font-bold text-sm">Notifications</span>
+                                {unreadCount > 0 && (
+                                    <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                                        {unreadCount} new
+                                    </span>
+                                )}
+                            </div>
+                            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+                                <X size={15} />
+                            </button>
                         </div>
-                        <div className="flex gap-3 text-xs font-medium">
-                            {unreadCount > 0 && (
-                                <button onClick={handleMarkAllRead} className="text-primary hover:text-primary/80 transition-colors">
-                                    Mark all read
-                                </button>
-                            )}
-                            {notifications.length > 0 && (
-                                <button onClick={handleClearAll} className="text-muted-foreground hover:text-destructive transition-colors">
-                                    Clear all
-                                </button>
-                            )}
+
+                        {/* Action Bar */}
+                        <div className="flex items-center justify-between">
+                            {/* Filter Tabs */}
+                            <div className="flex bg-muted/60 rounded-lg p-0.5 gap-0.5">
+                                {(['all', 'unread'] as const).map(tab => (
+                                    <button key={tab} onClick={() => setFilter(tab)}
+                                        className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all capitalize ${filter === tab ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                                        {tab} {tab === 'unread' && unreadCount > 0 ? `(${unreadCount})` : ''}
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-1">
+                                {unreadCount > 0 && (
+                                    <button onClick={handleMarkAllRead} disabled={isMarkingAll}
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10 rounded-lg transition-all disabled:opacity-50">
+                                        <CheckCheck size={13} />
+                                        {isMarkingAll ? 'Marking...' : 'Mark all read'}
+                                    </button>
+                                )}
+                                {notifications.length > 0 && (
+                                    <button onClick={handleClearAll} disabled={isDeletingAll}
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50">
+                                        <Trash2 size={13} />
+                                        {isDeletingAll ? '...' : 'Clear all'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
                     {/* List */}
-                    <div className="overflow-y-auto flex-1 p-2 space-y-2 custom-scrollbar">
-                        {notifications.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted/10 m-2 rounded-lg border border-dashed border-border/50">
-                                <div className="bg-muted p-4 rounded-full mb-3 animate-pulse">
-                                    <Bell size={32} className="opacity-40" />
+                    <div className="overflow-y-auto flex-1 p-2 space-y-1">
+                        {displayed.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                                <div className="p-5 bg-muted/40 rounded-2xl">
+                                    <BellOff size={28} className="opacity-40" />
                                 </div>
-                                <p className="text-sm font-medium">No notifications</p>
-                                <p className="text-xs opacity-60">You're all caught up!</p>
+                                <div className="text-center">
+                                    <p className="text-sm font-semibold">
+                                        {filter === 'unread' ? 'All caught up!' : 'No notifications'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground/70 mt-0.5">
+                                        {filter === 'unread' ? 'No unread notifications' : "You're all set"}
+                                    </p>
+                                </div>
                             </div>
                         ) : (
-                            notifications.map((note) => (
-                                <div
-                                    key={note.id}
-                                    onClick={() => handleNotificationClick(note)}
-                                    className={`group flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-300 relative overflow-hidden border
-                                        ${getPriorityBorder(note.priority)} 
-                                        ${!note.isRead
-                                            ? 'bg-gradient-to-r from-primary/5 to-transparent border-primary/10 shadow-sm'
-                                            : 'bg-card hover:bg-accent/50 border-transparent hover:border-border/50'
-                                        }
-                                        hover:shadow-md hover:translate-x-1
-                                    `}
-                                >
-                                    {/* Unread Indicator */}
-                                    {!note.isRead && (
-                                        <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-primary animate-pulse" />
-                                    )}
-
-                                    <div className={`flex-shrink-0 mt-1 transition-transform group-hover:scale-110 duration-300`}>
-                                        {getIcon(note.type)}
-                                    </div>
-
-                                    <div className="flex-1 min-w-0 z-10">
-                                        <div className="flex items-start justify-between gap-2 mb-1">
-                                            <h4 className={`text-sm font-semibold truncate transition-colors ${!note.isRead ? 'text-primary' : 'text-foreground group-hover:text-primary'}`}>
-                                                {typeof note.title === 'string' ? note.title : String(note.title || 'Notification')}
-                                            </h4>
-                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0 font-medium">
-                                                {note.createdAt ? formatDistanceToNow(new Date(note.createdAt), { addSuffix: true }).replace('about ', '') : ''}
-                                            </span>
-                                        </div>
-                                        <p className={`text-xs leading-relaxed ${!note.isRead ? 'text-foreground/90 font-medium' : 'text-muted-foreground'} line-clamp-2`}>
-                                            {safeRender(note.message)}
-                                        </p>
-                                        {note.tags && Array.isArray(note.tags) && note.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                {(note.tags as any).map((t: string) => ( // Cast needed if types mismatch, keeping simplistic here
-                                                    <span key={safeRender(t)} className="text-[10px] bg-background/50 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
-                                                        #{safeRender(t)}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {/* Related Entity Badge */}
-                                        {note.relatedEntity && (
-                                            <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md w-fit">
-                                                <Info size={10} />
-                                                <span>View Details</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <button
-                                        onClick={(e) => handleDelete(e, note.id)}
-                                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-white hover:bg-red-500 rounded-lg transition-all transform translate-y-2 group-hover:translate-y-0 duration-200 shadow-sm"
-                                        title="Delete"
+                            displayed.map((note) => {
+                                const { icon, bg, color } = getIconConfig(note.type);
+                                return (
+                                    <div key={note.id}
+                                        onClick={() => handleNotificationClick(note)}
+                                        className={`group relative flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all duration-200 border-l-[3px]
+                                            ${getPriorityAccent(note.priority)}
+                                            ${!note.isRead
+                                                ? 'bg-primary/[0.04] hover:bg-primary/[0.07]'
+                                                : 'hover:bg-accent/60 opacity-80 hover:opacity-100'
+                                            }
+                                        `}
                                     >
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                            ))
+                                        {/* Unread dot */}
+                                        {!note.isRead && (
+                                            <span className="absolute top-3.5 right-3.5 w-2 h-2 rounded-full bg-primary" />
+                                        )}
+
+                                        {/* Icon */}
+                                        <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${bg} ${color}`}>
+                                            {icon}
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0 pr-4">
+                                            <div className="flex items-start justify-between gap-1 mb-0.5">
+                                                <h4 className={`text-[13px] font-semibold leading-tight truncate ${!note.isRead ? 'text-foreground' : 'text-foreground/80'}`}>
+                                                    {typeof note.title === 'string' ? note.title : String(note.title || 'Notification')}
+                                                </h4>
+                                            </div>
+                                            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2">
+                                                {safeRender(note.message)}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-1.5">
+                                                <span className="text-[10px] text-muted-foreground/60 font-medium">
+                                                    {note.createdAt ? formatDistanceToNow(new Date(note.createdAt), { addSuffix: true }).replace('about ', '') : ''}
+                                                </span>
+                                                {note.priority === 'high' && (
+                                                    <span className="text-[9px] uppercase font-black text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded tracking-wider">urgent</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Hover Actions */}
+                                        <div className="absolute right-2 bottom-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150 translate-y-1 group-hover:translate-y-0">
+                                            {!note.isRead && (
+                                                <button onClick={(e) => handleMarkAsRead(note.id, e)}
+                                                    title="Mark as read"
+                                                    className="p-1.5 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-lg transition-all">
+                                                    <Check size={11} />
+                                                </button>
+                                            )}
+                                            <button onClick={(e) => handleDelete(note.id, e)}
+                                                title="Delete"
+                                                disabled={deletingId === note.id}
+                                                className="p-1.5 bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 rounded-lg transition-all disabled:opacity-40">
+                                                <X size={11} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
 
-                    {/* View All Footer */}
-                    <div className="p-3 border-t border-border/50 bg-muted/30 rounded-b-xl">
+                    {/* Footer */}
+                    <div className="px-4 py-3 border-t border-border/50 bg-muted/20">
                         <button
                             onClick={() => {
                                 setIsOpen(false);
                                 navigate(userRole === 'admin' ? '/portal/notifications' : '/team-leader/notifications');
                             }}
-                            className="w-full py-1.5 text-xs font-medium text-center text-primary hover:bg-primary/5 rounded transition-colors"
+                            className="w-full flex items-center justify-center gap-2 py-2 text-[12px] font-semibold text-primary hover:text-white hover:bg-primary rounded-lg transition-all duration-200 group"
                         >
-                            View All Notifications
+                            <span>View All Notifications</span>
+                            <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
                         </button>
                     </div>
                 </div>
