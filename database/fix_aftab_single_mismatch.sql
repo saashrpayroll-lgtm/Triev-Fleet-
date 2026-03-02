@@ -17,7 +17,7 @@ WHERE mode = 'ADD'
   AND transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION')
   AND created_at >= '2026-03-02'
   AND metadata->>'source' = 'rent_import'
-  AND metadata->>'date_on_sheet' = '2026-02-02T18:47:00.000Z';
+  AND metadata->>'date_on_sheet' LIKE '2026-02-02T%';
 
 -- Trigger recalculation to pull that 300 rupees into March 2nd
 SELECT public.resync_all_daily_collections();
