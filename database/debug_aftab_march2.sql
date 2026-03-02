@@ -3,7 +3,7 @@
 
 SELECT 
     r.id AS rider_id,
-    r.name AS rider_name,
+    r.full_name AS rider_name,
     wl.amount,
     wl.metadata->>'source' AS source,
     wl.metadata->>'transaction_id' AS sheet_txn_id,
