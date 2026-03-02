@@ -635,13 +635,18 @@ export const processRentCollectionImport = async (
                 let transactionDateStr = new Date().toISOString();
                 const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
                 if (dateRaw) {
-                    const d = new Date(dateRaw);
-                    if (!isNaN(d.getTime())) {
-                        transactionDateStr = d.toISOString();
+                    // Force DD/MM/YYYY parsing BEFORE generic `new Date(dateRaw)` fallback 
+                    // because `new Date('02/03/2026')` defaults to Feb 3 (US format) instead of Mar 2.
+                    const ddmmyyyyMatch = String(dateRaw).trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+                    if (ddmmyyyyMatch) {
+                        const [, day, month, year] = ddmmyyyyMatch;
+                        // Build proper ISO string to avoid local timezone offset artifacts (creates Midnight UTC)
+                        transactionDateStr = new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10))).toISOString();
                     } else {
-                        const parts = dateRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-                        if (parts) {
-                            transactionDateStr = new Date(parseInt(parts[3], 10), parseInt(parts[2], 10) - 1, parseInt(parts[1], 10)).toISOString();
+                        // Fallback generic parsing
+                        const d = new Date(dateRaw);
+                        if (!isNaN(d.getTime())) {
+                            transactionDateStr = d.toISOString();
                         }
                     }
                 }
