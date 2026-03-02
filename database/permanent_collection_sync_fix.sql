@@ -25,7 +25,7 @@ AS $$
         CASE 
             WHEN p_row.metadata->>'date_on_sheet' IS NOT NULL 
                  AND p_row.metadata->>'date_on_sheet' ~ '^\d{4}-\d{2}-\d{2}'
-            THEN (p_row.metadata->>'date_on_sheet')::DATE
+            THEN ((p_row.metadata->>'date_on_sheet')::TIMESTAMPTZ AT TIME ZONE 'Asia/Kolkata')::DATE
         END,
         -- 2. transaction_date column (stored as timestamptz, cast to IST)
         CASE
