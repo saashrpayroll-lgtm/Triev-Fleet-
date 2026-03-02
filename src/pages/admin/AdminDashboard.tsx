@@ -85,9 +85,9 @@ const Dashboard: React.FC = () => {
                     profilePicUrl:profile_pic_url
                 `).eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('team_leader_id, total_collection, date')
-                    .gte('date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
+                    .gte('date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)))
                     .order('date', { ascending: false })
-                    .limit(10000),
+                    .limit(50000),
                 supabase.from('wallet_ledger').select(`
                     amount,
                     rider:riders!inner (
@@ -150,8 +150,9 @@ const Dashboard: React.FC = () => {
                     todayTLIds.add(tlId);
                 }
 
-                // Weekly Collection
-                if (dDateStr >= weekStart) {
+                // Weekly Collection — EXCLUDE TODAY: today's value comes from live wallet_ledger
+                // This prevents double-counting: daily_collections(today) + ledger(today)
+                if (dDateStr >= weekStart && dDateStr < todayStr) {
                     weekMap[tlId] = (weekMap[tlId] || 0) + amt;
                 }
             });
@@ -171,6 +172,8 @@ const Dashboard: React.FC = () => {
             // For TLs with no live data yet but had daily_collections, keep daily_collections value
             Object.keys(liveTodayByTL).forEach(tlId => {
                 dayMap[tlId] = liveTodayByTL[tlId]; // REPLACE, not accumulate
+                // Also ADD today's live collection to weekMap (excluded above to prevent double-count)
+                weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
             });
 
 
@@ -195,6 +198,13 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         fetchDashboardData(true);
 
+        // Debounce: avoid hammering fetchDashboardData on rapid ledger inserts
+        let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (ledgerDebounce) clearTimeout(ledgerDebounce);
+            ledgerDebounce = setTimeout(() => fetchDashboardData(), 1200);
+        };
+
         const channel = supabase
             .channel('dashboard-updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
@@ -209,16 +219,11 @@ const Dashboard: React.FC = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
                 fetchDashboardData();
             })
-            // Real-time Collections Update
-            // Real-time Collections Update via daily_collections table
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'daily_collections' },
-                () => {
-                    // Refresh dashboard when collection totals change
-                    fetchDashboardData();
-                }
-            )
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => {
+                fetchDashboardData();
+            })
+            // ✅ FIX: wallet_ledger realtime — keeps today/weekly collection maps live
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
         return () => {

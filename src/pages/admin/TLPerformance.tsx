@@ -165,11 +165,20 @@ const TLPerformance: React.FC = () => {
     useEffect(() => {
         fetchData();
 
+        // Debounce: avoid hammering fetchData on rapid ledger inserts
+        let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (ledgerDebounce) clearTimeout(ledgerDebounce);
+            ledgerDebounce = setTimeout(() => fetchData(), 1000);
+        };
+
         const channels = [
             supabase.channel('tl-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData).subscribe(),
             supabase.channel('tl-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData).subscribe(),
             supabase.channel('tl-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData).subscribe(),
-            supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData).subscribe()
+            supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData).subscribe(),
+            // ✅ FIX: wallet_ledger realtime — keeps today/weekly maps live
+            supabase.channel('tl-perf-ledger').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced).subscribe(),
         ];
 
         // ── Auto-reset at IST midnight every day ──────────────────────────────
@@ -341,11 +350,14 @@ const TLPerformance: React.FC = () => {
             const weeklyCollection = (rawData as any).weeklyCollectionsMap?.[tlId] || 0;
 
             // Days in current week elapsed (Mon=1 … Sun=7)
+            // FIX: use getUTCDay() on IST date anchor — avoids Intl locale short-name inconsistency
             const weekDayIST = (() => {
-                const d = new Date();
-                const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', weekday: 'short' }).format(d);
-                const map: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
-                return map[day] || 1;
+                const now2 = new Date();
+                const istStr2 = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now2);
+                const [iy, im, id] = istStr2.split('-').map(Number);
+                const istUTCDate = new Date(Date.UTC(iy, im - 1, id));
+                const dayNum = istUTCDate.getUTCDay(); // 0=Sun, 1=Mon … 6=Sat
+                return dayNum === 0 ? 7 : dayNum;      // Mon=1 … Sat=6, Sun=7
             })();
             const weeklyPerDayAvg = weekDayIST > 0 ? Math.round(weeklyCollection / weekDayIST) : 0;
             const weeklyPerRiderAvg = activeRiders > 0 ? Math.round(weeklyCollection / activeRiders) : 0;
