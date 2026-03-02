@@ -17,11 +17,15 @@ export interface TLPerformanceMetrics {
     netGrowth: number;
     positiveWallet: number;
     negativeWallet: number;
+    positiveWalletCount: number;   // 🆕 riders with wallet > 0
+    negativeWalletCount: number;   // 🆕 active riders with wallet < 0
+    collectionPerRider: number;    // 🆕 collection / max(activeRiders,1)
     convertedLeads: number;
     leadsTotal: number;
     conversionRate: number;
     efficiency: number;
     avgRiderAge: number;
+    aiGrade: 'S' | 'A' | 'B' | 'C' | 'D'; // 🆕 AI performance grade
     isTrending: boolean;
 }
 
@@ -41,6 +45,17 @@ export const AI_WEIGHTS = {
     LEAD_CONVERSION: 45,    // Sourcing quality
     LEAD_REJECTION: -10,    // Sourcing effort waste
     RIDER_TENURE_DAY: 0.6,   // Stability/Retention
+};
+
+/**
+ * Derive AI performance grade from score + efficiency
+ */
+export const getAIGrade = (score: number, efficiency: number): 'S' | 'A' | 'B' | 'C' | 'D' => {
+    if (score >= 5000 && efficiency >= 85) return 'S';
+    if (score >= 3000 && efficiency >= 70) return 'A';
+    if (score >= 1500 && efficiency >= 55) return 'B';
+    if (score >= 500) return 'C';
+    return 'D';
 };
 
 export const calculateAIScore = (
@@ -64,6 +79,9 @@ export const calculateAIScore = (
     // Wallet Stats
     const positiveWallet = tlRiders.filter(r => r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
     const negativeWallet = tlRiders.filter(r => r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
+    const positiveWalletCount = tlRiders.filter(r => r.walletAmount > 0).length;
+    const negativeWalletCount = tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length;
+    const collectionPerRider = activeRiders > 0 ? Math.round(collections / activeRiders) : 0;
 
     // Lead Stats
     const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
@@ -130,6 +148,8 @@ export const calculateAIScore = (
     // Final Normalization
     score = Math.max(0, Math.round(score));
 
+    const efficiency = tlRiders.length > 0 ? Math.round((activeRiders / tlRiders.length) * 100) : 0;
+
     // Trending Logic
     const isTrending = score > 1000 && (activeRiders / (tlRiders.length || 1)) > 0.85 && netGrowth >= 0;
 
@@ -145,11 +165,15 @@ export const calculateAIScore = (
         netGrowth,
         positiveWallet,
         negativeWallet,
+        positiveWalletCount,
+        negativeWalletCount,
+        collectionPerRider,
         convertedLeads,
         leadsTotal: tlLeads.length,
         conversionRate,
-        efficiency: tlRiders.length > 0 ? Math.round((activeRiders / tlRiders.length) * 100) : 0,
+        efficiency,
         avgRiderAge: Math.round(avgRiderAge),
+        aiGrade: getAIGrade(score, efficiency),
         isTrending
     };
 };
