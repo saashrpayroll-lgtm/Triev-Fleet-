@@ -231,28 +231,35 @@ BEGIN
     -- Truncate and rebuild from scratch
     TRUNCATE TABLE public.daily_collections;
 
+    WITH base_data AS (
+        SELECT 
+            r.team_leader_id,
+            public.ledger_effective_date(wl) AS eff_date,
+            wl.amount
+        FROM public.wallet_ledger wl
+        JOIN public.riders r ON wl.rider_id = r.id
+        WHERE wl.mode = 'ADD'
+          AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION')
+          AND r.team_leader_id IS NOT NULL
+    )
     INSERT INTO public.daily_collections (team_leader_id, date, total_collection, active_riders_count, updated_at)
     SELECT
-        r.team_leader_id,
-        public.ledger_effective_date(wl) AS eff_date,
-        SUM(wl.amount)                   AS total,
+        bd.team_leader_id,
+        bd.eff_date,
+        SUM(bd.amount) AS total,
         GREATEST(
             (
                 SELECT COUNT(*)::INTEGER
                 FROM public.riders r2
-                WHERE r2.team_leader_id = r.team_leader_id
+                WHERE r2.team_leader_id = bd.team_leader_id
                   AND r2.status != 'deleted'
-                  AND (r2.created_at AT TIME ZONE 'Asia/Kolkata')::DATE <= public.ledger_effective_date(wl)
-                  AND (r2.inactivated_at IS NULL OR (r2.inactivated_at AT TIME ZONE 'Asia/Kolkata')::DATE > public.ledger_effective_date(wl))
+                  AND (r2.created_at AT TIME ZONE 'Asia/Kolkata')::DATE <= bd.eff_date
+                  AND (r2.inactivated_at IS NULL OR (r2.inactivated_at AT TIME ZONE 'Asia/Kolkata')::DATE > bd.eff_date)
             ),
             1
         ) AS rider_count
-    FROM public.wallet_ledger wl
-    JOIN public.riders r ON wl.rider_id = r.id
-    WHERE wl.mode = 'ADD'
-      AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION')
-      AND r.team_leader_id IS NOT NULL
-    GROUP BY r.team_leader_id, public.ledger_effective_date(wl)
+    FROM base_data bd
+    GROUP BY bd.team_leader_id, bd.eff_date
     ON CONFLICT (team_leader_id, date) DO UPDATE SET
         total_collection    = EXCLUDED.total_collection,
         active_riders_count = GREATEST(EXCLUDED.active_riders_count, 1),
