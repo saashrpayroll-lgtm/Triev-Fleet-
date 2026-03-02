@@ -257,7 +257,8 @@ BEGIN
                   AND (r2.inactivated_at IS NULL OR (r2.inactivated_at AT TIME ZONE 'Asia/Kolkata')::DATE > bd.eff_date)
             ),
             1
-        ) AS rider_count
+        ) AS rider_count,
+        NOW() AS updated_at
     FROM base_data bd
     GROUP BY bd.team_leader_id, bd.eff_date
     ON CONFLICT (team_leader_id, date) DO UPDATE SET
