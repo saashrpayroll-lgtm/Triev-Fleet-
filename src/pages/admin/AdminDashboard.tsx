@@ -24,7 +24,7 @@ import { calculateAIScore } from '@/utils/performance';
 const Dashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const navigate = useNavigate();
-    const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [loading, setLoading] = useState(true);
 
 

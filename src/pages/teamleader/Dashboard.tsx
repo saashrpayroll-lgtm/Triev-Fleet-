@@ -47,7 +47,7 @@ const Dashboard: React.FC = () => {
         positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
         totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
     });
-    const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [aiInsight, setAiInsight] = useState<string>('');
 
     // Leaderboard Data State
@@ -604,8 +604,8 @@ const Dashboard: React.FC = () => {
                                     key={f}
                                     onClick={() => setDateFilter(f)}
                                     className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${dateFilter === f
-                                            ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-md'
-                                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                                        ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-md'
+                                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
                                         }`}
                                 >
                                     {f === 'all' ? 'All Time' : f}
