@@ -47,18 +47,22 @@ const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose, record
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="p-4 rounded-xl bg-muted/30 border border-muted/50 flex flex-col items-center justify-center">
                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Rows</div>
                             <div className="text-2xl font-black">{record.totalRows}</div>
                         </div>
                         <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 flex flex-col items-center justify-center">
-                            <div className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider mb-1">Success</div>
+                            <div className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider mb-1">New</div>
                             <div className="text-2xl font-black text-green-600 dark:text-green-400">{record.successCount}</div>
+                        </div>
+                        <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex flex-col items-center justify-center">
+                            <div className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-1">Updated</div>
+                            <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{record.updated_count || 0}</div>
                         </div>
                         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col items-center justify-center">
                             <div className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">Skipped</div>
-                            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{record.skipped_count ?? (record.totalRows - record.successCount - record.failureCount)}</div>
+                            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{record.skipped_count ?? 0}</div>
                         </div>
                         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex flex-col items-center justify-center">
                             <div className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-1">Failed</div>

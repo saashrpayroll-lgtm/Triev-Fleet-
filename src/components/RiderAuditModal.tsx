@@ -36,7 +36,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             // 1. Fetch ALL Riders from DB (Active and Inactive)
             const { data: dbRiders, error } = await supabase
                 .from('riders')
-                .select('id, rider_name, mobile_number, triev_id, status, team_leader_name')
+                .select('id, rider_name, mobile_number, triev_id, status, team_leader_name, inactivated_at, allotment_date')
                 .in('status', ['active', 'inactive', 'deleted']);
 
             if (error) throw error;
@@ -172,17 +172,38 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
         setIsProcessing(true);
         try {
+            if (!results) return;
             const ids = Array.from(selectedReturningIds);
-            const { error } = await supabase
-                .from('riders')
-                .update({
-                    status: 'active',
-                    updated_at: new Date().toISOString(),
-                    allotment_date: new Date().toISOString() // Reset allotment date
-                })
-                .in('id', ids);
+            const selectedRiders = results.returningRiders.filter(r => selectedReturningIds.has(r.id));
 
-            if (error) throw error;
+            await Promise.all(selectedRiders.map(async (rider) => {
+                let newAllotmentDate = rider.allotment_date;
+
+                // 15-Day Rule: If inactive for > 15 days, reset allotment date
+                if (rider.inactivated_at) {
+                    const inactiveDate = new Date(rider.inactivated_at);
+                    const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
+                    if (daysDiff > 15) {
+                        newAllotmentDate = new Date().toISOString();
+                    }
+                } else {
+                    // If no inactivation date, treat as new allotment to be safe
+                    newAllotmentDate = new Date().toISOString();
+                }
+
+                const { error } = await supabase
+                    .from('riders')
+                    .update({
+                        status: 'active',
+                        updated_at: new Date().toISOString(),
+                        allotment_date: newAllotmentDate,
+                        inactivated_at: null, // Clear inactivation date
+                        last_status_change_at: new Date().toISOString()
+                    })
+                    .eq('id', rider.id);
+
+                if (error) throw error;
+            }));
 
             toast.success(`Successfully reactivated ${ids.length} riders.`);
 

@@ -68,6 +68,7 @@ const logImportHistory = async (
             success_count: summary.success,
             failure_count: summary.failed,
             skipped_count: summary.skipped || 0,
+            updated_count: summary.updated || 0,
             status: summary.failed === 0 ? 'success' : (summary.success === 0 ? 'failed' : 'partial'),
             errors: summary.errors.slice(0, 50), // Limit errors stored
             skipped_details: (summary.skippedDetails || []).slice(0, 100), // Limit skips stored
@@ -132,7 +133,7 @@ export const processRiderImport = async (
     try {
         const { data: allRiders, error: riderError } = await supabase
             .from('riders')
-            .select('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status');
+            .select('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status, inactivated_at');
         if (riderError) throw riderError;
         allRiders?.forEach(r => {
             const tid = normalizeTrievId(String(r.triev_id || ''));
@@ -207,22 +208,71 @@ export const processRiderImport = async (
                 ?? (mobile ? riderMobileMap.get(mobile) : null);
 
             if (existingRider) {
+                // ── PASS 1: Calculate New Status and Potential Date Reset ──
+                let targetStatus = existingRider.status;
+                let finalAllotmentDate = existingRider.allotment_date;
+                let shouldResetInactivatedAt = false;
+
+                // Reactivation Logic (15-Day Rule)
+                if (existingRider.status === 'inactive' || existingRider.status === 'deleted') {
+                    targetStatus = 'active';
+                    shouldResetInactivatedAt = true;
+
+                    // Check if inactive for > 15 days
+                    if (existingRider.inactivated_at) {
+                        const inactiveDate = new Date(existingRider.inactivated_at);
+                        const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
+                        if (daysDiff > 15) {
+                            // New Allotment!
+                            finalAllotmentDate = new Date().toISOString();
+                        }
+                    } else {
+                        // Fallback if inactivated_at missing but status is inactive - treat as new allotment
+                        finalAllotmentDate = new Date().toISOString();
+                    }
+                }
+
                 // ── Check what changed ───────────────────────────────────────
                 const updatePayload: any = {};
-                const addIfDiff = (dbProp: string, newVal: any) => {
-                    if (newVal && String(newVal).trim() !== String(existingRider[dbProp] || '').trim())
-                        updatePayload[dbProp] = String(newVal).trim();
+                const addIfDiff = (dbProp: string, newVal: any, dbVal: any = existingRider[dbProp]) => {
+                    const cleanNew = String(newVal || '').trim();
+                    const cleanDb = String(dbVal || '').trim();
+                    if (cleanNew && cleanNew !== cleanDb) {
+                        updatePayload[dbProp] = cleanNew;
+                    }
                 };
+
                 addIfDiff('rider_name', currentRiderName);
                 addIfDiff('chassis_number', chassis);
                 addIfDiff('remarks', remarks);
                 addIfDiff('client_name', clientName);
-                if (allotmentDate) addIfDiff('allotment_date', allotmentDate);
+
+                // Status and Reactivation handling
+                if (targetStatus !== existingRider.status) {
+                    updatePayload.status = targetStatus;
+                    updatePayload.last_status_change_at = new Date().toISOString();
+                }
+
+                if (shouldResetInactivatedAt) {
+                    updatePayload.inactivated_at = null;
+                }
+
+                // Date Handling: Use शीट date only if explicitly provided and DIFFERENT, 
+                // but respects the 15-day rule calculated above as priority for reactivation.
+                if (allotmentDate && String(allotmentDate).trim() !== String(existingRider.allotment_date || '').trim()) {
+                    updatePayload.allotment_date = allotmentDate;
+                } else if (finalAllotmentDate !== existingRider.allotment_date) {
+                    updatePayload.allotment_date = finalAllotmentDate;
+                }
+
                 if (teamLeaderId !== existingRider.team_leader_id || finalTLName !== existingRider.team_leader_name) {
                     updatePayload.team_leader_id = teamLeaderId;
                     updatePayload.team_leader_name = finalTLName;
                 }
+
                 // WALLET PROTECTION: never touch wallet_amount in rider import
+                // Remove any accidentally added wallet keys if they slipped in (though they shouldn't here)
+                delete updatePayload.wallet_amount;
 
                 if (Object.keys(updatePayload).length > 0) {
                     updatePayload.updated_at = new Date().toISOString();
