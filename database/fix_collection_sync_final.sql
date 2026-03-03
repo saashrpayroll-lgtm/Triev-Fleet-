@@ -1,35 +1,51 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- ULTIMATE COLLECTION CONSISTENCY FIX (V18.1 - ROBUST SIGNATURE)
+-- ULTIMATE COLLECTION CONSISTENCY FIX (V20 - TYPE & TIMEZONE UNIFIED)
 -- ════════════════════════════════════════════════════════════════════════════
--- Resolves the "Date Shift" and "Missing Amount" issues by unifying date logic.
--- Fixes: ERROR 42883 (Signature mismatch for get_ledger_date)
+-- Fixes: Mar 3 vs Mar 2 discrepancy (₹2,386 missing/shifted)
+-- Fixes: Missing 'DAILY COLLECTION' (with space) entries.
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
 
--- 1. UNIFIED DATE RESOLVER (Robust Signature)
--- This is the SINGLE SOURCE OF TRUTH for how a transaction's date is determined.
--- We accept TIMESTAMPTZ for the date to ensure compatibility with all column types.
-CREATE OR REPLACE FUNCTION public.get_ledger_date(p_metadata JSONB, p_transaction_date TIMESTAMPTZ, p_created_at TIMESTAMPTZ)
+-- 1. UNIFIED TYPE FILTER (Helper to ensure consistent filtering)
+-- Includes: DAILY_COLLECTION, DAILY COLLECTION, RENT_COLLECTION, RENT COLLECTION, etc.
+CREATE OR REPLACE FUNCTION public.is_collection_txn(p_type TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN (
+        p_type IN (
+            'DAILY_COLLECTION', 'DAILY COLLECTION', 
+            'RENT_COLLECTION', 'RENT COLLECTION', 
+            'FTD_COLLECTION', 'FTD COLLECTION', 
+            'COLLECTION', 'RENT'
+        )
+    );
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
+-- 2. UNIFIED DATE RESOLVER (V20 - Forced IST Conversion)
+-- Forces all timestamps (transaction_date and created_at) through IST conversion 
+-- before extracting the DATE. This prevents 11:58 PM shifting.
+CREATE OR REPLACE FUNCTION public.get_ledger_date_v20(p_metadata JSONB, p_transaction_date TIMESTAMPTZ, p_created_at TIMESTAMPTZ)
 RETURNS DATE AS $$
 BEGIN
-    -- Order of Priority:
-    -- 1. Explicit transaction_date (updated by UI 'Edit Date')
-    -- 2. metadata->date_on_sheet (updated by UI 'Edit Date' and Import)
+    -- Priority:
+    -- 1. Explicit transaction_date (Forced to IST)
+    -- 2. metadata->date_on_sheet (Already stored as YYYY-MM-DD from import)
     -- 3. created_at (Fallback converted to IST)
     RETURN COALESCE(
-        p_transaction_date::DATE, 
+        (p_transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE, 
         (p_metadata->>'date_on_sheet')::DATE, 
         (p_created_at AT TIME ZONE 'Asia/Kolkata')::DATE
     );
 EXCEPTION WHEN OTHERS THEN
-    -- Safety fallback to created_at IST if parsing fails
     RETURN (p_created_at AT TIME ZONE 'Asia/Kolkata')::DATE;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 
--- 2. STANDARDIZED RECALCULATION HELPER
+-- 3. STANDARDIZED RECALCULATION HELPER
 CREATE OR REPLACE FUNCTION public.recalculate_daily_collection_for_date(p_tl_id UUID, p_date DATE)
 RETURNS VOID AS $$
 DECLARE
@@ -41,12 +57,11 @@ BEGIN
     FROM public.wallet_ledger wl
     JOIN public.riders r ON wl.rider_id = r.id
     WHERE r.team_leader_id = p_tl_id
-    AND wl.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION')
+    AND public.is_collection_txn(wl.transaction_type)
     AND wl.mode = 'ADD'
-    -- Using the unified date resolver with explicit casts for absolute safety
-    AND public.get_ledger_date(wl.metadata, wl.transaction_date::TIMESTAMPTZ, wl.created_at) = p_date;
+    AND public.get_ledger_date_v20(wl.metadata, wl.transaction_date::TIMESTAMPTZ, wl.created_at) = p_date;
 
-    -- Calculate historical active count for that date (IST Aware)
+    -- Historical active count for that date
     SELECT COUNT(*)::INTEGER INTO v_active_count
     FROM public.riders
     WHERE team_leader_id = p_tl_id 
@@ -56,7 +71,7 @@ BEGIN
 
     IF v_active_count = 0 THEN v_active_count := 1; END IF;
 
-    -- Upsert the corrected value
+    -- Upsert
     INSERT INTO public.daily_collections (team_leader_id, date, total_collection, active_riders_count, updated_at)
     VALUES (p_tl_id, p_date, v_total_collection, v_active_count, NOW())
     ON CONFLICT (team_leader_id, date)
@@ -68,7 +83,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 3. UNIFIED SYNC TRIGGER
+-- 4. UNIFIED SYNC TRIGGER
 CREATE OR REPLACE FUNCTION public.sync_ledger_to_daily_metrics_final()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -77,12 +92,11 @@ DECLARE
     v_new_date DATE;
     v_old_date DATE;
 BEGIN
-    -- HANDLE DELETIONS & UPDATES (Old State)
+    -- Old State (Decrement/Cleanup)
     IF (TG_OP = 'DELETE' OR TG_OP = 'UPDATE') THEN
-        IF OLD.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION') AND OLD.mode = 'ADD' THEN
+        IF public.is_collection_txn(OLD.transaction_type) AND OLD.mode = 'ADD' THEN
             SELECT team_leader_id INTO v_old_tl_id FROM public.riders WHERE id = OLD.rider_id;
-            -- Using same unified logic
-            v_old_date := public.get_ledger_date(OLD.metadata, OLD.transaction_date::TIMESTAMPTZ, OLD.created_at);
+            v_old_date := public.get_ledger_date_v20(OLD.metadata, OLD.transaction_date::TIMESTAMPTZ, OLD.created_at);
 
             IF v_old_tl_id IS NOT NULL THEN
                 PERFORM public.recalculate_daily_collection_for_date(v_old_tl_id, v_old_date);
@@ -90,12 +104,11 @@ BEGIN
         END IF;
     END IF;
 
-    -- HANDLE INSERTIONS & UPDATES (New State)
+    -- New State (Increment/Refresh)
     IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
-        IF NEW.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION') AND NEW.mode = 'ADD' THEN
+        IF public.is_collection_txn(NEW.transaction_type) AND NEW.mode = 'ADD' THEN
             SELECT team_leader_id INTO v_new_tl_id FROM public.riders WHERE id = NEW.rider_id;
-            -- Using same unified logic
-            v_new_date := public.get_ledger_date(NEW.metadata, NEW.transaction_date::TIMESTAMPTZ, NEW.created_at);
+            v_new_date := public.get_ledger_date_v20(NEW.metadata, NEW.transaction_date::TIMESTAMPTZ, NEW.created_at);
 
             IF v_new_tl_id IS NOT NULL THEN
                 PERFORM public.recalculate_daily_collection_for_date(v_new_tl_id, v_new_date);
@@ -108,7 +121,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 4. RE-ATTACH TRIGGER
+-- 5. RE-ATTACH TRIGGER
 DROP TRIGGER IF EXISTS trg_sync_ledger_to_daily_metrics ON public.wallet_ledger;
 CREATE TRIGGER trg_sync_ledger_to_daily_metrics
     AFTER INSERT OR UPDATE OR DELETE ON public.wallet_ledger
@@ -116,41 +129,7 @@ CREATE TRIGGER trg_sync_ledger_to_daily_metrics
     EXECUTE FUNCTION public.sync_ledger_to_daily_metrics_final();
 
 
--- 5. UPGRADED DATE UPDATE RPC
-CREATE OR REPLACE FUNCTION public.update_wallet_transaction_date(
-    p_transaction_id UUID,
-    p_new_date TIMESTAMP WITH TIME ZONE
-)
-RETURNS JSONB AS $$
-DECLARE
-    v_new_date DATE := (p_new_date AT TIME ZONE 'Asia/Kolkata')::DATE;
-BEGIN
-    -- Verify Permission
-    IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin') THEN
-        RAISE EXCEPTION 'Access Denied: Only Admins can modify transaction dates.';
-    END IF;
-
-    -- Update Record
-    UPDATE public.wallet_ledger
-    SET 
-        created_at = p_new_date,
-        transaction_date = v_new_date,
-        updated_at = NOW(),
-        metadata = jsonb_set(
-            jsonb_set(
-                COALESCE(metadata, '{}'::jsonb), 
-                '{date_modified_by}', to_jsonb(auth.uid()::text)
-            ),
-            '{date_on_sheet}', to_jsonb(v_new_date::text)
-        )
-    WHERE id = p_transaction_id;
-
-    RETURN jsonb_build_object('success', true, 'message', 'Transaction moved to ' || v_new_date);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-
--- 6. FULL DATA RE-SYNC (Final Check)
+-- 6. FULL DATA RE-SYNC (The Re-Sync we need)
 TRUNCATE TABLE public.daily_collections;
 
 INSERT INTO public.daily_collections (team_leader_id, date, total_collection, active_riders_count, updated_at)
@@ -173,11 +152,11 @@ SELECT
 FROM (
     SELECT 
         r.team_leader_id as tl_id,
-        public.get_ledger_date(wl.metadata, wl.transaction_date::TIMESTAMPTZ, wl.created_at) as v_date,
+        public.get_ledger_date_v20(wl.metadata, wl.transaction_date::TIMESTAMPTZ, wl.created_at) as v_date,
         SUM(wl.amount) as total
     FROM public.wallet_ledger wl
     JOIN public.riders r ON wl.rider_id = r.id
-    WHERE wl.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION')
+    WHERE public.is_collection_txn(wl.transaction_type)
       AND wl.mode = 'ADD'
       AND r.team_leader_id IS NOT NULL 
     GROUP BY r.team_leader_id, v_date
