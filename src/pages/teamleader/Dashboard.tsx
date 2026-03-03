@@ -47,7 +47,7 @@ const Dashboard: React.FC = () => {
         positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
         totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
     });
-    const [dateFilter] = useState<DateFilterType>('day');
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
     const [aiInsight, setAiInsight] = useState<string>('');
 
     // Leaderboard Data State
@@ -595,6 +595,22 @@ const Dashboard: React.FC = () => {
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
                             </span>
                             <span className="text-[9px] font-black tracking-widest text-white uppercase">Neural Realtime Sync</span>
+                        </div>
+
+                        {/* Period Selector */}
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-1 shadow-inner self-center sm:self-auto">
+                            {(['day', 'week', 'month', 'all'] as DateFilterType[]).map((f) => (
+                                <button
+                                    key={f}
+                                    onClick={() => setDateFilter(f)}
+                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${dateFilter === f
+                                            ? 'bg-white dark:bg-indigo-600 text-indigo-600 dark:text-white shadow-md'
+                                            : 'text-slate-400 hover:text-slate-600 dark:hover:text-white'
+                                        }`}
+                                >
+                                    {f === 'all' ? 'All Time' : f}
+                                </button>
+                            ))}
                         </div>
                     </div>
 

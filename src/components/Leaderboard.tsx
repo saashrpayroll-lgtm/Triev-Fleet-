@@ -155,19 +155,28 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     const RankChangeBadge = ({ tlId, currentRank, size = 'sm' }: { tlId: string; currentRank: number; size?: 'sm' | 'xs' }) => {
         const change = getRankChange(tlId, currentRank);
         const isXs = size === 'xs';
+
         if (change > 0) return (
-            <span className={`flex items-center gap-0.5 ${isXs ? 'text-[8px]' : 'text-[9px]'} font-black text-emerald-400`}>
+            <motion.span
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={`flex items-center gap-0.5 ${isXs ? 'text-[8px]' : 'text-[9px]'} font-black text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full ring-1 ring-emerald-400/20`}
+            >
                 <ChevronUp size={isXs ? 8 : 10} className="flex-shrink-0" />
                 {change}
-            </span>
+            </motion.span>
         );
         if (change < 0) return (
-            <span className={`flex items-center gap-0.5 ${isXs ? 'text-[8px]' : 'text-[9px]'} font-black text-rose-400`}>
+            <motion.span
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={`flex items-center gap-0.5 ${isXs ? 'text-[8px]' : 'text-[9px]'} font-black text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded-full ring-1 ring-rose-400/20`}
+            >
                 <ChevronDown size={isXs ? 8 : 10} className="flex-shrink-0" />
                 {Math.abs(change)}
-            </span>
+            </motion.span>
         );
-        return <span className={`${isXs ? 'text-[8px]' : 'text-[9px]'} font-black text-white/30`}><Minus size={isXs ? 8 : 10} /></span>;
+        return <span className={`${isXs ? 'text-[8px]' : 'text-[9px]'} font-black text-white/20`}><Minus size={isXs ? 8 : 10} /></span>;
     };
 
     return (
@@ -284,11 +293,60 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                         </div>
 
                                         {/* AI Score */}
-                                        <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/25 px-6 py-3 rounded-2xl shadow-2xl mb-2">
-                                            <Sparkles size={18} className="text-indigo-400 animate-pulse flex-shrink-0" />
-                                            <span className={`text-2xl font-black tracking-tight ${cfg.nameColor}`}>{tl.score.toLocaleString()}</span>
-                                            <span className="text-[11px] font-black text-white/70 uppercase tracking-widest ml-1">pts</span>
-                                        </div>
+                                        <TooltipProvider delayDuration={0}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/25 px-6 py-3 rounded-2xl shadow-2xl mb-2 cursor-help transition-all hover:bg-white/20">
+                                                        <Sparkles size={18} className="text-indigo-400 animate-pulse flex-shrink-0" />
+                                                        <span className={`text-2xl font-black tracking-tight ${cfg.nameColor}`}>{tl.score.toLocaleString()}</span>
+                                                        <span className="text-[11px] font-black text-white/70 uppercase tracking-widest ml-1">pts</span>
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom" className="w-[280px] p-0 overflow-hidden bg-slate-950 border-white/10 shadow-2xl rounded-2xl">
+                                                    <div className="bg-indigo-600/20 p-3 border-b border-white/10">
+                                                        <div className="flex items-center gap-2">
+                                                            <Sparkles size={14} className="text-indigo-400" />
+                                                            <h4 className="text-[12px] font-black uppercase tracking-widest text-white">Intelligence Breakdown</h4>
+                                                        </div>
+                                                        <p className="text-[10px] text-white/50 font-bold mt-1">Real-time performance impact analysis</p>
+                                                    </div>
+                                                    <div className="p-3 space-y-2.5">
+                                                        <div className="flex justify-between items-center group">
+                                                            <div className="flex items-center gap-2">
+                                                                <Activity size={12} className="text-blue-400" />
+                                                                <span className="text-[10px] font-bold text-white/70 uppercase">Fleet Health</span>
+                                                            </div>
+                                                            <div className="text-[10px] font-black text-blue-400">+25 / -15 pts</div>
+                                                        </div>
+                                                        <div className="flex justify-between items-center group">
+                                                            <div className="flex items-center gap-2">
+                                                                <TrendingUp size={12} className="text-emerald-400" />
+                                                                <span className="text-[10px] font-bold text-white/70 uppercase">Net Growth</span>
+                                                            </div>
+                                                            <div className="text-[10px] font-black text-emerald-400">+60 pts (Multi)</div>
+                                                        </div>
+                                                        <div className="flex justify-between items-center group">
+                                                            <div className="flex items-center gap-2">
+                                                                <Wallet size={12} className="text-yellow-400" />
+                                                                <span className="text-[10px] font-bold text-white/70 uppercase">Collections</span>
+                                                            </div>
+                                                            <div className="text-[10px] font-black text-yellow-400">+12 pts / ₹1k</div>
+                                                        </div>
+                                                        <div className="flex justify-between items-center group">
+                                                            <div className="flex items-center gap-2">
+                                                                <Target size={12} className="text-purple-400" />
+                                                                <span className="text-[10px] font-bold text-white/70 uppercase">Conversion</span>
+                                                            </div>
+                                                            <div className="text-[10px] font-black text-purple-400">+45 pts / lead</div>
+                                                        </div>
+                                                        <div className="pt-2 border-t border-white/5 flex justify-between items-center">
+                                                            <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Risk: Churn</span>
+                                                            <span className="text-[10px] font-black text-rose-500">-40 pts</span>
+                                                        </div>
+                                                    </div>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
 
                                         {/* Trending badge */}
                                         {tl.isTrending && (
