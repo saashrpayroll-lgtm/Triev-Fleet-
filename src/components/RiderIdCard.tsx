@@ -62,8 +62,8 @@ const RiderIdCard = forwardRef<HTMLDivElement, RiderIdCardProps>(({ rider, teamL
             </div>
 
             {/* Info Section */}
-            <div className="mt-28 flex-1 px-8 pb-10 flex flex-col">
-                <div className="text-center mb-8">
+            <div className="mt-24 flex-1 px-8 pb-8 flex flex-col">
+                <div className="text-center mb-6">
                     <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{rider.riderName}</h2>
                     <div className="flex items-center justify-center gap-2 mt-1">
                         <span className="text-xs font-bold text-orange-500 uppercase tracking-widest bg-orange-50 px-2 py-0.5 rounded">RIDER PARTNER</span>
@@ -106,7 +106,7 @@ const RiderIdCard = forwardRef<HTMLDivElement, RiderIdCardProps>(({ rider, teamL
                 </div>
 
                 {/* Bottom Footer */}
-                <div className="mt-auto pt-6 border-t border-slate-100 text-center">
+                <div className="mt-auto pt-4 border-t border-slate-100 text-center">
                     <p className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.2em]">Verified Secure Node Access • 2026 TriEv</p>
                 </div>
             </div>
