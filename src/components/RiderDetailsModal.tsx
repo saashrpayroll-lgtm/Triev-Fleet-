@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Rider, ActivityLog } from '@/types';
-import { X, Phone, MessageCircle, History, AlertTriangle, ShieldCheck, Building2, Bike, UserCheck, Share2, Calendar, Download, Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw } from 'lucide-react';
+import { X, Phone, MessageCircle, History, AlertTriangle, ShieldCheck, Building2, Bike, UserCheck, Calendar, Download, Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw } from 'lucide-react';
 
 import { AIService } from '@/services/AIService';
 import { supabase } from '@/config/supabase';
@@ -434,8 +434,6 @@ ${new Date().toLocaleString('en-IN')}`;
                                 { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
                                 ...(rider.status === 'active' && rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={17} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40 px-5 py-3 text-base shadow-lg transition-all' }] : []),
                                 ...(rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={17} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40 px-5 py-3 text-base shadow-lg transition-all' }] : []),
-                                { label: 'Share', icon: <Share2 size={13} />, onClick: handleShareCard, cls: 'bg-blue-500/25 hover:bg-blue-500/40' },
-                                { label: 'Download', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-violet-500/25 hover:bg-violet-500/40' },
                             ].map(({ label, icon, onClick, cls }) => (
                                 <button key={label} onClick={onClick}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${cls}`}>
@@ -723,7 +721,6 @@ ${new Date().toLocaleString('en-IN')}`;
                             </div>
                         </div>
                     )}
-
                     {activeTab === 'idcard' && canViewIdCard && (
                         <div className="p-6 flex flex-col items-center gap-6">
                             {/* Hidden actual card for capturing */}
@@ -777,60 +774,22 @@ ${new Date().toLocaleString('en-IN')}`;
                                         </span>
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === 'idcard' && canViewIdCard && (
-                        <div className="p-6 flex flex-col items-center gap-6">
-                            {/* Hidden actual card for capturing */}
-                            <div className="fixed -left-[2000px] top-0 pointer-events-none">
-                                <RiderIdCard
-                                    ref={idCardRef}
-                                    rider={{ ...rider, photoUrl: riderPhoto }}
-                                    teamLeaderName={teamLeader?.fullName}
-                                />
-                            </div>
 
-                            {/* View Preview */}
-                            <div className="scale-[0.7] md:scale-[0.8] origin-top mb-[-120px] md:mb-[-80px] shadow-2xl rounded-[32px]">
-                                <RiderIdCard
-                                    rider={{ ...rider, photoUrl: riderPhoto }}
-                                    teamLeaderName={teamLeader?.fullName}
-                                />
-                            </div>
-
-                            {/* Upload & Controls */}
-                            <div className="w-full max-w-sm space-y-4">
-                                <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/20 p-4 rounded-2xl">
-                                    <div className="flex items-center gap-3 mb-3 text-orange-700 dark:text-orange-400">
-                                        <Camera size={18} />
-                                        <h4 className="font-bold text-sm">Update Rider Photo</h4>
-                                    </div>
-                                    <p className="text-xs text-orange-600/70 dark:text-orange-400/60 mb-4 leading-relaxed">
-                                        Upload a clear, passport-size photo of the rider for the official ID Card. Max size 2MB.
-                                    </p>
-
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handlePhotoUpload}
-                                        className="hidden"
-                                        accept="image/*"
-                                    />
-
+                                {/* Download & Share Section - Positioned below the card */}
+                                <div className="flex gap-3 pt-2">
                                     <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={isUploadingPhoto}
-                                        className="w-full bg-white dark:bg-slate-900 border-2 border-dashed border-orange-300 dark:border-orange-800/50 hover:border-orange-500 hover:bg-orange-50 transition-all p-4 rounded-xl flex flex-col items-center gap-2 group"
+                                        onClick={handleDownloadCard}
+                                        className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl font-bold shadow-lg shadow-violet-500/20 transition-all active:scale-95"
                                     >
-                                        {isUploadingPhoto ? (
-                                            <RefreshCw className="animate-spin text-orange-500" size={20} />
-                                        ) : (
-                                            <ImageIcon className="text-orange-400 group-hover:text-orange-500 transition-colors" size={24} />
-                                        )}
-                                        <span className="text-xs font-bold text-orange-600">
-                                            {isUploadingPhoto ? 'Uploading...' : 'Choose Photo'}
-                                        </span>
+                                        <Download size={18} />
+                                        Download PNG
+                                    </button>
+                                    <button
+                                        onClick={handleShareCard}
+                                        className="w-14 flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                                        title="Share on WhatsApp"
+                                    >
+                                        <MessageCircle size={20} />
                                     </button>
                                 </div>
                             </div>
