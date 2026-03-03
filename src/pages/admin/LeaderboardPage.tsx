@@ -117,9 +117,14 @@ const LeaderboardPage: React.FC = () => {
 
             const { data: ledgerRes } = await supabase
                 .from('wallet_ledger')
-                .select('amount, rider:riders!inner(team_leader_id)')
+                .select('amount, transaction_type, transaction_date, created_at, rider:riders!inner(team_leader_id)')
                 .eq('mode', 'ADD')
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                .in('transaction_type', [
+                    'DAILY_COLLECTION', 'DAILY COLLECTION',
+                    'RENT_COLLECTION', 'RENT COLLECTION',
+                    'FTD_COLLECTION', 'FTD COLLECTION',
+                    'COLLECTION', 'RENT'
+                ])
                 .gte('created_at', midnightIST.toISOString());
 
             if (ledgerRes && (!period || period.end >= istDateStr)) {

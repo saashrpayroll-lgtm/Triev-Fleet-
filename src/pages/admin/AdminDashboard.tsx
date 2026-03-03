@@ -90,12 +90,20 @@ const Dashboard: React.FC = () => {
                     .limit(50000),
                 supabase.from('wallet_ledger').select(`
                     amount,
+                    transaction_type,
+                    transaction_date,
+                    created_at,
                     rider:riders!inner (
                         team_leader_id
                     )
                 `)
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION',
+                        'RENT_COLLECTION', 'RENT COLLECTION',
+                        'FTD_COLLECTION', 'FTD COLLECTION',
+                        'COLLECTION', 'RENT'
+                    ])
                     .gte('created_at', (() => {
                         const now = new Date();
                         const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);

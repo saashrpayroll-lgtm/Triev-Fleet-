@@ -31,7 +31,12 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     )
                 `)
                 .eq('mode', 'ADD')
-                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                .in('transaction_type', [
+                    'DAILY_COLLECTION', 'DAILY COLLECTION',
+                    'RENT_COLLECTION', 'RENT COLLECTION',
+                    'FTD_COLLECTION', 'FTD COLLECTION',
+                    'COLLECTION', 'RENT'
+                ])
                 .gte('created_at', todayIso);
 
             if (teamLeaderId) {
@@ -64,7 +69,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 event: 'INSERT', schema: 'public', table: 'wallet_ledger', filter: 'mode=eq.ADD'
             }, async (payload) => {
                 const newLog = payload.new as any;
-                if (!['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'].includes(newLog.transaction_type)) return;
+                if (!['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'].includes(newLog.transaction_type)) return;
 
                 const logIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(newLog.created_at));
                 const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
