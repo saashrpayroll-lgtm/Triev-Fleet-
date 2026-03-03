@@ -58,7 +58,8 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             view: false, create: false, edit: false, delete: false, hardDelete: false, statusChange: false, export: false,
             call: false, whatsapp: false, // New defaults
             bulkActions: { statusChange: false, delete: false, sendReminders: false, assignTeamLeader: false, export: false },
-            fields: { viewSensitive: false }
+            fields: { viewSensitive: false },
+            idCard: false
         },
         leads: {
             view: false, create: false, edit: false, delete: false, statusChange: false, export: false,
@@ -281,6 +282,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'riders_bulk_delete', label: 'Bulk Delete', description: 'Delete multiple riders at once', risk: 'high', path: 'riders.bulkActions.delete' },
                 { id: 'riders_bulk_remind', label: 'Bulk Reminders', description: 'Send payment reminders to multiple riders', risk: 'low', path: 'riders.bulkActions.sendReminders' },
                 { id: 'riders_bulk_assign', label: 'Bulk Assign TL', description: 'Assign Team Leaders to multiple riders', risk: 'medium', path: 'riders.bulkActions.assignTeamLeader' },
+                { id: 'riders_id_card', label: 'Rider ID Card', description: 'Enable ID card generation and photo upload', risk: 'medium', path: 'riders.idCard' },
             ]
         },
         {

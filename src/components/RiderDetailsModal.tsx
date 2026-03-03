@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { logActivity } from '@/utils/activityLog';
 import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
+import RiderIdCard from '@/components/RiderIdCard';
+import { Camera, Image as ImageIcon } from 'lucide-react';
 
 interface RiderDetailsModalProps {
     rider: Rider;
@@ -32,7 +34,8 @@ interface LedgerEntry {
 
 const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, onUpdate }) => {
     const { userData } = useSupabaseAuth();
-    const [activeTab, setActiveTab] = useState<'profile' | 'wallet'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'wallet' | 'idcard'>('profile');
+    const canViewIdCard = userData?.permissions?.riders?.idCard;
 
     // Profile State
     const [score, setScore] = useState<{ score: number; label: string; color: string }>({ score: 0, label: 'Calculating...', color: 'text-gray-500' });
@@ -98,6 +101,16 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
     // Reminder State
     const [reminderModalType, setReminderModalType] = useState<ReminderType | null>(null);
     const cardRef = useRef<HTMLDivElement>(null);
+    const idCardRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Photo Upload State
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [riderPhoto, setRiderPhoto] = useState<string | undefined>(rider.photoUrl);
+
+    useEffect(() => {
+        setRiderPhoto(rider.photoUrl);
+    }, [rider.photoUrl]);
 
     useEffect(() => {
         if (rider) {
@@ -226,6 +239,10 @@ ${new Date().toLocaleString('en-IN')}`;
     };
 
     const handleShareCard = () => {
+        if (activeTab === 'idcard') {
+            toast.info("Please use the 'Download' button to share the official ID Card as an image.");
+            return;
+        }
         const cardText = generateShareCard();
         const url = `https://wa.me/?text=${encodeURIComponent(cardText)}`;
         window.open(url, '_blank');
@@ -233,14 +250,19 @@ ${new Date().toLocaleString('en-IN')}`;
     };
 
     const handleDownloadCard = async () => {
-        if (!cardRef.current) return;
+        const activeRef = activeTab === 'idcard' ? idCardRef : cardRef;
+        if (!activeRef.current) return;
+
+        const toastId = toast.loading(activeTab === 'idcard' ? 'Generating ID Card...' : 'Generating Card...');
 
         try {
             if (typeof window !== 'undefined' && (window as any).html2canvas) {
-                const canvas = await (window as any).html2canvas(cardRef.current, {
-                    backgroundColor: '#ffffff',
-                    scale: 2,
-                    logging: false
+                const canvas = await (window as any).html2canvas(activeRef.current, {
+                    backgroundColor: activeTab === 'idcard' ? null : '#ffffff',
+                    scale: 3,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true
                 });
 
                 canvas.toBlob((blob: Blob | null) => {
@@ -248,20 +270,75 @@ ${new Date().toLocaleString('en-IN')}`;
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.href = url;
-                        link.download = `rider-card-${rider.trievId}.png`;
+                        link.download = activeTab === 'idcard' ? `rider-id-card-${rider.trievId}.png` : `rider-card-${rider.trievId}.png`;
                         link.click();
                         URL.revokeObjectURL(url);
-                        toast.success('Card downloaded successfully!');
+                        toast.success('Card downloaded successfully!', { id: toastId });
                     }
-                });
+                }, 'image/png');
             } else {
+                if (activeTab === 'idcard') {
+                    toast.error('Image export failed. Please try again or contact support.', { id: toastId });
+                    return;
+                }
                 const cardText = generateShareCard();
                 await navigator.clipboard.writeText(cardText);
-                toast.success('Card details copied to clipboard!');
+                toast.success('Card details copied to clipboard!', { id: toastId });
             }
         } catch (error) {
             console.error('Error downloading card:', error);
-            toast.error('Failed to download card');
+            toast.error('Failed to download card', { id: toastId });
+        }
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file');
+            return;
+        }
+
+        const toastId = toast.loading('Uploading photo...');
+        setIsUploadingPhoto(true);
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${rider.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const filePath = `photos/${fileName}`;
+
+            // 1. Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('rider-photos')
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('rider-photos')
+                .getPublicUrl(filePath);
+
+            // 3. Update Database
+            const { error: updateError } = await supabase
+                .from('riders')
+                .update({ photo_url: publicUrl })
+                .eq('id', rider.id);
+
+            if (updateError) throw updateError;
+
+            setRiderPhoto(publicUrl);
+            toast.success('Photo updated successfully!', { id: toastId });
+            onUpdate?.();
+        } catch (error: any) {
+            console.error('Error uploading photo:', error);
+            toast.error(error.message || 'Failed to upload photo', { id: toastId });
+        } finally {
+            setIsUploadingPhoto(false);
         }
     };
 
@@ -367,13 +444,14 @@ ${new Date().toLocaleString('en-IN')}`;
                             ))}
                         </div>
 
-                        {/* Tabs */}
                         <div className="flex gap-6 mt-4 border-b border-white/15">
-                            {(['profile', 'wallet'] as const).map(tab => (
+                            {(['profile', 'wallet', 'idcard'] as const).filter(t => t !== 'idcard' || canViewIdCard).map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)}
                                     className={`pb-2.5 px-1 text-sm font-bold transition-colors relative capitalize ${activeTab === tab ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
                                     {tab === 'wallet' ? (
                                         <span className="flex items-center gap-2">Wallet Ledger {rider.walletAmount < 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}</span>
+                                    ) : tab === 'idcard' ? (
+                                        <span className="flex items-center gap-2">Official ID Card</span>
                                     ) : 'Profile Overview'}
                                     {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-t-full" />}
                                 </button>
@@ -541,8 +619,8 @@ ${new Date().toLocaleString('en-IN')}`;
                         </div>
                     )}
 
-                    {/* ── WALLET TAB ── */}
                     {activeTab === 'wallet' && (
+                        /* ... wallet code ... */
                         <div className="p-4 space-y-3">
                             {/* Balance row */}
                             <div className="grid grid-cols-2 gap-3">
@@ -641,6 +719,119 @@ ${new Date().toLocaleString('en-IN')}`;
                                             </div>
                                         );
                                     })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'idcard' && canViewIdCard && (
+                        <div className="p-6 flex flex-col items-center gap-6">
+                            {/* Hidden actual card for capturing */}
+                            <div className="fixed -left-[2000px] top-0 pointer-events-none">
+                                <RiderIdCard
+                                    ref={idCardRef}
+                                    rider={{ ...rider, photoUrl: riderPhoto }}
+                                    teamLeaderName={teamLeader?.fullName}
+                                />
+                            </div>
+
+                            {/* View Preview */}
+                            <div className="scale-[0.7] md:scale-[0.8] origin-top mb-[-120px] md:mb-[-80px] shadow-2xl rounded-[32px]">
+                                <RiderIdCard
+                                    rider={{ ...rider, photoUrl: riderPhoto }}
+                                    teamLeaderName={teamLeader?.fullName}
+                                />
+                            </div>
+
+                            {/* Upload & Controls */}
+                            <div className="w-full max-w-sm space-y-4">
+                                <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/20 p-4 rounded-2xl">
+                                    <div className="flex items-center gap-3 mb-3 text-orange-700 dark:text-orange-400">
+                                        <Camera size={18} />
+                                        <h4 className="font-bold text-sm">Update Rider Photo</h4>
+                                    </div>
+                                    <p className="text-xs text-orange-600/70 dark:text-orange-400/60 mb-4 leading-relaxed">
+                                        Upload a clear, passport-size photo of the rider for the official ID Card. Max size 2MB.
+                                    </p>
+
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handlePhotoUpload}
+                                        className="hidden"
+                                        accept="image/*"
+                                    />
+
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploadingPhoto}
+                                        className="w-full bg-white dark:bg-slate-900 border-2 border-dashed border-orange-300 dark:border-orange-800/50 hover:border-orange-500 hover:bg-orange-50 transition-all p-4 rounded-xl flex flex-col items-center gap-2 group"
+                                    >
+                                        {isUploadingPhoto ? (
+                                            <RefreshCw className="animate-spin text-orange-500" size={20} />
+                                        ) : (
+                                            <ImageIcon className="text-orange-400 group-hover:text-orange-500 transition-colors" size={24} />
+                                        )}
+                                        <span className="text-xs font-bold text-orange-600">
+                                            {isUploadingPhoto ? 'Uploading...' : 'Choose Photo'}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {activeTab === 'idcard' && canViewIdCard && (
+                        <div className="p-6 flex flex-col items-center gap-6">
+                            {/* Hidden actual card for capturing */}
+                            <div className="fixed -left-[2000px] top-0 pointer-events-none">
+                                <RiderIdCard
+                                    ref={idCardRef}
+                                    rider={{ ...rider, photoUrl: riderPhoto }}
+                                    teamLeaderName={teamLeader?.fullName}
+                                />
+                            </div>
+
+                            {/* View Preview */}
+                            <div className="scale-[0.7] md:scale-[0.8] origin-top mb-[-120px] md:mb-[-80px] shadow-2xl rounded-[32px]">
+                                <RiderIdCard
+                                    rider={{ ...rider, photoUrl: riderPhoto }}
+                                    teamLeaderName={teamLeader?.fullName}
+                                />
+                            </div>
+
+                            {/* Upload & Controls */}
+                            <div className="w-full max-w-sm space-y-4">
+                                <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/20 p-4 rounded-2xl">
+                                    <div className="flex items-center gap-3 mb-3 text-orange-700 dark:text-orange-400">
+                                        <Camera size={18} />
+                                        <h4 className="font-bold text-sm">Update Rider Photo</h4>
+                                    </div>
+                                    <p className="text-xs text-orange-600/70 dark:text-orange-400/60 mb-4 leading-relaxed">
+                                        Upload a clear, passport-size photo of the rider for the official ID Card. Max size 2MB.
+                                    </p>
+
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handlePhotoUpload}
+                                        className="hidden"
+                                        accept="image/*"
+                                    />
+
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploadingPhoto}
+                                        className="w-full bg-white dark:bg-slate-900 border-2 border-dashed border-orange-300 dark:border-orange-800/50 hover:border-orange-500 hover:bg-orange-50 transition-all p-4 rounded-xl flex flex-col items-center gap-2 group"
+                                    >
+                                        {isUploadingPhoto ? (
+                                            <RefreshCw className="animate-spin text-orange-500" size={20} />
+                                        ) : (
+                                            <ImageIcon className="text-orange-400 group-hover:text-orange-500 transition-colors" size={24} />
+                                        )}
+                                        <span className="text-xs font-bold text-orange-600">
+                                            {isUploadingPhoto ? 'Uploading...' : 'Choose Photo'}
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
                         </div>

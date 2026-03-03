@@ -65,6 +65,7 @@ export interface UserPermissions {
         fields: {
             viewSensitive: boolean; // Mobile/Bank info?
         };
+        idCard: boolean; // Toggle for Rider ID Card feature
     };
     // Separate Lead Actions
     leads: {
@@ -186,6 +187,7 @@ export interface Rider {
     inactivatedAt?: string | null;
     lastStatusChangeAt?: string | null;
     deletedAt?: string | null;
+    photoUrl?: string; // URL for the rider's ID photo
 }
 
 // Activity Log Types
