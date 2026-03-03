@@ -394,7 +394,7 @@ const Dashboard: React.FC = () => {
                 perDayAverageCollection = Math.round(periodCollection / activeDays);
             }
 
-            const metrics = calculateAIScore(tl, riders, leads, tlCollectionAllTime, period);
+            const metrics = calculateAIScore(tl, riders, leads, periodCollection, period);
 
             // Activity Pulse Detection
             const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
