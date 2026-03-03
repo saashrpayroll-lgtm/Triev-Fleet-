@@ -1,14 +1,16 @@
 -- ════════════════════════════════════════════════════════════════════════════
--- ULTIMATE COLLECTION CONSISTENCY FIX (V18 - FINAL)
+-- ULTIMATE COLLECTION CONSISTENCY FIX (V18.1 - ROBUST SIGNATURE)
 -- ════════════════════════════════════════════════════════════════════════════
 -- Resolves the "Date Shift" and "Missing Amount" issues by unifying date logic.
+-- Fixes: ERROR 42883 (Signature mismatch for get_ledger_date)
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
 
--- 1. UNIFIED DATE RESOLVER
+-- 1. UNIFIED DATE RESOLVER (Robust Signature)
 -- This is the SINGLE SOURCE OF TRUTH for how a transaction's date is determined.
-CREATE OR REPLACE FUNCTION public.get_ledger_date(p_metadata JSONB, p_transaction_date DATE, p_created_at TIMESTAMPTZ)
+-- We accept TIMESTAMPTZ for the date to ensure compatibility with all column types.
+CREATE OR REPLACE FUNCTION public.get_ledger_date(p_metadata JSONB, p_transaction_date TIMESTAMPTZ, p_created_at TIMESTAMPTZ)
 RETURNS DATE AS $$
 BEGIN
     -- Order of Priority:
@@ -16,7 +18,7 @@ BEGIN
     -- 2. metadata->date_on_sheet (updated by UI 'Edit Date' and Import)
     -- 3. created_at (Fallback converted to IST)
     RETURN COALESCE(
-        p_transaction_date, 
+        p_transaction_date::DATE, 
         (p_metadata->>'date_on_sheet')::DATE, 
         (p_created_at AT TIME ZONE 'Asia/Kolkata')::DATE
     );
@@ -41,8 +43,8 @@ BEGIN
     WHERE r.team_leader_id = p_tl_id
     AND wl.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION')
     AND wl.mode = 'ADD'
-    -- Using the unified date resolver
-    AND public.get_ledger_date(wl.metadata, wl.transaction_date, wl.created_at) = p_date;
+    -- Using the unified date resolver with explicit casts for absolute safety
+    AND public.get_ledger_date(wl.metadata, wl.transaction_date::TIMESTAMPTZ, wl.created_at) = p_date;
 
     -- Calculate historical active count for that date (IST Aware)
     SELECT COUNT(*)::INTEGER INTO v_active_count
@@ -80,7 +82,7 @@ BEGIN
         IF OLD.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION') AND OLD.mode = 'ADD' THEN
             SELECT team_leader_id INTO v_old_tl_id FROM public.riders WHERE id = OLD.rider_id;
             -- Using same unified logic
-            v_old_date := public.get_ledger_date(OLD.metadata, OLD.transaction_date, OLD.created_at);
+            v_old_date := public.get_ledger_date(OLD.metadata, OLD.transaction_date::TIMESTAMPTZ, OLD.created_at);
 
             IF v_old_tl_id IS NOT NULL THEN
                 PERFORM public.recalculate_daily_collection_for_date(v_old_tl_id, v_old_date);
@@ -93,7 +95,7 @@ BEGIN
         IF NEW.transaction_type IN ('DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION') AND NEW.mode = 'ADD' THEN
             SELECT team_leader_id INTO v_new_tl_id FROM public.riders WHERE id = NEW.rider_id;
             -- Using same unified logic
-            v_new_date := public.get_ledger_date(NEW.metadata, NEW.transaction_date, NEW.created_at);
+            v_new_date := public.get_ledger_date(NEW.metadata, NEW.transaction_date::TIMESTAMPTZ, NEW.created_at);
 
             IF v_new_tl_id IS NOT NULL THEN
                 PERFORM public.recalculate_daily_collection_for_date(v_new_tl_id, v_new_date);
@@ -115,7 +117,6 @@ CREATE TRIGGER trg_sync_ledger_to_daily_metrics
 
 
 -- 5. UPGRADED DATE UPDATE RPC
--- Standardizes the update to be recognized as IST midnight by the trigger
 CREATE OR REPLACE FUNCTION public.update_wallet_transaction_date(
     p_transaction_id UUID,
     p_new_date TIMESTAMP WITH TIME ZONE
@@ -130,8 +131,6 @@ BEGIN
     END IF;
 
     -- Update Record
-    -- The trigger above (sync_ledger_to_daily_metrics_final) will auto-handle 
-    -- the recalculation for BOTH OLD and NEW dates accurately using get_ledger_date.
     UPDATE public.wallet_ledger
     SET 
         created_at = p_new_date,
@@ -174,7 +173,7 @@ SELECT
 FROM (
     SELECT 
         r.team_leader_id as tl_id,
-        public.get_ledger_date(wl.metadata, wl.transaction_date, wl.created_at) as v_date,
+        public.get_ledger_date(wl.metadata, wl.transaction_date::TIMESTAMPTZ, wl.created_at) as v_date,
         SUM(wl.amount) as total
     FROM public.wallet_ledger wl
     JOIN public.riders r ON wl.rider_id = r.id
