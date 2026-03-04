@@ -23,6 +23,8 @@ SET transaction_date = created_at
 WHERE transaction_date::DATE > (NOW() AT TIME ZONE 'Asia/Kolkata')::DATE;
 
 -- Step 4: Add Server-Side Guard to update_wallet_transaction_date RPC
+DROP FUNCTION IF EXISTS public.update_wallet_transaction_date(UUID, TIMESTAMPTZ);
+
 CREATE OR REPLACE FUNCTION public.update_wallet_transaction_date(
     p_transaction_id UUID, 
     p_new_date TIMESTAMPTZ
@@ -74,6 +76,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- Step 5: Add Server-Side Guard to bulk_update_wallet_transaction_date RPC
+DROP FUNCTION IF EXISTS public.bulk_update_wallet_transaction_date(UUID[], TIMESTAMPTZ);
+
 CREATE OR REPLACE FUNCTION public.bulk_update_wallet_transaction_date(
     p_transaction_ids UUID[], 
     p_new_date TIMESTAMPTZ
