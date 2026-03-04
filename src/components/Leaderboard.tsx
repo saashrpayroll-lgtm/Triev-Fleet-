@@ -529,19 +529,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/30 text-center mb-4">Other Rankings</p>
                     <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-white/8 shadow-lg">
 
-                        {/* Table Header */}
-                        <div className="hidden sm:grid grid-cols-[40px_1fr_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 px-4 py-2.5 bg-slate-100/80 dark:bg-slate-900/60 text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 dark:text-white/30 border-b border-slate-200 dark:border-white/8">
+                        {/* Table Header - Desktop Only */}
+                        <div className="hidden lg:grid grid-cols-[40px_1fr_80px_80px_80px_70px_90px_80px_70px_60px_60px] xl:grid-cols-[40px_1fr_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 px-4 py-2.5 bg-slate-100/80 dark:bg-slate-900/60 text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 dark:text-white/30 border-b border-slate-200 dark:border-white/8">
                             <span className="text-center">#</span>
                             <span>Leader</span>
                             <span className="text-center">AI Score</span>
                             <span className="text-center">Fleet</span>
-                            <span className="text-center">Flow (A/S/N)</span>
+                            <span className="text-center">Flow</span>
                             <span className="text-center">Leads%</span>
                             <span className="text-center">Wallet</span>
                             <span className="text-center">Collected</span>
                             <span className="text-center">/Rider</span>
                             <span className="text-center">Churn</span>
-                            <span className="text-center">Avg Age</span>
+                            <span className="text-center">Age</span>
                         </div>
 
                         <div className="divide-y divide-slate-100 dark:divide-white/5">
@@ -559,110 +559,198 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, x: 16 }}
                                             transition={{ delay: idx * 0.04 }}
-                                            className="group relative flex flex-col sm:grid sm:grid-cols-[40px_1fr_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 px-4 py-3
-                                                bg-white/90 dark:bg-slate-900/40
-                                                hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20
-                                                hover:shadow-md hover:scale-[1.002]
-                                                transition-all duration-200 cursor-default"
+                                            className="group relative px-4 py-3 bg-white/90 dark:bg-slate-900/40 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 hover:shadow-md transition-all duration-200 cursor-default"
                                             style={{
                                                 borderLeft: rankChange > 0 ? '3px solid #10b981' : rankChange < 0 ? '3px solid #f43f5e' : '3px solid transparent'
                                             }}
                                         >
-                                            {/* Rank */}
-                                            <div className="flex items-center justify-center gap-1">
-                                                <span className="text-sm font-black text-slate-400 dark:text-white/30 w-5 text-center">{currentRank}</span>
-                                                <RankChangeBadge tlId={tl.id} currentRank={currentRank} size="xs" />
-                                            </div>
-
-                                            {/* Leader Info */}
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="flex-shrink-0 relative">
-                                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 flex items-center justify-center text-[11px] font-black text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/30">
-                                                        {tl.profilePicUrl ? (
-                                                            <img src={tl.profilePicUrl} alt={tl.fullName} className="w-full h-full object-cover"
-                                                                onError={(e) => { const t = e.currentTarget; t.style.display = 'none'; const p = t.parentElement; if (p) p.innerHTML = `<span class="text-xs font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`; }} />
-                                                        ) : tl.fullName.charAt(0).toUpperCase()}
+                                            {/* --- MOBILE / TABLET VIEW --- */}
+                                            <div className="flex flex-col lg:hidden w-full gap-3">
+                                                {/* Header */}
+                                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex flex-col items-center min-w-[32px] bg-slate-100 dark:bg-slate-800 rounded-lg p-1.5 border border-slate-200 dark:border-white/10 shadow-inner">
+                                                            <span className="text-sm font-black text-slate-700 dark:text-white/70">#{currentRank}</span>
+                                                            <div className="mt-0.5"><RankChangeBadge tlId={tl.id} currentRank={currentRank} size="xs" /></div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-shrink-0 relative">
+                                                                <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 flex items-center justify-center text-sm font-black text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/30 shadow-sm">
+                                                                    {tl.profilePicUrl ? (
+                                                                        <img src={tl.profilePicUrl} alt={tl.fullName} className="w-full h-full object-cover"
+                                                                            onError={(e) => { const t = e.currentTarget; t.style.display = 'none'; const p = t.parentElement; if (p) p.innerHTML = `<span class="text-sm font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`; }} />
+                                                                    ) : tl.fullName.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                {/* Grade dot */}
+                                                                <div className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center ${gradeConfig[tl.aiGrade]?.bg || ''}`}>
+                                                                    <span className={`text-[6px] font-black ${gradeConfig[tl.aiGrade]?.text || 'text-slate-400'}`}>{tl.aiGrade}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0 pr-2">
+                                                                <p className="text-sm font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                                <p className="text-[10px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    {/* Grade dot */}
-                                                    <div className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white dark:border-slate-900 flex items-center justify-center ${gradeConfig[tl.aiGrade]?.bg || ''}`}>
-                                                        <span className={`text-[5px] font-black ${gradeConfig[tl.aiGrade]?.text || 'text-slate-400'}`}>{tl.aiGrade}</span>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-xl font-black bg-gradient-to-r from-indigo-500 to-violet-600 bg-clip-text text-transparent italic">{tl.score.toLocaleString()}</span>
+                                                        <span className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest mt-0.5">pts</span>
                                                     </div>
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
-                                                    <p className="text-[9px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
+
+                                                {/* Stats Grid */}
+                                                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Fleet</span>
+                                                        <span className="text-sm font-black text-slate-700 dark:text-white">{tl.stats.activeRiders}<span className="text-[10px] text-slate-400">/{tl.stats.totalRiders}</span></span>
+                                                        <span className="text-[9px] font-bold text-blue-500 mt-0.5">{tl.stats.efficiency}%</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Net Flow</span>
+                                                        <span className={`text-sm font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                                                            {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">+{tl.stats.allotments}/-{tl.stats.submissions}</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Rent</span>
+                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                            ₹{tl.stats.collection >= 1000 ? `${(tl.stats.collection / 1000).toFixed(1)}k` : tl.stats.collection}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">Collected</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Wallet</span>
+                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">+{(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
+                                                        <span className="text-[9px] font-bold text-rose-400 mt-0.5">-{(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Leads</span>
+                                                        <span className="text-sm font-black text-yellow-600 dark:text-yellow-400">{tl.stats.conversionRate}%</span>
+                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">{tl.stats.convertedLeads}/{tl.stats.leadsTotal}</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">/Rider</span>
+                                                        <span className="text-sm font-black text-purple-600 dark:text-purple-300">
+                                                            ₹{tl.stats.collectionPerRider >= 1000 ? `${(tl.stats.collectionPerRider / 1000).toFixed(1)}k` : tl.stats.collectionPerRider}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">Average</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Churn</span>
+                                                        <span className={`text-sm font-black ${tl.stats.churnRiders > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                            {tl.stats.churnRiders}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">{tl.stats.inactiveRiders} inact</span>
+                                                    </div>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
+                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Tenure</span>
+                                                        <span className="text-sm font-black text-sky-600 dark:text-sky-300">
+                                                            {tl.stats.avgRiderAge > 0 ? `${tl.stats.avgRiderAge}v` : '—'}
+                                                        </span>
+                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">days</span>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            {/* AI Score */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-sm font-black bg-gradient-to-r from-indigo-500 to-violet-600 bg-clip-text text-transparent italic">{tl.score.toLocaleString()}</span>
-                                                <span className="text-[7px] font-black text-indigo-400/60 uppercase tracking-widest">pts</span>
-                                            </div>
-
-                                            {/* Fleet */}
-                                            <div className="flex flex-col items-center justify-center gap-0.5">
-                                                <span className="text-xs font-black text-slate-700 dark:text-white">{tl.stats.activeRiders}<span className="text-[9px] font-bold text-slate-400">/{tl.stats.totalRiders}</span></span>
-                                                <div className="w-14 h-1 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                                    <motion.div initial={{ width: 0 }} animate={{ width: `${tl.stats.efficiency}%` }}
-                                                        className="h-full bg-blue-500 rounded-full" transition={{ duration: 0.8 }} />
+                                            {/* --- DESKTOP VIEW --- */}
+                                            <div className="hidden lg:grid grid-cols-[40px_1fr_80px_80px_80px_70px_90px_80px_70px_60px_60px] xl:grid-cols-[40px_1fr_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 items-center">
+                                                {/* Rank */}
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <span className="text-sm font-black text-slate-400 dark:text-white/30 w-5 text-center">{currentRank}</span>
+                                                    <RankChangeBadge tlId={tl.id} currentRank={currentRank} size="xs" />
                                                 </div>
-                                                <span className="text-[8px] font-bold text-blue-500">{tl.stats.efficiency}%</span>
-                                            </div>
 
-                                            {/* Fleet Flow */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className={`text-xs font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
-                                                    {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
-                                                </span>
-                                                <span className="text-[8px] font-bold text-slate-400 dark:text-white/40">
-                                                    +{tl.stats.allotments}/-{tl.stats.submissions}
-                                                </span>
-                                            </div>
+                                                {/* Leader Info */}
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="flex-shrink-0 relative">
+                                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 flex items-center justify-center text-[11px] font-black text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/30">
+                                                            {tl.profilePicUrl ? (
+                                                                <img src={tl.profilePicUrl} alt={tl.fullName} className="w-full h-full object-cover"
+                                                                    onError={(e) => { const t = e.currentTarget; t.style.display = 'none'; const p = t.parentElement; if (p) p.innerHTML = `<span class="text-xs font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`; }} />
+                                                            ) : tl.fullName.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        {/* Grade dot */}
+                                                        <div className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white dark:border-slate-900 flex items-center justify-center ${gradeConfig[tl.aiGrade]?.bg || ''}`}>
+                                                            <span className={`text-[5px] font-black ${gradeConfig[tl.aiGrade]?.text || 'text-slate-400'}`}>{tl.aiGrade}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                        <p className="text-[9px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
+                                                    </div>
+                                                </div>
 
-                                            {/* Leads% */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-xs font-black text-yellow-600 dark:text-yellow-400">{tl.stats.conversionRate}%</span>
-                                                <span className="text-[8px] font-bold text-slate-400 dark:text-white/40">{tl.stats.convertedLeads}/{tl.stats.leadsTotal}</span>
-                                            </div>
+                                                {/* AI Score */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="text-sm font-black bg-gradient-to-r from-indigo-500 to-violet-600 bg-clip-text text-transparent italic">{tl.score.toLocaleString()}</span>
+                                                    <span className="text-[7px] font-black text-indigo-400/60 uppercase tracking-widest">pts</span>
+                                                </div>
 
-                                            {/* Wallet */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">+{(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
-                                                <span className="text-[8px] font-bold text-rose-400">-{(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
-                                                <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">{positiveWalletPct}% pos</span>
-                                            </div>
+                                                {/* Fleet */}
+                                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                                    <span className="text-xs font-black text-slate-700 dark:text-white">{tl.stats.activeRiders}<span className="text-[9px] font-bold text-slate-400">/{tl.stats.totalRiders}</span></span>
+                                                    <div className="w-14 h-1 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                                                        <motion.div initial={{ width: 0 }} animate={{ width: `${tl.stats.efficiency}%` }}
+                                                            className="h-full bg-blue-500 rounded-full" transition={{ duration: 0.8 }} />
+                                                    </div>
+                                                    <span className="text-[8px] font-bold text-blue-500">{tl.stats.efficiency}%</span>
+                                                </div>
 
-                                            {/* Collected */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-xs font-black text-slate-700 dark:text-white">
-                                                    ₹{tl.stats.collection >= 1000 ? `${(tl.stats.collection / 1000).toFixed(1)}k` : tl.stats.collection}
-                                                </span>
-                                                <span className="text-[7px] font-bold text-emerald-500/70 uppercase">Rent</span>
-                                            </div>
+                                                {/* Fleet Flow */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className={`text-xs font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                                                        {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
+                                                    </span>
+                                                    <span className="text-[8px] font-bold text-slate-400 dark:text-white/40">
+                                                        +{tl.stats.allotments}/-{tl.stats.submissions}
+                                                    </span>
+                                                </div>
 
-                                            {/* Per Rider */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-xs font-black text-purple-600 dark:text-purple-300">
-                                                    ₹{tl.stats.collectionPerRider >= 1000 ? `${(tl.stats.collectionPerRider / 1000).toFixed(1)}k` : tl.stats.collectionPerRider}
-                                                </span>
-                                                <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">/rider</span>
-                                            </div>
+                                                {/* Leads% */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="text-xs font-black text-yellow-600 dark:text-yellow-400">{tl.stats.conversionRate}%</span>
+                                                    <span className="text-[8px] font-bold text-slate-400 dark:text-white/40">{tl.stats.convertedLeads}/{tl.stats.leadsTotal}</span>
+                                                </div>
 
-                                            {/* Churn */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className={`text-xs font-black ${tl.stats.churnRiders > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                    {tl.stats.churnRiders}
-                                                </span>
-                                                <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">{tl.stats.inactiveRiders} inact</span>
-                                            </div>
+                                                {/* Wallet */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">+{(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
+                                                    <span className="text-[8px] font-bold text-rose-400">-{(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
+                                                    <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">{positiveWalletPct}% pos</span>
+                                                </div>
 
-                                            {/* Avg Rider Age */}
-                                            <div className="flex flex-col items-center justify-center">
-                                                <span className="text-xs font-black text-sky-600 dark:text-sky-300">
-                                                    {tl.stats.avgRiderAge > 0 ? `${tl.stats.avgRiderAge}d` : '—'}
-                                                </span>
-                                                <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">tenure</span>
+                                                {/* Collected */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="text-xs font-black text-slate-700 dark:text-white">
+                                                        ₹{tl.stats.collection >= 1000 ? `${(tl.stats.collection / 1000).toFixed(1)}k` : tl.stats.collection}
+                                                    </span>
+                                                    <span className="text-[7px] font-bold text-emerald-500/70 uppercase">Rent</span>
+                                                </div>
+
+                                                {/* Per Rider */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="text-xs font-black text-purple-600 dark:text-purple-300">
+                                                        ₹{tl.stats.collectionPerRider >= 1000 ? `${(tl.stats.collectionPerRider / 1000).toFixed(1)}k` : tl.stats.collectionPerRider}
+                                                    </span>
+                                                    <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">/rider</span>
+                                                </div>
+
+                                                {/* Churn */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className={`text-xs font-black ${tl.stats.churnRiders > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                        {tl.stats.churnRiders}
+                                                    </span>
+                                                    <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">{tl.stats.inactiveRiders} inact</span>
+                                                </div>
+
+                                                {/* Avg Rider Age */}
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <span className="text-xs font-black text-sky-600 dark:text-sky-300">
+                                                        {tl.stats.avgRiderAge > 0 ? `${tl.stats.avgRiderAge}d` : '—'}
+                                                    </span>
+                                                    <span className="text-[7px] font-bold text-slate-400 dark:text-white/30">tenure</span>
+                                                </div>
                                             </div>
                                         </motion.div>
                                     );
