@@ -157,9 +157,16 @@ const WalletHistory: React.FC = () => {
 
     const handleUpdateDate = async () => {
         if (!editingTxn || !newDate) return;
+        // 🛡️ Guard: Prevent future dates
+        const selectedDate = new Date(newDate);
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        if (selectedDate > nowIST) {
+            toast.error('⚠️ Future date not allowed! Please select today or a past date.');
+            return;
+        }
         setIsUpdating(true);
         try {
-            const { error } = await supabase.rpc('update_wallet_transaction_date', { p_transaction_id: editingTxn.id, p_new_date: new Date(newDate).toISOString() });
+            const { error } = await supabase.rpc('update_wallet_transaction_date', { p_transaction_id: editingTxn.id, p_new_date: selectedDate.toISOString() });
             if (error) throw error;
             toast.success('Date updated'); setEditingTxn(null); fetchTransactions();
         } catch (e: any) { toast.error(e.message || 'Failed'); } finally { setIsUpdating(false); }
@@ -188,9 +195,16 @@ const WalletHistory: React.FC = () => {
 
     const handleBulkUpdateDate = async () => {
         if (!selectedIds.length || !bulkDate) return;
+        // 🛡️ Guard: Prevent future dates
+        const selectedDate = new Date(bulkDate);
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        if (selectedDate > nowIST) {
+            toast.error('⚠️ Future date not allowed! Please select today or a past date.');
+            return;
+        }
         setIsBulkUpdating(true);
         try {
-            const { error } = await supabase.rpc('bulk_update_wallet_transaction_date', { p_transaction_ids: selectedIds, p_new_date: new Date(bulkDate).toISOString() });
+            const { error } = await supabase.rpc('bulk_update_wallet_transaction_date', { p_transaction_ids: selectedIds, p_new_date: selectedDate.toISOString() });
             if (error) throw error;
             toast.success(`Updated ${selectedIds.length} transactions`);
             setBulkModal(false); setSelectedIds([]); fetchTransactions();
@@ -583,6 +597,7 @@ const WalletHistory: React.FC = () => {
                                 <div>
                                     <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-2 block">New Date &amp; Time</label>
                                     <input type="datetime-local" value={bulkDate} onChange={e => setBulkDate(e.target.value)}
+                                        max={new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().slice(0, 16)}
                                         style={{ colorScheme: 'light dark' }}
                                         className="w-full px-4 py-3 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-blue-500/30 outline-none" />
                                 </div>
@@ -624,6 +639,7 @@ const WalletHistory: React.FC = () => {
                                 <div>
                                     <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-2 block">New Date &amp; Time</label>
                                     <input type="datetime-local" value={newDate} onChange={e => setNewDate(e.target.value)}
+                                        max={new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().slice(0, 16)}
                                         style={{ colorScheme: 'light dark' }}
                                         className="w-full px-4 py-3 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-emerald-500/30 outline-none" />
                                 </div>
