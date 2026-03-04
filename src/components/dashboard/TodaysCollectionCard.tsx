@@ -31,6 +31,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     amount,
                     mode,
                     created_at,
+                    transaction_date,
                     rider:riders!inner (
                         team_leader_id
                     )
@@ -42,7 +43,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     'FTD_COLLECTION', 'FTD COLLECTION',
                     'COLLECTION', 'RENT'
                 ])
-                .gte('created_at', todayIso);
+                .gte('transaction_date', todayIso);
 
             if (teamLeaderId) {
                 query = query.eq('rider.team_leader_id', teamLeaderId);
@@ -84,7 +85,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 const newLog = payload.new as any;
                 if (!['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'].includes(newLog.transaction_type)) return;
 
-                const logIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(newLog.created_at));
+                const logIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(newLog.transaction_date || newLog.created_at));
                 const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
                 if (logIst !== todayIst) return;
 

@@ -83,7 +83,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     .limit(60),
                 supabase
                     .from('wallet_ledger')
-                    .select('amount, rider:riders!inner(team_leader_id)')
+                    .select('amount, transaction_date, created_at, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', [
                         'DAILY_COLLECTION', 'DAILY COLLECTION',
@@ -92,7 +92,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                         'COLLECTION', 'RENT'
                     ])
                     .eq('rider.team_leader_id', teamLeaderId)
-                    .gte('created_at', istMidnightUTC),
+                    .gte('transaction_date', istMidnightUTC),
                 supabase
                     .from('riders')
                     .select('*', { count: 'exact', head: true })

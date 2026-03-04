@@ -23,6 +23,7 @@ interface LedgerEntry {
     description: string;
     metadata: any;
     created_at: string;
+    transaction_date?: string;
     riders?: { rider_name: string; team_leader_id?: string; users?: { full_name: string } };
 }
 
@@ -111,13 +112,13 @@ const WalletHistory: React.FC = () => {
             if (filterType !== 'all') q = q.eq('transaction_type', filterType);
             if (filterMode !== 'all') q = q.eq('mode', filterMode);
             if (searchTerm) q = q.or(`description.ilike.%${searchTerm}%,riders.rider_name.ilike.%${searchTerm}%`);
-            if (dateRange.start) q = q.gte('created_at', new Date(dateRange.start).toISOString());
-            if (dateRange.end) { const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999); q = q.lte('created_at', e.toISOString()); }
+            if (dateRange.start) q = q.gte('transaction_date', new Date(dateRange.start).toISOString());
+            if (dateRange.end) { const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999); q = q.lte('transaction_date', e.toISOString()); }
             if (userData?.role === 'teamLeader') q = q.eq('riders.team_leader_id', userData.id);
             else if (filterTL !== 'all') q = q.eq('riders.team_leader_id', filterTL);
 
             const from = (currentPage - 1) * pageSize;
-            const { data, count, error } = await q.order('created_at', { ascending: false }).range(from, from + pageSize - 1);
+            const { data, count, error } = await q.order('transaction_date', { ascending: false }).order('created_at', { ascending: false }).range(from, from + pageSize - 1);
             if (error) throw error;
             setTransactions((data as LedgerEntry[]) || []);
             setTotalCount(count || 0);
@@ -136,15 +137,15 @@ const WalletHistory: React.FC = () => {
             if (filterType !== 'all') q = q.eq('transaction_type', filterType);
             if (filterMode !== 'all') q = q.eq('mode', filterMode);
             if (searchTerm) q = q.or(`description.ilike.%${searchTerm}%,riders.rider_name.ilike.%${searchTerm}%`);
-            if (dateRange.start) q = q.gte('created_at', new Date(dateRange.start).toISOString());
-            if (dateRange.end) { const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999); q = q.lte('created_at', e.toISOString()); }
+            if (dateRange.start) q = q.gte('transaction_date', new Date(dateRange.start).toISOString());
+            if (dateRange.end) { const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999); q = q.lte('transaction_date', e.toISOString()); }
             if (userData?.role === 'teamLeader') q = q.eq('riders.team_leader_id', userData.id);
             else if (filterTL !== 'all') q = q.eq('riders.team_leader_id', filterTL);
-            const { data, error } = await q.order('created_at', { ascending: false });
+            const { data, error } = await q.order('transaction_date', { ascending: false }).order('created_at', { ascending: false });
             if (error) throw error;
             if (!data?.length) { toast.dismiss(tid); toast.info('No data to export'); return; }
             exportToCSV(data.map((item: any) => ({
-                Date: format(parseISO(item.created_at), 'yyyy-MM-dd HH:mm:ss'),
+                Date: format(parseISO(item.transaction_date || item.created_at), 'yyyy-MM-dd HH:mm:ss'),
                 Rider: item.riders?.rider_name || 'N/A',
                 'Team Leader': item.riders?.users?.full_name || 'N/A',
                 Type: item.transaction_type, Mode: item.mode,
@@ -483,13 +484,13 @@ const WalletHistory: React.FC = () => {
                                             {/* date */}
                                             <td className="px-5 py-4">
                                                 <div className="flex flex-col gap-0.5">
-                                                    <span className="font-bold text-sm text-foreground whitespace-nowrap">{format(parseISO(t.created_at), 'dd MMM yyyy')}</span>
-                                                    <span className="text-xs text-muted-foreground/60 font-medium">{format(parseISO(t.created_at), 'hh:mm a')}</span>
+                                                    <span className="font-bold text-sm text-foreground whitespace-nowrap">{format(parseISO(t.transaction_date || t.created_at), 'dd MMM yyyy')}</span>
+                                                    <span className="text-xs text-muted-foreground/60 font-medium">{format(parseISO(t.transaction_date || t.created_at), 'hh:mm a')}</span>
                                                 </div>
                                                 {isAdmin && (
                                                     <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'].includes(t.transaction_type) && (
-                                                            <button onClick={() => { setEditingTxn(t); const d = new Date(t.created_at); setNewDate(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)); }}
+                                                            <button onClick={() => { setEditingTxn(t); const d = new Date(t.transaction_date || t.created_at); setNewDate(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)); }}
                                                                 className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 rounded-lg transition-colors" title="Edit Date">
                                                                 <Edit2 size={12} />
                                                             </button>
@@ -634,7 +635,7 @@ const WalletHistory: React.FC = () => {
                                     <span className="text-muted-foreground font-medium">Amount</span>
                                     <span className="font-black text-right text-emerald-600">₹{editingTxn.amount}</span>
                                     <span className="text-muted-foreground font-medium">Current</span>
-                                    <span className="font-medium text-right text-xs">{format(parseISO(editingTxn.created_at), 'dd MMM yyyy, hh:mm a')}</span>
+                                    <span className="font-medium text-right text-xs">{format(parseISO(editingTxn.transaction_date || editingTxn.created_at), 'dd MMM yyyy, hh:mm a')}</span>
                                 </div>
                                 <div>
                                     <label className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 mb-2 block">New Date &amp; Time</label>
