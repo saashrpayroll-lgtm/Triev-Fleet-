@@ -82,7 +82,12 @@ const TLPerformance: React.FC = () => {
                 // ONLY used for "today" snapshot; NOT used for weekly/total (daily_collections.date is authoritative)
                 supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION',
+                        'RENT_COLLECTION', 'RENT COLLECTION',
+                        'FTD_COLLECTION', 'FTD COLLECTION',
+                        'COLLECTION', 'RENT'
+                    ])
                     .gte('created_at', istMidnightUTC)
             ]);
 

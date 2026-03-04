@@ -14,6 +14,10 @@ import {
     generatePaymentConsistencyReport,
     transformRiderData
 } from '@/utils/reportUtils';
+import {
+    AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend, CartesianGrid
+} from 'recharts';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
@@ -41,6 +45,8 @@ const Reports: React.FC = () => {
     const [reportData, setReportData] = useState<any[]>([]);
     const [reportGenerated, setReportGenerated] = useState(false);
     const [generating, setGenerating] = useState(false);
+    const [viewMode, setViewMode] = useState<'dashboard' | 'reports'>('dashboard');
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
     useEffect(() => {
         if (userData?.id) {
@@ -180,7 +186,12 @@ const Reports: React.FC = () => {
                     const { data: collectionData, error: collectionError } = await supabase
                         .from('wallet_ledger')
                         .select('amount, created_at, rider:riders!inner(rider_name, mobile_number, team_leader_id)')
-                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                        .in('transaction_type', [
+                            'DAILY_COLLECTION', 'DAILY COLLECTION',
+                            'RENT_COLLECTION', 'RENT COLLECTION',
+                            'FTD_COLLECTION', 'FTD COLLECTION',
+                            'COLLECTION', 'RENT'
+                        ])
                         .eq('mode', 'ADD')
                         .gte('created_at', start.toISOString())
                         .lte('created_at', end.toISOString())
@@ -219,7 +230,12 @@ const Reports: React.FC = () => {
                     const { data: ledger } = await supabase
                         .from('wallet_ledger')
                         .select('rider_id, amount')
-                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                        .in('transaction_type', [
+                            'DAILY_COLLECTION', 'DAILY COLLECTION',
+                            'RENT_COLLECTION', 'RENT COLLECTION',
+                            'FTD_COLLECTION', 'FTD COLLECTION',
+                            'COLLECTION', 'RENT'
+                        ])
                         .eq('mode', 'ADD')
                         .gte('created_at', thirtyDaysAgo);
                     data = generatePaymentConsistencyReport(ledger || [], riders);
@@ -361,214 +377,299 @@ const Reports: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                {/* Left Panel: Templates */}
-                <div className="xl:col-span-4 space-y-6">
-                    <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl sticky top-6">
-                        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                            <FileText size={20} className="text-primary" />
-                            Report Templates
-                        </h2>
-                        <div className="space-y-3">
-                            {REPORT_TEMPLATES.filter(t => {
-                                if (t.name.includes('Admin Only')) return false;
-                                const supportedTemplates = [
-                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'positive_wallet', 'client_distribution', 'daily_collection', 'collection_summary', 'rider_tenure_report', 'wallet_risk_report', 'payment_consistency'
-                                ];
-                                return supportedTemplates.includes(t.id);
-                            }).map((template) => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => {
-                                        setSelectedTemplate(template.id);
-                                        setReportGenerated(false);
-                                        setReportData([]);
-                                    }}
-                                    className={`w-full text-left p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group ${selectedTemplate === template.id
-                                        ? 'border-primary/50 bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                                        : 'border-white/10 hover:border-primary/30 hover:bg-white/5'
-                                        }`}
-                                >
-                                    <div className="relative z-10 flex items-start gap-4">
-                                        <div className={`p-2 rounded-lg ${selectedTemplate === template.id ? 'bg-white/20' : 'bg-muted/50'}`}>
-                                            {getTemplateIcon(template.id, selectedTemplate === template.id)}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="font-semibold flex items-center justify-between">
-                                                {template.name}
-                                                {selectedTemplate === template.id && <TrendingUp size={16} />}
-                                            </div>
-                                            <div className={`text-xs mt-1 ${selectedTemplate === template.id ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                                                {template.description}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {selectedTemplate === template.id && (
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
-                                    )}
-                                </button>
-                            ))}
+            {/* View Switcher */}
+            <div className="flex bg-muted/30 p-1.5 rounded-xl border border-white/10 w-fit">
+                <button
+                    onClick={() => setViewMode('dashboard')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${viewMode === 'dashboard' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                    <BarChart3 size={18} /> Dashboard
+                </button>
+                <button
+                    onClick={() => setViewMode('reports')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${viewMode === 'reports' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                    <FileText size={18} /> Detailed Reports
+                </button>
+            </div>
+
+            {viewMode === 'dashboard' ? (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Status Distribution */}
+                        <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
+                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                                <Users size={18} className="text-primary" /> My Fleet Status
+                            </h3>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={(() => {
+                                                const map = new Map();
+                                                riders.forEach(r => map.set(r.status, (map.get(r.status) || 0) + 1));
+                                                return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+                                            })()}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={100}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {riders.length > 0 && Array.from(new Set(riders.map(r => r.status))).map((_, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <RechartsTooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }} />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Recent Collection Trend */}
+                        <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
+                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                                <TrendingUp size={18} className="text-emerald-500" /> Recent Collection Trend
+                            </h3>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={(() => {
+                                        const now = new Date();
+                                        const last14 = Array.from({ length: 14 }, (_, i) => {
+                                            const d = subDays(now, 13 - i);
+                                            return format(d, 'MMM dd');
+                                        });
+                                        const map = new Map();
+                                        last14.forEach(d => map.set(d, 0));
+                                        dailyCollections.forEach(c => {
+                                            const d = format(parseISO(c.date), 'MMM dd');
+                                            if (map.has(d)) map.set(d, c.total_collection || 0);
+                                        });
+                                        return Array.from(map.entries()).map(([date, value]) => ({ date, value }));
+                                    })()}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                                        <XAxis dataKey="date" fontSize={10} stroke="#666" />
+                                        <YAxis fontSize={12} stroke="#666" />
+                                        <RechartsTooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }} />
+                                        <Area type="monotone" dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                {/* Right Panel: Configuration & Results */}
-                <div className="xl:col-span-8 space-y-6">
-                    {/* Configuration Card */}
-                    <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
-                        <div className="flex flex-col mb-6 gap-4 border-b border-white/10 pb-4">
-                            <div>
-                                <h2 className="font-semibold text-xl">{currentTemplate?.name}</h2>
-                                <p className="text-sm text-muted-foreground">{currentTemplate?.description}</p>
+            ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {/* Left Panel: Templates */}
+                    <div className="xl:col-span-4 space-y-6">
+                        <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl sticky top-6">
+                            <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                <FileText size={20} className="text-primary" />
+                                Report Templates
+                            </h2>
+                            <div className="space-y-3">
+                                {REPORT_TEMPLATES.filter(t => {
+                                    if (t.name.includes('Admin Only')) return false;
+                                    const supportedTemplates = [
+                                        'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'positive_wallet', 'client_distribution', 'daily_collection', 'collection_summary', 'rider_tenure_report', 'wallet_risk_report', 'payment_consistency'
+                                    ];
+                                    return supportedTemplates.includes(t.id);
+                                }).map((template) => (
+                                    <button
+                                        key={template.id}
+                                        onClick={() => {
+                                            setSelectedTemplate(template.id);
+                                            setReportGenerated(false);
+                                            setReportData([]);
+                                        }}
+                                        className={`w-full text-left p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group ${selectedTemplate === template.id
+                                            ? 'border-primary/50 bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                            : 'border-white/10 hover:border-primary/30 hover:bg-white/5'
+                                            }`}
+                                    >
+                                        <div className="relative z-10 flex items-start gap-4">
+                                            <div className={`p-2 rounded-lg ${selectedTemplate === template.id ? 'bg-white/20' : 'bg-muted/50'}`}>
+                                                {getTemplateIcon(template.id, selectedTemplate === template.id)}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-semibold flex items-center justify-between">
+                                                    {template.name}
+                                                    {selectedTemplate === template.id && <TrendingUp size={16} />}
+                                                </div>
+                                                <div className={`text-xs mt-1 ${selectedTemplate === template.id ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                                    {template.description}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {selectedTemplate === template.id && (
+                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-
-                        {/* Filters */}
-                        {currentTemplate?.parameters.length! > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                {currentTemplate?.parameters.includes('status') && (
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                                            <Filter size={14} /> Status Filter
-                                        </label>
-                                        <select
-                                            value={filters.status}
-                                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                            className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-                                        >
-                                            <option value="all">All Statuses</option>
-                                            <option value="active">Active Only</option>
-                                            <option value="inactive">Inactive Only</option>
-                                            <option value="deleted">Deleted Only</option>
-                                        </select>
-                                    </div>
-                                )}
-                                {currentTemplate?.parameters.includes('client') && (
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                                            <Search size={14} /> Client Filter
-                                        </label>
-                                        <select
-                                            value={filters.client}
-                                            onChange={(e) => setFilters({ ...filters, client: e.target.value })}
-                                            className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-                                        >
-                                            <option value="all">All Clients</option>
-                                            <option value="Zomato">Zomato</option>
-                                            <option value="Swiggy">Swiggy</option>
-                                            <option value="Zepto">Zepto</option>
-                                            <option value="Blinkit">Blinkit</option>
-                                            <option value="Uber">Uber</option>
-                                            <option value="Rapido">Rapido</option>
-                                            <option value="Porter">Porter</option>
-                                            <option value="FLK">FLK</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-                                )}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                                        <TrendingUp size={14} /> Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={filters.startDate}
-                                        onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                                        className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                                        <TrendingUp size={14} /> End Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={filters.endDate}
-                                        onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                                        className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {canGenerate && (
-                            <button
-                                onClick={handleGenerateReport}
-                                disabled={generating}
-                                className="w-full md:w-auto md:float-right bg-primary text-primary-foreground px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-70"
-                            >
-                                {generating ? (
-                                    <RefreshCw size={18} className="animate-spin" />
-                                ) : (
-                                    <TrendingUp size={18} />
-                                )}
-                                Generate Report
-                            </button>
-                        )}
-                        <div className="clear-both"></div>
                     </div>
 
-                    {/* Results Area */}
-                    {reportGenerated && (
-                        <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-                            <div className="p-4 border-b border-white/10 bg-muted/30 flex justify-between items-center">
-                                <div className="text-sm font-medium">
-                                    Results: <span className="text-primary font-bold">{reportData.length}</span> entries
-                                </div>
-                                <div className="flex gap-2">
-                                    {canExport && (
-                                        <>
-                                            <button onClick={handleExportCSV} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs">
-                                                <Download size={14} /> CSV
-                                            </button>
-                                            <button onClick={handleExportExcel} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-green-600 hover:text-green-500 flex items-center gap-1 text-xs">
-                                                <Download size={14} /> Excel
-                                            </button>
-                                            <button onClick={handleExportPDF} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-red-600 hover:text-red-500 flex items-center gap-1 text-xs">
-                                                <Download size={14} /> PDF
-                                            </button>
-                                        </>
-                                    )}
+                    {/* Right Panel: Configuration & Results */}
+                    <div className="xl:col-span-8 space-y-6">
+                        {/* Configuration Card */}
+                        <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-xl">
+                            <div className="flex flex-col mb-6 gap-4 border-b border-white/10 pb-4">
+                                <div>
+                                    <h2 className="font-semibold text-xl">{currentTemplate?.name}</h2>
+                                    <p className="text-sm text-muted-foreground">{currentTemplate?.description}</p>
                                 </div>
                             </div>
 
-                            {reportData.length > 0 ? (
-                                <div className="overflow-x-auto max-h-[500px] scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-muted/50 text-muted-foreground sticky top-0 backdrop-blur-md z-10">
-                                            <tr>
-                                                {Object.keys(reportData[0]).map(key => (
-                                                    <th key={key} className="px-6 py-4 font-semibold whitespace-nowrap">
-                                                        {key}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5">
-                                            {reportData.map((row, i) => (
-                                                <tr key={i} className="hover:bg-white/5 transition-colors">
-                                                    {Object.keys(row).map((key, j) => (
-                                                        <td key={j} className="px-6 py-3 whitespace-nowrap text-muted-foreground">
-                                                            {renderCell(key, row[key])}
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
-                                    <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
-                                        <Search size={32} className="opacity-50" />
+                            {/* Filters */}
+                            {currentTemplate?.parameters.length! > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    {currentTemplate?.parameters.includes('status') && (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                                <Filter size={14} /> Status Filter
+                                            </label>
+                                            <select
+                                                value={filters.status}
+                                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                                className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                            >
+                                                <option value="all">All Statuses</option>
+                                                <option value="active">Active Only</option>
+                                                <option value="inactive">Inactive Only</option>
+                                                <option value="deleted">Deleted Only</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    {currentTemplate?.parameters.includes('client') && (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                                <Search size={14} /> Client Filter
+                                            </label>
+                                            <select
+                                                value={filters.client}
+                                                onChange={(e) => setFilters({ ...filters, client: e.target.value })}
+                                                className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                            >
+                                                <option value="all">All Clients</option>
+                                                <option value="Zomato">Zomato</option>
+                                                <option value="Swiggy">Swiggy</option>
+                                                <option value="Zepto">Zepto</option>
+                                                <option value="Blinkit">Blinkit</option>
+                                                <option value="Uber">Uber</option>
+                                                <option value="Rapido">Rapido</option>
+                                                <option value="Porter">Porter</option>
+                                                <option value="FLK">FLK</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                            <TrendingUp size={14} /> Start Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={filters.startDate}
+                                            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                        />
                                     </div>
-                                    <p>No data found matching your criteria.</p>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                            <TrendingUp size={14} /> End Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={filters.endDate}
+                                            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                                            className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                        />
+                                    </div>
                                 </div>
                             )}
+
+                            {canGenerate && (
+                                <button
+                                    onClick={handleGenerateReport}
+                                    disabled={generating}
+                                    className="w-full md:w-auto md:float-right bg-primary text-primary-foreground px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-70"
+                                >
+                                    {generating ? (
+                                        <RefreshCw size={18} className="animate-spin" />
+                                    ) : (
+                                        <TrendingUp size={18} />
+                                    )}
+                                    Generate Report
+                                </button>
+                            )}
+                            <div className="clear-both"></div>
                         </div>
-                    )}
+
+                        {/* Results Area */}
+                        {reportGenerated && (
+                            <div className="bg-card/60 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="p-4 border-b border-white/10 bg-muted/30 flex justify-between items-center">
+                                    <div className="text-sm font-medium">
+                                        Results: <span className="text-primary font-bold">{reportData.length}</span> entries
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {canExport && (
+                                            <>
+                                                <button onClick={handleExportCSV} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs">
+                                                    <Download size={14} /> CSV
+                                                </button>
+                                                <button onClick={handleExportExcel} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-green-600 hover:text-green-500 flex items-center gap-1 text-xs">
+                                                    <Download size={14} /> Excel
+                                                </button>
+                                                <button onClick={handleExportPDF} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-red-600 hover:text-red-500 flex items-center gap-1 text-xs">
+                                                    <Download size={14} /> PDF
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {reportData.length > 0 ? (
+                                    <div className="overflow-x-auto max-h-[500px] scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-muted/50 text-muted-foreground sticky top-0 backdrop-blur-md z-10">
+                                                <tr>
+                                                    {Object.keys(reportData[0]).map(key => (
+                                                        <th key={key} className="px-6 py-4 font-semibold whitespace-nowrap">
+                                                            {key}
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {reportData.map((row, i) => (
+                                                    <tr key={i} className="hover:bg-white/5 transition-colors">
+                                                        {Object.keys(row).map((key, j) => (
+                                                            <td key={j} className="px-6 py-3 whitespace-nowrap text-muted-foreground">
+                                                                {renderCell(key, row[key])}
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
+                                        <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                                            <Search size={32} className="opacity-50" />
+                                        </div>
+                                        <p>No data found matching your criteria.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

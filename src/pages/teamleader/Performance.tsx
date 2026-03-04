@@ -110,7 +110,12 @@ const TLPersonalPerformance: React.FC = () => {
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION',
+                        'RENT_COLLECTION', 'RENT COLLECTION',
+                        'FTD_COLLECTION', 'FTD COLLECTION',
+                        'COLLECTION', 'RENT'
+                    ])
                     .eq('rider.team_leader_id', userData.id)
                     .gte('created_at', istMidnightUTC),
             ]);

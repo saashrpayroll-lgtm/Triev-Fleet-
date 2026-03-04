@@ -22,6 +22,16 @@ export const mapRiderFromDB = (data: any): Rider => ({
     deletedAt: data.deleted_at
 });
 
+export interface WalletTransactionSummary {
+    amount: number;
+    type: string;
+    team_leader_id: string;
+    timestamp: string;
+    client_name?: string;
+    mode?: string;
+    transaction_type?: string;
+}
+
 export const mapUserFromDB = (data: any): User => ({
     id: data.id,
     userId: data.user_id,
@@ -243,6 +253,18 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
         name: 'Payment Consistency Report',
         description: 'Analysis of rider payment frequency over the last 30 days',
         parameters: ['client'],
+    },
+    {
+        id: 'client_performance',
+        name: 'Client Performance Matrix',
+        description: 'Detailed analysis of collections and recovery % per client',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'daily_growth_analysis',
+        name: 'Daily Growth & Churn',
+        description: 'Day-by-day breakdown of Allotments vs Submissions',
+        parameters: ['dateRange'],
     }
 ];
 
@@ -801,6 +823,116 @@ export const generateRevenueReport = (
     });
 
     return result;
+};
+
+/**
+ * Generate Client Performance Report
+ */
+export const generateClientPerformanceReport = (
+    riders: Rider[],
+    ledgerEntries: any[],
+    startDate: Date,
+    endDate: Date
+): any[] => {
+    const clientMap = new Map<string, {
+        active: number;
+        billed: number;
+        collected: number;
+    }>();
+
+    // Initialize clients from riders
+    riders.forEach(r => {
+        const client = r.clientName || 'Unknown';
+        if (!clientMap.has(client)) {
+            clientMap.set(client, { active: 0, billed: 0, collected: 0 });
+        }
+        if (r.status === 'active') {
+            clientMap.get(client)!.active += 1;
+        }
+    });
+
+    // Process Ledger
+    ledgerEntries.forEach(entry => {
+        const txnDate = new Date(entry.transaction_date || entry.created_at);
+        if (!isWithinInterval(txnDate, { start: startOfDay(startDate), end: endOfDay(endDate) })) return;
+
+        const client = entry.rider?.client_name || 'Unknown';
+        if (!clientMap.has(client)) {
+            clientMap.set(client, { active: 0, billed: 0, collected: 0 });
+        }
+
+        const data = clientMap.get(client)!;
+        const amount = Number(entry.amount) || 0;
+
+        if (entry.transaction_type === 'SYSTEM_RENT_CHARGE' && entry.mode === 'SUBTRACT') {
+            data.billed += amount;
+        } else if (['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'].includes(entry.transaction_type) && entry.mode === 'ADD') {
+            data.collected += amount;
+        }
+    });
+
+    return Array.from(clientMap.entries()).map(([name, data]) => ({
+        'Client Name': name,
+        'Active Riders': data.active,
+        'Billed Amount': data.billed,
+        'Collected Amount': data.collected,
+        'Outstanding': data.billed - data.collected,
+        'Recovery Rate': data.billed > 0 ? ((data.collected / data.billed) * 100).toFixed(1) + '%' : 'N/A'
+    })).sort((a, b) => b['Active Riders'] - a['Active Riders']);
+};
+
+/**
+ * Generate Daily Growth & Churn Report
+ */
+export const generateDailyGrowthReport = (
+    riders: Rider[],
+    startDate: Date,
+    endDate: Date
+): any[] => {
+    const dateMap = new Map<string, { allotments: number; submissions: number }>();
+    const dateKeys: string[] = [];
+
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (currentDate <= end) {
+        const d = formatISTDate(currentDate);
+        dateKeys.push(d);
+        dateMap.set(d, { allotments: 0, submissions: 0 });
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    riders.forEach(r => {
+        // Allotments
+        if (r.allotmentDate) {
+            const ad = formatISTDate(new Date(r.allotmentDate));
+            if (dateMap.has(ad)) dateMap.get(ad)!.allotments += 1;
+        }
+        // Submissions (Inactivations)
+        if (r.status === 'inactive' && r.updatedAt) {
+            const id = formatISTDate(new Date(r.updatedAt));
+            if (dateMap.has(id)) dateMap.get(id)!.submissions += 1;
+        }
+    });
+
+    return dateKeys.map(date => {
+        const data = dateMap.get(date)!;
+        return {
+            'Date': date,
+            'Allotments (New)': data.allotments,
+            'Submissions (Exit)': data.submissions,
+            'Net Growth': data.allotments - data.submissions
+        };
+    }).reverse();
+};
+
+const formatISTDate = (date: Date): string => {
+    return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata'
+    }).format(date);
 };
 
 /**

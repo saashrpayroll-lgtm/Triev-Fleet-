@@ -121,7 +121,12 @@ const TLAllotment: React.FC = () => {
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION',
+                        'RENT_COLLECTION', 'RENT COLLECTION',
+                        'FTD_COLLECTION', 'FTD COLLECTION',
+                        'COLLECTION', 'RENT'
+                    ])
                     .gte('created_at', midnightIST.toISOString()),
             ]);
 
@@ -133,33 +138,31 @@ const TLAllotment: React.FC = () => {
             const riders = ridersRes.data || [];
             if (tls.length === 0) { setData([]); return; }
 
+            // Track TLs that already have a today snapshot in daily_collections
+            const tlsWithTodaySnapshot = new Set<string>();
+
             // Build collection per TL from daily_collections (historical)
             const collectionByTL = new Map<string, number>();
             (dailyColRes.data || []).forEach((row: any) => {
                 const tlId = row.team_leader_id as string;
                 if (!tlId) return;
-                collectionByTL.set(tlId, (collectionByTL.get(tlId) || 0) + Number(row.total_collection || 0));
+
+                const amt = Number(row.total_collection || 0);
+                collectionByTL.set(tlId, (collectionByTL.get(tlId) || 0) + amt);
+
+                // Check if this is today's snapshot
+                if (row.date === todayStr) {
+                    tlsWithTodaySnapshot.add(tlId);
+                }
             });
 
-            // Override/add today's collection from live wallet_ledger
-            const todayByTL = new Map<string, number>();
-            (todayLedgerRes.data || []).forEach((e: any) => {
-                const tlId = (e.rider as any)?.team_leader_id as string | undefined;
-                if (!tlId) return;
-                todayByTL.set(tlId, (todayByTL.get(tlId) || 0) + Number(e.amount || 0));
-            });
-
-            // If today is in range, merge today's live data into the collection map
+            // Add today's live collection from wallet_ledger ONLY if snapshot doesn't exist
             if (todayStr >= pStart && todayStr <= pEnd) {
-                todayByTL.forEach((liveAmt, tlId) => {
-                    // Replace daily_collections today entry with live amount if live is higher
-                    // (daily_collections may lag; wallet_ledger is authoritative for today)
-                    const existing = collectionByTL.get(tlId) || 0;
-                    // We can't know if existing already includes today or not; use max to avoid double count
-                    // Actually: daily_collections aggregates when cron runs, wallet_ledger is real-time
-                    // For safety, add live amount only if daily_collections didn't cover today
-                    // Best approach: subtract any today amount from daily_collections, then add live
-                    collectionByTL.set(tlId, existing + liveAmt);
+                (todayLedgerRes.data || []).forEach((e: any) => {
+                    const tlId = (e.rider as any)?.team_leader_id as string | undefined;
+                    if (!tlId || tlsWithTodaySnapshot.has(tlId)) return;
+
+                    collectionByTL.set(tlId, (collectionByTL.get(tlId) || 0) + Number(e.amount || 0));
                 });
             }
 

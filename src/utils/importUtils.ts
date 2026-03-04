@@ -403,7 +403,12 @@ export const processWalletUpdate = async (
     // Notification Accumulator: TL ID -> Count
     const tlNotificationCounts = new Map<string, number>();
     const nowISO = new Date().toISOString();
-    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Use IST today string for consistent externalId and midnight pinning
+    const todayStrIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const [yr, mo, dy] = todayStrIST.split('-').map(Number);
+    // Correct IST midnight for the reset baseline
+    const istMidnightISO = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
 
     // Data structures for batch processing
     const pendingUpdates: any[] = [];
@@ -463,7 +468,7 @@ export const processWalletUpdate = async (
                 continue;
             }
 
-            const externalId = `RESET_${matchData.id}_${todayStr}`;
+            const externalId = `RESET_${matchData.id}_${todayStrIST}`;
             pendingUpdates.push({
                 riderId: matchData.id,
                 newBalance: amount,
@@ -486,7 +491,7 @@ export const processWalletUpdate = async (
                 const response: any = await LedgerAPI.processDailyUpdate({
                     riderId: update.riderId,
                     newBalance: update.newBalance,
-                    date: nowISO,
+                    date: istMidnightISO, // Pin to IST Midnight to prevent "eating" today's collections
                     externalId: update.externalId
                 });
 

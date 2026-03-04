@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Legend
+    PieChart, Pie, Cell, Legend,
+    BarChart, Bar, CartesianGrid
 } from 'recharts';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -29,6 +30,8 @@ import {
     generateWalletRiskReport,
     generatePaymentConsistencyReport,
     generateFleetHealthReport,
+    generateClientPerformanceReport,
+    generateDailyGrowthReport,
     transformRiderData,
     ActivityLogEntry,
 } from '@/utils/reportUtils';
@@ -163,22 +166,48 @@ const Reports: React.FC = () => {
             return d >= start && d <= end;
         }).reduce((sum, c) => sum + (c.total_collection || 0), 0);
 
-        // Chart Data: Rider Growth (Group by Date)
-        const growthMap = new Map<string, number>();
-        filteredRiders.forEach(r => {
-            const date = format(parseISO(r.createdAt || new Date().toISOString()), 'MMM dd');
-            growthMap.set(date, (growthMap.get(date) || 0) + 1);
-        });
-        const growthData = Array.from(growthMap.entries()).map(([date, count]) => ({ date, count }));
+        const now = new Date();
 
-        // Chart Data: Status Distribution
+        // Chart Data: Fleet Growth Trend (Allotments vs Submissions)
+        const growthTrendMap = new Map<string, { date: string; allotments: number; submissions: number }>();
+        const last14Days = Array.from({ length: 14 }, (_, i) => {
+            const d = subDays(now, 13 - i);
+            return format(d, 'MMM dd');
+        });
+
+        last14Days.forEach(d => growthTrendMap.set(d, { date: d, allotments: 0, submissions: 0 }));
+
+        riders.forEach(r => {
+            if (r.createdAt) {
+                const date = format(parseISO(r.createdAt), 'MMM dd');
+                if (growthTrendMap.has(date)) growthTrendMap.get(date)!.allotments += 1;
+            }
+            if (r.status === 'inactive' && r.updatedAt) {
+                const date = format(parseISO(r.updatedAt), 'MMM dd');
+                if (growthTrendMap.has(date)) growthTrendMap.get(date)!.submissions += 1;
+            }
+        });
+        const growthTrendData = Array.from(growthTrendMap.values());
+
+        // Daily Collection Trend (Bar Chart)
+        const dailyCollTrendMap = new Map<string, number>();
+        last14Days.forEach(d => dailyCollTrendMap.set(d, 0));
+        dailyCollections.forEach(c => {
+            const date = format(parseISO(c.date), 'MMM dd');
+            if (dailyCollTrendMap.has(date)) {
+                dailyCollTrendMap.set(date, (dailyCollTrendMap.get(date) || 0) + (c.total_collection || 0));
+            }
+        });
+        const dailyCollTrendData = Array.from(dailyCollTrendMap.entries()).map(([date, value]) => ({ date, value }));
+
+        // Original Chart Data: Status Distribution
         const statusMap = new Map<string, number>();
         riders.forEach(r => {
             statusMap.set(r.status, (statusMap.get(r.status) || 0) + 1);
         });
         const statusData = Array.from(statusMap.entries()).map(([name, value]) => ({ name, value }));
 
-        // Chart Data: TL Collection Distribution
+        // Original Chart Data: TL Collection Distribution
         const tlCollMap = new Map<string, number>();
         dailyCollections.filter(c => {
             const d = parseISO(c.date);
@@ -192,7 +221,7 @@ const Reports: React.FC = () => {
             .sort((a, b) => b.value - a.value)
             .slice(0, 10);
 
-        // Chart Data: Client Distribution
+        // Original Chart Data: Client Distribution
         const clientMap = new Map<string, number>();
         riders.forEach(r => {
             clientMap.set(r.clientName || 'Unknown', (clientMap.get(r.clientName || 'Unknown') || 0) + 1);
@@ -209,7 +238,7 @@ const Reports: React.FC = () => {
                 filteredRidersCount: filteredRiders.length,
                 newRequestsCount: requestsInPeriod.length
             },
-            charts: { growthData, statusData, clientData, tlCollData }
+            charts: { growthTrendData, dailyCollTrendData, statusData, tlCollData, clientData }
         };
     }, [riders, requests, leads, dailyCollections, teamLeaders, filters]);
 
@@ -276,7 +305,12 @@ const Reports: React.FC = () => {
                         .select('amount, mode, transaction_type, transaction_date, created_at')
                         .gte('created_at', startDate.toISOString())
                         .lte('created_at', endDate.toISOString())
-                        .in('transaction_type', ['SYSTEM_RENT_CHARGE', 'DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION']);
+                        .in('transaction_type', [
+                            'SYSTEM_RENT_CHARGE', 'DAILY_COLLECTION', 'DAILY COLLECTION',
+                            'RENT_COLLECTION', 'RENT COLLECTION',
+                            'FTD_COLLECTION', 'FTD COLLECTION',
+                            'COLLECTION', 'RENT'
+                        ]);
 
                     if (!ledgerEntries) throw new Error('Failed to fetch revenue data');
 
@@ -342,7 +376,12 @@ const Reports: React.FC = () => {
                         `)
                         .gte('created_at', startDate.toISOString())
                         .lte('created_at', endDate.toISOString())
-                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                        .in('transaction_type', [
+                            'DAILY_COLLECTION', 'DAILY COLLECTION',
+                            'RENT_COLLECTION', 'RENT COLLECTION',
+                            'FTD_COLLECTION', 'FTD COLLECTION',
+                            'COLLECTION', 'RENT'
+                        ])
                         .eq('mode', 'ADD');
 
                     if (!ledgerWithRiders || !teamLeadersData) throw new Error('Failed to fetch ledger data');
@@ -399,10 +438,28 @@ const Reports: React.FC = () => {
                     const { data: ledger } = await supabase
                         .from('wallet_ledger')
                         .select('rider_id, amount')
-                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                        .in('transaction_type', [
+                            'DAILY_COLLECTION', 'DAILY COLLECTION',
+                            'RENT_COLLECTION', 'RENT COLLECTION',
+                            'FTD_COLLECTION', 'FTD COLLECTION',
+                            'COLLECTION', 'RENT'
+                        ])
                         .eq('mode', 'ADD')
                         .gte('created_at', thirtyDaysAgo);
                     data = generatePaymentConsistencyReport(ledger || [], riders);
+                    break;
+                }
+                case 'client_performance': {
+                    const { data: ledgerEntries } = await supabase
+                        .from('wallet_ledger')
+                        .select('amount, mode, transaction_type, transaction_date, created_at, rider:riders(client_name)')
+                        .gte('created_at', startDate.toISOString())
+                        .lte('created_at', endDate.toISOString());
+                    data = generateClientPerformanceReport(riders, ledgerEntries || [], startDate, endDate);
+                    break;
+                }
+                case 'daily_growth_analysis': {
+                    data = generateDailyGrowthReport(riders, startDate, endDate);
                     break;
                 }
                 default:
@@ -568,13 +625,58 @@ const Reports: React.FC = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                         >
-                                            {analytics.charts.statusData.map((_entry, index) => (
+                                            {analytics.charts.statusData.map((_entry: any, index: number) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
                                         <RechartsTooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }} />
                                         <Legend />
                                     </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* New: Daily Collection Trend (Bar Chart) */}
+                        <div className="bg-card/50 border border-white/10 p-6 rounded-2xl shadow-lg">
+                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                                <TrendingUp size={18} className="text-emerald-500" /> 14-Day Collection Trend
+                            </h3>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analytics.charts.dailyCollTrendData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                                        <XAxis dataKey="date" fontSize={10} stroke="#666" />
+                                        <YAxis fontSize={12} stroke="#666" />
+                                        <RechartsTooltip
+                                            contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                            formatter={(value: any) => [`₹${value.toLocaleString()}`, 'Collection']}
+                                        />
+                                        <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* New: Growth vs Churn (Area Chart) */}
+                        <div className="bg-card/50 border border-white/10 p-6 rounded-2xl shadow-lg">
+                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                                <Users size={18} className="text-blue-500" /> Growth vs Churn Trend
+                            </h3>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={analytics.charts.growthTrendData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                                        <XAxis dataKey="date" fontSize={10} stroke="#666" />
+                                        <YAxis fontSize={12} stroke="#666" />
+                                        <RechartsTooltip
+                                            contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                        <Legend />
+                                        <Area type="monotone" dataKey="allotments" name="Allotments" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} />
+                                        <Area type="monotone" dataKey="submissions" name="Submissions" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} />
+                                    </AreaChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
