@@ -94,6 +94,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     };
 
     const rankConfig = (rank: number) => {
+        const uniformHeight = 'md:h-auto pb-4';
         const uniformWidth = 'md:w-[320px] w-full';
 
         if (rank === 1) return {
@@ -102,7 +103,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_120px_-30px_rgba(255,200,0,0.5),0_40px_80px_-30px_rgba(255,200,0,0.25)]',
             nameColor: 'text-yellow-200 font-extrabold',
             badgeBg: 'bg-yellow-500 border-yellow-400 text-black',
-            height: 'md:h-[480px] h-auto pb-4', width: uniformWidth,
+            height: uniformHeight, width: uniformWidth,
             zIndex: 'z-30', ringColor: 'border-yellow-400/50',
             statsBg: 'bg-black/40 border-yellow-500/20 backdrop-blur-xl',
             accentColor: '#eab308',
@@ -113,7 +114,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_80px_-30px_rgba(200,200,220,0.4)]',
             nameColor: 'text-white font-extrabold',
             badgeBg: 'bg-slate-500 border-slate-400 text-white',
-            height: 'md:h-[430px] h-auto pb-4', width: uniformWidth,
+            height: uniformHeight, width: uniformWidth,
             zIndex: 'z-20', ringColor: 'border-slate-300/40',
             statsBg: 'bg-black/40 border-slate-500/20 backdrop-blur-xl',
             accentColor: '#94a3b8',
@@ -124,7 +125,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_80px_-30px_rgba(205,127,50,0.4)]',
             nameColor: 'text-orange-100 font-extrabold',
             badgeBg: 'bg-orange-600 border-orange-500 text-white',
-            height: 'md:h-[430px] h-auto pb-4', width: uniformWidth,
+            height: uniformHeight, width: uniformWidth,
             zIndex: 'z-10', ringColor: 'border-orange-300/40',
             statsBg: 'bg-black/40 border-orange-500/20 backdrop-blur-xl',
             accentColor: '#ea580c',
