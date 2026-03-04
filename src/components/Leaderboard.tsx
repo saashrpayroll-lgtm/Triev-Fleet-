@@ -94,8 +94,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     };
 
     const rankConfig = (rank: number) => {
-        const uniformHeight = 'md:h-auto pb-4';
-        const uniformWidth = 'md:w-[320px] w-full';
+        const uniformWidth = 'md:w-[310px] w-full';
+        const podiumHeight = rank === 1 ? 'md:h-[490px]' : 'md:h-[415px]';
 
         if (rank === 1) return {
             cardBg: 'bg-gradient-to-b from-yellow-500/35 via-yellow-900/25 to-slate-950/98',
@@ -103,7 +103,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_120px_-30px_rgba(255,200,0,0.5),0_40px_80px_-30px_rgba(255,200,0,0.25)]',
             nameColor: 'text-yellow-200 font-extrabold',
             badgeBg: 'bg-yellow-500 border-yellow-400 text-black',
-            height: uniformHeight, width: uniformWidth,
+            height: `${podiumHeight} h-auto pb-4`, width: uniformWidth,
             zIndex: 'z-30', ringColor: 'border-yellow-400/50',
             statsBg: 'bg-black/40 border-yellow-500/20 backdrop-blur-xl',
             accentColor: '#eab308',
@@ -114,7 +114,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_80px_-30px_rgba(200,200,220,0.4)]',
             nameColor: 'text-white font-extrabold',
             badgeBg: 'bg-slate-500 border-slate-400 text-white',
-            height: uniformHeight, width: uniformWidth,
+            height: `${podiumHeight} h-auto pb-4`, width: uniformWidth,
             zIndex: 'z-20', ringColor: 'border-slate-300/40',
             statsBg: 'bg-black/40 border-slate-500/20 backdrop-blur-xl',
             accentColor: '#94a3b8',
@@ -125,7 +125,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             glow: 'shadow-[0_0_80px_-30px_rgba(205,127,50,0.4)]',
             nameColor: 'text-orange-100 font-extrabold',
             badgeBg: 'bg-orange-600 border-orange-500 text-white',
-            height: uniformHeight, width: uniformWidth,
+            height: `${podiumHeight} h-auto pb-4`, width: uniformWidth,
             zIndex: 'z-10', ringColor: 'border-orange-300/40',
             statsBg: 'bg-black/40 border-orange-500/20 backdrop-blur-xl',
             accentColor: '#ea580c',
@@ -206,13 +206,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                 onClick={handleCardClick}
                                 className={`relative flex flex-col rounded-[2.5rem] border cursor-pointer
                                     w-full ${desktopOrder} ${cfg.zIndex} ${cfg.glow} ${cfg.border}
-                                    md:w-[320px] ${cfg.height}
+                                    ${cfg.width} ${cfg.height}
                                     transition-all duration-500 backdrop-blur-3xl`}
                             >
                                 <motion.div
                                     animate={{ y: [0, -6, 0] }}
                                     transition={{ repeat: Infinity, duration: 3 + mobileIdx, ease: 'easeInOut' }}
-                                    className="w-full h-full flex flex-col"
+                                    className="w-full h-full flex flex-col justify-between"
                                 >
                                     <div className="absolute inset-0 rounded-[2.5rem] bg-slate-950/40" />
                                     <div className={`absolute inset-0 rounded-[2.5rem] ${cfg.cardBg}`} />
@@ -356,7 +356,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                             </motion.div>
                                         )}
 
-                                        <div className="flex-1" />
+                                        {/* Spacer before stats */}
+                                        <div className="flex-1 min-h-0" />
 
                                         {/* Enhanced 3×3 Stats Grid */}
                                         <div className={`w-full flex-shrink-0 rounded-[2rem] p-3 border ${cfg.statsBg} shadow-inner bg-black/40`}>

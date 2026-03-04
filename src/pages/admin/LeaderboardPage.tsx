@@ -161,8 +161,9 @@ const LeaderboardPage: React.FC = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData)
-            // ✅ Live wallet_ledger updates
+            // ✅ Live wallet_ledger updates (both NEW and UPDATED transactions)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
         return () => { subscription.unsubscribe(); if (ledgerDebounceRef.current) clearTimeout(ledgerDebounceRef.current); };
