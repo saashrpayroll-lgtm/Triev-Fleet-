@@ -12,12 +12,7 @@ BEGIN
     -- HANDLE DELETIONS & UPDATES (Decrement Old Values)
     IF (TG_OP = 'DELETE' OR TG_OP = 'UPDATE') THEN
         -- 1. Identify if OLD record was a relevant Daily Collection
-        IF OLD.transaction_type IN (
-            'DAILY_COLLECTION', 'DAILY COLLECTION',
-            'RENT_COLLECTION', 'RENT COLLECTION',
-            'FTD_COLLECTION', 'FTD COLLECTION',
-            'COLLECTION', 'RENT'
-        ) AND OLD.mode = 'ADD' THEN
+        IF OLD.transaction_type = 'DAILY_COLLECTION' AND OLD.mode = 'ADD' THEN
              
              -- Get TL ID (from OLD record)
              SELECT team_leader_id INTO v_old_tl_id
@@ -25,13 +20,14 @@ BEGIN
              WHERE id = OLD.rider_id;
 
              IF v_old_tl_id IS NOT NULL THEN
-                -- Determine Old Date using IST grouping
+                -- Determine Old Date
                 IF OLD.transaction_date IS NOT NULL THEN
-                    v_old_date := (OLD.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE;
+                    v_old_date := OLD.transaction_date;
                 ELSIF OLD.metadata->>'date_on_sheet' IS NOT NULL THEN
-                    v_old_date := (OLD.metadata->>'date_on_sheet')::DATE;
+                    -- Parse the date_on_sheet value, treating it as IST by extracting date part
+                    v_old_date := (OLD.metadata->>'date_on_sheet')::TIMESTAMPTZ AT TIME ZONE 'Asia/Kolkata';
                 ELSE
-                    -- created_at is TIMESTAMPTZ (UTC internally), convert to IST DATE
+                    -- ✅ FIX: Use IST timezone for date extraction (was UTC, wrong for AM IST rows)
                     v_old_date := (OLD.created_at AT TIME ZONE 'Asia/Kolkata')::DATE;
                 END IF;
 
@@ -43,6 +39,9 @@ BEGIN
                     total_collection = total_collection - v_old_amount,
                     updated_at = NOW()
                 WHERE team_leader_id = v_old_tl_id AND date = v_old_date;
+
+                -- Optional: Cleanup if 0 (keep records for now to avoid gaps, or delete if preferred)
+                -- DELETE FROM public.daily_collections WHERE total_collection = 0;
              END IF;
         END IF;
     END IF;
@@ -50,12 +49,7 @@ BEGIN
     -- HANDLE INSERTIONS & UPDATES (Increment New Values)
     IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
         -- 1. Filter Strict
-        IF NEW.transaction_type IN (
-            'DAILY_COLLECTION', 'DAILY COLLECTION',
-            'RENT_COLLECTION', 'RENT COLLECTION',
-            'FTD_COLLECTION', 'FTD COLLECTION',
-            'COLLECTION', 'RENT'
-        ) AND NEW.mode = 'ADD' THEN
+        IF NEW.transaction_type = 'DAILY_COLLECTION' AND NEW.mode = 'ADD' THEN
             
             -- Get TL ID
             SELECT team_leader_id INTO v_team_leader_id
@@ -63,13 +57,14 @@ BEGIN
             WHERE id = NEW.rider_id;
 
             IF v_team_leader_id IS NOT NULL THEN
-                 -- Determine New Date using IST grouping
+                 -- Determine New Date
                 IF NEW.transaction_date IS NOT NULL THEN
-                    v_transaction_date := (NEW.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE;
+                    v_transaction_date := NEW.transaction_date;
                 ELSIF NEW.metadata->>'date_on_sheet' IS NOT NULL THEN
-                    v_transaction_date := (NEW.metadata->>'date_on_sheet')::DATE;
+                    -- Parse the date_on_sheet value as IST timestamp, extract IST date
+                    v_transaction_date := (NEW.metadata->>'date_on_sheet')::TIMESTAMPTZ AT TIME ZONE 'Asia/Kolkata';
                 ELSE
-                    -- created_at is TIMESTAMPTZ (UTC internally), convert to IST DATE
+                    -- ✅ FIX: Use IST timezone for date extraction (was UTC, wrong for AM IST rows)
                     v_transaction_date := (NEW.created_at AT TIME ZONE 'Asia/Kolkata')::DATE;
                 END IF;
 

@@ -51,14 +51,6 @@ const TLPerformance: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            // ── IST midnight (start of today) ────────────────────────────────────
-            const istMidnightUTC = (() => {
-                const now = new Date();
-                const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-                const [y, m, d] = istDateStr.split('-').map(Number);
-                return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-            })();
-
             // ── IST date/week helpers ─────────────────────────────────────────────
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
             const now = new Date();
@@ -78,8 +70,9 @@ const TLPerformance: React.FC = () => {
                 supabase.from('daily_collections').select('*')
                     .order('date', { ascending: false })
                     .limit(10000),
-                // Today's live: wallet_ledger entries from IST midnight → now
-                // ONLY used for "today" snapshot; NOT used for weekly/total (daily_collections.date is authoritative)
+                // Today's live: wallet_ledger entries for TODAY by IST transaction_date
+                // ✅ FIX: Use transaction_date (DATE column, IST-pinned) instead of created_at >= midnight
+                // This correctly includes AM-timestamped imports (e.g., 3:55 AM) regardless of when imported
                 supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', [
@@ -88,7 +81,7 @@ const TLPerformance: React.FC = () => {
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
                     ])
-                    .gte('created_at', istMidnightUTC)
+                    .eq('transaction_date', todayStr)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;

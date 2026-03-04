@@ -87,10 +87,8 @@ const TLAllotment: React.FC = () => {
             const pEnd = endDate ? format(endDate, 'yyyy-MM-dd') : '9999-12-31';
             const todayStr = toISTDateStr(new Date());
 
-            // Compute IST midnight UTC for today's live ledger query
-            const [yr, mo, dy] = todayStr.split('-').map(Number);
-            const midnightIST = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0));
-            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
+            // ✅ FIX: Use transaction_date (IST-pinned DATE column) for today's live query
+            // This correctly captures AM-timestamped imports regardless of when they were imported
 
             // Fetch all data in parallel
             const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
@@ -116,7 +114,10 @@ const TLAllotment: React.FC = () => {
                     .lte('date', pEnd)
                     .limit(50000),
 
-                // Step 4: ✅ Today's live override via wallet_ledger with !inner JOIN (same as AdminDashboard)
+                // Step 4: ✅ Today's live override via wallet_ledger with !inner JOIN
+                // ✅ FIX: Use transaction_date = todayStr (IST DATE column) instead of
+                // created_at >= midnight. This correctly captures AM-timestamped imports
+                // (e.g., 3:55 AM) regardless of when they were physically imported into the system.
                 supabase
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
@@ -127,7 +128,7 @@ const TLAllotment: React.FC = () => {
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
                     ])
-                    .gte('created_at', midnightIST.toISOString()),
+                    .eq('transaction_date', todayStr),
             ]);
 
             if (tlsRes.error) throw tlsRes.error;

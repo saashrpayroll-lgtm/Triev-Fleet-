@@ -110,10 +110,9 @@ const LeaderboardPage: React.FC = () => {
                 });
             }
 
-            // Today's live from wallet_ledger — ONLY for TLs without snapshot, to avoid double-count
-            const [year3, month3, day3] = istDateStr.split('-').map(Number);
-            const midnightIST = new Date(Date.UTC(year3, month3 - 1, day3));
-            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
+            // ✅ FIX: Use transaction_date (IST DATE column) for today's live collection query
+            // This correctly catches AM-timestamped imports regardless of when they were imported
+            // into the system (e.g., 3:55 AM collection imported at 5:41 PM still gets dated today)
 
             const { data: ledgerRes } = await supabase
                 .from('wallet_ledger')
@@ -125,7 +124,7 @@ const LeaderboardPage: React.FC = () => {
                     'FTD_COLLECTION', 'FTD COLLECTION',
                     'COLLECTION', 'RENT'
                 ])
-                .gte('created_at', midnightIST.toISOString());
+                .eq('transaction_date', istDateStr);
 
             if (ledgerRes && (!period || period.end >= istDateStr)) {
                 (ledgerRes as any[]).forEach(txn => {
