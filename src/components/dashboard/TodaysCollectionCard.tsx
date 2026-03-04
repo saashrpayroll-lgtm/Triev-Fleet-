@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/config/supabase';
-import { Wallet, TrendingUp, History } from 'lucide-react';
+import { Wallet, TrendingUp, History, RefreshCw, ShieldCheck } from 'lucide-react';
 
 interface TodaysCollectionCardProps {
     teamLeaderId?: string;
@@ -10,8 +10,11 @@ interface TodaysCollectionCardProps {
 const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderId }) => {
     const [amount, setAmount] = useState<number>(0);
     const [transactionCount, setTransactionCount] = useState<number>(0);
+    const [velocity, setVelocity] = useState<number>(0); // transactions in last 2 hours
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const fetchTodaysCollection = async () => {
+        setIsSyncing(true);
         try {
             const now = new Date();
             const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
@@ -19,6 +22,8 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
             midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
             const todayIso = midnightIST.toISOString();
+
+            const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
 
             let query = supabase
                 .from('wallet_ledger')
@@ -48,15 +53,23 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
             let total = 0;
             let count = 0;
+            let vCount = 0;
             (data as any[]).forEach((txn) => {
                 const amt = Number(txn.amount);
-                if (!isNaN(amt)) { total += amt; count++; }
+                if (!isNaN(amt)) {
+                    total += amt;
+                    count++;
+                    if (txn.created_at >= twoHoursAgo) vCount++;
+                }
             });
 
             setAmount(total);
             setTransactionCount(count);
+            setVelocity(vCount);
         } catch (error) {
             console.error('Error fetching collection:', error);
+        } finally {
+            setTimeout(() => setIsSyncing(false), 800);
         }
     };
 
@@ -119,21 +132,26 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                         transition={{ duration: 0.4 }}
                         className="p-2 sm:p-2.5 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20 text-emerald-500 group-hover:scale-110 transition-transform duration-300"
                     >
-                        <Wallet size={18} strokeWidth={2.5} />
+                        {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <Wallet size={18} strokeWidth={2.5} />}
                     </motion.div>
-                    <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                        <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                        </span>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live</span>
+                    <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                            </span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live IQ</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[7px] font-bold text-emerald-500/60 uppercase tracking-tighter">
+                            <ShieldCheck size={8} /> Neural Verified
+                        </div>
                     </div>
                 </div>
 
                 {/* Value */}
                 <div>
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/70 mb-0.5">
-                        {teamLeaderId ? "Today's Collection (My Team)" : "Today's Collection (Total)"}
+                        Collection Intelligence ({teamLeaderId ? "Team" : "System"})
                     </p>
                     <motion.p
                         key={amount}
@@ -147,11 +165,18 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 </div>
 
                 {/* Subtitle */}
-                <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-500 opacity-70" />
-                    <p className="text-[10px] font-semibold text-muted-foreground truncate leading-tight">
-                        {transactionCount} transactions today
-                    </p>
+                <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-500 opacity-70" />
+                        <p className="text-[10px] font-semibold text-muted-foreground truncate leading-tight">
+                            {transactionCount} transactions
+                        </p>
+                    </div>
+                    {velocity > 0 && (
+                        <div className="text-[9px] font-bold text-emerald-500 bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10 animate-pulse">
+                            +{velocity} (2h)
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}

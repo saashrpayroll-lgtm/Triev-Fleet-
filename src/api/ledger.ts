@@ -30,7 +30,7 @@ export const LedgerAPI = {
             p_metadata: input.metadata,
             p_external_id: input.externalId || null,
             p_source: input.source || 'MANUAL',
-            p_date: input.transactionDate || new Date().toISOString()
+            p_date: input.transactionDate || undefined // Undefined lets PostgREST drop it, hitting the DB DEFAULT NOW()
         });
 
         if (error) throw error;

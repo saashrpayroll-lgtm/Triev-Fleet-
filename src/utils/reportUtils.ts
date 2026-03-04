@@ -213,6 +213,36 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
         name: 'System Health & Stats',
         description: 'Overview of system counts and status distribution',
         parameters: [],
+    },
+    {
+        id: 'fleet_health_report',
+        name: 'Fleet Health Report',
+        description: 'Active/Inactive/Churned breakdown per TL with wallet average',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'collection_summary',
+        name: 'Collection Summary (Authorized)',
+        description: 'Authorized collection totals from daily_collections table',
+        parameters: ['dateRange', 'teamLeaderSelect'],
+    },
+    {
+        id: 'rider_tenure_report',
+        name: 'Rider Tenure Report',
+        description: 'Active riders sorted by allotment date (oldest first)',
+        parameters: ['client'],
+    },
+    {
+        id: 'wallet_risk_report',
+        name: 'Wallet Risk Report',
+        description: 'Riders with negative wallet balances categorized by risk level',
+        parameters: ['teamLeaderSelect'],
+    },
+    {
+        id: 'payment_consistency',
+        name: 'Payment Consistency Report',
+        description: 'Analysis of rider payment frequency over the last 30 days',
+        parameters: ['client'],
     }
 ];
 
@@ -681,8 +711,12 @@ export const formatReportForExport = (reportType: string, data: any[]): any[] =>
         // Use raw data for these as they are already formatted in generators or are flat
         case 'request_history':
         case 'activity_log_report':
-        case 'defaulter_list': // Add defaulter list here for formatting
+        case 'defaulter_list':
         case 'system_health':
+        case 'rider_tenure_report':
+        case 'wallet_risk_report':
+        case 'collection_summary':
+        case 'fleet_health_report':
             return data;
 
         default:
@@ -787,6 +821,156 @@ export const generateDefaulterReport = (riders: Rider[], threshold: number = -10
                 ? Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24))
                 : '-'
         }));
+};
+
+/**
+ * Generate Collection Summary Report (based on daily_collections table)
+ */
+export const generateCollectionSummaryReport = (
+    collections: any[],
+    teamLeaders: User[]
+): any[] => {
+    const tlMap = new Map<string, string>();
+    teamLeaders.forEach(tl => tlMap.set(tl.id, tl.fullName));
+
+    const result = collections.map(c => ({
+        'Date': c.date,
+        'Team Leader': tlMap.get(c.team_leader_id) || 'Unknown',
+        'Total Collection': c.total_collection,
+        'Active Riders': c.active_riders_count,
+        'Average per Rider': c.active_riders_count > 0
+            ? (c.total_collection / c.active_riders_count).toFixed(2)
+            : 0
+    }));
+
+    // Add total row
+    if (result.length > 0) {
+        const totalColl = collections.reduce((sum, c) => sum + (c.total_collection || 0), 0);
+        result.push({
+            'Date': 'TOTAL',
+            'Team Leader': '-',
+            'Total Collection': totalColl,
+            'Active Riders': '-',
+            'Average per Rider': '-'
+        });
+    }
+
+    return result;
+};
+
+/**
+ * Generate Rider Tenure Report
+ */
+export const generateRiderTenureReport = (riders: Rider[]): any[] => {
+    return riders
+        .filter(r => r.status === 'active')
+        .sort((a, b) => {
+            const dateA = a.allotmentDate ? new Date(a.allotmentDate).getTime() : 0;
+            const dateB = b.allotmentDate ? new Date(b.allotmentDate).getTime() : 0;
+            return dateA - dateB; // Oldest first
+        })
+        .map(r => {
+            const days = r.allotmentDate
+                ? Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24))
+                : 0;
+            return {
+                'Triev ID': r.trievId,
+                'Rider Name': r.riderName,
+                'Client': r.clientName,
+                'TL Name': r.teamLeaderName || 'Unassigned',
+                'Allotment Date': r.allotmentDate ? new Date(r.allotmentDate).toLocaleDateString('en-IN') : '-',
+                'Tenure (Days)': days,
+                'Wallet Balance': r.walletAmount
+            };
+        });
+};
+
+/**
+ * Generate Wallet Risk Report
+ */
+export const generateWalletRiskReport = (riders: Rider[]): any[] => {
+    return riders
+        .filter(r => (r.walletAmount || 0) < 0)
+        .sort((a, b) => a.walletAmount - b.walletAmount) // Most debt first
+        .map(r => {
+            const amt = Math.abs(r.walletAmount);
+            let risk = 'Low';
+            if (amt > 5000) risk = 'Critical';
+            else if (amt > 2000) risk = 'High';
+            else if (amt > 1000) risk = 'Medium';
+
+            return {
+                'Rider Name': r.riderName,
+                'Triev ID': r.trievId,
+                'TL Name': r.teamLeaderName || 'Unassigned',
+                'Wallet Balance': r.walletAmount,
+                'Risk Level': risk,
+                'Mobile': r.mobileNumber
+            };
+        });
+};
+
+/**
+ * Generate Fleet Health Report
+ */
+export const generateFleetHealthReport = (riders: Rider[], teamLeaders: User[]): any[] => {
+    const tlStats = new Map<string, any>();
+
+    teamLeaders.forEach(tl => {
+        tlStats.set(tl.id, {
+            'Team Leader': tl.fullName,
+            'Active': 0,
+            'Inactive': 0,
+            'Deleted': 0,
+            'Total Fleet': 0,
+            'Wallet Float': 0
+        });
+    });
+
+    riders.forEach(r => {
+        const stats = tlStats.get(r.teamLeaderId);
+        if (!stats) return;
+
+        stats['Total Fleet'] += 1;
+        stats['Wallet Float'] += (r.walletAmount || 0);
+
+        if (r.status === 'active') stats['Active'] += 1;
+        else if (r.status === 'inactive') stats['Inactive'] += 1;
+        else if (r.status === 'deleted') stats['Deleted'] += 1;
+    });
+
+    return Array.from(tlStats.values()).map(s => ({
+        ...s,
+        'Wallet Float': `₹${s['Wallet Float'].toLocaleString('en-IN')}`,
+        'Avg Wallet': s['Active'] > 0 ? `₹${(parseFloat(s['Wallet Float'].replace(/[₹,]/g, '')) / s['Active']).toFixed(2)}` : '₹0.00'
+    })).sort((a, b) => b['Active'] - a['Active']);
+};
+
+/**
+ * Generate Payment Consistency Report
+ */
+export const generatePaymentConsistencyReport = (ledger: any[], riders: Rider[]): any[] => {
+    const riderPayments: Record<string, number> = {};
+    ledger.forEach(txn => {
+        const id = txn.rider_id || txn.rider?.id;
+        if (id) {
+            riderPayments[id] = (riderPayments[id] || 0) + 1;
+        }
+    });
+
+    return riders
+        .filter(r => r.status === 'active')
+        .map(r => {
+            const count = riderPayments[r.id] || 0;
+            return {
+                'Rider Name': r.riderName,
+                'Triev ID': r.trievId,
+                'Mobile': r.mobileNumber,
+                'Payments (Last 30D)': count,
+                'Consistency %': `${Math.min(100, Math.round((count / 26) * 100))}%`,
+                'Status': count > 20 ? 'Excellent' : count > 10 ? 'Average' : 'Poor'
+            };
+        });
 };
 
 export interface WalletTransactionSummary {

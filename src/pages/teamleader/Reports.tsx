@@ -8,15 +8,22 @@ import {
     generateRiderListReport,
     generateWalletSummaryReport,
     generateClientDistributionReport,
+    generateCollectionSummaryReport,
+    generateRiderTenureReport,
+    generateWalletRiskReport,
+    generatePaymentConsistencyReport,
     transformRiderData
 } from '@/utils/reportUtils';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
+import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
 interface ReportFilters {
     status: string;
     client: string;
+    startDate: string;
+    endDate: string;
 }
 
 const Reports: React.FC = () => {
@@ -27,7 +34,10 @@ const Reports: React.FC = () => {
     const [filters, setFilters] = useState<ReportFilters>({
         status: 'all',
         client: 'all',
+        startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+        endDate: format(new Date(), 'yyyy-MM-dd'),
     });
+    const [dailyCollections, setDailyCollections] = useState<any[]>([]);
     const [reportData, setReportData] = useState<any[]>([]);
     const [reportGenerated, setReportGenerated] = useState(false);
     const [generating, setGenerating] = useState(false);
@@ -70,6 +80,13 @@ const Reports: React.FC = () => {
             } else {
                 setRiders((data || []) as Rider[]);
             }
+
+            // Fetch daily collections for this TL
+            const { data: colls } = await supabase
+                .from('daily_collections')
+                .select('*')
+                .eq('team_leader_id', userData.id);
+            setDailyCollections(colls || []);
         } catch (error) {
             console.error('Error fetching riders:', error);
         } finally {
@@ -154,36 +171,60 @@ const Reports: React.FC = () => {
                     data = positiveRiders.map(transformRiderData);
                     break;
 
-                case 'daily_collection':
-                    // Fetch Collection History for this TL
-                    // Use wallet_ledger for detailed transaction history
-                    // We default to last 30 days if no filter (though filters logic needs to be added to UI if we want date range)
-                    // For now, let's fetch ALL time or last 30 days. Let's do last 30 days.
-                    const thirtyDaysAgo = new Date();
-                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                case 'daily_collection': {
+                    if (!userData) throw new Error('Not authenticated');
+
+                    const start = startOfDay(parseISO(filters.startDate));
+                    const end = endOfDay(parseISO(filters.endDate));
 
                     const { data: collectionData, error: collectionError } = await supabase
                         .from('wallet_ledger')
-                        .select('amount, created_at, rider:riders!inner(rider_name, mobile_number)')
+                        .select('amount, created_at, rider:riders!inner(rider_name, mobile_number, team_leader_id)')
                         .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                         .eq('mode', 'ADD')
-                        .gte('created_at', thirtyDaysAgo.toISOString())
+                        .gte('created_at', start.toISOString())
+                        .lte('created_at', end.toISOString())
+                        .eq('rider.team_leader_id', userData!.id)
                         .order('created_at', { ascending: false });
 
                     if (collectionError) throw collectionError;
 
-                    // Filter manually for this TL's riders if RLS doesn't handle it (it should, but safety first)
-                    // actually logic above uses !inner join, so we need to ensure rider belongs to TL.
-                    // But wallet_ledger RLS might restricting.
-                    // Let's assume RLS allows reading ledger linked to Own Riders.
+                    if (!userData) throw new Error('Not authenticated');
 
                     data = (collectionData || []).map((item: any) => ({
-                        'Date': new Date(item.created_at).toLocaleDateString(),
+                        'Date': format(parseISO(item.created_at), 'MMM dd, yyyy HH:mm'),
                         'Rider Name': item.rider?.rider_name || 'Unknown',
                         'Mobile': item.rider?.mobile_number || 'Unknown',
                         'Amount': item.amount,
                     }));
                     break;
+                }
+                case 'collection_summary': {
+                    if (!userData) break;
+                    const colls = dailyCollections.filter(c => {
+                        const d = parseISO(c.date);
+                        return d >= startOfDay(parseISO(filters.startDate)) && d <= endOfDay(parseISO(filters.endDate));
+                    });
+                    data = generateCollectionSummaryReport(colls, [{ id: userData.id, fullName: userData.fullName || 'Me' }] as any);
+                    break;
+                }
+                case 'rider_tenure_report':
+                    data = generateRiderTenureReport(riders);
+                    break;
+                case 'wallet_risk_report':
+                    data = generateWalletRiskReport(riders);
+                    break;
+                case 'payment_consistency': {
+                    const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+                    const { data: ledger } = await supabase
+                        .from('wallet_ledger')
+                        .select('rider_id, amount')
+                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                        .eq('mode', 'ADD')
+                        .gte('created_at', thirtyDaysAgo);
+                    data = generatePaymentConsistencyReport(ledger || [], riders);
+                    break;
+                }
 
                 default:
                     data = riders.map(transformRiderData);
@@ -241,6 +282,9 @@ const Reports: React.FC = () => {
             case 'client_distribution': return <BarChart3 size={18} className={active ? "text-white" : "text-purple-500"} />;
             case 'request_history': return <Shield size={18} className={active ? "text-white" : "text-amber-500"} />;
             case 'daily_collection': return <Wallet size={18} className={active ? "text-white" : "text-emerald-500"} />;
+            case 'collection_summary': return <TrendingUp size={18} className={active ? "text-white" : "text-emerald-400"} />;
+            case 'rider_tenure_report': return <Users size={18} className={active ? "text-white" : "text-indigo-400"} />;
+            case 'wallet_risk_report': return <Shield size={18} className={active ? "text-white" : "text-rose-400"} />;
             default: return <FileText size={18} className={active ? "text-white" : "text-gray-500"} />;
         }
     };
@@ -305,9 +349,15 @@ const Reports: React.FC = () => {
                     </h1>
                     <p className="text-muted-foreground mt-1">Generate insights from your rider fleet.</p>
                 </div>
-                <div className="bg-card/50 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-center">
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Records</div>
-                    <div className="text-xl font-bold text-primary">{riders.length}</div>
+                <div className="flex gap-4">
+                    <div className="bg-card/50 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-center">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Fleet</div>
+                        <div className="text-xl font-bold text-primary">{riders.length}</div>
+                    </div>
+                    <div className="bg-card/50 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-xl text-center">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Active</div>
+                        <div className="text-xl font-bold text-green-500">{riders.filter(r => r.status === 'active').length}</div>
+                    </div>
                 </div>
             </div>
 
@@ -323,7 +373,7 @@ const Reports: React.FC = () => {
                             {REPORT_TEMPLATES.filter(t => {
                                 if (t.name.includes('Admin Only')) return false;
                                 const supportedTemplates = [
-                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'positive_wallet', 'client_distribution', 'daily_collection'
+                                    'active_riders', 'inactive_riders', 'wallet_summary', 'negative_wallet', 'positive_wallet', 'client_distribution', 'daily_collection', 'collection_summary', 'rider_tenure_report', 'wallet_risk_report', 'payment_consistency'
                                 ];
                                 return supportedTemplates.includes(t.id);
                             }).map((template) => (
@@ -416,6 +466,28 @@ const Reports: React.FC = () => {
                                         </select>
                                     </div>
                                 )}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                        <TrendingUp size={14} /> Start Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={filters.startDate}
+                                        onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                                        <TrendingUp size={14} /> End Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={filters.endDate}
+                                        onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                                        className="w-full px-4 py-2.5 rounded-lg bg-background/50 border border-white/10 focus:ring-2 focus:ring-primary/50 outline-none transition-all"
+                                    />
+                                </div>
                             </div>
                         )}
 

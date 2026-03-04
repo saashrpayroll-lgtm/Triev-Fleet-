@@ -508,13 +508,14 @@ export const processWalletUpdate = async (
         }));
     }
 
-    // 4. Batch Touch: Metadata Updates (Drastically reduces network overhead)
+    // 4. Batch Touch: Metadata Updates
     if (riderIdsToTouch.length > 0) {
         await supabase.from('riders').update({ updated_at: nowISO }).in('id', riderIdsToTouch);
     }
-    if (ledgerExternalIdsToTouch.length > 0) {
-        await supabase.from('wallet_ledger').update({ created_at: nowISO }).in('external_transaction_id', ledgerExternalIdsToTouch);
-    }
+    // DELETED: `ledgerExternalIdsToTouch` batch touch. 
+    // It manually overwrote the correct server NOW() with the client's nowISO, 
+    // artificially shifting created_at and triggering the DB sync_wallet_balance 
+    // to apply an older RESET balance, reverting the bulk wallet update.
 
     // --- BATCH NOTIFICATIONS SENDING ---
     try {
@@ -685,18 +686,21 @@ export const processRentCollectionImport = async (
                 let transactionDateStr = new Date().toISOString();
                 const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
                 if (dateRaw) {
+                    const pad = (n: any) => String(n).padStart(2, '0');
                     // Force DD/MM/YYYY parsing BEFORE generic `new Date(dateRaw)` fallback 
                     // because `new Date('02/03/2026')` defaults to Feb 3 (US format) instead of Mar 2.
                     const ddmmyyyyMatch = String(dateRaw).trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
                     if (ddmmyyyyMatch) {
                         const [, day, month, year] = ddmmyyyyMatch;
-                        // Build proper ISO string to avoid local timezone offset artifacts (creates Midnight UTC)
-                        transactionDateStr = new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10))).toISOString();
+                        // Avoid Midnight UTC shifts by locking to 12:00 PM IST (+05:30)
+                        // This guarantees Postgres `transaction_date::DATE` correctly picks the right calendar day.
+                        transactionDateStr = `${year}-${pad(month)}-${pad(day)}T12:00:00+05:30`;
                     } else {
                         // Fallback generic parsing
                         const d = new Date(dateRaw);
                         if (!isNaN(d.getTime())) {
-                            transactionDateStr = d.toISOString();
+                            // Lock fallback date to 12:00 PM IST as well
+                            transactionDateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00+05:30`;
                         }
                     }
                 }

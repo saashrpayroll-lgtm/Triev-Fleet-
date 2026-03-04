@@ -7,7 +7,7 @@ import {
     ArrowUpRight, ArrowDownRight, Printer, LayoutDashboard, List
 } from 'lucide-react';
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+    AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
@@ -24,6 +24,11 @@ import {
     generateTLDailyCollectionReport,
     generateRevenueReport,
     generateDefaulterReport,
+    generateCollectionSummaryReport,
+    generateRiderTenureReport,
+    generateWalletRiskReport,
+    generatePaymentConsistencyReport,
+    generateFleetHealthReport,
     transformRiderData,
     ActivityLogEntry,
 } from '@/utils/reportUtils';
@@ -56,6 +61,8 @@ const Reports: React.FC = () => {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [teamLeaders, setTeamLeaders] = useState<User[]>([]);
     const [requests, setRequests] = useState<Request[]>([]);
+    const [leads, setLeads] = useState<any[]>([]);
+    const [dailyCollections, setDailyCollections] = useState<any[]>([]);
     const [selectedTLs, setSelectedTLs] = useState<string[]>([]); // New State for Multi-select
     const [filters, setFilters] = useState<ReportFilters>({
         status: 'all',
@@ -81,7 +88,7 @@ const Reports: React.FC = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [ridersRes, usersRes, requestsRes] = await Promise.all([
+            const [ridersRes, usersRes, requestsRes, leadsRes, dailyCollectionsRes] = await Promise.all([
                 supabase.from('riders').select(`
                     id, 
                     trievId:triev_id, 
@@ -105,12 +112,22 @@ const Reports: React.FC = () => {
                     id, ticketId:ticket_id, type, subject, description, priority, 
                     status, userId:user_id, userName:user_name, userRole:user_role, 
                     createdAt:created_at
-                `)
+                `),
+                supabase.from('leads').select('id, created_at, status'),
+                supabase.from('daily_collections').select('*')
             ]);
+
+            if (ridersRes.error) throw ridersRes.error;
+            if (usersRes.error) throw usersRes.error;
+            if (requestsRes.error) throw requestsRes.error;
+            if (leadsRes.error) throw leadsRes.error;
+            if (dailyCollectionsRes.error) throw dailyCollectionsRes.error;
 
             setRiders((ridersRes.data || []) as any);
             setTeamLeaders((usersRes.data || []).filter((u: any) => u.role === 'teamLeader') as any);
             setRequests((requestsRes.data || []) as any);
+            setLeads(leadsRes.data || []);
+            setDailyCollections(dailyCollectionsRes.data || []);
         } catch (error) {
             console.error('Error fetching data:', error);
             toast.error("Failed to fetch analytics data");
@@ -138,8 +155,13 @@ const Reports: React.FC = () => {
         // KPI Calculations
         const totalWallet = riders.reduce((sum, r) => sum + (Number(r.walletAmount) || 0), 0);
         const activeRidersCount = riders.filter(r => r.status === 'active').length;
-        const totalLeads = 0; // Placeholder until leads table integrated
+        const totalLeads = leads.length;
         const openTickets = requests.filter(r => r.status !== 'resolved' && r.status !== 'rejected').length;
+
+        const periodCollection = dailyCollections.filter(c => {
+            const d = parseISO(c.date);
+            return d >= start && d <= end;
+        }).reduce((sum, c) => sum + (c.total_collection || 0), 0);
 
         // Chart Data: Rider Growth (Group by Date)
         const growthMap = new Map<string, number>();
@@ -156,6 +178,20 @@ const Reports: React.FC = () => {
         });
         const statusData = Array.from(statusMap.entries()).map(([name, value]) => ({ name, value }));
 
+        // Chart Data: TL Collection Distribution
+        const tlCollMap = new Map<string, number>();
+        dailyCollections.filter(c => {
+            const d = parseISO(c.date);
+            return d >= start && d <= end;
+        }).forEach(c => {
+            const tlName = teamLeaders.find(u => u.id === c.team_leader_id)?.fullName || 'Other';
+            tlCollMap.set(tlName, (tlCollMap.get(tlName) || 0) + c.total_collection);
+        });
+        const tlCollData = Array.from(tlCollMap.entries())
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+
         // Chart Data: Client Distribution
         const clientMap = new Map<string, number>();
         riders.forEach(r => {
@@ -164,10 +200,18 @@ const Reports: React.FC = () => {
         const clientData = Array.from(clientMap.entries()).map(([name, value]) => ({ name, value }));
 
         return {
-            kpi: { totalWallet, activeRidersCount, totalLeads, openTickets, filteredRidersCount: filteredRiders.length, newRequestsCount: requestsInPeriod.length },
-            charts: { growthData, statusData, clientData }
+            kpi: {
+                totalWallet,
+                activeRidersCount,
+                totalLeads,
+                openTickets,
+                periodCollection,
+                filteredRidersCount: filteredRiders.length,
+                newRequestsCount: requestsInPeriod.length
+            },
+            charts: { growthData, statusData, clientData, tlCollData }
         };
-    }, [riders, requests, filters]);
+    }, [riders, requests, leads, dailyCollections, teamLeaders, filters]);
 
     // --- Report Handlers ---
     const handleGenerateReport = async () => {
@@ -279,7 +323,7 @@ const Reports: React.FC = () => {
 
                 case 'tl_daily_collection': {
                     // Fetch Active Team Leaders
-                    const { data: teamLeaders } = await supabase
+                    const { data: teamLeadersData } = await supabase
                         .from('users')
                         .select('id, fullName:full_name')
                         .eq('role', 'teamLeader')
@@ -301,7 +345,7 @@ const Reports: React.FC = () => {
                         .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
                         .eq('mode', 'ADD');
 
-                    if (!ledgerWithRiders || !teamLeaders) throw new Error('Failed to fetch ledger data');
+                    if (!ledgerWithRiders || !teamLeadersData) throw new Error('Failed to fetch ledger data');
 
                     const logsForReport = ledgerWithRiders.map((entry: any) => ({
                         amount: entry.amount,
@@ -312,11 +356,53 @@ const Reports: React.FC = () => {
 
                     data = generateTLDailyCollectionReport(
                         logsForReport as any[],
-                        teamLeaders.map(tl => ({ ...tl, id: tl.id, fullName: tl.fullName })) as any[],
+                        teamLeadersData.map(tl => ({ ...tl, id: tl.id, fullName: tl.fullName })) as any[],
                         startDate,
                         endDate,
                         selectedTLs
                     );
+                    break;
+                }
+                case 'fleet_health_report':
+                    data = generateFleetHealthReport(riders, teamLeaders);
+                    break;
+                case 'collection_summary': {
+                    let query = supabase.from('daily_collections').select('*')
+                        .gte('date', filters.startDate)
+                        .lte('date', filters.endDate);
+
+                    if (selectedTLs.length > 0) {
+                        query = query.in('team_leader_id', selectedTLs);
+                    }
+
+                    const { data: colls } = await query;
+                    data = generateCollectionSummaryReport(colls || [], teamLeaders);
+                    break;
+                }
+                case 'rider_tenure_report':
+                    data = generateRiderTenureReport(riders);
+                    if (filters.client !== 'all') {
+                        data = data.filter(r => r.Client === filters.client);
+                    }
+                    break;
+                case 'wallet_risk_report':
+                    data = generateWalletRiskReport(riders);
+                    if (selectedTLs.length > 0) {
+                        data = data.filter(r => {
+                            const tl = teamLeaders.find(u => u.fullName === r['TL Name']);
+                            return tl && selectedTLs.includes(tl.id);
+                        });
+                    }
+                    break;
+                case 'payment_consistency': {
+                    const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+                    const { data: ledger } = await supabase
+                        .from('wallet_ledger')
+                        .select('rider_id, amount')
+                        .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                        .eq('mode', 'ADD')
+                        .gte('created_at', thirtyDaysAgo);
+                    data = generatePaymentConsistencyReport(ledger || [], riders);
                     break;
                 }
                 default:
@@ -436,51 +522,44 @@ const Reports: React.FC = () => {
 
                     {/* KPI Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {renderKpiCard("Total Wallet Balance", `₹${analytics.kpi.totalWallet.toLocaleString()}`, <Wallet size={20} />, "+12.5%", "text-green-500")}
+                        {renderKpiCard("Period Collection", `₹${analytics.kpi.periodCollection.toLocaleString()}`, <TrendingUp size={20} />, "+8.1%", "text-emerald-500")}
                         {renderKpiCard("Active Riders", analytics.kpi.activeRidersCount, <Users size={20} />, "+5.2%", "text-blue-500")}
-                        {renderKpiCard("Open Tickets", analytics.kpi.openTickets, <Shield size={20} />, "-2.1%", "text-amber-500")}
-                        {renderKpiCard("New Signups (Selected)", analytics.kpi.filteredRidersCount, <TrendingUp size={20} />, undefined, "text-purple-500")}
+                        {renderKpiCard("Total Lead Count", analytics.kpi.totalLeads, <Shield size={20} />, undefined, "text-amber-500")}
+                        {renderKpiCard("Net Wallet Float", `₹${analytics.kpi.totalWallet.toLocaleString()}`, <Wallet size={20} />, "-2.5%", analytics.kpi.totalWallet >= 0 ? "text-green-500" : "text-rose-500")}
                     </div>
 
                     {/* Charts Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Rider Growth Area Chart */}
+                        {/* TL-wise Collection Bar Chart */}
                         <div className="bg-card/50 border border-white/10 p-6 rounded-2xl shadow-lg">
                             <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                                <Activity size={18} className="text-primary" /> Rider Growth Trend
+                                <Activity size={18} className="text-primary" /> Top TLs by Collection
                             </h3>
                             <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={analytics.charts.growthData}>
-                                        <defs>
-                                            <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
-                                                <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                                        <XAxis dataKey="date" fontSize={12} stroke="#666" />
+                                    <AreaChart data={analytics.charts.tlCollData}>
+                                        <XAxis dataKey="name" fontSize={10} stroke="#666" interval={0} angle={-20} textAnchor="end" height={60} />
                                         <YAxis fontSize={12} stroke="#666" />
                                         <RechartsTooltip
                                             contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
                                             itemStyle={{ color: '#fff' }}
                                         />
-                                        <Area type="monotone" dataKey="count" stroke="#8884d8" fillOpacity={1} fill="url(#colorCount)" />
+                                        <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={0.4} fill="#10b981" />
                                     </AreaChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
-                        {/* Client Distribution Pie Chart */}
+                        {/* Status Distribution Donut Chart */}
                         <div className="bg-card/50 border border-white/10 p-6 rounded-2xl shadow-lg">
                             <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                                <BarChart3 size={18} className="text-primary" /> Client Distribution
+                                <BarChart3 size={18} className="text-primary" /> Status Distribution
                             </h3>
                             <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={analytics.charts.clientData}
+                                            data={analytics.charts.statusData}
                                             cx="50%"
                                             cy="50%"
                                             innerRadius={60}
@@ -489,7 +568,7 @@ const Reports: React.FC = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                         >
-                                            {analytics.charts.clientData.map((_entry, index) => (
+                                            {analytics.charts.statusData.map((_entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
