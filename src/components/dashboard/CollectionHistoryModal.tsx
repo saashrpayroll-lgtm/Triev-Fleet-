@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    X, TrendingUp, TrendingDown, Users, Zap, Award, Calendar,
+    X, TrendingUp, Users, Zap, Award, Calendar,
     RefreshCw, BarChart2, Flame, Target, ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
