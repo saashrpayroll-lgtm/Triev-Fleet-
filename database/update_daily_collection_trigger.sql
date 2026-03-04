@@ -12,7 +12,12 @@ BEGIN
     -- HANDLE DELETIONS & UPDATES (Decrement Old Values)
     IF (TG_OP = 'DELETE' OR TG_OP = 'UPDATE') THEN
         -- 1. Identify if OLD record was a relevant Daily Collection
-        IF OLD.transaction_type = 'DAILY_COLLECTION' AND OLD.mode = 'ADD' THEN
+        IF OLD.transaction_type IN (
+            'DAILY_COLLECTION', 'DAILY COLLECTION',
+            'RENT_COLLECTION', 'RENT COLLECTION',
+            'FTD_COLLECTION', 'FTD COLLECTION',
+            'COLLECTION', 'RENT'
+        ) AND OLD.mode = 'ADD' THEN
              
              -- Get TL ID (from OLD record)
              SELECT team_leader_id INTO v_old_tl_id
@@ -20,13 +25,14 @@ BEGIN
              WHERE id = OLD.rider_id;
 
              IF v_old_tl_id IS NOT NULL THEN
-                -- Determine Old Date
+                -- Determine Old Date using IST grouping
                 IF OLD.transaction_date IS NOT NULL THEN
-                    v_old_date := OLD.transaction_date;
+                    v_old_date := (OLD.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE;
                 ELSIF OLD.metadata->>'date_on_sheet' IS NOT NULL THEN
                     v_old_date := (OLD.metadata->>'date_on_sheet')::DATE;
                 ELSE
-                    v_old_date := OLD.created_at::DATE;
+                    -- created_at is TIMESTAMPTZ (UTC internally), convert to IST DATE
+                    v_old_date := (OLD.created_at AT TIME ZONE 'Asia/Kolkata')::DATE;
                 END IF;
 
                 v_old_amount := OLD.amount;
@@ -37,9 +43,6 @@ BEGIN
                     total_collection = total_collection - v_old_amount,
                     updated_at = NOW()
                 WHERE team_leader_id = v_old_tl_id AND date = v_old_date;
-
-                -- Optional: Cleanup if 0 (keep records for now to avoid gaps, or delete if preferred)
-                -- DELETE FROM public.daily_collections WHERE total_collection = 0;
              END IF;
         END IF;
     END IF;
@@ -47,7 +50,12 @@ BEGIN
     -- HANDLE INSERTIONS & UPDATES (Increment New Values)
     IF (TG_OP = 'INSERT' OR TG_OP = 'UPDATE') THEN
         -- 1. Filter Strict
-        IF NEW.transaction_type = 'DAILY_COLLECTION' AND NEW.mode = 'ADD' THEN
+        IF NEW.transaction_type IN (
+            'DAILY_COLLECTION', 'DAILY COLLECTION',
+            'RENT_COLLECTION', 'RENT COLLECTION',
+            'FTD_COLLECTION', 'FTD COLLECTION',
+            'COLLECTION', 'RENT'
+        ) AND NEW.mode = 'ADD' THEN
             
             -- Get TL ID
             SELECT team_leader_id INTO v_team_leader_id
@@ -55,13 +63,14 @@ BEGIN
             WHERE id = NEW.rider_id;
 
             IF v_team_leader_id IS NOT NULL THEN
-                 -- Determine New Date
+                 -- Determine New Date using IST grouping
                 IF NEW.transaction_date IS NOT NULL THEN
-                    v_transaction_date := NEW.transaction_date;
+                    v_transaction_date := (NEW.transaction_date AT TIME ZONE 'Asia/Kolkata')::DATE;
                 ELSIF NEW.metadata->>'date_on_sheet' IS NOT NULL THEN
                     v_transaction_date := (NEW.metadata->>'date_on_sheet')::DATE;
                 ELSE
-                    v_transaction_date := NEW.created_at::DATE;
+                    -- created_at is TIMESTAMPTZ (UTC internally), convert to IST DATE
+                    v_transaction_date := (NEW.created_at AT TIME ZONE 'Asia/Kolkata')::DATE;
                 END IF;
 
                 v_amount := NEW.amount;
