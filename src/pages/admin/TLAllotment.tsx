@@ -87,8 +87,12 @@ const TLAllotment: React.FC = () => {
             const pEnd = endDate ? format(endDate, 'yyyy-MM-dd') : '9999-12-31';
             const todayStr = toISTDateStr(new Date());
 
-            // ✅ FIX: Use transaction_date (IST-pinned DATE column) for today's live query
-            // This correctly captures AM-timestamped imports regardless of when they were imported
+            // ✅ ROBUST FIX: Capture today's collections using BOTH date fields:
+            // - transaction_date = todayStr  → correctly set by rent import (covers AM/PM)
+            // - transaction_date IS NULL AND created_at >= midnight → legacy/manual rows
+            // IST midnight in UTC
+            const [yr, mo, dy] = todayStr.split('-').map(Number);
+            const midnightIST = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
 
             // Fetch all data in parallel
             const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
@@ -128,7 +132,8 @@ const TLAllotment: React.FC = () => {
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
                     ])
-                    .eq('transaction_date', todayStr),
+                    // ✅ ROBUST: catch rows with transaction_date set (imports) OR NULL (legacy manual)
+                    .or(`transaction_date.eq.${todayStr},and(transaction_date.is.null,created_at.gte.${midnightIST})`),
             ]);
 
             if (tlsRes.error) throw tlsRes.error;

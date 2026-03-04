@@ -104,12 +104,15 @@ const Dashboard: React.FC = () => {
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
                     ])
-                    // ✅ FIX: Use transaction_date (IST DATE column) instead of created_at >= midnight
-                    // This ensures AM-timestamped imports (e.g., 3:55 AM collected, imported at 5:41 PM)
-                    // are always counted correctly for the right IST calendar day.
-                    .eq('transaction_date', (() => {
+                    // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
+                    // - transaction_date = todayIST covers AM/PM imports correctly
+                    // - fallback: transaction_date IS NULL AND created_at >= midnight IST
+                    .or((() => {
                         const now = new Date();
-                        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const [y, m, d] = todayIST.split('-').map(Number);
+                        const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+                        return `transaction_date.eq.${todayIST},and(transaction_date.is.null,created_at.gte.${midnight})`;
                     })())
             ]);
 
