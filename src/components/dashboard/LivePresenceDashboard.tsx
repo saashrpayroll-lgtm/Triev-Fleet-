@@ -86,15 +86,21 @@ const LivePresenceDashboard: React.FC = () => {
     useEffect(() => {
         fetchInitialPresence();
 
-        const channel = supabase.channel('global-presence-admin')
+        const channel = supabase.channel('global-presence')
             .on('presence', { event: 'sync' }, () => {
                 const newState = channel.presenceState();
+
+                // newState contains only currently connected riders/admins.
+                // We should completely rebuild the active users map from this to ensure those who drop are removed.
                 setUsers(cur => {
-                    const map = new Map(cur);
+                    const newMap = new Map<string, PresenceUser>();
+
+                    // We can retain DB users that were recently active if needed, but PresenceState is the source of truth.
+                    // Let's populate from PresenceState first.
                     Object.values(newState).forEach((arr: any) => {
                         const p = arr[0];
                         if (p?.user_id) {
-                            map.set(p.user_id, {
+                            newMap.set(p.user_id, {
                                 user_id: p.user_id,
                                 email: p.email || '',
                                 role: p.role || 'user',
@@ -103,8 +109,21 @@ const LivePresenceDashboard: React.FC = () => {
                             });
                         }
                     });
-                    enrichWithNames(map);
-                    return map;
+
+                    // We can merge in DB users from `cur` ONLY IF they are not offline and seen within last 15 mins.
+                    // This handles users transitioning between pages who might drop from presence briefly.
+                    const now = new Date().getTime();
+                    cur.forEach((user, id) => {
+                        if (!newMap.has(id)) {
+                            const isStale = now - new Date(user.last_seen_at).getTime() > 15 * 60 * 1000;
+                            if (user.status !== 'offline' && !isStale) {
+                                newMap.set(id, user);
+                            }
+                        }
+                    });
+
+                    enrichWithNames(newMap);
+                    return newMap;
                 });
                 setLastUpdated(new Date());
             })
@@ -113,7 +132,11 @@ const LivePresenceDashboard: React.FC = () => {
                     const record = payload.new as PresenceUser;
                     setUsers(cur => {
                         const map = new Map(cur);
-                        map.set(record.user_id, record);
+                        if (record.status === 'offline') {
+                            map.delete(record.user_id);
+                        } else {
+                            map.set(record.user_id, record);
+                        }
                         enrichWithNames(map);
                         return map;
                     });
@@ -126,8 +149,15 @@ const LivePresenceDashboard: React.FC = () => {
     }, []);
 
     const userList = useMemo(() => {
+        const now = new Date().getTime();
         return Array.from(users.values())
             .map(u => ({ ...u, full_name: nameMap.get(u.user_id) }))
+            .filter(u => u.status !== 'offline') // Do not show offline users
+            .filter(u => {
+                // Do not show users who haven't updated in 30 minutes
+                const isStale = now - new Date(u.last_seen_at).getTime() > 30 * 60 * 1000;
+                return !isStale;
+            })
             .sort((a, b) => {
                 const w = { online: 3, idle: 2, offline: 1 };
                 if (w[a.status] !== w[b.status]) return w[b.status] - w[a.status];
@@ -229,8 +259,8 @@ const LivePresenceDashboard: React.FC = () => {
                                             <div className="flex items-center gap-1.5">
                                                 <p className="text-xs font-bold text-foreground truncate leading-none">{displayName}</p>
                                                 <span className={`flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded border ${user.role === 'admin'
-                                                        ? 'bg-purple-500/15 text-purple-400 border-purple-500/20'
-                                                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                    ? 'bg-purple-500/15 text-purple-400 border-purple-500/20'
+                                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                                     }`}>
                                                     {rc.label.replace('Team Leader', 'TL')}
                                                 </span>
