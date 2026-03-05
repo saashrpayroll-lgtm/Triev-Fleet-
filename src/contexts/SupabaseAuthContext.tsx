@@ -238,12 +238,33 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             // Check role before signing out to determine redirect path
             const role = userData?.role;
 
-            await supabase.auth.signOut();
+            // 1. Force kill all active Subscriptions/Channels (Presence, RLS listeners, etc.)
+            // This prevents Supabase auth.signOut() from hanging indefinitely
+            await supabase.removeAllChannels();
 
-            // Clear all state
+            // Clear all state immediately
             setSession(null);
             setUser(null);
             setUserData(null);
+
+            // Clear local storage (if any user preferences were saved)
+            // Do not clear the theme unless desired, but we can clear auth tokens as a fallback
+            Object.keys(localStorage).forEach(key => {
+                if (key.includes('supabase.auth.token')) {
+                    localStorage.removeItem(key);
+                }
+            });
+
+            // 2. Attempt a graceful signout with a hard 2-second timeout
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Sign out timeout')), 2000)
+            );
+
+            try {
+                await Promise.race([supabase.auth.signOut(), timeoutPromise]);
+            } catch (authError) {
+                console.warn('Backend signout timed out or failed, proceeding with local signout logs:', authError);
+            }
 
             // Role-based redirect
             if (role === 'admin') {
@@ -252,7 +273,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                 window.location.href = '/login';
             }
         } catch (error) {
-            console.error('Logout failed:', error);
+            console.error('Logout failed fatally:', error);
             // Fallback redirect
             window.location.href = '/login';
         }
