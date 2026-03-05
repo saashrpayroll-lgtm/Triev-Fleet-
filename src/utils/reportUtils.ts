@@ -950,7 +950,7 @@ export const generateDefaulterReport = (riders: Rider[], threshold: number = -10
             'Status': r.status,
             'Team Leader': r.teamLeaderName || 'Unassigned',
             'Days Since Allotment': r.allotmentDate
-                ? Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24))
+                ? Math.max(0, Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
                 : '-'
         }));
 };
@@ -1003,7 +1003,7 @@ export const generateRiderTenureReport = (riders: Rider[]): any[] => {
         })
         .map(r => {
             const days = r.allotmentDate
-                ? Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24))
+                ? Math.max(0, Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
                 : 0;
             return {
                 'Triev ID': r.trievId,

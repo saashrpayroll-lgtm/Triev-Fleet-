@@ -91,7 +91,7 @@ export const calculateAIScore = (
     // Retention/Tenure Stats
     const riderAges = tlRiders
         .filter(r => r.status === 'active' && r.allotmentDate)
-        .map(r => Math.floor((now.getTime() - new Date(r.allotmentDate!).getTime()) / 86400000));
+        .map(r => Math.max(0, Math.floor((now.getTime() - new Date(r.allotmentDate!).getTime()) / 86400000)));
     const avgRiderAge = riderAges.length > 0 ? riderAges.reduce((a, b) => a + b, 0) / riderAges.length : 0;
 
     // Growth Metrics (Period-aware)

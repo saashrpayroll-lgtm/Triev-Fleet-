@@ -2,6 +2,7 @@ import { supabase } from '@/config/supabase';
 import { ImportSummary, ClientName } from '@/types';
 import { logActivity } from './activityLog';
 import { LedgerAPI } from '@/api/ledger';
+import { parseIndianDate } from './dateUtils';
 
 // Constants for Rider Import
 export const REQUIRED_RIDER_COLUMNS = [
@@ -201,7 +202,10 @@ export const processRiderImport = async (
 
             const clientName = isValidClient(clientRaw) ? clientRaw : 'Other';
             let allotmentDate = '';
-            if (dateRaw) { const d = new Date(dateRaw); if (!isNaN(d.getTime())) allotmentDate = d.toISOString(); }
+            if (dateRaw) {
+                const parsed = parseIndianDate(dateRaw);
+                if (parsed) allotmentDate = parsed;
+            }
 
             // ── Lookup: prefer Triev ID, fallback to mobile ──────────────────
             const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
@@ -691,52 +695,9 @@ export const processRentCollectionImport = async (
                 let transactionDateStr = new Date().toISOString();
                 const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
                 if (dateRaw) {
-                    const pad = (n: any) => String(n).padStart(2, '0');
-                    const cleanDate = String(dateRaw).trim();
-                    let parsedDate = false;
-
-                    // 1. Check if it's already an ISO or valid YYYY-MM-DD
-                    const yyyymmddMatch = cleanDate.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\.\d+)?(?:Z|[\+\-]\d{2}:\d{2})?)?$/);
-                    if (yyyymmddMatch) {
-                        const [, year, month, day, h, m, s] = yyyymmddMatch;
-                        const hr = h ? pad(h) : '12';
-                        const min = m ? pad(m) : '00';
-                        const sec = s ? pad(s) : '00';
-                        transactionDateStr = `${year}-${pad(month)}-${pad(day)}T${hr}:${min}:${sec}+05:30`;
-                        parsedDate = true;
-                    }
-
-                    // 2. Try DD/MM/YYYY with optional time
-                    if (!parsedDate) {
-                        const ddmmyyyyMatch = cleanDate.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?(?:\s*(AM|PM|am|pm))?/);
-                        if (ddmmyyyyMatch) {
-                            const [, day, month, yearStr, hourStr, minStr, secStr, ampm] = ddmmyyyyMatch;
-                            const year = yearStr.length === 2 ? `20${yearStr}` : yearStr;
-
-                            let hourNum = hourStr ? parseInt(hourStr, 10) : 12;
-                            if (ampm) {
-                                const isPM = ampm.toLowerCase() === 'pm';
-                                if (isPM && hourNum < 12) hourNum += 12;
-                                if (!isPM && hourNum === 12) hourNum = 0;
-                            }
-                            const hr = pad(hourNum);
-                            const min = minStr ? pad(minStr) : '00';
-                            const sec = secStr ? pad(secStr) : '00';
-
-                            // Sanity check for Month vs Day
-                            if (parseInt(month, 10) <= 12 && parseInt(day, 10) <= 31) {
-                                transactionDateStr = `${year}-${pad(month)}-${pad(day)}T${hr}:${min}:${sec}+05:30`;
-                                parsedDate = true;
-                            }
-                        }
-                    }
-
-                    if (!parsedDate) {
-                        // Fallback generic parsing
-                        const d = new Date(cleanDate);
-                        if (!isNaN(d.getTime())) {
-                            transactionDateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00+05:30`;
-                        }
+                    const parsedDate = parseIndianDate(dateRaw);
+                    if (parsedDate) {
+                        transactionDateStr = parsedDate;
                     }
                 }
 
