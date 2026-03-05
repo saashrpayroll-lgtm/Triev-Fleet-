@@ -75,12 +75,17 @@ export const AnalyticsService = {
                 .slice(0, 5); // Top 5
 
             // 4. Wallet Health
+            // ✅ CRITICAL: Only active riders count toward wallet health.
+            // Inactive riders are excluded entirely — their balance is no longer tracked.
+            // Aligns with TLPerformance.tsx which maps: wallet_amount = status==='active' ? wallet_amount : 0
             let positive = 0;
             let negative = 0;
             let zero = 0;
-            riders.forEach(r => {
-                if (r.wallet_amount > 0) positive++;
-                else if (r.wallet_amount < 0) negative++;
+            const activeRidersList = riders.filter(r => r.status === 'active');
+            activeRidersList.forEach(r => {
+                const w = r.wallet_amount || 0;
+                if (w > 0) positive++;
+                else if (w < 0) negative++;
                 else zero++;
             });
             const walletHealth = [

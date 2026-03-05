@@ -9,6 +9,7 @@ import {
     UserX, BarChart2, Target, Zap, AlertCircle
 } from 'lucide-react';
 import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
+import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
 
 // Premium color palette
@@ -71,7 +72,25 @@ const Analytics: React.FC = () => {
         }
     };
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        fetchData();
+
+        // ✅ Real-time subscriptions — auto-refresh when riders/leads change
+        const ridersChannel = supabase
+            .channel('analytics-riders')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchData())
+            .subscribe();
+
+        const leadsChannel = supabase
+            .channel('analytics-leads')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchData())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(ridersChannel);
+            supabase.removeChannel(leadsChannel);
+        };
+    }, []);
 
     if (loading) {
         return (
@@ -436,7 +455,7 @@ const Analytics: React.FC = () => {
                         {/* Legend as table */}
                         <div className="w-full space-y-2">
                             {data.clientDistribution.map((item, i) => {
-                                const pct = totalWalletRiders > 0
+                                const pct = data.kpis.totalRiders > 0
                                     ? Math.round((item.value / data.kpis.totalRiders) * 100) : 0;
                                 return (
                                     <div key={i} className="flex items-center gap-2">
