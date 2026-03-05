@@ -1,23 +1,68 @@
 import React, { useEffect, useState } from 'react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { TrendingUp, Users, Filter, Wallet, RefreshCw } from 'lucide-react';
+import {
+    TrendingUp, Users, Filter, Wallet, RefreshCw,
+    Activity, ArrowUpRight, ArrowDownRight, UserCheck,
+    UserX, BarChart2, Target, Zap, AlertCircle
+} from 'lucide-react';
 import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
 import { toast } from 'sonner';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+// Premium color palette
+const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
+const GRADIENT_COLORS = [
+    { from: '#6366f1', to: '#818cf8' },
+    { from: '#22c55e', to: '#4ade80' },
+    { from: '#f59e0b', to: '#fcd34d' },
+    { from: '#ef4444', to: '#f87171' },
+    { from: '#8b5cf6', to: '#a78bfa' },
+];
+
+// Custom tooltip for charts
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-popover border border-border rounded-xl px-4 py-3 shadow-xl text-sm">
+                <p className="font-semibold text-foreground mb-1">{label}</p>
+                {payload.map((entry: any, i: number) => (
+                    <p key={i} style={{ color: entry.color || entry.fill }} className="font-medium">
+                        {entry.name}: <span className="font-bold">{entry.value}</span>
+                    </p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
+
+// Section header
+const SectionHeader = ({ icon, title, subtitle, color }: { icon: React.ReactNode; title: string; subtitle: string; color: string }) => (
+    <div className="flex items-center gap-3 mb-5">
+        <div className={`p-2.5 rounded-xl ${color}`}>
+            {icon}
+        </div>
+        <div>
+            <h3 className="font-bold text-base text-foreground">{title}</h3>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+    </div>
+);
 
 const Analytics: React.FC = () => {
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const result = await AnalyticsService.fetchDashboardAnalytics();
             setData(result);
+            setLastUpdated(new Date());
         } catch (error) {
             console.error(error);
             toast.error("Failed to load analytics data");
@@ -26,199 +71,527 @@ const Analytics: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+    useEffect(() => { fetchData(); }, []);
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <div className="flex flex-col items-center justify-center h-96 gap-4">
+                <div className="relative">
+                    <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                    <div className="w-10 h-10 rounded-full border-4 border-purple-400/20 border-t-purple-500 animate-spin absolute top-3 left-3" />
+                </div>
+                <p className="text-muted-foreground text-sm font-medium animate-pulse">Loading Analytics...</p>
             </div>
         );
     }
 
     if (!data) return null;
 
+    const positiveWallet = data.walletHealth.find(w => w.name.includes('Positive'))?.value || 0;
+    const negativeWallet = data.walletHealth.find(w => w.name.includes('Negative'))?.value || 0;
+    const zeroWallet = data.walletHealth.find(w => w.name.includes('Zero'))?.value || 0;
+    const totalWalletRiders = positiveWallet + negativeWallet + zeroWallet;
+    const walletHealthPct = totalWalletRiders > 0 ? Math.round((positiveWallet / totalWalletRiders) * 100) : 0;
+
+    const convertedLeads = data.leadFunnel.find(l => l.name === 'Converted')?.value || 0;
+    const lostLeads = data.leadFunnel.find(l => l.name === 'Lost')?.value || 0;
+    const newLeads = data.leadFunnel.find(l => l.name === 'New Leads')?.value || 0;
+
+    const inactiveRiders = data.kpis.totalRiders - data.kpis.activeRiders;
+    const activeRiderPct = data.kpis.totalRiders > 0
+        ? Math.round((data.kpis.activeRiders / data.kpis.totalRiders) * 100) : 0;
+
+
     return (
-        <div className="space-y-8 pb-10 animate-in fade-in duration-500">
-            <div className="flex justify-between items-start">
-                <div className="space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        Analytics & Reports
+        <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+            {/* ─── PAGE HEADER ─── */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                        Analytics &amp; Reports
                     </h1>
-                    <p className="text-muted-foreground">Real-time performance metrics and business insights.</p>
+                    <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+                        <Activity size={13} className="text-green-500" />
+                        Real-time performance metrics &amp; business intelligence
+                        {lastUpdated && (
+                            <span className="ml-2 text-xs text-muted-foreground/70">
+                                · Last updated {lastUpdated.toLocaleTimeString()}
+                            </span>
+                        )}
+                    </p>
                 </div>
-                <button onClick={fetchData} className="p-2 hover:bg-muted rounded-full transition-colors">
-                    <RefreshCw size={20} className="text-muted-foreground" />
+                <button
+                    onClick={fetchData}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-md hover:opacity-90 transition-all hover:shadow-lg active:scale-95"
+                >
+                    <RefreshCw size={14} />
+                    Refresh Data
                 </button>
             </div>
 
-            {/* KPI Cards */}
+            {/* ─── KPI CARDS ─── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-card border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Riders</p>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-3xl font-bold">{data.kpis.totalRiders}</span>
-                        <span className="text-xs text-green-500 font-medium">Active: {data.kpis.activeRiders}</span>
+
+                {/* Total Riders */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-2xl p-5 shadow-lg">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Total Riders</p>
+                            <p className="text-4xl font-black mt-2 leading-none">{data.kpis.totalRiders}</p>
+                        </div>
+                        <div className="p-2.5 bg-white/20 rounded-xl">
+                            <Users size={22} className="text-white" />
+                        </div>
                     </div>
-                </div>
-                <div className="bg-card border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Leads</p>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-3xl font-bold">{data.kpis.totalLeads}</span>
-                    </div>
-                </div>
-                <div className="bg-card border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Conversion Rate</p>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-3xl font-bold">{data.kpis.conversionRate}%</span>
-                        <span className="text-xs text-muted-foreground">Lead to Rider</span>
-                    </div>
-                </div>
-                <div className="bg-card border rounded-xl p-5 shadow-sm">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Wallet Health</p>
-                    <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-xs font-medium text-emerald-600">
-                            {data.walletHealth.find(w => w.name.includes('Positive'))?.value || 0} Positive
+                    <div className="flex items-center gap-3 mt-4 text-xs font-medium">
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            <UserCheck size={11} /> Active: {data.kpis.activeRiders}
                         </span>
-                        <span className="text-xs font-medium text-red-500">
-                            {data.walletHealth.find(w => w.name.includes('Negative'))?.value || 0} Negative
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            <UserX size={11} /> Inactive: {inactiveRiders}
+                        </span>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-white rounded-full transition-all duration-1000"
+                            style={{ width: `${activeRiderPct}%` }}
+                        />
+                    </div>
+                    <p className="text-xs text-white/60 mt-1">{activeRiderPct}% Active Rate</p>
+                </div>
+
+                {/* Total Leads */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl p-5 shadow-lg">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Total Leads</p>
+                            <p className="text-4xl font-black mt-2 leading-none">{data.kpis.totalLeads}</p>
+                        </div>
+                        <div className="p-2.5 bg-white/20 rounded-xl">
+                            <Target size={22} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-4 text-xs font-medium">
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            <Zap size={11} /> New: {newLeads}
+                        </span>
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            <ArrowDownRight size={11} /> Lost: {lostLeads}
+                        </span>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-white rounded-full transition-all duration-1000"
+                            style={{ width: `${data.kpis.totalLeads > 0 ? Math.round((convertedLeads / data.kpis.totalLeads) * 100) : 0}%` }}
+                        />
+                    </div>
+                    <p className="text-xs text-white/60 mt-1">{convertedLeads} Converted</p>
+                </div>
+
+                {/* Conversion Rate */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl p-5 shadow-lg">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Conversion Rate</p>
+                            <p className="text-4xl font-black mt-2 leading-none">{data.kpis.conversionRate}<span className="text-xl">%</span></p>
+                        </div>
+                        <div className="p-2.5 bg-white/20 rounded-xl">
+                            <BarChart2 size={22} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-white rounded-full transition-all duration-1000"
+                            style={{ width: `${data.kpis.conversionRate}%` }}
+                        />
+                    </div>
+                    <p className="text-xs text-white/60 mt-1">Lead → Rider Conversion</p>
+                    <div className="mt-2 text-xs font-medium">
+                        {data.kpis.conversionRate >= 30 ? (
+                            <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full w-fit">
+                                <ArrowUpRight size={11} /> Performing Well
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full w-fit">
+                                <AlertCircle size={11} /> Needs Attention
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Wallet Health */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-violet-700 text-white rounded-2xl p-5 shadow-lg">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Wallet Health</p>
+                            <p className="text-4xl font-black mt-2 leading-none">{walletHealthPct}<span className="text-xl">%</span></p>
+                        </div>
+                        <div className="p-2.5 bg-white/20 rounded-xl">
+                            <Wallet size={22} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-4 text-xs font-medium flex-wrap">
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            🟢 +ve: {positiveWallet}
+                        </span>
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            🔴 -ve: {negativeWallet}
+                        </span>
+                        <span className="flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full">
+                            ⚪ Zero: {zeroWallet}
                         </span>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Rider Growth */}
-                <div className="bg-card border rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="p-2 bg-indigo-500/10 rounded-lg">
-                            <TrendingUp className="text-indigo-500" size={20} />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">Rider Growth Trend</h3>
-                            <p className="text-xs text-muted-foreground">New riders onboarded (Last 6 Months)</p>
-                        </div>
+            {/* ─── QUICK STATS ROW ─── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                        <UserCheck size={17} className="text-indigo-600 dark:text-indigo-400" />
                     </div>
-                    <div className="h-[300px]">
+                    <div>
+                        <p className="text-xs text-muted-foreground">Active Riders</p>
+                        <p className="text-lg font-bold text-foreground">{data.kpis.activeRiders}</p>
+                    </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+                        <UserX size={17} className="text-red-600 dark:text-red-400" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-muted-foreground">Inactive Riders</p>
+                        <p className="text-lg font-bold text-foreground">{inactiveRiders}</p>
+                    </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                        <Zap size={17} className="text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-muted-foreground">Converted Leads</p>
+                        <p className="text-lg font-bold text-foreground">{convertedLeads}</p>
+                    </div>
+                </div>
+                <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                    <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                        <TrendingUp size={17} className="text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-muted-foreground">Wallet +ve</p>
+                        <p className="text-lg font-bold text-foreground">{positiveWallet}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── MAIN CHARTS ROW ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* Rider Growth Trend */}
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <SectionHeader
+                        icon={<TrendingUp className="text-indigo-500" size={18} />}
+                        title="Rider Growth Trend"
+                        subtitle="New riders onboarded — Last 6 Months"
+                        color="bg-indigo-100 dark:bg-indigo-900/30"
+                    />
+                    <div className="h-[260px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data.riderGrowth}>
+                            <AreaChart data={data.riderGrowth} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorRiders" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
                                         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.2)" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 12, fontWeight: 600, fill: 'var(--muted-foreground)' }}
                                 />
-                                <Area type="monotone" dataKey="riders" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRiders)" />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                                    allowDecimals={false}
+                                />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Area
+                                    type="monotone"
+                                    dataKey="riders"
+                                    name="New Riders"
+                                    stroke="#6366f1"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorRiders)"
+                                    dot={{ fill: '#6366f1', r: 4, strokeWidth: 2, stroke: '#fff' }}
+                                    activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                                />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* Lead Funnel */}
-                <div className="bg-card border rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="p-2 bg-amber-500/10 rounded-lg">
-                            <Filter className="text-amber-500" size={20} />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">Lead Conversion Funnel</h3>
-                            <p className="text-xs text-muted-foreground">Lead status distribution</p>
-                        </div>
-                    </div>
-                    <div className="h-[300px]">
+                {/* Lead Conversion Funnel */}
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <SectionHeader
+                        icon={<Filter className="text-amber-500" size={18} />}
+                        title="Lead Conversion Funnel"
+                        subtitle="Status breakdown of all leads"
+                        color="bg-amber-100 dark:bg-amber-900/30"
+                    />
+                    <div className="h-[260px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data.leadFunnel} layout="horizontal">
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                                <Tooltip
-                                    cursor={{ fill: 'transparent' }}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                            <BarChart
+                                data={data.leadFunnel}
+                                margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.2)" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 12, fontWeight: 600, fill: 'var(--muted-foreground)' }}
                                 />
-                                <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={50} />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                                    allowDecimals={false}
+                                />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Bar dataKey="value" name="Count" radius={[8, 8, 0, 0]} barSize={52}>
+                                    {data.leadFunnel.map((_, i) => (
+                                        <Cell key={i} fill={['#6366f1', '#22c55e', '#ef4444'][i] || '#f59e0b'} />
+                                    ))}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
-
-                {/* Client Distribution */}
-                <div className="bg-card border rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
-                            <Users className="text-blue-500" size={20} />
+                    {/* Lead Summary below chart */}
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-indigo-50 dark:bg-indigo-900/20 py-2">
+                            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{newLeads}</p>
+                            <p className="text-xs text-muted-foreground font-medium">New</p>
                         </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">Client Distribution</h3>
-                            <p className="text-xs text-muted-foreground">Top 5 Clients by Rider Count</p>
+                        <div className="rounded-lg bg-green-50 dark:bg-green-900/20 py-2">
+                            <p className="text-lg font-black text-green-600 dark:text-green-400">{convertedLeads}</p>
+                            <p className="text-xs text-muted-foreground font-medium">Converted</p>
+                        </div>
+                        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 py-2">
+                            <p className="text-lg font-black text-red-600 dark:text-red-400">{lostLeads}</p>
+                            <p className="text-xs text-muted-foreground font-medium">Lost</p>
                         </div>
                     </div>
-                    <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={data.clientDistribution}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {data.clientDistribution.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend verticalAlign="bottom" height={36} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* ─── PIE CHARTS ROW ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* Client Distribution */}
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <SectionHeader
+                        icon={<Users className="text-blue-500" size={18} />}
+                        title="Client Distribution"
+                        subtitle="Top 5 clients by rider count"
+                        color="bg-blue-100 dark:bg-blue-900/30"
+                    />
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <div className="h-[220px] w-full sm:w-[220px] flex-shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <defs>
+                                        {GRADIENT_COLORS.map((g, i) => (
+                                            <linearGradient key={i} id={`cGrad${i}`} x1="0" y1="0" x2="1" y2="1">
+                                                <stop offset="0%" stopColor={g.from} />
+                                                <stop offset="100%" stopColor={g.to} />
+                                            </linearGradient>
+                                        ))}
+                                    </defs>
+                                    <Pie
+                                        data={data.clientDistribution}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={55}
+                                        outerRadius={90}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                    >
+                                        {data.clientDistribution.map((_, index) => (
+                                            <Cell key={`cell-${index}`} fill={`url(#cGrad${index % 5})`} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<CustomTooltip />} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                        {/* Legend as table */}
+                        <div className="w-full space-y-2">
+                            {data.clientDistribution.map((item, i) => {
+                                const pct = totalWalletRiders > 0
+                                    ? Math.round((item.value / data.kpis.totalRiders) * 100) : 0;
+                                return (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <span
+                                            className="w-3 h-3 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                                        />
+                                        <span className="text-sm font-medium text-foreground truncate flex-1">{item.name}</span>
+                                        <span className="text-sm font-bold text-foreground">{item.value}</span>
+                                        <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full"
+                                                style={{
+                                                    width: `${pct}%`,
+                                                    backgroundColor: COLORS[i % COLORS.length]
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
                 {/* Wallet Health */}
-                <div className="bg-card border rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg">
-                            <Wallet className="text-emerald-600" size={20} />
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <SectionHeader
+                        icon={<Wallet className="text-emerald-500" size={18} />}
+                        title="Wallet Health Overview"
+                        subtitle="Rider balance distribution analysis"
+                        color="bg-emerald-100 dark:bg-emerald-900/30"
+                    />
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <div className="h-[220px] w-full sm:w-[220px] flex-shrink-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={data.walletHealth.filter(w => w.value > 0)}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={55}
+                                        outerRadius={90}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                    >
+                                        {data.walletHealth.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<CustomTooltip />} />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">Wallet Health</h3>
-                            <p className="text-xs text-muted-foreground">Rider Balance Analysis</p>
+                        <div className="w-full space-y-3">
+                            {/* Positive */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-semibold text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> Positive Balance
+                                    </span>
+                                    <span className="text-sm font-bold text-foreground">{positiveWallet} riders</span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-green-500 rounded-full transition-all duration-700"
+                                        style={{ width: `${totalWalletRiders > 0 ? Math.round((positiveWallet / totalWalletRiders) * 100) : 0}%` }} />
+                                </div>
+                                <p className="text-xs text-muted-foreground text-right">
+                                    {totalWalletRiders > 0 ? Math.round((positiveWallet / totalWalletRiders) * 100) : 0}% of total
+                                </p>
+                            </div>
+                            {/* Negative */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Negative Balance
+                                    </span>
+                                    <span className="text-sm font-bold text-foreground">{negativeWallet} riders</span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-red-500 rounded-full transition-all duration-700"
+                                        style={{ width: `${totalWalletRiders > 0 ? Math.round((negativeWallet / totalWalletRiders) * 100) : 0}%` }} />
+                                </div>
+                                <p className="text-xs text-muted-foreground text-right">
+                                    {totalWalletRiders > 0 ? Math.round((negativeWallet / totalWalletRiders) * 100) : 0}% of total
+                                </p>
+                            </div>
+                            {/* Zero */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-semibold text-slate-500 flex items-center gap-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Zero Balance
+                                    </span>
+                                    <span className="text-sm font-bold text-foreground">{zeroWallet} riders</span>
+                                </div>
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                    <div className="h-full bg-slate-400 rounded-full transition-all duration-700"
+                                        style={{ width: `${totalWalletRiders > 0 ? Math.round((zeroWallet / totalWalletRiders) * 100) : 0}%` }} />
+                                </div>
+                                <p className="text-xs text-muted-foreground text-right">
+                                    {totalWalletRiders > 0 ? Math.round((zeroWallet / totalWalletRiders) * 100) : 0}% of total
+                                </p>
+                            </div>
+                            {/* Health Score */}
+                            <div className="mt-2 pt-3 border-t border-border flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground font-medium">Wallet Health Score</span>
+                                <span className={`text-lg font-black ${walletHealthPct >= 60 ? 'text-green-600' : walletHealthPct >= 30 ? 'text-amber-500' : 'text-red-600'}`}>
+                                    {walletHealthPct}%
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={data.walletHealth}
-                                    cx="50%"
-                                    cy="50%"
-                                    startAngle={180}
-                                    endAngle={0}
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {data.walletHealth.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend verticalAlign="bottom" height={36} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="text-center -mt-10">
-                            <p className="text-sm font-medium text-muted-foreground">Total Balance Liability</p>
-                            {/* Placeholder for total amount if we had it */}
+                </div>
+            </div>
+
+            {/* ─── INSIGHTS / SUMMARY FOOTER ─── */}
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200/50 dark:border-indigo-800/40 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl">
+                        <Activity size={18} className="text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-base text-foreground">Business Insights Summary</h3>
+                        <p className="text-xs text-muted-foreground">Key takeaways from your analytics</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-white dark:bg-card rounded-xl px-4 py-3 border border-border flex items-start gap-3">
+                        <div className={`mt-0.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeRiderPct >= 70 ? 'bg-green-500' : 'bg-amber-500'}`} />
+                        <div>
+                            <p className="text-sm font-semibold text-foreground">Rider Activity</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {activeRiderPct}% of riders are currently active.{' '}
+                                {activeRiderPct >= 70 ? '✅ Healthy fleet utilization.' : '⚠️ Consider reducing inactive riders.'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-white dark:bg-card rounded-xl px-4 py-3 border border-border flex items-start gap-3">
+                        <div className={`mt-0.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${data.kpis.conversionRate >= 30 ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <div>
+                            <p className="text-sm font-semibold text-foreground">Lead Performance</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {data.kpis.conversionRate}% conversion rate.{' '}
+                                {data.kpis.conversionRate >= 30 ? '✅ Above benchmark.' : '⚠️ Improve follow-up process.'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="bg-white dark:bg-card rounded-xl px-4 py-3 border border-border flex items-start gap-3">
+                        <div className={`mt-0.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${walletHealthPct >= 60 ? 'bg-green-500' : negativeWallet > positiveWallet ? 'bg-red-500' : 'bg-amber-500'}`} />
+                        <div>
+                            <p className="text-sm font-semibold text-foreground">Wallet Risk</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {negativeWallet} riders with negative balances.{' '}
+                                {negativeWallet === 0 ? '✅ No outstanding liabilities.' : `⚠️ ₹ liability risk across ${negativeWallet} accounts.`}
+                            </p>
                         </div>
                     </div>
                 </div>
