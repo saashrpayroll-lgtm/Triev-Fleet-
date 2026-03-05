@@ -29,7 +29,7 @@ type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 interface AdvancedFilters {
     teamLeader: string;
     client: ClientName | 'all';
-    walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance';
+    walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance' | 'high_debt';
 }
 
 const RiderManagement: React.FC = () => {
@@ -150,9 +150,12 @@ const RiderManagement: React.FC = () => {
                 setAdvancedFilters(prev => ({ ...prev, walletRange: 'positive' }));
                 setShowAdvancedFilters(true);
             }
-            else if (state.filter === 'negative_wallet' || state.filter === 'high_debt') {
-                // 'high_debt' maps to negative for now, could add explicit sort later
+            else if (state.filter === 'negative_wallet') {
                 setAdvancedFilters(prev => ({ ...prev, walletRange: 'negative' }));
+                setShowAdvancedFilters(true);
+            }
+            else if (state.filter === 'high_debt') {
+                setAdvancedFilters(prev => ({ ...prev, walletRange: 'high_debt' }));
                 setShowAdvancedFilters(true);
             }
             else if (state.filter === 'zero_balance') {
@@ -179,7 +182,7 @@ const RiderManagement: React.FC = () => {
             setActiveTab(filterParam as TabType);
         }
 
-        if (walletParam && ['positive', 'negative', 'zero'].includes(walletParam)) {
+        if (walletParam && ['positive', 'negative', 'zero', 'high_debt'].includes(walletParam)) {
             setAdvancedFilters(prev => ({ ...prev, walletRange: walletParam as any }));
             setShowAdvancedFilters(true);
         }
@@ -272,6 +275,7 @@ const RiderManagement: React.FC = () => {
                 if (advancedFilters.walletRange === 'negative') return r.walletAmount < 0;
                 if (advancedFilters.walletRange === 'zero') return r.walletAmount === 0;
                 if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250;
+                if (advancedFilters.walletRange === 'high_debt') return r.walletAmount < -3000;
                 return true;
             });
         }
@@ -1340,6 +1344,7 @@ const RiderManagement: React.FC = () => {
                                 <option value="negative">Negative Balance</option>
                                 <option value="zero">Zero Balance</option>
                                 <option value="low_balance">Low Balance (0-250)</option>
+                                <option value="high_debt">Highly Indebted (&lt; -3000)</option>
                             </select>
                         </div>
                         <div className="flex items-end">
