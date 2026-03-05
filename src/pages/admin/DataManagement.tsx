@@ -160,6 +160,9 @@ const DataManagement: React.FC = () => {
                     totalRows:total_rows,
                     successCount:success_count,
                     failureCount:failure_count,
+                    updated_count,
+                    skipped_count,
+                    skipped_details,
                     status,
                     timestamp,
                     errors

@@ -271,31 +271,45 @@ const Dashboard: React.FC = () => {
             <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2"
+                className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none"
             >
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500 bg-clip-text text-transparent">
-                        Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}! 👋
-                    </h1>
-                    <p className="text-muted-foreground text-xs mt-0.5 font-medium flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {format(new Date(), 'EEEE, MMMM do, yyyy')} &mdash; Live
-                    </p>
+                <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="hidden sm:flex p-3 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 rounded-2xl border border-violet-500/20">
+                        <div className="relative flex items-center justify-center">
+                            <div className="absolute inset-0 bg-violet-500 blur-xl opacity-40 rounded-full" />
+                            <Sparkles className="relative text-violet-500" size={24} />
+                        </div>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500 bg-clip-text text-transparent drop-shadow-sm mb-1">
+                            Welcome back, {safeRender(userData?.fullName, 'Leader').split(' ')[0]}! 👋
+                        </h1>
+                        <p className="text-muted-foreground text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            </span>
+                            Live Workspace &mdash; {format(new Date(), 'EEEE, MMMM do, yyyy')}
+                        </p>
+                    </div>
                 </div>
-                <div className="px-3 py-1.5 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-400/20 rounded-full text-[10px] font-black flex items-center gap-1.5">
-                    <Shield size={10} className="text-violet-500" />
-                    <span className="text-violet-600 dark:text-violet-400">Team Leader</span>
+                <div className="px-4 py-2 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-400/20 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 shadow-inner">
+                    <Shield size={14} className="text-violet-500" />
+                    <span className="text-violet-600 dark:text-violet-400 uppercase tracking-widest">Team Leader</span>
                 </div>
             </motion.div>
 
             {/* ─── Fleet & Operations ─── */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        <UserCheck size={10} className="text-emerald-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-2">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
+                            <UserCheck size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Fleet & Operations</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
                     {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
@@ -351,13 +365,16 @@ const Dashboard: React.FC = () => {
             </motion.div>
 
             {/* --- Wallet Health --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
-                        <Wallet size={10} className="text-indigo-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-indigo-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30 border border-white/20">
+                            <Wallet size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Wallet Health</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-indigo-200">Wallet Health</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/40 via-indigo-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
                     <TodaysCollectionCard teamLeaderId={userData.id} />
@@ -410,13 +427,16 @@ const Dashboard: React.FC = () => {
 
 
             {/* --- Debt Recovery Tasks --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-rose-500/15 border border-rose-500/20 flex items-center justify-center flex-shrink-0">
-                        <AlertTriangle size={10} className="text-rose-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-rose-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-rose-500/30 border border-white/20">
+                            <AlertTriangle size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Debt Recovery Tasks</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-rose-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-rose-600 to-rose-400 bg-clip-text text-transparent dark:from-rose-400 dark:to-rose-200">Debt Recovery Tasks</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-rose-500/40 via-rose-500/10 to-transparent" />
                 </div>
                 <ComponentErrorBoundary name="Debt Recovery Tasks">
                     <DebtRecoveryTasks riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
@@ -424,13 +444,16 @@ const Dashboard: React.FC = () => {
             </motion.div>
 
             {/* --- Analytics & AI Coach --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                        <Sparkles size={10} className="text-violet-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-violet-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30 border border-white/20">
+                            <Sparkles size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Analytics & AI Coach</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-violet-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-violet-600 to-violet-400 bg-clip-text text-transparent dark:from-violet-400 dark:to-violet-200">Analytics & AI Coach</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-violet-500/40 via-violet-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     {/* Charts (2/3 width) */}
@@ -527,13 +550,16 @@ const Dashboard: React.FC = () => {
             </motion.div>
 
             {/* --- Quick Actions --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="space-y-2">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-cyan-500/15 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                        <Zap size={10} className="text-cyan-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-cyan-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-cyan-500/30 border border-white/20">
+                            <Zap size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Quick Actions</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-cyan-600 to-cyan-400 bg-clip-text text-transparent dark:from-cyan-400 dark:to-cyan-200">Quick Actions</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-cyan-500/40 via-cyan-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                     {[

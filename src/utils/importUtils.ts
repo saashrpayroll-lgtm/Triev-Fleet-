@@ -599,17 +599,58 @@ export const processRentCollectionImport = async (
     adminId: string,
     adminName: string
 ): Promise<ImportSummary> => {
-    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [] };
+    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], skipped: 0, skippedDetails: [] };
 
     try {
         summary.total = fileData.length;
 
+        // 1. Pre-fetch All Riders (Cache in memory)
+        const { data: allRiders, error: fetchError } = await supabase
+            .from('riders')
+            .select('id, triev_id, mobile_number');
+        if (fetchError) throw fetchError;
+
+        const trievMap = new Map<string, string>();
+        const mobileMap = new Map<string, string>();
+
+        allRiders?.forEach(r => {
+            if (r.triev_id) {
+                const numericId = String(r.triev_id).replace(/[^0-9]/g, '');
+                if (numericId) {
+                    trievMap.set(numericId, r.id);
+                    trievMap.set(`TRIEV${numericId}`, r.id);
+                }
+            }
+            if (r.mobile_number) {
+                const cleanMob = String(r.mobile_number).replace(/[^0-9]/g, '');
+                const last10 = cleanMob.length > 10 ? cleanMob.slice(-10) : cleanMob;
+                mobileMap.set(last10, r.id);
+            }
+        });
+
+        // 2. Pre-fetch existing Transaction IDs to prevent duplicates
+        const sheetTxnIds = fileData.map(r => r['Transaction ID'] || r['transaction_id']).filter(Boolean);
+        const existingTxns = new Set<string>();
+        if (sheetTxnIds.length > 0) {
+            const txnChunks = chunkArray(sheetTxnIds, 100);
+            for (const chunk of txnChunks) {
+                const { data: txns } = await supabase
+                    .from('wallet_ledger')
+                    .select('metadata')
+                    // Note: To be safe across versions, we just check metadata->>transaction_id via filter
+                    // Better yet, just fetch all transactions in current month/sheet if needed.
+                    // A safer way if in query is not supported perfectly on JSONB is to query explicitly:
+                    .in('metadata->>transaction_id', chunk);
+                txns?.forEach((t: any) => existingTxns.add(t.metadata?.transaction_id));
+            }
+        }
+
+        const pendingTransactions: any[] = [];
+
+        // 3. Process Sheet Data Fast (No DB Calls)
         for (let i = 0; i < fileData.length; i++) {
             const row = fileData[i];
             const rowNum = i + 2;
-
-            let trievId = '';
-            let mobile = '';
 
             try {
                 const normalizedRow: any = {};
@@ -623,12 +664,11 @@ export const processRentCollectionImport = async (
                     return '';
                 };
 
-                trievId = getValue(['Triev ID', 'TrievId', 'ID']);
+                const trievIdRaw = getValue(['Triev ID', 'TrievId', 'ID']);
                 const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell']);
-                mobile = mobileRaw.replace(/[^0-9]/g, '');
-                const amountRaw = getValue(['Amount', 'Amt', 'Collection']);
+                let amountRaw = getValue(['Amount', 'Amt', 'Collection']);
 
-                if (!trievId && !mobile) throw new Error("Row skipped: Missing Triev ID or Mobile Number");
+                if (!trievIdRaw && !mobileRaw) throw new Error("Row skipped: Missing Triev ID or Mobile Number");
                 if (!amountRaw) throw new Error("Row skipped: Missing Amount");
 
                 let amount = parseCurrency(amountRaw);
@@ -636,60 +676,29 @@ export const processRentCollectionImport = async (
 
                 let riderId = null;
 
-                const findRider = async (field: string, value: string) => {
-                    let { data } = await supabase
-                        .from('riders')
-                        .select('id, wallet_amount, triev_id, mobile_number, team_leader_id')
-                        .eq(field, value)
-                        .limit(1);
-
-                    if ((!data || data.length === 0) && !isNaN(Number(value))) {
-                        const { data: numData } = await supabase
-                            .from('riders')
-                            .select('id, wallet_amount, triev_id, mobile_number, team_leader_id')
-                            .eq(field, Number(value))
-                            .limit(1);
-                        if (numData && numData.length > 0) data = numData;
-                    }
-
-                    return data && data.length > 0 ? data[0] : null;
-                };
-
-                if (trievId) {
-                    const numericId = trievId.replace(/[^0-9]/g, '');
+                if (trievIdRaw) {
+                    const numericId = trievIdRaw.replace(/[^0-9]/g, '');
                     if (numericId) {
-                        let rider = await findRider('triev_id', numericId);
-                        if (!rider) rider = await findRider('triev_id', `TRIEV${numericId}`);
-                        if (rider) riderId = rider.id;
+                        riderId = trievMap.get(numericId) || trievMap.get(`TRIEV${numericId}`);
                     }
                 }
 
-                if (!riderId && mobile) {
-                    let cleanMobile = mobile.replace(/[^0-9]/g, '');
+                if (!riderId && mobileRaw) {
+                    let cleanMobile = mobileRaw.replace(/[^0-9]/g, '');
                     if (cleanMobile.length > 10) cleanMobile = cleanMobile.slice(-10);
-
                     if (cleanMobile.length === 10) {
-                        let rider = await findRider('mobile_number', cleanMobile);
-                        if (!rider) rider = await findRider('mobile_number', `+91${cleanMobile}`);
-                        if (!rider) rider = await findRider('mobile_number', `91${cleanMobile}`);
-                        if (rider) riderId = rider.id;
+                        riderId = mobileMap.get(cleanMobile);
                     }
                 }
 
-                if (!riderId) throw new Error(`Rider not found (Triev ID: ${trievId}, Mobile: ${mobile})`);
+                if (!riderId) throw new Error(`Rider not found (Triev ID: ${trievIdRaw}, Mobile: ${mobileRaw})`);
 
                 const transactionId = row['Transaction ID'] || row['transaction_id'] || '';
-
-                if (transactionId) {
-                    const { data: existingTxn } = await supabase
-                        .from('wallet_ledger')
-                        .select('id')
-                        .eq('metadata->>transaction_id', transactionId)
-                        .limit(1);
-
-                    if (existingTxn && existingTxn.length > 0) {
-                        throw new Error(`Duplicate Transaction ID: ${transactionId}. Entry skipped.`);
-                    }
+                if (transactionId && existingTxns.has(transactionId)) {
+                    if (summary.skipped === undefined) summary.skipped = 0;
+                    summary.skipped++;
+                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID", data: row });
+                    continue;
                 }
 
                 let transactionDateStr = new Date().toISOString();
@@ -701,34 +710,60 @@ export const processRentCollectionImport = async (
                     }
                 }
 
-                await LedgerAPI.addTransaction({
-                    riderId: riderId,
-                    amount: amount,
-                    type: 'DAILY_COLLECTION' as any,
-                    mode: 'ADD',
-                    description: `Rent Collected via Import`,
-                    metadata: {
-                        source: 'rent_import',
-                        transaction_id: transactionId,
-                        date_on_sheet: transactionDateStr,
-                        adminName: adminName
-                    },
-                    externalId: transactionId || null,
-                    source: 'IMPORT',
-                    transactionDate: transactionDateStr
+                pendingTransactions.push({
+                    riderId,
+                    amount,
+                    transactionId,
+                    transactionDateStr,
+                    rowNum,
+                    row
                 });
 
-                summary.success++;
             } catch (err: any) {
                 summary.failed++;
                 summary.errors.push({
                     row: rowNum,
-                    identifier: trievId || mobile || `Row ${rowNum}`,
+                    identifier: row['Triev ID'] || row['Mobile Number'] || `Row ${rowNum}`,
                     reason: err.message || "Unknown error",
                     data: row
                 });
             }
         }
+
+        // 4. Batch Execution (Parallel API Calls)
+        const txBatches = chunkArray(pendingTransactions, 20); // 20 requests at a time
+        for (const batch of txBatches) {
+            await Promise.all(batch.map(async (tx) => {
+                try {
+                    await LedgerAPI.addTransaction({
+                        riderId: tx.riderId,
+                        amount: tx.amount,
+                        type: 'DAILY_COLLECTION' as any,
+                        mode: 'ADD',
+                        description: `Rent Collected via Import`,
+                        metadata: {
+                            source: 'rent_import',
+                            transaction_id: tx.transactionId,
+                            date_on_sheet: tx.transactionDateStr,
+                            adminName: adminName
+                        },
+                        externalId: tx.transactionId || null,
+                        source: 'IMPORT',
+                        transactionDate: tx.transactionDateStr
+                    });
+                    summary.success++;
+                } catch (err: any) {
+                    summary.failed++;
+                    summary.errors.push({
+                        row: tx.rowNum,
+                        identifier: tx.riderId,
+                        reason: err.message || "Failed to add transaction",
+                        data: tx.row
+                    });
+                }
+            }));
+        }
+
     } catch (error: any) {
         console.error("Critical error in rent import:", error);
         summary.errors.push({ row: 0, identifier: 'FILE', reason: `Fatal Error: ${error.message}` });

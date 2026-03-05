@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, Filter, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
@@ -478,29 +478,38 @@ const Dashboard: React.FC = () => {
             <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-end"
+                className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none"
             >
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-0.5">
-                        {isTL ? "Team Command Center" : "Admin Command Center"} 🚀
-                    </h1>
-                    <p className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {isTL ? 'Team Leader Access' : 'Admin Panel'} &mdash; Live Dashboard
-                    </p>
+                <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="hidden sm:flex p-3 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-2xl border border-indigo-500/20">
+                        <div className="relative flex items-center justify-center">
+                            <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-40 rounded-full" />
+                            <Sparkles className="relative text-indigo-500" size={24} />
+                        </div>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1 drop-shadow-sm">
+                            {isTL ? "Team Command Center" : "Admin Command Center"}
+                        </h1>
+                        <p className="text-muted-foreground text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            </span>
+                            Live System Sync &mdash; {new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium' }).format(new Date())}
+                        </p>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 bg-muted/40 p-1 rounded-lg border self-start">
-                    <Filter size={13} className="text-muted-foreground ml-2" />
-                    <span className="w-px h-3 bg-border mx-1" />
+                <div className="flex w-full sm:w-auto p-1.5 bg-slate-100/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar">
                     {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
                         <button
                             key={filter}
                             onClick={() => setDateFilter(filter)}
                             className={`
-                                px-2.5 py-1 rounded-md text-[10px] font-bold transition-all
+                                flex-1 sm:flex-none px-4 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap
                                 ${dateFilter === filter
-                                    ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm'
-                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md scale-100 ring-1 ring-black/5 dark:ring-white/5'
+                                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 scale-95 hover:scale-100'
                                 }
                             `}
                         >
@@ -513,13 +522,16 @@ const Dashboard: React.FC = () => {
             {/* Wallet Sync Widget */}
             <WalletSyncWidget />
             {/* --- Fleet & Operations --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                        <Activity size={10} className="text-emerald-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
+                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Fleet & Operations</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
                     <SmartMetricCard
@@ -571,13 +583,16 @@ const Dashboard: React.FC = () => {
             </motion.div>
 
             {/* --- Financial Performance --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
-                        <TrendingUp size={10} className="text-indigo-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-indigo-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30 border border-white/20">
+                            <TrendingUp size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Financial Performance</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-indigo-200">Financial Performance</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/40 via-indigo-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
                     {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
@@ -615,13 +630,16 @@ const Dashboard: React.FC = () => {
             </motion.div>
 
             {/* --- Wallet Health & Risk --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-2.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
-                        <ShieldCheck size={10} className="text-amber-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-amber-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30 border border-white/20">
+                            <ShieldCheck size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/70">Wallet Health & Risk</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/30 to-transparent" />
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent dark:from-amber-400 dark:to-amber-200">Wallet Health & Risk</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/40 via-amber-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
                     {/* --- ROW 3: RIDER WALLET HEALTH --- */}

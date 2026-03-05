@@ -1,8 +1,35 @@
 
-import React from 'react';
+
+import React, { useEffect, useRef } from 'react';
 import { LucideIcon, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, animate } from 'framer-motion';
 import { safeRender } from '@/utils/safeRender';
+
+const AnimatedCounter = ({ value, isCurrency = false }: { value: number; isCurrency?: boolean }) => {
+    const nodeRef = useRef<HTMLSpanElement>(null);
+
+    useEffect(() => {
+        const node = nodeRef.current;
+        if (!node) return;
+
+        const controls = animate(0, value, {
+            duration: 1.5,
+            ease: "easeOut",
+            onUpdate(current) {
+                if (isCurrency) {
+                    node.textContent = `₹${Math.round(current).toLocaleString('en-IN')}`;
+                } else {
+                    node.textContent = Math.round(current).toLocaleString('en-IN');
+                }
+            }
+        });
+
+        return () => controls.stop();
+    }, [value, isCurrency]);
+
+    return <span ref={nodeRef}>{isCurrency ? '₹0' : '0'}</span>;
+};
+
 
 interface SmartMetricCardProps {
     title: string;
@@ -92,22 +119,25 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     return (
         <motion.div
             onClick={onClick}
-            whileHover={{ y: -4, scale: 1.015 }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            whileHover={{ y: -6, scale: 1.02 }}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             className={`
-                relative overflow-hidden rounded-2xl border p-3.5 sm:p-4
+                relative overflow-hidden rounded-3xl border p-4 sm:p-5
                 cursor-pointer group
                 bg-gradient-to-br ${t.card}
-                bg-card/70 dark:bg-black/25 backdrop-blur-md
-                shadow-sm hover:shadow-xl ${t.glow}
-                ring-2 ring-transparent ${t.ring}
-                transition-shadow duration-300
+                bg-white/50 dark:bg-slate-950/40 backdrop-blur-xl border-white/20 dark:border-white/10
+                shadow-lg hover:shadow-2xl ${t.glow}
+                ring-1 ring-white/20 dark:ring-white/5 hover:ring-2 ${t.ring}
+                transition-all duration-300
                 ${className || ''}
             `}
         >
+            {/* Soft inner glow */}
+            <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent dark:from-white/5 pointer-events-none rounded-3xl`} />
+
             {/* Shine sweep on hover */}
-            <div className="pointer-events-none absolute inset-0 translate-x-[-120%] group-hover:translate-x-[120%] transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 z-10" />
+            <div className="pointer-events-none absolute inset-0 translate-x-[-150%] group-hover:translate-x-[150%] transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-10" />
 
             {/* Ghost icon watermark */}
             <div className={`absolute -right-5 -bottom-5 opacity-[0.07] group-hover:opacity-[0.12] group-hover:rotate-12 group-hover:scale-110 transition-all duration-500 ${t.icon}`}>
@@ -164,12 +194,16 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                     ) : (
                         <motion.p
                             key={String(value)}
-                            initial={{ opacity: 0, y: 8 }}
+                            initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4 }}
-                            className="text-2xl sm:text-[1.6rem] font-black tracking-tight text-foreground tabular-nums leading-none"
+                            transition={{ duration: 0.5, ease: 'easeOut' }}
+                            className="text-3xl sm:text-[1.8rem] font-black tracking-tight text-slate-900 dark:text-white tabular-nums leading-none drop-shadow-sm"
                         >
-                            {displayValue}
+                            {typeof value === 'number' ? (
+                                <AnimatedCounter value={value} isCurrency={isCurrency} />
+                            ) : (
+                                displayValue
+                            )}
                         </motion.p>
                     )}
                 </div>

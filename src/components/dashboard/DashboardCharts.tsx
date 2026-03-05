@@ -17,12 +17,37 @@ const CHART_GRADIENTS = [
     { id: 'grad2', from: '#94a3b8', to: '#64748b' },
 ];
 
+const CustomPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        // Recharts pie payload structure can be tricky, fill color might be in payload[0].fill
+        const color = payload[0].fill || '#8b5cf6';
+        return (
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl p-3 sm:p-4 text-sm animate-in zoom-in-95 duration-200">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-black/10 dark:ring-white/10" style={{ background: color }} />
+                    <p className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px]">{data.name}</p>
+                </div>
+                <p className="text-xl font-black tabular-nums tracking-tight text-slate-900 dark:text-white leading-none">
+                    {data.value} <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest ml-1">Riders</span>
+                </p>
+            </div>
+        );
+    }
+    return null;
+};
+
 const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+        const isRisk = label.toLowerCase().includes('risk') || label.toLowerCase().includes('due');
         return (
-            <div className="bg-popover/95 backdrop-blur-md border border-border/60 rounded-2xl shadow-2xl p-3 text-sm">
-                <p className="font-black text-foreground mb-1">{label}</p>
-                <p className="text-emerald-500 font-bold tabular-nums">₹{Number(payload[0].value).toLocaleString('en-IN')}</p>
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl p-3 sm:p-4 text-sm animate-in zoom-in-95 duration-200">
+                <p className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[10px] mb-1">{label}</p>
+                <div className="flex items-baseline gap-1">
+                    <p className={`text-xl font-black tabular-nums tracking-tight leading-none ${isRisk ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        ₹{Number(payload[0].value).toLocaleString('en-IN')}
+                    </p>
+                </div>
             </div>
         );
     }
@@ -95,16 +120,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
                                     />
                                 ))}
                             </Pie>
-                            <Tooltip
-                                contentStyle={{
-                                    borderRadius: '16px', border: 'none',
-                                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-                                    fontWeight: 'bold',
-                                    backgroundColor: 'hsl(var(--popover))',
-                                    color: 'hsl(var(--popover-foreground))'
-                                }}
-                                itemStyle={{ fontSize: '12px' }}
-                            />
+                            <Tooltip content={<CustomPieTooltip />} cursor={{ fill: 'transparent' }} />
                             <Legend
                                 verticalAlign="bottom"
                                 height={36}
