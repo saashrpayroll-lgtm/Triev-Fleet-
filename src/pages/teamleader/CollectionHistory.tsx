@@ -64,9 +64,9 @@ const CollectionHistory: React.FC = () => {
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION'])
+                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
                     .eq('rider.team_leader_id', userData!.id)
-                    .gte('created_at', istMidnightUTC),
+                    .gte('transaction_date', istMidnightUTC),
                 supabase
                     .from('riders')
                     .select('*', { count: 'exact', head: true })
