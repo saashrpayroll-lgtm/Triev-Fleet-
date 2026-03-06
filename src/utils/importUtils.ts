@@ -218,10 +218,10 @@ export const processRiderImport = async (
                 let shouldResetInactivatedAt = false;
 
                 // Reactivation Logic (15-Day Rule)
+                // NEW BEHAVIOR: DO NOT AUTO-REACTIVATE!
+                // We keep them inactive/deleted here. The Audit & Sync check will handle reactivation.
+                // However, we STILL calculate finalAllotmentDate to update it if needed.
                 if (existingRider.status === 'inactive' || existingRider.status === 'deleted') {
-                    targetStatus = 'active';
-                    shouldResetInactivatedAt = true;
-
                     // Check if inactive for > 15 days
                     if (existingRider.inactivated_at) {
                         const inactiveDate = new Date(existingRider.inactivated_at);
@@ -250,6 +250,8 @@ export const processRiderImport = async (
                 addIfDiff('chassis_number', chassis);
                 addIfDiff('remarks', remarks);
                 addIfDiff('client_name', clientName);
+
+                // CRITICAL (LOCK UNIQUE IDENTITY): Never update triev_id or mobile_number for existing riders
 
                 // Status and Reactivation handling
                 if (targetStatus !== existingRider.status) {

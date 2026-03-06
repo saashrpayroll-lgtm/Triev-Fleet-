@@ -28,6 +28,10 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
     const [selectedReturningIds, setSelectedReturningIds] = useState<Set<string>>(new Set());
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Search state
+    const [searchExtra, setSearchExtra] = useState('');
+    const [searchReturning, setSearchReturning] = useState('');
+
     if (!isOpen) return null;
 
     const handleAnalyze = async (sheetData: any[]) => {
@@ -235,20 +239,39 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
     const toggleSelectAllExtra = () => {
         if (!results) return;
-        if (selectedExtraIds.size === results.extraRiders.length) {
+        const filtered = results.extraRiders.filter(r =>
+            r.rider_name?.toLowerCase().includes(searchExtra.toLowerCase()) ||
+            r.team_leader_name?.toLowerCase().includes(searchExtra.toLowerCase())
+        );
+        if (selectedExtraIds.size === filtered.length && filtered.length > 0) {
             setSelectedExtraIds(new Set());
         } else {
-            setSelectedExtraIds(new Set(results.extraRiders.map(r => r.id)));
+            setSelectedExtraIds(new Set(filtered.map(r => r.id)));
         }
     };
 
     const toggleSelectAllReturning = () => {
         if (!results) return;
-        if (selectedReturningIds.size === results.returningRiders.length) {
+        const filtered = results.returningRiders.filter(r =>
+            r.rider_name?.toLowerCase().includes(searchReturning.toLowerCase())
+        );
+        if (selectedReturningIds.size === filtered.length && filtered.length > 0) {
             setSelectedReturningIds(new Set());
         } else {
-            setSelectedReturningIds(new Set(results.returningRiders.map(r => r.id)));
+            setSelectedReturningIds(new Set(filtered.map(r => r.id)));
         }
+    };
+
+    // Helpers to calculate 15-day rule for UI
+    const getReactivationDetails = (inactivatedAt: string | null) => {
+        if (!inactivatedAt) return { isWithin15Days: false, text: "New Allotment Date" };
+        const inactiveDate = new Date(inactivatedAt);
+        const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
+        return {
+            isWithin15Days: daysDiff <= 15,
+            text: daysDiff <= 15 ? "Retains Old Date" : "New Allotment Date",
+            days: Math.floor(daysDiff)
+        };
     };
 
 
@@ -323,21 +346,33 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                                     {/* EXTRA RIDERS (Missing from Sheet) */}
                                     <div className="space-y-4">
-                                        <h3 className="text-lg font-bold flex items-center justify-between text-destructive">
-                                            <span className="flex items-center gap-2">
-                                                <UserX size={20} />
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <h3 className="text-lg font-bold flex items-center text-destructive">
+                                                <UserX size={20} className="mr-2" />
                                                 Missing from Sheet ({results.extraRiders.length})
-                                            </span>
+                                            </h3>
                                             {results.extraRiders.length > 0 && (
-                                                <button
-                                                    onClick={handleDeactivateSelected}
-                                                    disabled={selectedExtraIds.size === 0 || isProcessing}
-                                                    className="px-3 py-1.5 text-xs bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all font-bold disabled:opacity-50"
-                                                >
-                                                    Deactivate ({selectedExtraIds.size})
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="relative">
+                                                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search..."
+                                                            value={searchExtra}
+                                                            onChange={e => setSearchExtra(e.target.value)}
+                                                            className="pl-8 pr-3 py-1.5 text-xs bg-background border rounded-lg max-w-[140px]"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={handleDeactivateSelected}
+                                                        disabled={selectedExtraIds.size === 0 || isProcessing}
+                                                        className="px-3 py-1.5 text-xs bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all font-bold disabled:opacity-50 shadow-sm"
+                                                    >
+                                                        Deactivate ({selectedExtraIds.size})
+                                                    </button>
+                                                </div>
                                             )}
-                                        </h3>
+                                        </div>
 
                                         {results.extraRiders.length === 0 ? (
                                             <div className="p-8 text-center bg-green-50 border border-green-100 rounded-xl">
@@ -363,28 +398,39 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-border">
-                                                            {results.extraRiders.map(rider => (
-                                                                <tr key={rider.id} className={`hover:bg-accent/50 ${selectedExtraIds.has(rider.id) ? 'bg-red-50/50' : ''}`}>
-                                                                    <td className="px-4 py-3 w-[40px] align-top">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={selectedExtraIds.has(rider.id)}
-                                                                            onChange={() => {
-                                                                                const newSet = new Set(selectedExtraIds);
-                                                                                if (newSet.has(rider.id)) newSet.delete(rider.id);
-                                                                                else newSet.add(rider.id);
-                                                                                setSelectedExtraIds(newSet);
-                                                                            }}
-                                                                            className="rounded border-gray-300 text-destructive focus:ring-destructive mt-1"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-4 py-3">
-                                                                        <p className="font-bold text-destructive">{rider.rider_name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{rider.mobile_number} • {rider.triev_id}</p>
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-xs text-muted-foreground align-top pt-4">{rider.team_leader_name || '-'}</td>
-                                                                </tr>
-                                                            ))}
+                                                            {results.extraRiders
+                                                                .filter(r =>
+                                                                    r.rider_name?.toLowerCase().includes(searchExtra.toLowerCase()) ||
+                                                                    r.team_leader_name?.toLowerCase().includes(searchExtra.toLowerCase())
+                                                                )
+                                                                .map(rider => (
+                                                                    <tr key={rider.id} className={`hover:bg-accent/50 transition-colors ${selectedExtraIds.has(rider.id) ? 'bg-red-50/50' : ''}`}>
+                                                                        <td className="px-4 py-3 w-[40px] align-top">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={selectedExtraIds.has(rider.id)}
+                                                                                onChange={() => {
+                                                                                    const newSet = new Set(selectedExtraIds);
+                                                                                    if (newSet.has(rider.id)) newSet.delete(rider.id);
+                                                                                    else newSet.add(rider.id);
+                                                                                    setSelectedExtraIds(newSet);
+                                                                                }}
+                                                                                className="rounded border-gray-300 text-destructive focus:ring-destructive mt-1 cursor-pointer"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            <p className="font-bold text-destructive">{rider.rider_name}</p>
+                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                                                                <span>{rider.mobile_number}</span>
+                                                                                <span className="w-1 h-1 rounded-full bg-border" />
+                                                                                <span>{rider.triev_id}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-xs text-muted-foreground align-top pt-4">
+                                                                            <span className="px-2 py-1 bg-muted rounded-md font-medium text-foreground/80">{rider.team_leader_name || 'Unassigned'}</span>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -394,21 +440,33 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
                                     {/* RETURNING RIDERS (Inactive but found in Sheet) */}
                                     <div className="space-y-4">
-                                        <h3 className="text-lg font-bold flex items-center justify-between text-emerald-600">
-                                            <span className="flex items-center gap-2">
-                                                <UserCheck size={20} />
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <h3 className="text-lg font-bold flex items-center text-emerald-600">
+                                                <UserCheck size={20} className="mr-2" />
                                                 Returning Riders ({results.returningRiders.length})
-                                            </span>
+                                            </h3>
                                             {results.returningRiders.length > 0 && (
-                                                <button
-                                                    onClick={handleReactivateSelected}
-                                                    disabled={selectedReturningIds.size === 0 || isProcessing}
-                                                    className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-                                                >
-                                                    Reactivate ({selectedReturningIds.size})
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="relative">
+                                                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-600/50" />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search..."
+                                                            value={searchReturning}
+                                                            onChange={e => setSearchReturning(e.target.value)}
+                                                            className="pl-8 pr-3 py-1.5 text-xs bg-emerald-50/50 border-emerald-200 border rounded-lg max-w-[140px] focus:ring-emerald-500/20"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={handleReactivateSelected}
+                                                        disabled={selectedReturningIds.size === 0 || isProcessing}
+                                                        className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                                                    >
+                                                        Reactivate ({selectedReturningIds.size})
+                                                    </button>
+                                                </div>
                                             )}
-                                        </h3>
+                                        </div>
 
                                         {results.returningRiders.length === 0 ? (
                                             <div className="p-8 text-center bg-muted/50 border border-border rounded-xl">
@@ -433,32 +491,59 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-emerald-100">
-                                                            {results.returningRiders.map(rider => (
-                                                                <tr key={rider.id} className={`hover:bg-emerald-50/50 ${selectedReturningIds.has(rider.id) ? 'bg-emerald-50' : ''}`}>
-                                                                    <td className="px-4 py-3 w-[40px] align-top">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={selectedReturningIds.has(rider.id)}
-                                                                            onChange={() => {
-                                                                                const newSet = new Set(selectedReturningIds);
-                                                                                if (newSet.has(rider.id)) newSet.delete(rider.id);
-                                                                                else newSet.add(rider.id);
-                                                                                setSelectedReturningIds(newSet);
-                                                                            }}
-                                                                            className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-600 mt-1"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-4 py-3">
-                                                                        <p className="font-bold text-foreground">{rider.rider_name}</p>
-                                                                        <p className="text-xs text-muted-foreground">{rider.mobile_number} • {rider.triev_id}</p>
-                                                                    </td>
-                                                                    <td className="px-4 py-3 align-top pt-3">
-                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-muted text-muted-foreground">
-                                                                            {rider.status}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
+                                                            {results.returningRiders
+                                                                .filter(r => r.rider_name?.toLowerCase().includes(searchReturning.toLowerCase()))
+                                                                .map(rider => {
+                                                                    const reactivateInfo = getReactivationDetails(rider.inactivated_at);
+
+                                                                    return (
+                                                                        <tr key={rider.id} className={`hover:bg-emerald-50/80 transition-colors ${selectedReturningIds.has(rider.id) ? 'bg-emerald-50' : ''}`}>
+                                                                            <td className="px-4 py-3 w-[40px] align-top">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={selectedReturningIds.has(rider.id)}
+                                                                                    onChange={() => {
+                                                                                        const newSet = new Set(selectedReturningIds);
+                                                                                        if (newSet.has(rider.id)) newSet.delete(rider.id);
+                                                                                        else newSet.add(rider.id);
+                                                                                        setSelectedReturningIds(newSet);
+                                                                                    }}
+                                                                                    className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-600 mt-1 cursor-pointer"
+                                                                                />
+                                                                            </td>
+                                                                            <td className="px-4 py-3">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <p className="font-bold text-foreground">{rider.rider_name}</p>
+                                                                                    {rider.status === 'deleted' && (
+                                                                                        <span className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Deleted</span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="flex flex-col gap-1 mt-1">
+                                                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground/80 font-medium bg-muted/50 w-fit px-1.5 py-0.5 rounded">
+                                                                                        <span className="text-emerald-600/70" title="Locked Identity">🔒</span>
+                                                                                        <span>{rider.mobile_number}</span>
+                                                                                        <span className="w-1 h-1 rounded-full bg-border" />
+                                                                                        <span>{rider.triev_id}</span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-1 ${reactivateInfo.isWithin15Days ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
+                                                                                            {reactivateInfo.isWithin15Days ? <CheckCircle size={10} /> : <AlertTriangle size={10} />}
+                                                                                            {reactivateInfo.text}
+                                                                                        </span>
+                                                                                        {!reactivateInfo.isWithin15Days && reactivateInfo.days !== undefined && reactivateInfo.days > 0 && (
+                                                                                            <span className="text-[9px] text-muted-foreground italic">Inactive &gt; 15d ({reactivateInfo.days}d)</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="px-4 py-3 align-top pt-4">
+                                                                                <span className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-muted text-muted-foreground shadow-sm border border-border">
+                                                                                    {rider.status}
+                                                                                </span>
+                                                                            </td>
+                                                                        </tr>
+                                                                    )
+                                                                })}
                                                         </tbody>
                                                     </table>
                                                 </div>
