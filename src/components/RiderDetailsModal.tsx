@@ -258,13 +258,41 @@ ${new Date().toLocaleString('en-IN')}`;
 
         try {
             if (typeof window !== 'undefined' && (window as any).html2canvas) {
+                // Temporarily remove scroll bounds for full capture
+                const originalStyle = activeRef.current.style.cssText;
+                if (activeTab === 'profile') {
+                    activeRef.current.style.maxHeight = 'none';
+                    activeRef.current.style.height = 'auto';
+                    activeRef.current.style.overflow = 'visible';
+                    // Force the inner content div to also expand
+                    if (cardRef.current) {
+                        cardRef.current.style.overflow = 'visible';
+                        cardRef.current.style.maxHeight = 'none';
+                    }
+                }
+
+                // Check active theme (via document class or fallback)
+                const isDark = document.documentElement.classList.contains('dark');
+                const bgColor = activeTab === 'idcard' ? null : (isDark ? '#020617' : '#ffffff'); // slate-950 or white
+
                 const canvas = await (window as any).html2canvas(activeRef.current, {
-                    backgroundColor: activeTab === 'idcard' ? null : '#ffffff',
+                    backgroundColor: bgColor,
                     scale: 3,
                     logging: false,
                     useCORS: true,
-                    allowTaint: true
+                    allowTaint: true,
+                    windowHeight: activeRef.current.scrollHeight, // Critical for full height
+                    y: 0
                 });
+
+                // Restore styles
+                if (activeTab === 'profile') {
+                    activeRef.current.style.cssText = originalStyle;
+                    if (cardRef.current) {
+                        cardRef.current.style.overflow = 'auto';
+                        cardRef.current.style.maxHeight = '';
+                    }
+                }
 
                 canvas.toBlob((blob: Blob | null) => {
                     if (blob) {
@@ -288,6 +316,14 @@ ${new Date().toLocaleString('en-IN')}`;
             }
         } catch (error) {
             console.error('Error downloading card:', error);
+
+            // Failsafe restore styles
+            if (activeTab === 'profile' && activeRef.current) {
+                activeRef.current.style.maxHeight = '';
+                activeRef.current.style.overflow = '';
+                if (cardRef.current) cardRef.current.style.overflow = 'auto';
+            }
+
             toast.error('Failed to download card', { id: toastId });
         }
     };
