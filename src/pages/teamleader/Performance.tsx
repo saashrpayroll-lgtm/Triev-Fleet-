@@ -75,11 +75,7 @@ const TLPersonalPerformance: React.FC = () => {
         if (!userData?.id) return;
         setLoading(true);
         try {
-            // Compute today's IST midnight as UTC for wallet_ledger gte filter
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-            const [yr, mo, dy] = todayStr.split('-').map(Number);
-            // Correct IST midnight: Date.UTC(y, m-1, d) - 5.5 hours
-            const istMidnightUTC = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 // All TL's non-deleted riders
@@ -117,7 +113,14 @@ const TLPersonalPerformance: React.FC = () => {
                         'COLLECTION', 'RENT'
                     ])
                     .eq('rider.team_leader_id', userData.id)
-                    .gte('created_at', istMidnightUTC),
+                    // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
+                    .or((() => {
+                        const now = new Date();
+                        const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const [y, m, d] = todayIST.split('-').map(Number);
+                        const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+                        return `transaction_date.eq.${todayIST},and(transaction_date.is.null,created_at.gte.${midnight})`;
+                    })()),
             ]);
 
             if (ridersRes.error) throw ridersRes.error;

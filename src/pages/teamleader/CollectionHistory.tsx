@@ -55,9 +55,6 @@ const CollectionHistory: React.FC = () => {
 
             // Compute IST midnight in UTC: 00:00 IST = 18:30 UTC of the previous calendar day
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-            const [year, month, day] = todayStr.split('-').map(Number);
-            // Correct formula: Date.UTC(y, m-1, d) - 5.5 hours
-            const istMidnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [{ data: todayLedger }, { count: liveActiveCount }] = await Promise.all([
                 supabase
@@ -66,7 +63,14 @@ const CollectionHistory: React.FC = () => {
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
                     .eq('rider.team_leader_id', userData!.id)
-                    .gte('transaction_date', istMidnightUTC),
+                    // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
+                    .or((() => {
+                        const now = new Date();
+                        const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const [y, m, d] = todayIST.split('-').map(Number);
+                        const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+                        return `transaction_date.eq.${todayIST},and(transaction_date.is.null,created_at.gte.${midnight})`;
+                    })()),
                 supabase
                     .from('riders')
                     .select('*', { count: 'exact', head: true })
