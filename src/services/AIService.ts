@@ -512,23 +512,57 @@ Return ONLY the final message text ready to send.`;
     },
 
     calculateRiderScore: (rider: Rider) => {
-        // Deterministic logic, no AI call needed
+        // Realistic Dynamic AI Score Algorithm
         let score = 100;
-        if (rider.status === 'inactive') score -= 20;
+
+        // 1. Status Penalties
+        if (rider.status === 'inactive') score -= 30;
         if (rider.status === 'deleted') score -= 50;
+
+        // 2. Financial Metrics (Wallet Balance)
         if (rider.walletAmount < 0) {
             const debt = Math.abs(rider.walletAmount);
-            if (debt > 5000) score -= 40;
-            else if (debt > 2000) score -= 20;
-            else score -= 10;
-        } else if (rider.walletAmount > 500) {
-            score += 5;
+            // Aggressive scaling: -5 points for every ₹500 negative, max penalty 60
+            const debtPenalty = Math.min(60, Math.floor(debt / 500) * 5);
+            score -= Math.max(10, debtPenalty); // At least -10 if negative
+        } else if (rider.walletAmount === 0) {
+            // Idle / Zero Balance Penalty
+            score -= 15;
+        } else {
+            // Positive Balance Bonus
+            if (rider.walletAmount > 1000) score += 10;
+            else if (rider.walletAmount > 250) score += 5;
         }
-        score = Math.max(0, Math.min(100, score));
+
+        // 3. Age / Loyalty Metrics
+        if (rider.allotmentDate) {
+            const daysActive = (new Date().getTime() - new Date(rider.allotmentDate).getTime()) / (1000 * 3600 * 24);
+            // If active > 30 days and NOT in severe negative balance, evaluate loyalty
+            // Only reward loyalty if they are generally performing well or just slightly zero
+            if (daysActive > 30 && rider.walletAmount >= 0 && rider.status === 'active') {
+                const loyaltyBonus = Math.min(15, Math.floor(daysActive / 30) * 2); // +2 for every month, max +15
+                score += loyaltyBonus;
+            }
+        }
+
+        // Ensure bounds
+        score = Math.floor(Math.max(0, Math.min(100, score)));
+
+        // 4. Label and Coloring
         let label = 'Excellent';
-        let color = 'text-green-600';
-        if (score < 50) { label = 'Critical'; color = 'text-red-600'; }
-        else if (score < 80) { label = 'At Risk'; color = 'text-orange-500'; }
+        let color = 'text-emerald-500';
+
+        if (score < 40) {
+            label = 'Critical Risk';
+            color = 'text-red-500';
+        } else if (score < 70) {
+            label = 'Needs Attention';
+            color = 'text-orange-500';
+        } else if (score < 85) {
+            label = 'Good';
+            color = 'text-blue-500';
+        }
+
         return { score, label, color };
     },
 

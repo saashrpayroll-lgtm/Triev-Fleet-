@@ -100,6 +100,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
 
     // Reminder State
     const [reminderModalType, setReminderModalType] = useState<ReminderType | null>(null);
+    const fullCardRef = useRef<HTMLDivElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const idCardRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -250,7 +251,7 @@ ${new Date().toLocaleString('en-IN')}`;
     };
 
     const handleDownloadCard = async () => {
-        const activeRef = activeTab === 'idcard' ? idCardRef : cardRef;
+        const activeRef = activeTab === 'idcard' ? idCardRef : fullCardRef;
         if (!activeRef.current) return;
 
         const toastId = toast.loading(activeTab === 'idcard' ? 'Generating ID Card...' : 'Generating Card...');
@@ -380,16 +381,17 @@ ${new Date().toLocaleString('en-IN')}`;
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
-            <div className="bg-background w-full max-w-4xl flex flex-col rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200">
+            <div className="bg-background w-full max-w-4xl flex flex-col rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200" ref={fullCardRef}>
 
                 {/* ── HERO HEADER ── */}
-                <div className="flex-none relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-violet-900 text-white">
-                    {/* Decorative blobs */}
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-36 h-36 bg-violet-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 pointer-events-none" />
+                <div className="flex-none relative overflow-hidden bg-slate-950 text-white border-b border-indigo-500/20">
+                    {/* Decorative mixed dark/light blobs for richer aesthetics */}
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-violet-600/25 rounded-full blur-[60px] translate-y-1/3 -translate-x-1/4 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-transparent to-slate-950/80 pointer-events-none" />
 
                     {/* Mobile drag handle */}
-                    <div className="md:hidden flex justify-center pt-3 pb-0">
+                    <div className="md:hidden flex justify-center pt-3 pb-0 relative z-10">
                         <div className="w-10 h-1 rounded-full bg-white/25" />
                     </div>
 
@@ -432,6 +434,7 @@ ${new Date().toLocaleString('en-IN')}`;
                             {[
                                 { label: 'Call', icon: <Phone size={13} />, onClick: () => handleAction('call'), cls: 'bg-white/10 hover:bg-white/20' },
                                 { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
+                                { label: 'Share Image', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-indigo-500/25 hover:bg-indigo-500/40 ring-1 ring-indigo-400/30' },
                                 ...(rider.status === 'active' && rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={17} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40 px-5 py-3 text-base shadow-lg transition-all' }] : []),
                                 ...(rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={17} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40 px-5 py-3 text-base shadow-lg transition-all' }] : []),
                             ].map(({ label, icon, onClick, cls }) => (
