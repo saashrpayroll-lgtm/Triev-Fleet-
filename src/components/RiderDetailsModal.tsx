@@ -258,28 +258,60 @@ ${new Date().toLocaleString('en-IN')}`;
 
         try {
             if (typeof window !== 'undefined' && (window as any).html2canvas) {
-                // Temporarily remove scroll bounds for full capture
+                // Safely expand DOM bounds without breaking html2canvas layout flow
                 const originalStyle = activeRef.current.style.cssText;
+                const originalClasses = activeRef.current.className;
+
+                const overlayEl = document.getElementById('rider-modal-overlay');
+                let originalOverlayClasses = '';
+
+                const headerEl = document.getElementById('rider-hero-header');
+                let originalHeaderClasses = '';
+
+                const truncatedElements = Array.from(activeRef.current.querySelectorAll('.truncate')) as HTMLElement[];
+
                 if (activeTab === 'profile') {
-                    // Lock width and use absolute positioning to prevent flex centering from clipping the top
-                    const currentWidth = activeRef.current.offsetWidth;
-                    activeRef.current.style.width = `${currentWidth}px`;
+                    // 1. Force modal to the top to prevent negative-Y cropping (instead of absolute pos)
+                    if (overlayEl) {
+                        originalOverlayClasses = overlayEl.className;
+                        overlayEl.className = originalOverlayClasses.replace('md:items-center', 'md:items-start').replace('items-end', 'items-start');
+                        overlayEl.style.overflowY = 'auto';
+                        overlayEl.style.paddingTop = '1rem'; // tiny breathing room
+                    }
 
-                    activeRef.current.style.position = 'absolute';
-                    activeRef.current.style.top = '0px';
-                    activeRef.current.style.left = '0px';
-                    activeRef.current.style.margin = '0';
-                    activeRef.current.style.transform = 'none';
-                    activeRef.current.style.maxHeight = 'none';
-                    activeRef.current.style.height = 'auto';
-                    activeRef.current.style.zIndex = '99999';
+                    // 2. Strip classes that trigger html2canvas slice bugs (overflow, transforms, fixed bounds)
+                    activeRef.current.className = originalClasses
+                        .replace('overflow-hidden', 'overflow-visible')
+                        .replace(/animate-in\s|slide-[^\s]+\s|zoom-[^\s]+\s|duration-[^\s]+/g, '')
+                        .replace('max-h-[92vh]', '');
 
-                    // Force the inner content div to also expand
+                    activeRef.current.style.cssText = `
+                        max-height: none !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                        transform: none !important;
+                        transition: none !important;
+                    `;
+
+                    // 3. Strip internal clipping bounds
+                    if (headerEl) {
+                        originalHeaderClasses = headerEl.className;
+                        headerEl.className = originalHeaderClasses.replace('overflow-hidden', 'overflow-visible');
+                    }
+
+                    truncatedElements.forEach(el => {
+                        el.className = el.className.replace('truncate', 'break-words');
+                    });
+
+                    // 4. Force inner content to expand naturally
                     if (cardRef.current) {
                         cardRef.current.style.overflow = 'visible';
                         cardRef.current.style.maxHeight = 'none';
                     }
                 }
+
+                // 5. CRITICAL: Wait for browser layout repaint before capturing!
+                await new Promise(resolve => setTimeout(resolve, 150));
 
                 // Check active theme (via document class or fallback)
                 const isDark = document.documentElement.classList.contains('dark');
@@ -287,17 +319,32 @@ ${new Date().toLocaleString('en-IN')}`;
 
                 const canvas = await (window as any).html2canvas(activeRef.current, {
                     backgroundColor: bgColor,
-                    scale: 3,
+                    scale: 2, // 2 is stable, 3 causes memory limits on mobile triggering clip bugs
                     logging: false,
                     useCORS: true,
                     allowTaint: true,
-                    scrollX: 0,
                     scrollY: -window.scrollY
                 });
 
                 // Restore styles
                 if (activeTab === 'profile') {
                     activeRef.current.style.cssText = originalStyle;
+                    activeRef.current.className = originalClasses;
+
+                    if (overlayEl) {
+                        overlayEl.className = originalOverlayClasses;
+                        overlayEl.style.overflowY = '';
+                        overlayEl.style.paddingTop = '';
+                    }
+
+                    if (headerEl) {
+                        headerEl.className = originalHeaderClasses;
+                    }
+
+                    truncatedElements.forEach(el => {
+                        el.className = el.className.replace('break-words', 'truncate');
+                    });
+
                     if (cardRef.current) {
                         cardRef.current.style.overflow = 'auto';
                         cardRef.current.style.maxHeight = '';
@@ -426,11 +473,11 @@ ${new Date().toLocaleString('en-IN')}`;
 
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
+        <div id="rider-modal-overlay" className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
             <div className="bg-background w-full max-w-4xl flex flex-col rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200" ref={fullCardRef}>
 
                 {/* ── HERO HEADER ── */}
-                <div className="flex-none relative overflow-hidden bg-slate-950 text-white border-b border-indigo-500/20">
+                <div id="rider-hero-header" className="flex-none relative overflow-hidden bg-slate-950 text-white border-b border-indigo-500/20">
                     {/* Decorative mixed dark/light blobs for richer aesthetics */}
                     <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
                     <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-violet-600/25 rounded-full blur-[60px] translate-y-1/3 -translate-x-1/4 pointer-events-none" />
