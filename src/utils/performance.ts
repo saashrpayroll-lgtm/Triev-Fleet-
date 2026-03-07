@@ -104,7 +104,16 @@ export const calculateAIScore = (
         allotments = tlRiders.filter(r => {
             if (!r.allotmentDate) return false;
             const dateStr = istFormatter.format(new Date(r.allotmentDate));
-            return dateStr >= period.start && dateStr <= period.end;
+            const inPeriod = dateStr >= period.start && dateStr <= period.end;
+
+            // Genuine New Allotment Rule:
+            // 1. Wallet balance is 0 (or near 0)
+            // 2. The rider was created recently relative to their allotment date (within 15 days), 
+            //    meaning they are not an old rider being reactivated months later.
+            const createdDiffDays = (new Date(r.allotmentDate).getTime() - new Date(r.createdAt).getTime()) / (1000 * 3600 * 24);
+            const isGenuineNew = r.walletAmount === 0 && createdDiffDays <= 15;
+
+            return inPeriod && isGenuineNew;
         }).length;
 
         submissions = tlRiders.filter(r => {

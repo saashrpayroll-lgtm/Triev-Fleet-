@@ -184,14 +184,16 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                 let newAllotmentDate = rider.allotment_date;
 
                 // 15-Day Rule: If inactive for > 15 days, reset allotment date
-                if (rider.inactivated_at) {
-                    const inactiveDate = new Date(rider.inactivated_at);
+                const inactiveDateStr = rider.inactivated_at || rider.last_status_change_at;
+                if (inactiveDateStr) {
+                    const inactiveDate = new Date(inactiveDateStr);
                     const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
                     if (daysDiff > 15) {
                         newAllotmentDate = new Date().toISOString();
                     }
+                    // If <= 15 days, it keeps the old allotment date.
                 } else {
-                    // If no inactivation date, treat as new allotment to be safe
+                    // Fallback if no dates exist
                     newAllotmentDate = new Date().toISOString();
                 }
 
@@ -263,9 +265,10 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
     };
 
     // Helpers to calculate 15-day rule for UI
-    const getReactivationDetails = (inactivatedAt: string | null) => {
-        if (!inactivatedAt) return { isWithin15Days: false, text: "New Allotment Date" };
-        const inactiveDate = new Date(inactivatedAt);
+    const getReactivationDetails = (inactivatedAt: string | null, lastStatusChangeAt?: string | null) => {
+        const inactiveDateStr = inactivatedAt || lastStatusChangeAt;
+        if (!inactiveDateStr) return { isWithin15Days: false, text: "New Allotment Date" };
+        const inactiveDate = new Date(inactiveDateStr);
         const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
         return {
             isWithin15Days: daysDiff <= 15,
@@ -494,7 +497,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                             {results.returningRiders
                                                                 .filter(r => r.rider_name?.toLowerCase().includes(searchReturning.toLowerCase()))
                                                                 .map(rider => {
-                                                                    const reactivateInfo = getReactivationDetails(rider.inactivated_at);
+                                                                    const reactivateInfo = getReactivationDetails(rider.inactivated_at, rider.last_status_change_at);
 
                                                                     return (
                                                                         <tr key={rider.id} className={`hover:bg-emerald-50/80 transition-colors ${selectedReturningIds.has(rider.id) ? 'bg-emerald-50' : ''}`}>
