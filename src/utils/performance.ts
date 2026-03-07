@@ -89,9 +89,17 @@ export const calculateAIScore = (
     const conversionRate = tlLeads.length > 0 ? Math.round((convertedLeads / tlLeads.length) * 100) : 0;
 
     // Retention/Tenure Stats
+    const istDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+    const todayStr = istDateFormatter.format(now);
+    const todayIST = new Date(todayStr).getTime();
+
     const riderAges = tlRiders
         .filter(r => r.status === 'active' && r.allotmentDate)
-        .map(r => Math.max(0, Math.floor((now.getTime() - new Date(r.allotmentDate!).getTime()) / 86400000)));
+        .map(r => {
+            const rDateStr = istDateFormatter.format(new Date(r.allotmentDate!));
+            const rDateIST = new Date(rDateStr).getTime();
+            return Math.max(0, Math.floor((todayIST - rDateIST) / 86400000));
+        });
     const avgRiderAge = riderAges.length > 0 ? riderAges.reduce((a, b) => a + b, 0) / riderAges.length : 0;
 
     // Growth Metrics (Period-aware)

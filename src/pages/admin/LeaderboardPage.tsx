@@ -68,7 +68,9 @@ const LeaderboardPage: React.FC = () => {
         try {
             const [usersRes, ridersRes, leadsRes] = await Promise.all([
                 supabase.from('users').select('id, full_name, mobile, email, status, role, profile_pic_url').eq('role', 'teamLeader'),
-                supabase.from('riders').select('id, triev_id, rider_name, status, wallet_amount, team_leader_id, allotment_date, inactivated_at'),
+                supabase.from('riders')
+                    .select('id, triev_id, rider_name, status, wallet_amount, team_leader_id, allotment_date, inactivated_at')
+                    .limit(50000),
                 supabase.from('leads').select('id, status, created_by, created_at'),
             ]);
 
