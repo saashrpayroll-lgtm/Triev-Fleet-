@@ -261,9 +261,19 @@ ${new Date().toLocaleString('en-IN')}`;
                 // Temporarily remove scroll bounds for full capture
                 const originalStyle = activeRef.current.style.cssText;
                 if (activeTab === 'profile') {
+                    // Lock width and use absolute positioning to prevent flex centering from clipping the top
+                    const currentWidth = activeRef.current.offsetWidth;
+                    activeRef.current.style.width = `${currentWidth}px`;
+
+                    activeRef.current.style.position = 'absolute';
+                    activeRef.current.style.top = '0px';
+                    activeRef.current.style.left = '0px';
+                    activeRef.current.style.margin = '0';
+                    activeRef.current.style.transform = 'none';
                     activeRef.current.style.maxHeight = 'none';
                     activeRef.current.style.height = 'auto';
-                    activeRef.current.style.overflow = 'visible';
+                    activeRef.current.style.zIndex = '99999';
+
                     // Force the inner content div to also expand
                     if (cardRef.current) {
                         cardRef.current.style.overflow = 'visible';
@@ -281,8 +291,8 @@ ${new Date().toLocaleString('en-IN')}`;
                     logging: false,
                     useCORS: true,
                     allowTaint: true,
-                    windowHeight: activeRef.current.scrollHeight, // Critical for full height
-                    y: 0
+                    scrollX: 0,
+                    scrollY: -window.scrollY
                 });
 
                 // Restore styles
