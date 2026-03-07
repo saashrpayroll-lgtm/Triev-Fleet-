@@ -208,10 +208,16 @@ const TLPersonalPerformance: React.FC = () => {
             const col = dayData?.col || 0;
             const activeFromDB = dayData?.active || 0;
 
-            // Allotments: allotment_date is stored as plain DATE "YYYY-MM-DD" — compare directly
+            // Allotments: use IST date and genuine new allotment rule
             const dayAllotments = riders.filter(r => {
                 const ad: string | null = r.allotment_date;
-                return ad ? ad.substring(0, 10) === ds : false;
+                if (!ad) return false;
+                const adIst = toISTStr(new Date(ad));
+
+                const createdDiffDays = (new Date(ad).getTime() - new Date(r.created_at).getTime()) / (1000 * 3600 * 24);
+                const isGenuineNew = r.wallet_amount === 0 && createdDiffDays <= 15;
+
+                return adIst === ds && isGenuineNew;
             }).length;
 
             // Submissions: inactive riders whose inactivated_at (IST date) == ds
@@ -227,7 +233,9 @@ const TLPersonalPerformance: React.FC = () => {
             const activeOnDay = activeFromDB > 0 ? activeFromDB : riders.filter(r => {
                 const ad: string | null = r.allotment_date;
                 if (!ad) return false;
-                if (ad.substring(0, 10) > ds) return false;
+                const adIst = toISTStr(new Date(ad));
+                if (adIst > ds) return false;
+
                 if (r.status === 'active') return true;
                 const iat: string | null = r.inactivated_at;
                 const uat: string | null = r.updated_at;
