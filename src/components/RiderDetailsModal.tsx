@@ -488,36 +488,62 @@ ${new Date().toLocaleString('en-IN')}`;
                         <div className="w-10 h-1 rounded-full bg-white/25" />
                     </div>
 
-                    <div className="relative px-5 pt-3 pb-0 md:pt-5">
+                    <div className="relative px-5 pt-3 pb-0 md:pt-5 z-10">
                         <div className="flex items-start gap-4">
-                            {/* Avatar + score ring */}
+                            {/* ── Avatar + AI Score Badge ── */}
                             <div className="relative flex-shrink-0 mt-1">
-                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 backdrop-blur border-2 border-white/20 flex items-center justify-center text-3xl font-black uppercase shadow-xl">
+                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 backdrop-blur border-2 border-white/20 flex items-center justify-center text-3xl md:text-4xl font-black uppercase shadow-xl text-white">
                                     {rider.riderName.charAt(0)}
                                 </div>
-                                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-slate-900 shadow-lg ${score.score >= 70 ? 'bg-emerald-500' : score.score >= 40 ? 'bg-amber-500' : 'bg-red-500'
-                                    }`}>
+                                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-slate-900 shadow-lg ${score.score >= 70 ? 'bg-emerald-500' : score.score >= 40 ? 'bg-amber-500' : 'bg-red-500'}`}>
                                     {score.score}
                                 </div>
                             </div>
 
-                            {/* Name / meta */}
-                            <div className="flex-1 min-w-0">
-                                <h2 className="text-xl md:text-2xl font-black truncate leading-tight">{rider.riderName}</h2>
-                                <p className="text-white/50 text-xs font-mono mt-0.5 truncate">{rider.trievId} · {rider.mobileNumber}</p>
-                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${rider.status === 'active' ? 'bg-emerald-400/20 border-emerald-300/40 text-emerald-300'
-                                        : rider.status === 'inactive' ? 'bg-amber-400/20 border-amber-300/40 text-amber-300'
-                                            : 'bg-red-400/20 border-red-300/40 text-red-300'
-                                        }`}>{rider.status}</span>
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-white/10 border border-white/15 truncate max-w-[120px]">{rider.clientName}</span>
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${walletBalance < 0 ? 'bg-red-400/20 border-red-300/40 text-red-300' : 'bg-emerald-400/20 border-emerald-300/40 text-emerald-300'
-                                        }`}>₹{walletBalance.toLocaleString('en-IN')}</span>
+                            {/* ── Rider Info Block ── */}
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                                {/* Name — large, prominent */}
+                                <h2 className="text-xl md:text-2xl font-black leading-tight text-white">{rider.riderName}</h2>
+
+                                {/* ID + Mobile row */}
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                    <span className="flex items-center gap-1 text-[11px] font-mono text-indigo-300 font-semibold">
+                                        <span className="opacity-60 text-white text-[10px]">ID</span> {rider.trievId}
+                                    </span>
+                                    <span className="text-white/20 text-xs">|</span>
+                                    <span className="flex items-center gap-1 text-[11px] font-mono text-white/70">
+                                        📱 {rider.mobileNumber}
+                                    </span>
+                                </div>
+
+                                {/* Status Badges row */}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                    {/* Status */}
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border tracking-wider
+                                        ${rider.status === 'active' ? 'bg-emerald-400/20 border-emerald-400/40 text-emerald-300'
+                                            : rider.status === 'inactive' ? 'bg-amber-400/20 border-amber-400/40 text-amber-300'
+                                                : 'bg-red-400/20 border-red-400/40 text-red-300'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${rider.status === 'active' ? 'bg-emerald-400' : rider.status === 'inactive' ? 'bg-amber-400' : 'bg-red-400'}`} />
+                                        {rider.status}
+                                    </span>
+
+                                    {/* Client */}
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-white/10 border border-white/15 text-white/70 font-medium max-w-[130px] truncate" title={rider.clientName}>
+                                        {rider.clientName}
+                                    </span>
+
+                                    {/* Wallet */}
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border
+                                        ${walletBalance < 0 ? 'bg-red-400/20 border-red-400/40 text-red-300'
+                                            : walletBalance === 0 ? 'bg-white/10 border-white/20 text-white/60'
+                                                : 'bg-emerald-400/20 border-emerald-400/40 text-emerald-300'}`}>
+                                        ₹{walletBalance.toLocaleString('en-IN')}
+                                    </span>
                                 </div>
                             </div>
 
-                            {/* Close */}
-                            <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0">
+                            {/* ── Close Button ── */}
+                            <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex-shrink-0 mt-1">
                                 <X size={20} />
                             </button>
                         </div>
@@ -528,8 +554,8 @@ ${new Date().toLocaleString('en-IN')}`;
                                 { label: 'Call', icon: <Phone size={13} />, onClick: () => handleAction('call'), cls: 'bg-white/10 hover:bg-white/20' },
                                 { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
                                 { label: 'Share Image', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-indigo-500/25 hover:bg-indigo-500/40 ring-1 ring-indigo-400/30' },
-                                ...(rider.status === 'active' && rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={17} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40 px-5 py-3 text-base shadow-lg transition-all' }] : []),
-                                ...(rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={17} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40 px-5 py-3 text-base shadow-lg transition-all' }] : []),
+                                ...(rider.status === 'active' && rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={13} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40' }] : []),
+                                ...(rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={13} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40' }] : []),
                             ].map(({ label, icon, onClick, cls }) => (
                                 <button key={label} onClick={onClick}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${cls}`}>
@@ -537,6 +563,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                 </button>
                             ))}
                         </div>
+
 
                         <div className="flex gap-6 mt-4 border-b border-white/15">
                             {(['profile', 'wallet', 'idcard'] as const).filter(t => t !== 'idcard' || canViewIdCard).map(tab => (
