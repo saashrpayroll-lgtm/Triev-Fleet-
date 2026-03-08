@@ -155,7 +155,7 @@ const Dashboard: React.FC = () => {
                 const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                 const [y, m, d] = todayIST.split('-').map(Number);
                 const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-                return `transaction_date.eq.${todayIST},and(transaction_date.is.null,created_at.gte.${midnight})`;
+                return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
             })();
 
             const [dailyRes, todayLedgerRes] = await Promise.all([
