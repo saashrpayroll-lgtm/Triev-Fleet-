@@ -571,6 +571,7 @@ const MyRiders: React.FC = () => {
                                             { label: 'Mobile', key: null },
                                             { label: 'Chassis No.', key: 'chassisNumber' },
                                             { label: 'Wallet', key: 'walletAmount' },
+                                            { label: 'Allotment', key: 'allotmentDate' },
                                             { label: 'Status', key: 'status' },
                                         ].map(col => (
                                             <th key={col.label}
@@ -645,6 +646,9 @@ const MyRiders: React.FC = () => {
                                                         </button>
                                                     )}
                                                 </div>
+                                            </td>
+                                            <td className="px-5 py-4 text-sm text-muted-foreground whitespace-nowrap">
+                                                {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
                                             </td>
 
                                             <td className="px-5 py-4">
@@ -726,6 +730,12 @@ const MyRiders: React.FC = () => {
                                                         <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Chassis No.</p>
                                                         <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 break-all">
                                                             {rider.chassisNumber || '—'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="bg-muted/40 rounded-xl p-2.5">
+                                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Allotment</p>
+                                                        <p className="text-xs font-bold text-foreground">
+                                                            {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
                                                         </p>
                                                     </div>
                                                 </div>
