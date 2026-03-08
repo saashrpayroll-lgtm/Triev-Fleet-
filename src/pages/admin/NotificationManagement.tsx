@@ -5,7 +5,7 @@ import {
     Bell, Send, Users, User, Shield, Sparkles, Search,
     AlertCircle, X, RefreshCcw, Radio, CheckCheck, Wallet, Flag,
     Zap, Calendar, Info, AlertTriangle, Wrench, Megaphone, Tag,
-    Clock, RotateCcw, Eye, BarChart3, Check, ChevronDown
+    Clock, RotateCcw, Eye, BarChart3, ChevronDown
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { NotificationType, NotificationPriority } from '@/types';
@@ -27,7 +27,6 @@ interface SystemNotification {
     priority: NotificationPriority;
     tags: string[];
     type: NotificationType | string;
-    recipientCount?: number;
 }
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -104,7 +103,7 @@ const NotificationManagement: React.FC = () => {
         try {
             const { data } = await supabase
                 .from('announcements')
-                .select('id, title, body, targetRole:target_role, targetId:target_id, targetName:target_name, priority, tags, type, createdBy:created_by, createdAt:created_at, recipientCount:recipient_count')
+                .select('id, title, body, targetRole:target_role, targetId:target_id, targetName:target_name, priority, tags, type, createdBy:created_by, createdAt:created_at')
                 .order('created_at', { ascending: false });
             if (data) setNotifications(data as SystemNotification[]);
         } catch { toast.error('Failed to load history.'); }
@@ -221,8 +220,7 @@ const NotificationManagement: React.FC = () => {
                 priority, tags,
                 type: notificationType,
                 created_by: currentUser.fullName || currentUser.email || 'Admin',
-                created_at: new Date().toISOString(),
-                recipient_count: recipientPreview ?? 0,
+                created_at: new Date().toISOString()
             };
 
             const { data: inserted, error: annError } = await supabase.from('announcements').insert(announcementData).select().single();
@@ -651,14 +649,6 @@ const NotificationManagement: React.FC = () => {
                                                                 ? note.targetName || 'Individual'
                                                                 : note.targetRole === 'all' ? 'Everyone' : 'Team Leaders'}
                                                         </span>
-
-                                                        {/* Recipient count */}
-                                                        {note.recipientCount != null && note.recipientCount > 0 && (
-                                                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                                                <Check size={9} className="text-green-500" />
-                                                                {note.recipientCount} recipients
-                                                            </span>
-                                                        )}
 
                                                         {/* Sent by */}
                                                         <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-1">

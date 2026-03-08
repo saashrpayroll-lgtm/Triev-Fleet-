@@ -11,6 +11,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
 import BottomNav from '@/components/layout/BottomNav';
 import { supabase } from '@/config/supabase';
+import { toast } from 'sonner';
 
 interface NavItem {
     path: string;
@@ -43,8 +44,24 @@ const TeamLeaderLayout: React.FC = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `user_id=eq.${userData.id}` }, () => fetchCounts())
             .subscribe();
 
+        const notifChannel = supabase.channel('tl-notifications-popup')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userData.id}` }, (payload) => {
+                const n = payload.new;
+                toast.custom(() => (
+                    <div className={`p-4 rounded-xl border-l-4 shadow-2xl bg-background border whitespace-pre-wrap ${n.priority === 'high' ? 'border-l-red-500' : 'border-l-primary'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                            {n.priority === 'high' ? <ShieldAlert size={16} className="text-red-500" /> : <Bell size={16} className="text-primary" />}
+                            <span className="font-bold text-sm text-foreground">{n.title}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground ml-6">{n.message}</p>
+                    </div>
+                ), { duration: n.priority === 'high' ? 10000 : 6000, position: 'top-center' });
+            })
+            .subscribe();
+
         return () => {
             supabase.removeChannel(reqChannel);
+            supabase.removeChannel(notifChannel);
         };
     }, [userData]);
 
