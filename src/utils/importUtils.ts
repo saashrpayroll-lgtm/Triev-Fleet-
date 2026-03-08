@@ -213,28 +213,9 @@ export const processRiderImport = async (
 
             if (existingRider) {
                 // ── PASS 1: Calculate New Status and Potential Date Reset ──
-                let targetStatus = existingRider.status;
-                let finalAllotmentDate = existingRider.allotment_date;
-                let shouldResetInactivatedAt = false;
-
-                // Reactivation Logic (15-Day Rule)
-                // NEW BEHAVIOR: DO NOT AUTO-REACTIVATE!
+                // NEW BEHAVIOR: DO NOT AUTO-REACTIVATE OR CHANGE ALLOTMENT DATE!
                 // We keep them inactive/deleted here. The Audit & Sync check will handle reactivation.
-                // However, we STILL calculate finalAllotmentDate to update it if needed.
-                if (existingRider.status === 'inactive' || existingRider.status === 'deleted') {
-                    // Check if inactive for > 15 days
-                    if (existingRider.inactivated_at) {
-                        const inactiveDate = new Date(existingRider.inactivated_at);
-                        const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
-                        if (daysDiff > 15) {
-                            // New Allotment!
-                            finalAllotmentDate = new Date().toISOString();
-                        }
-                    } else {
-                        // Fallback if inactivated_at missing but status is inactive - treat as new allotment
-                        finalAllotmentDate = new Date().toISOString();
-                    }
-                }
+                // Inactive riders strictly preserve their existing allotment_date until manually Reactivated.
 
                 // ── Check what changed ───────────────────────────────────────
                 const updatePayload: any = {};
@@ -253,22 +234,13 @@ export const processRiderImport = async (
 
                 // CRITICAL (LOCK UNIQUE IDENTITY): Never update triev_id or mobile_number for existing riders
 
-                // Status and Reactivation handling
-                if (targetStatus !== existingRider.status) {
-                    updatePayload.status = targetStatus;
-                    updatePayload.last_status_change_at = new Date().toISOString();
-                }
-
-                if (shouldResetInactivatedAt) {
-                    updatePayload.inactivated_at = null;
-                }
-
-                // Date Handling: Use शीट date only if explicitly provided and DIFFERENT, 
-                // but respects the 15-day rule calculated above as priority for reactivation.
+                // Date Handling: Use sheet date only if explicitly provided, 
+                // BUT DO NOT update allotment_date if the rider is currently inactive/deleted.
+                // Inactive riders must strictly preserve their existing allotment_date until manually Reactivated via Audit & Sync.
                 if (allotmentDate && String(allotmentDate).trim() !== String(existingRider.allotment_date || '').trim()) {
-                    updatePayload.allotment_date = allotmentDate;
-                } else if (finalAllotmentDate !== existingRider.allotment_date) {
-                    updatePayload.allotment_date = finalAllotmentDate;
+                    if (existingRider.status === 'active') {
+                        updatePayload.allotment_date = allotmentDate;
+                    }
                 }
 
                 if (teamLeaderId !== existingRider.team_leader_id || finalTLName !== existingRider.team_leader_name) {

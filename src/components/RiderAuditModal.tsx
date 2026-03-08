@@ -183,17 +183,25 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             await Promise.all(selectedRiders.map(async (rider) => {
                 let newAllotmentDate = rider.allotment_date;
 
-                // 15-Day Rule: If inactive for > 15 days, reset allotment date
+                // 15-Day Rule: If inactive for > 15 days, reset allotment date to TODAY
+                // We use IST dates for accurate comparison.
                 const inactiveDateStr = rider.inactivated_at || rider.last_status_change_at;
+
+                const nowISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+                const nowIST = new Date(nowISTStr).getTime();
+
                 if (inactiveDateStr) {
-                    const inactiveDate = new Date(inactiveDateStr);
-                    const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
+                    const inactiveISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(inactiveDateStr));
+                    const inactiveIST = new Date(inactiveISTStr).getTime();
+
+                    const daysDiff = (nowIST - inactiveIST) / (1000 * 3600 * 24);
+
                     if (daysDiff > 15) {
-                        newAllotmentDate = new Date().toISOString();
+                        newAllotmentDate = new Date().toISOString(); // Give new allotment timestamp
                     }
-                    // If <= 15 days, it keeps the old allotment date.
+                    // If <= 15 days, newAllotmentDate retains the old allotment_date
                 } else {
-                    // Fallback if no dates exist
+                    // Fallback if no dates exist (should be rare)
                     newAllotmentDate = new Date().toISOString();
                 }
 
