@@ -709,38 +709,37 @@ export const processRentCollectionImport = async (
             }
         }
 
-        // 4. Batch Execution (Parallel API Calls)
-        const txBatches = chunkArray(pendingTransactions, 20); // 20 requests at a time
-        for (const batch of txBatches) {
-            await Promise.all(batch.map(async (tx) => {
-                try {
-                    await LedgerAPI.addTransaction({
-                        riderId: tx.riderId,
-                        amount: tx.amount,
-                        type: 'DAILY_COLLECTION' as any,
-                        mode: 'ADD',
-                        description: `Rent Collected via Import`,
-                        metadata: {
-                            source: 'rent_import',
-                            transaction_id: tx.transactionId,
-                            date_on_sheet: tx.transactionDateStr,
-                            adminName: adminName
-                        },
-                        externalId: tx.transactionId || null,
-                        source: 'IMPORT',
-                        transactionDate: tx.transactionDateStr
-                    });
-                    summary.success++;
-                } catch (err: any) {
-                    summary.failed++;
-                    summary.errors.push({
-                        row: tx.rowNum,
-                        identifier: tx.riderId,
-                        reason: err.message || "Failed to add transaction",
-                        data: tx.row
-                    });
-                }
-            }));
+        // 4. Sequential Execution (Wait for Postgres triggers to complete safely)
+        // We do not use Promise.all here because parallel inserts cause Postgres AFTER INSERT
+        // triggers to aggregate concurrently before rows are committed, leading to lost daily collection totals.
+        for (const tx of pendingTransactions) {
+            try {
+                await LedgerAPI.addTransaction({
+                    riderId: tx.riderId,
+                    amount: tx.amount,
+                    type: 'DAILY_COLLECTION' as any,
+                    mode: 'ADD',
+                    description: `Rent Collected via Import`,
+                    metadata: {
+                        source: 'rent_import',
+                        transaction_id: tx.transactionId,
+                        date_on_sheet: tx.transactionDateStr,
+                        adminName: adminName
+                    },
+                    externalId: tx.transactionId || null,
+                    source: 'IMPORT',
+                    transactionDate: tx.transactionDateStr
+                });
+                summary.success++;
+            } catch (err: any) {
+                summary.failed++;
+                summary.errors.push({
+                    row: tx.rowNum,
+                    identifier: tx.riderId,
+                    reason: err.message || "Failed to add transaction",
+                    data: tx.row
+                });
+            }
         }
 
     } catch (error: any) {
