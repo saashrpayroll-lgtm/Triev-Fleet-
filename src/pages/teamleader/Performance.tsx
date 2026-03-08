@@ -83,7 +83,7 @@ const TLPersonalPerformance: React.FC = () => {
                     .from('riders')
                     .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at')
                     .eq('team_leader_id', userData.id)
-                    .limit(5000),
+                    .limit(10000),
 
                 // Leads for this TL
                 supabase

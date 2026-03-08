@@ -107,7 +107,7 @@ const TLAllotment: React.FC = () => {
                 supabase
                     .from('riders')
                     .select('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at')
-                    .limit(10000),
+                    .limit(50000),
 
                 // Step 3: ✅ daily_collections — proven source of truth for rent/collections per TL
                 supabase
@@ -185,10 +185,13 @@ const TLAllotment: React.FC = () => {
             const submissionsByTL = new Map<string, number>();
             riders.forEach(r => {
                 if (!r.team_leader_id) return;
-                // Allotment: compare allotment_date (plain DATE) directly
+                // Allotment: Convert to IST first because substringing raw ISO takes UTC date, causing timezone shift bugs
                 const ad: string | null = r.allotment_date;
-                if (ad && ad.substring(0, 10) >= pStart && ad.substring(0, 10) <= pEnd) {
-                    allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
+                if (ad) {
+                    const adIst = toISTDateStr(new Date(ad));
+                    if (adIst >= pStart && adIst <= pEnd) {
+                        allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
+                    }
                 }
                 // Submission: inactivated_at in range
                 if (r.status === 'inactive' || r.status === 'deleted') {
