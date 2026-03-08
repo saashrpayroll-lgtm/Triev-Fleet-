@@ -137,91 +137,104 @@ function ResponsiveTable<T>({
             </div>
 
             {/* ─── MOBILE CARDS (< md) ─── */}
-            <div className="md:hidden space-y-4 p-4 bg-slate-50/30 dark:bg-slate-900/30">
-                {data.map((row) => {
-                    const isHighlighted = highlightedRowId === String(row[keyField]);
-                    // Column[0] is often a checkbox — render it separately
-                    const checkboxCol = columns[0];
-                    const primaryCol = columns.find(c => c.accessorKey === 'riderName' || c.accessorKey === 'fullName') || columns[1];
-                    const secondaryCol = columns.find(c => c.accessorKey === 'trievId') || columns[1];
-                    const detailCols = columns.filter(c =>
-                        c !== columns[0] &&
-                        c !== primaryCol &&
-                        c !== secondaryCol
-                    );
+            <div className="md:hidden bg-slate-50/30 dark:bg-slate-900/30">
+                {/* ─── Mobile Select-All header (renders columns[0].header = checkbox) ─── */}
+                {columns[0] && (
+                    <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-2.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+                        <div onClick={e => e.stopPropagation()}>
+                            {columns[0].header}
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                            Select All
+                        </span>
+                    </div>
+                )}
+                <div className="space-y-4 p-4">
+                    {data.map((row) => {
+                        const isHighlighted = highlightedRowId === String(row[keyField]);
+                        // Column[0] is often a checkbox — render it separately
+                        const checkboxCol = columns[0];
+                        const primaryCol = columns.find(c => c.accessorKey === 'riderName' || c.accessorKey === 'fullName') || columns[1];
+                        const secondaryCol = columns.find(c => c.accessorKey === 'trievId') || columns[1];
+                        const detailCols = columns.filter(c =>
+                            c !== columns[0] &&
+                            c !== primaryCol &&
+                            c !== secondaryCol
+                        );
 
-                    return (
-                        <div
-                            key={String(row[keyField])}
-                            onClick={() => onRowClick && onRowClick(row)}
-                            className={`
+                        return (
+                            <div
+                                key={String(row[keyField])}
+                                onClick={() => onRowClick && onRowClick(row)}
+                                className={`
                                 relative rounded-2xl border transition-all duration-300 overflow-hidden shadow-sm
                                 ${onRowClick ? 'cursor-pointer active:scale-[0.98]' : ''}
                                 ${isHighlighted
-                                    ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 ring-2 ring-amber-400'
-                                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary/40 hover:shadow-lg'
-                                }
+                                        ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 ring-2 ring-amber-400'
+                                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary/40 hover:shadow-lg'
+                                    }
                             `}
-                        >
-                            {/* Vertical Accent */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isHighlighted ? 'bg-amber-400' : 'bg-primary/20 group-hover:bg-primary transition-colors'}`} />
+                            >
+                                {/* Vertical Accent */}
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isHighlighted ? 'bg-amber-400' : 'bg-primary/20 group-hover:bg-primary transition-colors'}`} />
 
-                            <div className="p-4">
-                                {/* Card Header — checkbox + name + action */}
-                                <div className="flex justify-between items-start gap-3 mb-4">
-                                    {/* Checkbox column (column[0]) rendered here if it's a checkbox type */}
-                                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                                        {checkboxCol && (
-                                            <div
-                                                onClick={e => e.stopPropagation()}
-                                                className="flex-shrink-0 mt-0.5"
-                                            >
-                                                {checkboxCol.cell ? checkboxCol.cell(row) : null}
-                                            </div>
-                                        )}
-                                        <div className="min-w-0 flex-1">
-                                            <div className="text-base font-black text-slate-900 dark:text-slate-100 truncate">
-                                                {primaryCol?.cell ? primaryCol.cell(row) : primaryCol?.accessorKey ? String(row[primaryCol.accessorKey] || '') : ''}
-                                            </div>
-                                            <div className="text-[10px] font-mono font-bold tracking-widest text-slate-500 mt-1 uppercase bg-slate-100 dark:bg-slate-800 w-fit px-2 py-0.5 rounded-md">
-                                                {secondaryCol?.cell ? secondaryCol.cell(row) : secondaryCol?.accessorKey ? String(row[secondaryCol.accessorKey] || '') : ''}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {actions && (
-                                        <div onClick={e => e.stopPropagation()} className="flex-shrink-0">
-                                            {actions(row)}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Badge Grid */}
-                                <div className="grid grid-cols-2 gap-2.5">
-                                    {detailCols.map((col, idx) => {
-                                        const val = col.cell ? col.cell(row) : (col.accessorKey ? (row[col.accessorKey] as React.ReactNode) : null);
-                                        const label = typeof col.header === 'string' ? col.header : null;
-                                        if (!label || !val) return null;
-                                        return (
-                                            <div key={idx} className="flex flex-col gap-1.5 p-3 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800/50 transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</span>
-                                                <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                                                    {val}
+                                <div className="p-4">
+                                    {/* Card Header — checkbox + name + action */}
+                                    <div className="flex justify-between items-start gap-3 mb-4">
+                                        {/* Checkbox column (column[0]) rendered here if it's a checkbox type */}
+                                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                                            {checkboxCol && (
+                                                <div
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="flex-shrink-0 mt-0.5"
+                                                >
+                                                    {checkboxCol.cell ? checkboxCol.cell(row) : null}
+                                                </div>
+                                            )}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-base font-black text-slate-900 dark:text-slate-100 truncate">
+                                                    {primaryCol?.cell ? primaryCol.cell(row) : primaryCol?.accessorKey ? String(row[primaryCol.accessorKey] || '') : ''}
+                                                </div>
+                                                <div className="text-[10px] font-mono font-bold tracking-widest text-slate-500 mt-1 uppercase bg-slate-100 dark:bg-slate-800 w-fit px-2 py-0.5 rounded-md">
+                                                    {secondaryCol?.cell ? secondaryCol.cell(row) : secondaryCol?.accessorKey ? String(row[secondaryCol.accessorKey] || '') : ''}
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                                        </div>
+                                        {actions && (
+                                            <div onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                                                {actions(row)}
+                                            </div>
+                                        )}
+                                    </div>
 
-                            {/* View Detail Hint */}
-                            {onRowClick && !actions && (
-                                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/20 border-t border-border/40 flex items-center justify-end text-[10px] font-black uppercase tracking-widest text-primary gap-1.5">
-                                    View Full History <ChevronRight size={14} className="animate-pulse" />
+                                    {/* Badge Grid */}
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        {detailCols.map((col, idx) => {
+                                            const val = col.cell ? col.cell(row) : (col.accessorKey ? (row[col.accessorKey] as React.ReactNode) : null);
+                                            const label = typeof col.header === 'string' ? col.header : null;
+                                            if (!label || !val) return null;
+                                            return (
+                                                <div key={idx} className="flex flex-col gap-1.5 p-3 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100/50 dark:border-slate-800/50 transition-all hover:bg-white dark:hover:bg-slate-800 shadow-sm">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</span>
+                                                    <div className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                                        {val}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    );
-                })}
+
+                                {/* View Detail Hint */}
+                                {onRowClick && !actions && (
+                                    <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/20 border-t border-border/40 flex items-center justify-end text-[10px] font-black uppercase tracking-widest text-primary gap-1.5">
+                                        View Full History <ChevronRight size={14} className="animate-pulse" />
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
         </div>
