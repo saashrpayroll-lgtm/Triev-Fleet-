@@ -45,17 +45,25 @@ const TeamLeaderLayout: React.FC = () => {
             .subscribe();
 
         const notifChannel = supabase.channel('tl-notifications-popup')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userData.id}` }, (payload) => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload) => {
                 const n = payload.new;
-                toast.custom(() => (
-                    <div className={`p-4 rounded-xl border-l-4 shadow-2xl bg-background border whitespace-pre-wrap ${n.priority === 'high' ? 'border-l-red-500' : 'border-l-primary'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                            {n.priority === 'high' ? <ShieldAlert size={16} className="text-red-500" /> : <Bell size={16} className="text-primary" />}
-                            <span className="font-bold text-sm text-foreground">{n.title}</span>
+
+                // Check if this broadcast is meant for this Team Leader
+                const isForMe = n.target_role === 'all' ||
+                    n.target_role === 'teamLeader' ||
+                    (n.target_role === 'single_user' && n.target_id === userData.id);
+
+                if (isForMe) {
+                    toast.custom(() => (
+                        <div className={`p-4 rounded-xl border-l-4 shadow-2xl bg-background border whitespace-pre-wrap ${n.priority === 'high' ? 'border-l-red-500' : 'border-l-primary'}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                                {n.priority === 'high' ? <ShieldAlert size={16} className="text-red-500" /> : <Bell size={16} className="text-primary" />}
+                                <span className="font-bold text-sm text-foreground">{n.title}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground ml-6">{n.body}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground ml-6">{n.message}</p>
-                    </div>
-                ), { duration: n.priority === 'high' ? 10000 : 6000, position: 'top-center' });
+                    ), { duration: n.priority === 'high' ? 10000 : 6000, position: 'top-center' });
+                }
             })
             .subscribe();
 
