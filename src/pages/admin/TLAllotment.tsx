@@ -90,9 +90,10 @@ const TLAllotment: React.FC = () => {
             // ✅ ROBUST FIX: Capture today's collections using BOTH date fields:
             // - transaction_date = todayStr  → correctly set by rent import (covers AM/PM)
             // - transaction_date IS NULL AND created_at >= midnight → legacy/manual rows
-            // IST midnight in UTC
+            // IST midnight/end of day in UTC bounds
             const [yr, mo, dy] = todayStr.split('-').map(Number);
             const midnightIST = new Date(Date.UTC(yr, mo - 1, dy, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const endOfDayIST = new Date(Date.UTC(yr, mo - 1, dy, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             // Fetch all data in parallel
             const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
@@ -131,8 +132,8 @@ const TLAllotment: React.FC = () => {
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
                     ])
-                    // ✅ ROBUST: catch rows with transaction_date set (imports) OR NULL (legacy manual)
-                    .or(`transaction_date.eq.${todayStr},and(transaction_date.is.null,created_at.gte.${midnightIST})`),
+                    // ✅ ROBUST: catch rows within IST today boundaries (imports) OR NULL dates created today (legacy manual)
+                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`),
             ]);
 
             if (tlsRes.error) throw tlsRes.error;

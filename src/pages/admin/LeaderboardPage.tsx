@@ -115,6 +115,7 @@ const LeaderboardPage: React.FC = () => {
             // ✅ ROBUST FIX: catch rows where transaction_date is set (imports) OR NULL (legacy)
             const [yr3, mo3, dy3] = istDateStr.split('-').map(Number);
             const midnightISTStr = new Date(Date.UTC(yr3, mo3 - 1, dy3, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const endOfDayISTStr = new Date(Date.UTC(yr3, mo3 - 1, dy3, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const { data: ledgerRes } = await supabase
                 .from('wallet_ledger')
@@ -126,7 +127,7 @@ const LeaderboardPage: React.FC = () => {
                     'FTD_COLLECTION', 'FTD COLLECTION',
                     'COLLECTION', 'RENT'
                 ])
-                .or(`transaction_date.eq.${istDateStr},and(transaction_date.is.null,created_at.gte.${midnightISTStr})`);
+                .or(`and(transaction_date.gte.${midnightISTStr},transaction_date.lte.${endOfDayISTStr}),and(transaction_date.is.null,created_at.gte.${midnightISTStr})`);
 
             if (ledgerRes && (!period || period.end >= istDateStr)) {
                 (ledgerRes as any[]).forEach(txn => {

@@ -675,7 +675,12 @@ export const processRentCollectionImport = async (
                     continue;
                 }
 
-                let transactionDateStr = new Date().toISOString();
+                // Default to Noon IST of today if no date provided
+                let transactionDateStr = ((): string => {
+                    const now = new Date();
+                    const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                    return `${istDateStr}T12:00:00.000+05:30`;
+                })();
                 const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
                 if (dateRaw) {
                     const parsedDate = parseIndianDate(dateRaw);

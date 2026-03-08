@@ -62,8 +62,9 @@ const TLPerformance: React.FC = () => {
             const weekStartUTC2 = new Date(workingDateUTC2);
             weekStartUTC2.setUTCDate(diff2);
             const weekStartStr = weekStartUTC2.toISOString().split('T')[0];
-            // IST midnight in UTC — fallback for rows where transaction_date is NULL
+            // IST midnight/end of day in UTC bounds — fallback for rows where transaction_date is NULL
             const midnightIST = new Date(Date.UTC(year2, month2 - 1, day2, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const endOfDayIST = new Date(Date.UTC(year2, month2 - 1, day2, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
                 supabase.from('riders').select('*').limit(5000),
@@ -84,7 +85,7 @@ const TLPerformance: React.FC = () => {
                         'COLLECTION', 'RENT'
                     ])
                     // ✅ ROBUST: catch rows with transaction_date set (imports) OR NULL (legacy manual)
-                    .or(`transaction_date.eq.${todayStr},and(transaction_date.is.null,created_at.gte.${midnightIST})`)
+                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
