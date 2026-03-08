@@ -667,7 +667,7 @@ export const processRentCollectionImport = async (
 
                 if (!riderId) throw new Error(`Rider not found (Triev ID: ${trievIdRaw}, Mobile: ${mobileRaw})`);
 
-                const transactionId = row['Transaction ID'] || row['transaction_id'] || '';
+                const transactionId = row['Transaction ID'] || row['transaction_id'] || row['OrdertransactionId'] || row['OrderTransactionId'] || '';
                 if (transactionId && existingTxns.has(transactionId)) {
                     if (summary.skipped === undefined) summary.skipped = 0;
                     summary.skipped++;
@@ -681,7 +681,7 @@ export const processRentCollectionImport = async (
                     const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                     return `${istDateStr}T12:00:00.000+05:30`;
                 })();
-                const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date']);
+                const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date', 'PaymentStamp', 'Payment Stamp']);
                 if (dateRaw) {
                     const parsedDate = parseIndianDate(dateRaw);
                     if (parsedDate) {
