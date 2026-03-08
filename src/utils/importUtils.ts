@@ -547,6 +547,14 @@ export const processWalletUpdate = async (
             } else if (cleanupResult?.deleted_count > 0) {
                 console.log(`[Auto-Cleanup] Removed ${cleanupResult.deleted_count} stale DAY_OPENING_BALANCE entries from previous dates.`);
             }
+
+            // Also silently prune old >21 days wallet ledger data to save DB space
+            const { data: pruneResult, error: pruneError } = await supabase.rpc('prune_old_wallet_ledger_data');
+            if (pruneError) {
+                console.warn('[Auto-Cleanup] prune_old_wallet_ledger_data failed:', pruneError.message);
+            } else if (pruneResult?.success && pruneResult?.deleted_count > 0) {
+                console.log(`[Auto-Cleanup] Automatically pruned ${pruneResult.deleted_count} old wallet rows (>21 days).`);
+            }
         } catch (cleanupErr) {
             // Non-fatal: log and move on
             console.warn('[Auto-Cleanup] Failed silently:', cleanupErr);
@@ -748,5 +756,20 @@ export const processRentCollectionImport = async (
     }
 
     await logImportHistory(adminId, adminName, 'googleSheet', summary, fileData.length);
+
+    // Silently prune old >21 days wallet ledger data to save DB space
+    if (summary.success > 0) {
+        try {
+            const { data: pruneResult, error: pruneError } = await supabase.rpc('prune_old_wallet_ledger_data');
+            if (pruneError) {
+                console.warn('[Rent-Cleanup] prune_old_wallet_ledger_data failed:', pruneError.message);
+            } else if (pruneResult?.success && pruneResult?.deleted_count > 0) {
+                console.log(`[Rent-Cleanup] Automatically pruned ${pruneResult.deleted_count} old wallet rows (>21 days).`);
+            }
+        } catch (e) {
+            console.warn('[Rent-Cleanup] Failed silently:', e);
+        }
+    }
+
     return summary;
 };

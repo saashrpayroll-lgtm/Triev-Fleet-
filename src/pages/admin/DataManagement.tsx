@@ -416,18 +416,52 @@ const DataManagement: React.FC = () => {
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">Data Management</h1>
                     <p className="text-muted-foreground mt-1">Bulk Operations & Import History</p>
                 </div>
-                <button
-                    onClick={handleEmergencyResync}
-                    disabled={isEmergencyResyncing}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${isEmergencyResyncing
+                <div className="flex gap-2">
+                    <button
+                        onClick={async () => {
+                            if (!confirm("This will permanently delete Wallet Ledger rows older than 21 days to save database space. Historical 'Daily Collection' totals for Team Leaders will NOT be affected. Proceed?")) return;
+
+                            const toastId = toast.loading("Pruning old wallet data (>21 days)...");
+                            try {
+                                const { data, error } = await supabase.rpc('prune_old_wallet_ledger_data');
+                                if (error) throw error;
+
+                                if (data && data.success) {
+                                    toast.success(data.message, { id: toastId });
+                                    logActivity({
+                                        actionType: 'systemDataPruned',
+                                        targetType: 'system',
+                                        targetId: 'wallet_ledger',
+                                        details: `Admin manually pruned ${data.deleted_count} wallet rows older than ${data.cutoff_date}`,
+                                        performedBy: userData?.email || 'admin'
+                                    }).catch(console.error);
+                                } else {
+                                    throw new Error(data?.error || "Unknown error during pruning.");
+                                }
+                            } catch (err: any) {
+                                console.error(err);
+                                toast.error("Failed to prune data: " + err.message, { id: toastId });
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800/50"
+                        title="Permanently delete Wallet entries older than 21 days (Saves DB space)"
+                    >
+                        <Trash2 size={18} />
+                        <span>Clean Old Data (21+ Days)</span>
+                    </button>
+                    <button
+                        onClick={handleEmergencyResync}
+                        disabled={isEmergencyResyncing}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${isEmergencyResyncing
                             ? 'bg-muted text-muted-foreground cursor-not-allowed'
                             : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 dark:bg-red-900/20 dark:border-red-800/50 dark:hover:bg-red-900/40'
-                        }`}
-                    title="Force recalculate all Daily Collections from Ledger History"
-                >
-                    <RefreshCw size={18} className={isEmergencyResyncing ? 'animate-spin' : ''} />
-                    <span>{isEmergencyResyncing ? 'Resyncing...' : 'Resync Daily Collections'}</span>
-                </button>
+                            }`}
+                        title="Force recalculate all Daily Collections from Ledger History"
+                    >
+                        <RefreshCw size={18} className={isEmergencyResyncing ? 'animate-spin' : ''} />
+                        <span>{isEmergencyResyncing ? 'Resyncing...' : 'Resync Daily Collections'}</span>
+                    </button>
+                </div>
             </div>
 
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
