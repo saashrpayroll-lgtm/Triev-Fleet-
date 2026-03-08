@@ -12,7 +12,7 @@ interface DebtRecoveryTasksProps {
     todayCollections?: Record<string, number>; // Passing today's collections per rider ID
 }
 
-const CRITICAL_THRESHOLD = -2000; // Updated to -2000 as requested for severe defaulters
+const CRITICAL_THRESHOLD = -699; // Updated to -699 for severe defaulters per user request
 
 const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, todayCollections = {} }) => {
     const [activeTab, setActiveTab] = useState<'critical' | 'warning' | 'zero_collection' | 'inactive' | 'low_balance'>('critical');

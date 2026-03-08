@@ -177,7 +177,7 @@ const MyRiders: React.FC = () => {
                 if (advancedFilters.walletRange === 'negative') return a < 0;
                 if (advancedFilters.walletRange === 'zero') return a === 0;
                 if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && a >= 0 && a <= 250;
-                if (advancedFilters.walletRange === 'defaulter') return a <= -2000;
+                if (advancedFilters.walletRange === 'defaulter') return a <= -699;
                 if (advancedFilters.walletRange === 'zero_collection') return r.status === 'active' && a <= 0 && !(todayCollections[r.id] > 0);
                 return true;
             });
@@ -530,7 +530,7 @@ const MyRiders: React.FC = () => {
                             <option value="negative">Negative Balance</option>
                             <option value="zero">Zero Balance</option>
                             <option value="low_balance">Low Balance (0-250)</option>
-                            <option value="defaulter">🚨 Defaulters (&lt; -2000)</option>
+                            <option value="defaulter">🚨 Defaulters (&lt; -699)</option>
                             <option value="zero_collection">⚠️ Zero Collection Today</option>
                         </select>
                     </div>
