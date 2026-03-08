@@ -121,7 +121,7 @@ export const calculateAIScore = (
         }).length;
 
         submissions = tlRiders.filter(r => {
-            if (r.status !== 'inactive' || !r.inactivatedAt) return false;
+            if ((r.status !== 'inactive' && r.status !== 'deleted') || !r.inactivatedAt) return false;
             const dateStr = istFormatter.format(new Date(r.inactivatedAt));
             return dateStr >= period.start && dateStr <= period.end;
         }).length;

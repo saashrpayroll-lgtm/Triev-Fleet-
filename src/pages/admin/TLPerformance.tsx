@@ -264,7 +264,7 @@ const TLPerformance: React.FC = () => {
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
             // Support both snake_case and camelCase from Supabase mappings
-            const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId) && !r.deleted_at);
+            const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId));
             const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
 
             const activeRiders = tlRiders.filter(r => r.status === 'active').length;
@@ -303,7 +303,7 @@ const TLPerformance: React.FC = () => {
             }).length;
 
             const submissions = rawData.riders.filter(r => {
-                if (r.status !== 'inactive' || !r.inactivated_at) return false;
+                if ((r.status !== 'inactive' && r.status !== 'deleted') || !r.inactivated_at) return false;
                 if (r.team_leader_id !== tlId && r.teamLeaderId !== tlId) return false;
 
                 const sdStr = formatter.format(new Date(r.inactivated_at));

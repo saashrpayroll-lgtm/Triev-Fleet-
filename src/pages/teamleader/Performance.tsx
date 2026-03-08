@@ -78,12 +78,11 @@ const TLPersonalPerformance: React.FC = () => {
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
-                // All TL's non-deleted riders
+                // All TL's riders (including deleted for historical accuracy in Fleet Flow)
                 supabase
                     .from('riders')
                     .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at')
                     .eq('team_leader_id', userData.id)
-                    .is('deleted_at', null)
                     .limit(5000),
 
                 // Leads for this TL
@@ -219,9 +218,9 @@ const TLPersonalPerformance: React.FC = () => {
                 return adIst === ds;
             }).length;
 
-            // Submissions: inactive riders whose inactivated_at (IST date) == ds
+            // Submissions: inactive or deleted riders whose inactivated_at (IST date) == ds
             const daySubmissions = riders.filter(r => {
-                if (r.status !== 'inactive') return false;
+                if (r.status !== 'inactive' && r.status !== 'deleted') return false;
                 // Prefer genuine inactivated_at date, fallback to updated_at
                 const iat: string | null = r.inactivated_at;
                 const uat: string | null = r.updated_at;

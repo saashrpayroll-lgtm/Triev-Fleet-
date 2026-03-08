@@ -103,11 +103,10 @@ const TLAllotment: React.FC = () => {
                     .eq('role', 'teamLeader')
                     .eq('status', 'active'),
 
-                // Step 2: All non-deleted riders
+                // Step 2: All riders (including deleted) to ensure historical allotments/submissions are included
                 supabase
                     .from('riders')
                     .select('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at')
-                    .is('deleted_at', null)
                     .limit(10000),
 
                 // Step 3: ✅ daily_collections — proven source of truth for rent/collections per TL
@@ -192,7 +191,7 @@ const TLAllotment: React.FC = () => {
                     allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
                 }
                 // Submission: inactivated_at in range
-                if (r.status === 'inactive') {
+                if (r.status === 'inactive' || r.status === 'deleted') {
                     const iat: string | null = r.inactivated_at;
                     const uat: string | null = r.updated_at;
                     const inactDate = iat ? toISTDateStr(new Date(iat)) : (uat ? toISTDateStr(new Date(uat)) : null);
