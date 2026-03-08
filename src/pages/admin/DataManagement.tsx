@@ -254,6 +254,33 @@ const DataManagement: React.FC = () => {
         }
     };
 
+    const [isEmergencyResyncing, setIsEmergencyResyncing] = useState(false);
+    const handleEmergencyResync = async () => {
+        if (!confirm("This will force-recalculate all Daily Collection metrics for today across all Team Leaders. This might take a few seconds. Proceed?")) return;
+
+        setIsEmergencyResyncing(true);
+        const toastId = toast.loading("Resyncing Daily Collections cache from Ledger history...");
+
+        try {
+            const { error } = await supabase.rpc('resync_all_daily_collections');
+            if (error) throw error;
+
+            toast.success("Successfully resynced all daily collection caches!", { id: toastId });
+            logActivity({
+                actionType: 'systemEmergencyResync',
+                targetType: 'system',
+                targetId: 'daily_collections',
+                details: `Manually triggered emergency resync of daily collections cache`,
+                performedBy: userData?.email || 'admin'
+            }).catch(console.error);
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Failed to resync caches: " + err.message, { id: toastId });
+        } finally {
+            setIsEmergencyResyncing(false);
+        }
+    };
+
     const handleRiderImport = async (data: any[]) => {
         if (!userData) return;
         try {
@@ -389,6 +416,18 @@ const DataManagement: React.FC = () => {
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">Data Management</h1>
                     <p className="text-muted-foreground mt-1">Bulk Operations & Import History</p>
                 </div>
+                <button
+                    onClick={handleEmergencyResync}
+                    disabled={isEmergencyResyncing}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${isEmergencyResyncing
+                            ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                            : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 dark:bg-red-900/20 dark:border-red-800/50 dark:hover:bg-red-900/40'
+                        }`}
+                    title="Force recalculate all Daily Collections from Ledger History"
+                >
+                    <RefreshCw size={18} className={isEmergencyResyncing ? 'animate-spin' : ''} />
+                    <span>{isEmergencyResyncing ? 'Resyncing...' : 'Resync Daily Collections'}</span>
+                </button>
             </div>
 
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
