@@ -243,9 +243,16 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                     </div>
 
                                     {/* Grade badge top-left */}
-                                    <div className={`absolute top-5 left-5 z-20 flex items-center gap-1 px-2.5 py-1 rounded-full border ${grade.bg} ${grade.border}`}>
-                                        <Star size={8} className={grade.text} />
-                                        <span className={`text-[9px] font-black tracking-widest uppercase ${grade.text}`}>{grade.label}</span>
+                                    <div className={`absolute top-5 left-5 z-20 flex flex-col gap-2`}>
+                                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border w-fit ${grade.bg} ${grade.border}`}>
+                                            <Star size={8} className={grade.text} />
+                                            <span className={`text-[9px] font-black tracking-widest uppercase ${grade.text}`}>{grade.label}</span>
+                                        </div>
+                                        {tl.stats.badges?.map(badge => (
+                                            <div key={badge} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 border border-white/20 shadow-xl backdrop-blur-md w-fit">
+                                                <span className="text-[10px] font-black tracking-wider text-white whitespace-nowrap">{badge}</span>
+                                            </div>
+                                        ))}
                                     </div>
 
                                     {/* Card Content */}
@@ -587,7 +594,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                                 </div>
                                                             </div>
                                                             <div className="flex-1 min-w-0 pr-2">
-                                                                <p className="text-sm font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                                <div className="flex items-center gap-1.5 mb-0.5">
+                                                                    <p className="text-sm font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                                    {tl.stats.badges && tl.stats.badges.length > 0 && (
+                                                                        <span className="text-[12px]">{tl.stats.badges[0].split(' ')[0]}</span>
+                                                                    )}
+                                                                </div>
                                                                 <p className="text-[10px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
                                                             </div>
                                                         </div>
@@ -676,7 +688,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                        <div className="flex items-center gap-1 mb-0.5">
+                                                            <p className="text-xs font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                            {tl.stats.badges && tl.stats.badges.length > 0 && (
+                                                                <TooltipProvider delayDuration={300}>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger>
+                                                                            <span className="text-[10px]">{tl.stats.badges[0].split(' ')[0]}</span>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent className="bg-slate-900 text-white border-white/10 p-2 text-xs font-bold rounded-lg shadow-xl">
+                                                                            {tl.stats.badges.join(' • ')}
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[9px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
                                                     </div>
                                                 </div>

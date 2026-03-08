@@ -609,6 +609,42 @@ const Dashboard: React.FC = () => {
 
                     <TodaysCollectionCard />
 
+                    {/* NEW Projected vs Actual Revenue Card */}
+                    <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-500/20 rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg transition-all shadow-sm">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="text-xs font-black uppercase text-indigo-600/80 dark:text-indigo-400 tracking-wider">Revenue Projection (Daily)</h3>
+                                <p className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1 drop-shadow-sm">
+                                    ₹{stats.totalCollection.toLocaleString('en-IN')}
+                                </p>
+                            </div>
+                            <div className="p-2 sm:p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400">
+                                <TrendingUp size={16} className="sm:w-5 sm:h-5" />
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center gap-1">
+                                    Target: ₹{(stats.activeRiders * 500).toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400">
+                                    {stats.activeRiders > 0 ? Math.min(100, Math.round((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}% Formed
+                                </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-border rounded-full overflow-hidden flex">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${stats.activeRiders > 0 ? Math.min(100, ((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}%` }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                />
+                            </div>
+                            <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
+                                <Activity size={10} /> Based on approx. ₹500/day per active rider
+                            </p>
+                        </div>
+                    </div>
+
                     <SmartMetricCard
                         title="Net Liquidity"
                         value={stats.netBalance}

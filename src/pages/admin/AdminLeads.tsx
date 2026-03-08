@@ -555,8 +555,50 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                 </button>
             </div>
 
+            {/* Lead Conversion Funnel */}
+            <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                    <Target size={18} className="text-primary" />
+                    <h2 className="text-sm font-bold">Conversion Funnel</h2>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+                    {(() => {
+                        const total = leads.length;
+                        const newLeads = leads.filter(l => l.status === 'New').length;
+                        const followUp = leads.filter(l => l.status === 'Not Convert').length; // Changed from 'Follow Up' to 'Not Convert'
+                        const convert = leads.filter(l => l.status === 'Convert').length;
+
+                        const stages = [
+                            { label: 'Total Leads', count: total, color: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200' },
+                            { label: 'New', count: newLeads, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+                            { label: 'Not Converted', count: followUp, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+                            { label: 'Converted', count: convert, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' }
+                        ];
+
+                        return stages.map((stage, idx) => (
+                            <React.Fragment key={stage.label}>
+                                <div className={`flex-1 w-full flex flex-col items-center justify-center p-3 rounded-xl ${stage.color}`}>
+                                    <span className="text-2xl font-black">{stage.count}</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{stage.label}</span>
+                                    {idx > 0 && total > 0 && (
+                                        <span className="text-[9px] font-medium mt-1 opacity-70">
+                                            {Math.round((stage.count / total) * 100)}% of total
+                                        </span>
+                                    )}
+                                </div>
+                                {idx < stages.length - 1 && (
+                                    <div className="hidden sm:block text-muted-foreground/30">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        ));
+                    })()}
+                </div>
+            </div>
+
             {/* AI Stats Cards */}
-            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="animate-in fade-in slide-in-from-top-4 duration-500 mt-4">
                 <AILeadStatsCards
                     leads={leads}
                     allLeads={leads}

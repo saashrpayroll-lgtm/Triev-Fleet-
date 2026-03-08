@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { X, Languages, Zap, Copy, Send, Loader2, MessageSquareText } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
-export type ReminderType = 'low_balance' | 'warning' | 'critical' | 'inactive';
+export type ReminderType = 'low_balance' | 'warning' | 'critical' | 'inactive' | 'zero_collection';
 
 interface AIReminderModalProps {
     rider: Rider;
@@ -42,6 +42,8 @@ const AIReminderModal: React.FC<AIReminderModalProps> = ({ rider, type, isOpen, 
                 generatedMsg = await AIService.generateRecoveryMessage(rider, lang);
             } else if (type === 'inactive') {
                 generatedMsg = await AIService.generateReactivationMessage(rider, lang);
+            } else if (type === 'zero_collection') {
+                generatedMsg = await AIService.generatePaymentReminder(rider, lang, 'urgent');
             } else {
                 generatedMsg = await AIService.generatePaymentReminder(rider, lang, 'friendly');
             }

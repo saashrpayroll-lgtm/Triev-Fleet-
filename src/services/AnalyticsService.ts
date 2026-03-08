@@ -7,6 +7,14 @@ export interface AnalyticsData {
     clientDistribution: { name: string; value: number }[];
     walletHealth: { name: string; value: number; color: string }[];
     revenueTrend: { name: string; amount: number }[]; // Mocked for now or based on wallet inputs
+    tlPerformance: {
+        tlId: string;
+        tlName: string;
+        activeRiders: number;
+        totalCollection: number; // 30-day window
+        arpu: number; // Avg Revenue Per User (Total / Active)
+        totalDebt: number; // Sum of negative wallets
+    }[];
     kpis: {
         totalRiders: number;
         activeRiders: number;
@@ -23,7 +31,7 @@ export const AnalyticsService = {
         try {
             // Parallel Fetching
             const [ridersRes, leadsRes] = await Promise.all([
-                supabase.from('riders').select('id, created_at, client_name, wallet_amount, status'),
+                supabase.from('riders').select('id, created_at, client_name, wallet_amount, status, team_leader_id'),
                 supabase.from('leads').select('id, status, created_at')
             ]);
 
@@ -101,15 +109,47 @@ export const AnalyticsService = {
             const converted = leadFunnelMap['Convert'];
             const conversionRate = totalLeads > 0 ? Math.round((converted / totalLeads) * 100) : 0;
 
-            // 6. Mock Revenue Trend (Since we don't have transaction history yet)
-            // We'll mimic it based on rider growth * avg wallet recharge assumption or just random for demo
-            // requested by user "More advanced reports ... coming soon" -> we are implementing them now.
-            // Let's use Rider Count * 500 (avg rent/week) purely for visualization if no real data
-            // OR better: Leave it empty if no data. User asked to "Complete" it. 
-            // Let's use "Estimated Revenue" based on Active Riders * arbitrary avg 
-            // Actually, let's skip "Revenue" if we can't calculate it real. 
-            // Instead, let's show "Wallet Liability" trend? No history.
-            // Let's stick to "New Riders" trend which is real.
+            // 6. TL Performance (ARPU & Debt)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const thirtyDaysAgoStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(thirtyDaysAgo);
+
+            const [tlsRes, collectionsRes] = await Promise.all([
+                supabase.from('users').select('id, full_name').eq('role', 'teamLeader'),
+                supabase.from('daily_collections')
+                    .select('team_leader_id, total_collection, date')
+                    .gte('date', thirtyDaysAgoStr)
+            ]);
+
+            const tls = tlsRes.data || [];
+            const collections = collectionsRes.data || [];
+
+            const tlPerformance = tls.map(tl => {
+                const tlRiders = activeRidersList.filter(r => r.team_leader_id === tl.id);
+                const activeCount = tlRiders.length;
+
+                // Sum 30-day collections
+                const tlColls = collections.filter(c => c.team_leader_id === tl.id);
+                const totalCol = tlColls.reduce((sum, current) => sum + (Number(current.total_collection) || 0), 0);
+
+                // Calculate ARPU (Total Collection / Active Riders)
+                const arpu = activeCount > 0 ? Math.round(totalCol / activeCount) : 0;
+
+                // Calculate Debt (Sum of negative wallets)
+                const totalDebt = tlRiders.reduce((sum, r) => {
+                    const w = r.wallet_amount || 0;
+                    return w < 0 ? sum + Math.abs(w) : sum;
+                }, 0);
+
+                return {
+                    tlId: tl.id,
+                    tlName: tl.full_name || 'Unknown TL',
+                    activeRiders: activeCount,
+                    totalCollection: totalCol,
+                    arpu,
+                    totalDebt
+                };
+            }).sort((a, b) => b.totalCollection - a.totalCollection);
 
             return {
                 riderGrowth,
@@ -117,6 +157,7 @@ export const AnalyticsService = {
                 clientDistribution,
                 walletHealth,
                 revenueTrend: [], // Placeholder
+                tlPerformance,
                 kpis: {
                     totalRiders,
                     activeRiders,

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { User, Rider, Lead } from '@/types';
 import {
     Trophy, Users, Search, ArrowUpDown, TrendingUp, Wallet, Zap, Target,
@@ -15,6 +16,7 @@ interface ScoredTL extends User {
     rank: number;
     isTrending: boolean;
     aiGrade: 'S' | 'A' | 'B' | 'C' | 'D';
+    targetAmount?: number; // Added for gamification
     stats: {
         active: number;
         inactive: number;
@@ -34,6 +36,7 @@ interface ScoredTL extends User {
         allotments: number;
         submissions: number;
         netGrowth: number;
+        targetProgress: number; // Added for Gamification
     };
 }
 
@@ -59,6 +62,13 @@ const LeaderboardPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'score', direction: 'desc' });
     const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+
+    // Target Editing State (Gamification)
+    const { userData } = useSupabaseAuth();
+    const [editingTarget, setEditingTarget] = useState<ScoredTL | null>(null);
+    const [newTargetValue, setNewTargetValue] = useState<string>('');
+    const [isUpdatingTarget, setIsUpdatingTarget] = useState(false);
+
     const prevRanksRef = useRef<Record<string, number>>(getPreviousRanks());
     const ledgerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,7 +77,7 @@ const LeaderboardPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         try {
             const [usersRes, ridersRes, leadsRes] = await Promise.all([
-                supabase.from('users').select('id, full_name, mobile, email, status, role, profile_pic_url').eq('role', 'teamLeader'),
+                supabase.from('users').select('id, full_name, mobile, email, status, role, profile_pic_url, target_amount').eq('role', 'teamLeader'),
                 supabase.from('riders')
                     .select('id, triev_id, rider_name, status, wallet_amount, team_leader_id, allotment_date, inactivated_at')
                     .limit(50000),
@@ -78,8 +88,9 @@ const LeaderboardPage: React.FC = () => {
                 setTeamLeaders(usersRes.data.map((u: any) => ({
                     id: u.id, fullName: u.full_name, mobile: u.mobile,
                     email: u.email, status: u.status, role: u.role,
-                    profilePicUrl: u.profile_pic_url || undefined
-                })) as User[]);
+                    profilePicUrl: u.profile_pic_url || undefined,
+                    targetAmount: u.target_amount || 0 // Store gamification target
+                })) as any);
             }
             if (ridersRes.data) {
                 setRiders(ridersRes.data.map((r: any) => ({
@@ -203,6 +214,7 @@ const LeaderboardPage: React.FC = () => {
                     allotments: metrics.allotments,
                     submissions: metrics.submissions,
                     netGrowth: metrics.netGrowth,
+                    targetProgress: (tl as any).targetAmount > 0 ? Math.min((metrics.collection / (tl as any).targetAmount) * 100, 100) : 0,
                 }
             } as any;
         });
@@ -230,6 +242,35 @@ const LeaderboardPage: React.FC = () => {
         (tl.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (tl.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleUpdateTarget = async () => {
+        if (!editingTarget) return;
+        const numValue = parseFloat(newTargetValue);
+        if (isNaN(numValue) || numValue < 0) {
+            alert('Please enter a valid positive number for the target.');
+            return;
+        }
+
+        try {
+            setIsUpdatingTarget(true);
+            const { error } = await supabase
+                .from('users')
+                .update({ target_amount: numValue })
+                .eq('id', editingTarget.id);
+
+            if (error) throw error;
+
+            // Optimistic update
+            setTeamLeaders(prev => prev.map(tl => tl.id === editingTarget.id ? { ...tl, targetAmount: numValue } as any : tl));
+            setEditingTarget(null);
+            setNewTargetValue('');
+        } catch (error) {
+            console.error('Error updating target:', error);
+            alert('Failed to update target. Please try again.');
+        } finally {
+            setIsUpdatingTarget(false);
+        }
+    };
 
     const handleSort = (key: string) => {
         setSortConfig(current => ({
@@ -386,6 +427,7 @@ const LeaderboardPage: React.FC = () => {
                                 <SortTh label="Flow (A/S/N)" sortKey="netGrowth" icon={<PlusCircle size={11} className="text-indigo-400" />} />
                                 <SortTh label="Leads %" sortKey="leads" icon={<Target size={11} className="text-yellow-400" />} />
                                 <SortTh label="Wallet" sortKey="wallet" icon={<Wallet size={11} className="text-emerald-400" />} />
+                                <th className="px-4 py-4 text-left font-black tracking-[0.12em]">Gamification Target</th>
                                 <SortTh label="Collected" sortKey="collection" icon={<TrendingUp size={11} className="text-purple-400" />} />
                                 <SortTh label="Per Rider" sortKey="perRider" icon={<Target size={11} className="text-rose-400" />} />
                                 <SortTh label="Churn" sortKey="churn" icon={<BarChart3 size={11} className="text-rose-400" />} />
@@ -512,6 +554,41 @@ const LeaderboardPage: React.FC = () => {
                                                 </div>
                                             </td>
 
+                                            {/* Gamification Target (NEW) */}
+                                            <td className="px-4 py-3 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    {tl.targetAmount && tl.targetAmount > 0 ? (
+                                                        <>
+                                                            <div className="flex items-center gap-1.5 justify-between w-full">
+                                                                <span className="text-xs font-black text-slate-800 dark:text-white">
+                                                                    ₹{(tl.targetAmount / 1000).toFixed(1)}k
+                                                                </span>
+                                                                <span className={`text-[9px] font-black ${tl.stats.targetProgress >= 100 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                                                    {Math.round(tl.stats.targetProgress)}%
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                                                                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(tl.stats.targetProgress, 100)}%` }}
+                                                                    className={`h-full rounded-full ${tl.stats.targetProgress >= 100 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-400'}`} />
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-400 italic">No Target</span>
+                                                    )}
+                                                    {userData?.role === 'admin' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingTarget(tl);
+                                                                setNewTargetValue(tl.targetAmount?.toString() || '');
+                                                            }}
+                                                            className="text-[9px] font-bold text-primary hover:text-primary/80 uppercase tracking-wider mt-1"
+                                                        >
+                                                            Edit Target
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+
                                             {/* Collection */}
                                             <td className="px-4 py-3 bg-white/60 dark:bg-slate-900/40 border-y border-white/20 dark:border-white/5">
                                                 <div className="flex items-center gap-2">
@@ -568,6 +645,73 @@ const LeaderboardPage: React.FC = () => {
                     )}
                 </div>
             </motion.div>
+
+            {/* Gamification Target Modal */}
+            <AnimatePresence>
+                {editingTarget && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-slate-200 dark:border-white/10"
+                        >
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2.5 bg-yellow-500/10 text-yellow-500 rounded-xl">
+                                    <Target size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-800 dark:text-white leading-tight">Set Target</h3>
+                                    <p className="text-xs font-bold text-muted-foreground">For {editingTarget.fullName}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-1 block">
+                                        Collection Target (₹)
+                                    </label>
+                                    <div className="relative">
+                                        <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                                        <input
+                                            type="number"
+                                            value={newTargetValue}
+                                            onChange={(e) => setNewTargetValue(e.target.value)}
+                                            placeholder="e.g. 50000"
+                                            className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-white/5 rounded-xl font-bold focus:border-primary/50 focus:outline-none transition-colors"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-2 ml-1">
+                                        Set to 0 to remove target. Used for calculating gamification progress.
+                                    </p>
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button
+                                        onClick={() => setEditingTarget(null)}
+                                        className="flex-1 py-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-black rounded-xl text-sm transition-colors"
+                                        disabled={isUpdatingTarget}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleUpdateTarget}
+                                        disabled={isUpdatingTarget || !newTargetValue}
+                                        className="flex-1 py-3 bg-primary hover:bg-primary/90 text-white font-black rounded-xl text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {isUpdatingTarget ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            'Save Target'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

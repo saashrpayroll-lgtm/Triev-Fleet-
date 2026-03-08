@@ -6,7 +6,7 @@ import {
 import {
     TrendingUp, Users, Filter, Wallet, RefreshCw,
     Activity, ArrowUpRight, ArrowDownRight, UserCheck,
-    UserX, BarChart2, Target, Zap, AlertCircle
+    UserX, BarChart2, Target, Zap, AlertCircle, Trophy
 } from 'lucide-react';
 import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
 import { supabase } from '@/config/supabase';
@@ -568,6 +568,76 @@ const Analytics: React.FC = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* ─── TL PERFORMANCE & DEBT HEATMAP (ARPU) ─── */}
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm mb-6">
+                <SectionHeader
+                    icon={<Trophy className="text-pink-500" size={18} />}
+                    title="Team Leader Performance (30 Days)"
+                    subtitle="ARPU (Average Revenue Per User) & Debt Liability Matrix"
+                    color="bg-pink-100 dark:bg-pink-900/30"
+                />
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-border/50 text-xs font-black uppercase text-muted-foreground tracking-wider">
+                                <th className="pb-3 px-4">Team Leader</th>
+                                <th className="pb-3 px-4 text-center">Active Riders</th>
+                                <th className="pb-3 px-4 text-center">30D Collection</th>
+                                <th className="pb-3 px-4 text-center">ARPU <span className="text-[10px] font-medium lowercase">(per rider)</span></th>
+                                <th className="pb-3 px-4 text-right">Outstanding Debt</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                            {data.tlPerformance.map((tl, i) => {
+                                // Debt Heatmap styling
+                                let debtBg = 'bg-transparent';
+                                let debtText = 'text-foreground';
+                                if (tl.totalDebt > 50000) { debtBg = 'bg-red-50 dark:bg-red-900/20'; debtText = 'text-red-600 dark:text-red-400 font-bold'; }
+                                else if (tl.totalDebt > 20000) { debtBg = 'bg-orange-50 dark:bg-orange-900/20'; debtText = 'text-orange-600 dark:text-orange-400 font-bold'; }
+                                else if (tl.totalDebt > 0) { debtBg = 'bg-amber-50 dark:bg-amber-900/10'; debtText = 'text-amber-600 dark:text-amber-400 font-medium'; }
+
+                                // ARPU Health Score
+                                const arpuHealth = tl.arpu >= 2000 ? 'text-green-600' : tl.arpu >= 1000 ? 'text-amber-600' : 'text-red-600';
+
+                                return (
+                                    <tr key={tl.tlId} className="hover:bg-muted/30 transition-colors">
+                                        <td className="py-3 px-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                                    {i + 1}
+                                                </div>
+                                                <span className="font-semibold text-sm">{tl.tlName}</span>
+                                            </div>
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-medium text-sm text-muted-foreground">
+                                            {tl.activeRiders}
+                                        </td>
+                                        <td className="py-3 px-4 text-center font-bold text-sm text-foreground">
+                                            ₹{tl.totalCollection.toLocaleString('en-IN')}
+                                        </td>
+                                        <td className={`py-3 px-4 text-center font-bold text-sm ${arpuHealth}`}>
+                                            ₹{tl.arpu.toLocaleString('en-IN')}
+                                        </td>
+                                        <td className={`py-3 px-4 text-right rounded-r-xl ${debtBg}`}>
+                                            <span className={`${debtText} text-sm`}>
+                                                {tl.totalDebt > 0 ? `₹${tl.totalDebt.toLocaleString('en-IN')}` : '₹0'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {data.tlPerformance.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="py-8 text-center text-muted-foreground text-sm">
+                                        No Team Leader performance data available for the last 30 days.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

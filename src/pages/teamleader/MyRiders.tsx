@@ -20,7 +20,7 @@ type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 
 interface AdvancedFilters {
     client: ClientName | 'all';
-    walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance';
+    walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance' | 'defaulter' | 'zero_collection';
 }
 
 const MyRiders: React.FC = () => {
@@ -36,11 +36,14 @@ const MyRiders: React.FC = () => {
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [viewingRider, setViewingRider] = useState<Rider | null>(null);
     const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
-    const [reminderType, setReminderType] = useState<'low_balance' | 'warning' | 'critical' | 'inactive'>('low_balance');
+    const [reminderType, setReminderType] = useState<'low_balance' | 'warning' | 'critical' | 'inactive' | 'zero_collection'>('low_balance');
     const [showExportModal, setShowExportModal] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
+
+    // To track today's collections for the zero_collection filter
+    const [todayCollections, setTodayCollections] = useState<Record<string, number>>({});
 
     const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
         client: 'all',
@@ -113,9 +116,40 @@ const MyRiders: React.FC = () => {
         if (!userData) return;
         try {
             setLoading(true);
+
+            // 1. Fetch Riders
             const { data, error } = await supabase.from('riders').select('*').eq('team_leader_id', userData.id);
             if (error) throw error;
-            setRiders(data?.map(mapRiderFromDB) || []);
+
+            const fetchedRiders = data?.map(mapRiderFromDB) || [];
+            setRiders(fetchedRiders);
+
+            // 2. Fetch Today's Collections for Zero Collection filter
+            const now = new Date();
+            const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const [y, m, d] = todayIST.split('-').map(Number);
+            const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const fallbackOrQuery = `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
+
+            const { data: ledgerData, error: ledgerError } = await supabase
+                .from('wallet_ledger')
+                .select('amount, rider:riders!inner(id, team_leader_id)')
+                .eq('mode', 'ADD')
+                .eq('rider.team_leader_id', userData.id)
+                .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
+                .or(fallbackOrQuery);
+
+            if (!ledgerError && ledgerData) {
+                const liveTodayByRider: Record<string, number> = {};
+                ledgerData.forEach(txn => {
+                    const riderId = (txn.rider as any)?.id;
+                    if (riderId) {
+                        liveTodayByRider[riderId] = (liveTodayByRider[riderId] || 0) + (Number(txn.amount) || 0);
+                    }
+                });
+                setTodayCollections(liveTodayByRider);
+            }
+
         } catch (error) {
             console.error('Error fetching riders:', error);
         } finally {
@@ -143,6 +177,8 @@ const MyRiders: React.FC = () => {
                 if (advancedFilters.walletRange === 'negative') return a < 0;
                 if (advancedFilters.walletRange === 'zero') return a === 0;
                 if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && a >= 0 && a <= 250;
+                if (advancedFilters.walletRange === 'defaulter') return a <= -2000;
+                if (advancedFilters.walletRange === 'zero_collection') return r.status === 'active' && a <= 0 && !(todayCollections[r.id] > 0);
                 return true;
             });
         }
@@ -486,7 +522,7 @@ const MyRiders: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-1.5">Wallet</label>
+                        <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-1.5">Wallet / Alerts</label>
                         <select value={advancedFilters.walletRange} onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as AdvancedFilters['walletRange'] })}
                             className="w-full px-3 py-2.5 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                             <option value="all">All Wallets</option>
@@ -494,6 +530,8 @@ const MyRiders: React.FC = () => {
                             <option value="negative">Negative Balance</option>
                             <option value="zero">Zero Balance</option>
                             <option value="low_balance">Low Balance (0-250)</option>
+                            <option value="defaulter">🚨 Defaulters (&lt; -2000)</option>
+                            <option value="zero_collection">⚠️ Zero Collection Today</option>
                         </select>
                     </div>
                     <div className="flex items-end">

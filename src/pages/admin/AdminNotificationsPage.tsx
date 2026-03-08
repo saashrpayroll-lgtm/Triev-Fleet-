@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Notification } from '@/types';
 import GlassCard from '@/components/GlassCard';
 import { safeRender } from '@/utils/safeRender';
+import AdminBroadcastSystem from '@/components/AdminBroadcastSystem';
 
 type FilterTab = 'all' | 'unread' | 'read';
 type TypeFilter = 'all' | 'alert' | 'warning' | 'success' | 'wallet' | 'issue' | 'feature' | 'reminder' | 'system';
@@ -215,6 +216,9 @@ const AdminNotificationsPage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* ── Admin Broadcast System ── */}
+            <AdminBroadcastSystem />
 
             {/* ── Stats Row ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

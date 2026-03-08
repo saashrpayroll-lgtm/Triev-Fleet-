@@ -57,6 +57,7 @@ const Dashboard: React.FC = () => {
 
     // Collections State for Leaderboard
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
+    const [tlTodayCollectionsByRider, setTlTodayCollectionsByRider] = useState<Record<string, number>>({});
 
     // --- Data Fetching & Real-time ---
     const fetchStats = React.useCallback(async () => {
@@ -162,7 +163,7 @@ const Dashboard: React.FC = () => {
                 supabase.from('daily_collections').select('team_leader_id, date, total_collection'),
                 supabase
                     .from('wallet_ledger')
-                    .select('amount, rider:riders!inner(team_leader_id)')
+                    .select('amount, rider:riders!inner(id, team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
                     .or(fallbackOrQuery)
@@ -190,11 +191,20 @@ const Dashboard: React.FC = () => {
             // Add Live Today (only for TLs without a daily_collections snapshot yet)
             const todayLedger = (todayLedgerRes.data as any[]) || [];
             const liveTodayByTL: Record<string, number> = {};
+            const liveTodayByRider: Record<string, number> = {};
+
             todayLedger.forEach(txn => {
                 if (txn.rider && txn.rider.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
+                    const riderId = txn.rider.id;
+                    const amount = Number(txn.amount) || 0;
+
                     if (!tlsWithTodaySnapshot.has(tlId)) {
-                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
+                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + amount;
+                    }
+
+                    if (riderId) {
+                        liveTodayByRider[riderId] = (liveTodayByRider[riderId] || 0) + amount;
                     }
                 }
             });
@@ -204,6 +214,8 @@ const Dashboard: React.FC = () => {
             });
 
             setTlCollections(collections);
+            setTlTodayCollectionsByRider(liveTodayByRider);
+
 
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
@@ -478,7 +490,10 @@ const Dashboard: React.FC = () => {
                     <div className="flex-1 h-px bg-gradient-to-r from-rose-500/40 via-rose-500/10 to-transparent" />
                 </div>
                 <ComponentErrorBoundary name="Debt Recovery Tasks">
-                    <DebtRecoveryTasks riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
+                    <DebtRecoveryTasks
+                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                        todayCollections={tlTodayCollectionsByRider}
+                    />
                 </ComponentErrorBoundary>
             </motion.div>
 

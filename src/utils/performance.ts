@@ -27,6 +27,7 @@ export interface TLPerformanceMetrics {
     avgRiderAge: number;
     aiGrade: 'S' | 'A' | 'B' | 'C' | 'D'; // 🆕 AI performance grade
     isTrending: boolean;
+    badges?: string[]; // Gamification Badges (e.g., '🏆 Top Collector', '🎯 Zero Churn')
 }
 
 /**
@@ -166,6 +167,22 @@ export const calculateAIScore = (
     // Trending Logic
     const isTrending = score > 1000 && (activeRiders / (tlRiders.length || 1)) > 0.85 && netGrowth >= 0;
 
+    // Gamification Badges Logic
+    const badges: string[] = [];
+
+    // 1. Top Collector (High collection amount)
+    // Note: We'll set this relative to a strong benchmark since we don't have global context inside this isolated function
+    if (collections >= 50000) badges.push('🏆 Top Collector');
+
+    // 2. Zero Churn (No riders deleted in period AND has active riders)
+    if (churnRiders === 0 && activeRiders > 0 && submissions === 0) badges.push('🎯 Zero Churn');
+
+    // 3. High Conversion (Excellent lead conversion rate)
+    if (conversionRate >= 60 && tlLeads.length >= 10) badges.push('🔥 Converter Elite');
+
+    // 4. Growth Master (High net growth)
+    if (netGrowth >= 5 && allotments >= 5) badges.push('📈 Growth Master');
+
     return {
         score,
         activeRiders,
@@ -187,6 +204,7 @@ export const calculateAIScore = (
         efficiency,
         avgRiderAge: Math.round(avgRiderAge),
         aiGrade: getAIGrade(score, efficiency),
-        isTrending
+        isTrending,
+        badges
     };
 };
