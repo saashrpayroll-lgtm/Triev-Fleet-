@@ -567,11 +567,10 @@ const MyRiders: React.FC = () => {
                                         </th>
                                         {[
                                             { label: 'Triev ID', key: 'trievId' },
-                                            { label: 'Rider', key: 'riderName' },
+                                            { label: 'Rider Name', key: 'riderName' },
                                             { label: 'Mobile', key: null },
-                                            { label: 'Client', key: 'clientName' },
+                                            { label: 'Chassis No.', key: 'chassisNumber' },
                                             { label: 'Wallet', key: 'walletAmount' },
-                                            { label: 'Allotment', key: 'allotmentDate' },
                                             { label: 'Status', key: 'status' },
                                         ].map(col => (
                                             <th key={col.label}
@@ -604,10 +603,7 @@ const MyRiders: React.FC = () => {
                                                     <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-sm flex-shrink-0">
                                                         {(rider.riderName || '?').charAt(0).toUpperCase()}
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-sm text-foreground truncate max-w-[140px]">{rider.riderName}</p>
-                                                        <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{rider.chassisNumber || '—'}</p>
-                                                    </div>
+                                                    <p className="font-bold text-sm text-foreground truncate max-w-[140px]">{rider.riderName}</p>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4">
@@ -627,12 +623,11 @@ const MyRiders: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </td>
+                                            {/* ── Chassis Number (replaces Client + Allotment) ── */}
                                             <td className="px-5 py-4">
-                                                {rider.clientName ? (
-                                                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap">
-                                                        {rider.clientName}
-                                                    </span>
-                                                ) : <span className="text-muted-foreground text-xs">—</span>}
+                                                <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                                                    {rider.chassisNumber || '—'}
+                                                </span>
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -651,9 +646,7 @@ const MyRiders: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4 text-sm text-muted-foreground whitespace-nowrap">
-                                                {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
-                                            </td>
+
                                             <td className="px-5 py-4">
                                                 <span className={`inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full border ${statusCfg(rider.status)}`}>
                                                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(rider.status)}`} />
@@ -729,20 +722,12 @@ const MyRiders: React.FC = () => {
                                                             {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
                                                         </p>
                                                     </div>
-                                                    {rider.clientName && (
-                                                        <div className="bg-muted/40 rounded-xl p-2.5">
-                                                            <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Client</p>
-                                                            <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{rider.clientName}</p>
-                                                        </div>
-                                                    )}
-                                                    {rider.allotmentDate && (
-                                                        <div className="bg-muted/40 rounded-xl p-2.5">
-                                                            <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Allotment</p>
-                                                            <p className="text-sm font-bold text-foreground">
-                                                                {new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
-                                                            </p>
-                                                        </div>
-                                                    )}
+                                                    <div className="bg-muted/40 rounded-xl p-2.5">
+                                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Chassis No.</p>
+                                                        <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 break-all">
+                                                            {rider.chassisNumber || '—'}
+                                                        </p>
+                                                    </div>
                                                 </div>
 
                                                 {/* Action Buttons */}
