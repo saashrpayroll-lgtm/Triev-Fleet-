@@ -140,8 +140,10 @@ function ResponsiveTable<T>({
             <div className="md:hidden space-y-4 p-4 bg-slate-50/30 dark:bg-slate-900/30">
                 {data.map((row) => {
                     const isHighlighted = highlightedRowId === String(row[keyField]);
+                    // Column[0] is often a checkbox — render it separately
+                    const checkboxCol = columns[0];
                     const primaryCol = columns.find(c => c.accessorKey === 'riderName' || c.accessorKey === 'fullName') || columns[1];
-                    const secondaryCol = columns.find(c => c.accessorKey === 'trievId') || columns[0];
+                    const secondaryCol = columns.find(c => c.accessorKey === 'trievId') || columns[1];
                     const detailCols = columns.filter(c =>
                         c !== columns[0] &&
                         c !== primaryCol &&
@@ -165,14 +167,25 @@ function ResponsiveTable<T>({
                             <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isHighlighted ? 'bg-amber-400' : 'bg-primary/20 group-hover:bg-primary transition-colors'}`} />
 
                             <div className="p-4">
-                                {/* Card Header */}
-                                <div className="flex justify-between items-start gap-4 mb-4">
-                                    <div className="min-w-0">
-                                        <div className="text-base font-black text-slate-900 dark:text-slate-100 truncate">
-                                            {primaryCol?.cell ? primaryCol.cell(row) : primaryCol?.accessorKey ? String(row[primaryCol.accessorKey] || '') : ''}
-                                        </div>
-                                        <div className="text-[10px] font-mono font-bold tracking-widest text-slate-500 mt-1 uppercase bg-slate-100 dark:bg-slate-800 w-fit px-2 py-0.5 rounded-md">
-                                            {secondaryCol?.cell ? secondaryCol.cell(row) : secondaryCol?.accessorKey ? String(row[secondaryCol.accessorKey] || '') : ''}
+                                {/* Card Header — checkbox + name + action */}
+                                <div className="flex justify-between items-start gap-3 mb-4">
+                                    {/* Checkbox column (column[0]) rendered here if it's a checkbox type */}
+                                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                                        {checkboxCol && (
+                                            <div
+                                                onClick={e => e.stopPropagation()}
+                                                className="flex-shrink-0 mt-0.5"
+                                            >
+                                                {checkboxCol.cell ? checkboxCol.cell(row) : null}
+                                            </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-base font-black text-slate-900 dark:text-slate-100 truncate">
+                                                {primaryCol?.cell ? primaryCol.cell(row) : primaryCol?.accessorKey ? String(row[primaryCol.accessorKey] || '') : ''}
+                                            </div>
+                                            <div className="text-[10px] font-mono font-bold tracking-widest text-slate-500 mt-1 uppercase bg-slate-100 dark:bg-slate-800 w-fit px-2 py-0.5 rounded-md">
+                                                {secondaryCol?.cell ? secondaryCol.cell(row) : secondaryCol?.accessorKey ? String(row[secondaryCol.accessorKey] || '') : ''}
+                                            </div>
                                         </div>
                                     </div>
                                     {actions && (
@@ -210,6 +223,7 @@ function ResponsiveTable<T>({
                     );
                 })}
             </div>
+
         </div>
     );
 }
