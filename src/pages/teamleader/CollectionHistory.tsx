@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { Calendar, TrendingUp, ArrowLeft, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -73,25 +74,24 @@ const CollectionHistory: React.FC = () => {
                     })()),
                 supabase
                     .from('riders')
-                    .select('status, allotment_date, inactivated_at, updated_at')
+                    .select('status, allotment_date, inactivated_at, updated_at, created_at')
                     .eq('team_leader_id', userData!.id)
             ]);
 
             const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
-            // Helper to compute historical active count
+            // Helper to compute historical active count safely handling imported dates
             const getHistoricalActiveCount = (ds: string) => {
                 return (allRiders || []).filter(r => {
-                    const ad: string | null = r.allotment_date;
-                    if (!ad) return r.status === 'active'; // Fallback
-                    const adIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(ad));
+                    const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
+                    if (!adIst) return false;
                     if (adIst > ds) return false;
 
                     if (r.status === 'active') return true;
                     const iat: string | null = r.inactivated_at;
                     const uat: string | null = r.updated_at;
-                    const inactDate = iat ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(iat)) : (uat ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(uat)) : null);
-                    return inactDate ? inactDate > ds : false;
+                    const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+                    return inactDate ? inactDate >= ds : false;
                 }).length;
             };
 

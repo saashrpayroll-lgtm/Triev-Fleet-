@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     Activity, Users, Wallet, Target,
@@ -227,18 +228,17 @@ const TLPersonalPerformance: React.FC = () => {
                 return inactDate === ds;
             }).length;
 
-            // Active fleet: Historical calculation dynamically computed
+            // Active fleet: Historical calculation dynamically computed using repaired dates
             const activeOnDay = riders.filter(r => {
-                const ad: string | null = r.allotment_date;
-                if (!ad) return false;
-                const adIst = toISTStr(new Date(ad));
+                const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
+                if (!adIst) return false;
                 if (adIst > ds) return false;
 
                 if (r.status === 'active') return true;
                 const iat: string | null = r.inactivated_at;
                 const uat: string | null = r.updated_at;
-                const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
-                return inactDate ? inactDate > ds : false;
+                const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+                return inactDate ? inactDate >= ds : false;
             }).length;
 
             const dayLeads = leads.filter(l => l.created_at && toISTStr(new Date(l.created_at)) === ds);

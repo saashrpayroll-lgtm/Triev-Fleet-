@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
+import { getAIGrade, AI_WEIGHTS } from '@/utils/performance';
 import {
     Download,
     Search,
-    Filter,
     TrendingUp,
     Users,
-    Wallet,
-    ArrowUpRight,
     Activity,
+    Trophy,
+    ArrowUpRight,
+    ArrowDownRight,
+    Calendar as CalendarIcon,
+    Flame,
+    Zap,
+    Crosshair,
+    Filter,
+    Wallet,
     SearchX,
     Calendar,
     ChevronDown
@@ -76,7 +84,7 @@ const TLPerformance: React.FC = () => {
                 // Today's live: wallet_ledger entries for TODAY by IST transaction_date
                 // ✅ FIX: Use transaction_date (DATE column, IST-pinned) instead of created_at >= midnight
                 // This correctly includes AM-timestamped imports (e.g., 3:55 AM) regardless of when imported
-                supabase.from('wallet_ledger').select(`amount, rider:riders!inner(team_leader_id)`)
+                supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', [
                         'DAILY_COLLECTION', 'DAILY COLLECTION',
@@ -85,7 +93,7 @@ const TLPerformance: React.FC = () => {
                         'COLLECTION', 'RENT'
                     ])
                     // ✅ ROBUST: catch rows with transaction_date set (imports) OR NULL (legacy manual)
-                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`)
+                    .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -269,9 +277,8 @@ const TLPerformance: React.FC = () => {
             const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
 
             const activeRiders = tlRiders.filter(r => {
-                const ad: string | null = (r as any).allotment_date || (r as any).allotmentDate;
-                if (!ad) return r.status === 'active'; // Fallback for riders without allotment date
-                const adIst = formatter.format(new Date(ad));
+                const adIst = getValidHistoricalDate((r as any).allotment_date || (r as any).allotmentDate, (r as any).created_at || (r as any).createdAt);
+                if (!adIst) return false;
                 if (adIst > endDateStr) return false; // Exclude riders allotted after end date
 
                 // If currently active, and allotted before/on endDateStr, they were active on endDateStr
@@ -280,10 +287,10 @@ const TLPerformance: React.FC = () => {
                 // If inactive/deleted, check when they were inactivated
                 const iat: string | null = (r as any).inactivated_at || (r as any).inactivatedAt;
                 const uat: string | null = (r as any).updated_at || (r as any).updatedAt;
-                const inactDate = iat ? formatter.format(new Date(iat)) : (uat ? formatter.format(new Date(uat)) : null);
+                let inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
 
                 // If inactivated AFTER the end date, they were ACTIVE during the end date
-                return inactDate ? inactDate > endDateStr : false;
+                return inactDate ? inactDate >= endDateStr : false;
             }).length;
 
             // CALCULATE WALLET METRICS
@@ -521,7 +528,7 @@ const TLPerformance: React.FC = () => {
 
         doc.setFontSize(10);
         doc.setTextColor(100);
-        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
+        doc.text(`Generated on: ${new Date().toLocaleString()} `, 14, 28);
 
         const tableColumn = [
             "TL Name",

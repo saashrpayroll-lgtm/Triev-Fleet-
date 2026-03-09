@@ -139,3 +139,36 @@ export const parseIndianDate = (dateRaw: any): string | null => {
 
     return null;
 };
+
+/**
+ * Extracts a valid YYYY-MM-DD IST string for historical calculations.
+ * Automatically detects and fixes inverted DD/MM to MM/DD import bugs (dates in the future).
+ */
+export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallbackDate?: string | null): string | null => {
+    if (!dateRaw) return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
+
+    try {
+        const d = new Date(dateRaw);
+        if (isNaN(d.getTime())) return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
+
+        let istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+        const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
+        // If date is in the future, it's likely an inverted DD/MM to MM/DD bug from import
+        if (istStr > todayIst) {
+            const [y, m, day] = istStr.split('-');
+            // Swap month and day to fix the MM/DD vs DD/MM issue
+            const fixedDate = `${y}-${day}-${m}`;
+            // Verify fixed date is not still in the future
+            if (fixedDate <= todayIst) {
+                istStr = fixedDate;
+            } else {
+                // If still future, fallback
+                istStr = todayIst;
+            }
+        }
+        return istStr;
+    } catch {
+        return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
+    }
+};
