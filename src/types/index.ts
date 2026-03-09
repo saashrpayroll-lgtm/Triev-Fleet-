@@ -140,6 +140,8 @@ export interface User {
     updatedAt: string;
     remarks?: string;
     profilePicUrl?: string;
+    monthlyTarget?: number; // Target collection amount
+    awardedBadges?: string[]; // E.g., ['top_collector', 'zero_churn']
     force_password_change?: boolean; // Force user to change password on next login
     last_password_change?: string; // Timestamp of last password change
     currentLocation?: {

@@ -481,9 +481,16 @@ const LeaderboardPage: React.FC = () => {
                                                             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 shadow-sm" />
                                                         )}
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <div className="font-black text-slate-800 dark:text-white tracking-tight truncate max-w-[120px]">{tl.fullName || 'Unknown'}</div>
-                                                        <div className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest truncate max-w-[120px]">{tl.mobile || tl.email || '—'}</div>
+                                                    <div className="min-w-0 flex flex-col gap-0.5">
+                                                        <div className="font-black text-slate-800 dark:text-white tracking-tight truncate max-w-[140px]">{tl.fullName || 'Unknown'}</div>
+                                                        <div className="flex items-center gap-1.5 flex-wrap max-w-[150px]">
+                                                            {/* Display Gamification Badges Dynamically */}
+                                                            {tl.rank === 1 && <span title="Top Collector" className="text-[12px] bg-yellow-500/15 p-0.5 rounded-md drop-shadow-sm border border-yellow-500/30">🏆</span>}
+                                                            {tl.stats.churn === 0 && tl.stats.active > 0 && <span title="Zero Churn" className="text-[12px] bg-emerald-500/15 p-0.5 rounded-md drop-shadow-sm border border-emerald-500/30">🎯</span>}
+                                                            {tl.stats.targetProgress >= 100 && <span title="Target Smashed" className="text-[12px] bg-purple-500/15 p-0.5 rounded-md drop-shadow-sm border border-purple-500/30">🏅</span>}
+                                                            {tl.isTrending && tl.rank <= 3 && <span title="Rising Star" className="text-[12px] bg-blue-500/15 p-0.5 rounded-md drop-shadow-sm border border-blue-500/30">🚀</span>}
+                                                            {tl.stats.active >= 50 && <span title="Fleet Commander (50+ active)" className="text-[12px] bg-sky-500/15 p-0.5 rounded-md drop-shadow-sm border border-sky-500/30">⚔️</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
