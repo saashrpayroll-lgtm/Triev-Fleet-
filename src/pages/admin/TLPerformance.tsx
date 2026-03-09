@@ -314,8 +314,8 @@ const TLPerformance: React.FC = () => {
 
             // Date Range metrics calculations
             const allotments = tlRiders.filter(r => {
-                if (!r.allotment_date) return false;
-                const adStr = formatter.format(new Date(r.allotment_date));
+                const adStr = getValidHistoricalDate(r.allotment_date, r.created_at);
+                if (!adStr) return false;
                 return adStr >= startDateStr && adStr <= endDateStr;
             }).length;
 
@@ -323,7 +323,8 @@ const TLPerformance: React.FC = () => {
                 if ((r.status !== 'inactive' && r.status !== 'deleted') || !r.inactivated_at) return false;
                 if (r.team_leader_id !== tlId && r.teamLeaderId !== tlId) return false;
 
-                const sdStr = formatter.format(new Date(r.inactivated_at));
+                const sdStr = getValidHistoricalDate(r.inactivated_at);
+                if (!sdStr) return false;
                 return sdStr >= startDateStr && sdStr <= endDateStr;
             }).length;
 

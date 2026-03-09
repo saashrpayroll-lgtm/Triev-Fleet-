@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 import {
     Download,
     Search,
@@ -186,19 +187,17 @@ const TLAllotment: React.FC = () => {
             const submissionsByTL = new Map<string, number>();
             riders.forEach(r => {
                 if (!r.team_leader_id) return;
-                // Allotment: Convert to IST first because substringing raw ISO takes UTC date, causing timezone shift bugs
-                const ad: string | null = r.allotment_date;
-                if (ad) {
-                    const adIst = toISTDateStr(new Date(ad));
-                    if (adIst >= pStart && adIst <= pEnd) {
-                        allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
-                    }
+
+                const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
+                if (adIst && adIst >= pStart && adIst <= pEnd) {
+                    allotmentsByTL.set(r.team_leader_id, (allotmentsByTL.get(r.team_leader_id) || 0) + 1);
                 }
+
                 // Submission: inactivated_at in range
                 if (r.status === 'inactive' || r.status === 'deleted') {
                     const iat: string | null = r.inactivated_at;
                     const uat: string | null = r.updated_at;
-                    const inactDate = iat ? toISTDateStr(new Date(iat)) : (uat ? toISTDateStr(new Date(uat)) : null);
+                    const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
                     if (inactDate && inactDate >= pStart && inactDate <= pEnd) {
                         submissionsByTL.set(r.team_leader_id, (submissionsByTL.get(r.team_leader_id) || 0) + 1);
                     }

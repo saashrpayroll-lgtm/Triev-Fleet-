@@ -212,9 +212,8 @@ const TLPersonalPerformance: React.FC = () => {
 
             // Allotments: use IST date only (removed wallet_amount === 0 check to prevent history disappearing)
             const dayAllotments = riders.filter(r => {
-                const ad: string | null = r.allotment_date;
-                if (!ad) return false;
-                const adIst = toISTStr(new Date(ad));
+                const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
+                if (!adIst) return false;
                 return adIst === ds;
             }).length;
 
@@ -224,7 +223,7 @@ const TLPersonalPerformance: React.FC = () => {
                 // Prefer genuine inactivated_at date, fallback to updated_at
                 const iat: string | null = r.inactivated_at;
                 const uat: string | null = r.updated_at;
-                const inactDate = iat ? toISTStr(new Date(iat)) : (uat ? toISTStr(new Date(uat)) : null);
+                const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
                 return inactDate === ds;
             }).length;
 
