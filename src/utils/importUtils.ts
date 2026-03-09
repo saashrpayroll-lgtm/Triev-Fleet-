@@ -234,13 +234,12 @@ export const processRiderImport = async (
 
                 // CRITICAL (LOCK UNIQUE IDENTITY): Never update triev_id or mobile_number for existing riders
 
-                // Date Handling: Use sheet date only if explicitly provided, 
-                // BUT DO NOT update allotment_date if the rider is currently inactive/deleted.
-                // Inactive riders must strictly preserve their existing allotment_date until manually Reactivated via Audit & Sync.
+                // Date Handling: STRICTLY IGNORED for existing riders.
+                // The Bulk Importer will NEVER update `allotment_date` or `submission_date` for existing riders.
+                // Dates are permanently locked here. Any updates to dates MUST be done via "Audit & Sync Check" tool.
                 if (allotmentDate && String(allotmentDate).trim() !== String(existingRider.allotment_date || '').trim()) {
-                    if (existingRider.status === 'active') {
-                        updatePayload.allotment_date = allotmentDate;
-                    }
+                    // We intentionally do nothing here.
+                    // The date in the sheet is ignored.
                 }
 
                 if (teamLeaderId !== existingRider.team_leader_id || finalTLName !== existingRider.team_leader_name) {

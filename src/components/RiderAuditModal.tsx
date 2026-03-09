@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import DataImport from './DataImport';
 import { normalizeKey } from '@/utils/importUtils';
 import { logActivity } from '@/utils/activityLog';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 interface RiderAuditModalProps {
@@ -185,15 +186,12 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
                 // 15-Day Rule: If inactive for > 15 days, reset allotment date to TODAY
                 // We use IST dates for accurate comparison.
-                const inactiveDateStr = rider.inactivated_at || rider.last_status_change_at;
+                const inactiveDateStr = getValidHistoricalDate(rider.inactivated_at || rider.last_status_change_at);
+                const nowISTStr = getValidHistoricalDate(new Date().toISOString());
 
-                const nowISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-                const nowIST = new Date(nowISTStr).getTime();
-
-                if (inactiveDateStr) {
-                    const inactiveISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(inactiveDateStr));
-                    const inactiveIST = new Date(inactiveISTStr).getTime();
-
+                if (inactiveDateStr && nowISTStr) {
+                    const inactiveIST = new Date(inactiveDateStr).getTime();
+                    const nowIST = new Date(nowISTStr).getTime();
                     const daysDiff = (nowIST - inactiveIST) / (1000 * 3600 * 24);
 
                     if (daysDiff > 15) {
@@ -274,10 +272,15 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
     // Helpers to calculate 15-day rule for UI
     const getReactivationDetails = (inactivatedAt: string | null, lastStatusChangeAt?: string | null) => {
-        const inactiveDateStr = inactivatedAt || lastStatusChangeAt;
-        if (!inactiveDateStr) return { isWithin15Days: false, text: "New Allotment Date" };
-        const inactiveDate = new Date(inactiveDateStr);
-        const daysDiff = (new Date().getTime() - inactiveDate.getTime()) / (1000 * 3600 * 24);
+        const inactiveDateStr = getValidHistoricalDate(inactivatedAt || lastStatusChangeAt);
+        const nowISTStr = getValidHistoricalDate(new Date().toISOString());
+
+        if (!inactiveDateStr || !nowISTStr) return { isWithin15Days: false, text: "New Allotment Date" };
+
+        const inactiveIST = new Date(inactiveDateStr).getTime();
+        const nowIST = new Date(nowISTStr).getTime();
+        const daysDiff = (nowIST - inactiveIST) / (1000 * 3600 * 24);
+
         return {
             isWithin15Days: daysDiff <= 15,
             text: daysDiff <= 15 ? "Retains Old Date" : "New Allotment Date",
