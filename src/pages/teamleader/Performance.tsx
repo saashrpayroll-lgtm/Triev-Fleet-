@@ -208,7 +208,6 @@ const TLPersonalPerformance: React.FC = () => {
             const ds = format(day, 'yyyy-MM-dd');
             const dayData = dailyMap.get(ds);
             const col = dayData?.col || 0;
-            const activeFromDB = dayData?.active || 0;
 
             // Allotments: use IST date only (removed wallet_amount === 0 check to prevent history disappearing)
             const dayAllotments = riders.filter(r => {
@@ -228,8 +227,8 @@ const TLPersonalPerformance: React.FC = () => {
                 return inactDate === ds;
             }).length;
 
-            // Active fleet: prefer daily_collections record; fallback to historical calculation
-            const activeOnDay = activeFromDB > 0 ? activeFromDB : riders.filter(r => {
+            // Active fleet: Historical calculation dynamically computed
+            const activeOnDay = riders.filter(r => {
                 const ad: string | null = r.allotment_date;
                 if (!ad) return false;
                 const adIst = toISTStr(new Date(ad));

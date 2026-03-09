@@ -56,7 +56,7 @@ const CollectionHistory: React.FC = () => {
             // Compute IST midnight in UTC: 00:00 IST = 18:30 UTC of the previous calendar day
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
-            const [{ data: todayLedger }, { count: liveActiveCount }] = await Promise.all([
+            const [{ data: todayLedger }, { data: allRiders }] = await Promise.all([
                 supabase
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
@@ -73,23 +73,46 @@ const CollectionHistory: React.FC = () => {
                     })()),
                 supabase
                     .from('riders')
-                    .select('*', { count: 'exact', head: true })
+                    .select('status, allotment_date, inactivated_at, updated_at')
                     .eq('team_leader_id', userData!.id)
-                    .eq('status', 'active')
             ]);
 
             const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+            // Helper to compute historical active count
+            const getHistoricalActiveCount = (ds: string) => {
+                return (allRiders || []).filter(r => {
+                    const ad: string | null = r.allotment_date;
+                    if (!ad) return r.status === 'active'; // Fallback
+                    const adIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(ad));
+                    if (adIst > ds) return false;
+
+                    if (r.status === 'active') return true;
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(iat)) : (uat ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(uat)) : null);
+                    return inactDate ? inactDate > ds : false;
+                }).length;
+            };
+
+            const liveActiveCount = getHistoricalActiveCount(todayStr);
+
+            // Recompute active__riders_count for all records
+            records = records.map(rec => ({
+                ...rec,
+                active_riders_count: getHistoricalActiveCount(rec.date)
+            }));
 
             // If we found money today but daily_collections didn't log it yet, overwrite or inject
             const existingTodayIndex = records.findIndex(r => r.date === todayStr);
             if (existingTodayIndex >= 0) {
                 records[existingTodayIndex].total_collection = realTodayCollection;
-                records[existingTodayIndex].active_riders_count = liveActiveCount !== null ? liveActiveCount : records[existingTodayIndex].active_riders_count;
-            } else if (realTodayCollection > 0 || (liveActiveCount && liveActiveCount > 0)) {
+                records[existingTodayIndex].active_riders_count = liveActiveCount;
+            } else if (realTodayCollection > 0 || liveActiveCount > 0) {
                 records = [...records, {
                     date: todayStr,
                     total_collection: realTodayCollection,
-                    active_riders_count: liveActiveCount || 0,
+                    active_riders_count: liveActiveCount,
                     team_leader_id: userData!.id
                 }];
             }

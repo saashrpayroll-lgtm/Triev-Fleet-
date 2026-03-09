@@ -73,7 +73,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
             const todayStr = getTodayIST();
             const istMidnightUTC = getISTMidnightUTC();
 
-            const [{ data }, { data: todayLedger }, { count: liveCount }] = await Promise.all([
+            const [{ data }, { data: todayLedger }, { data: allRiders }] = await Promise.all([
                 supabase
                     .from('daily_collections')
                     .select('date, total_collection, active_riders_count, runrate')
@@ -95,28 +95,44 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     .gte('transaction_date', istMidnightUTC),
                 supabase
                     .from('riders')
-                    .select('*', { count: 'exact', head: true })
+                    .select('status, allotment_date, inactivated_at, updated_at')
                     .eq('team_leader_id', teamLeaderId)
-                    .eq('status', 'active'),
             ]);
 
             const realToday = (todayLedger || []).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+            // Helper to compute historical active count
+            const getHistoricalActiveCount = (ds: string) => {
+                return (allRiders || []).filter(r => {
+                    const ad: string | null = r.allotment_date;
+                    if (!ad) return r.status === 'active'; // Fallback
+                    const adIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(ad));
+                    if (adIst > ds) return false;
+
+                    if (r.status === 'active') return true;
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(iat)) : (uat ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(uat)) : null);
+                    return inactDate ? inactDate > ds : false;
+                }).length;
+            };
 
             let records: CollectionRecord[] = (data || [])
                 .filter(d => d.date <= todayStr)   // double-guard: strip future
                 .map(d => ({
                     date: d.date,
                     total_collection: Number(d.total_collection) || 0,
-                    active_riders_count: Number(d.active_riders_count) || 1,
+                    active_riders_count: getHistoricalActiveCount(d.date),
                     runrate: Number(d.runrate) || 0,
                 }));
 
             // ── Inject / replace today's live amount ─────────────────────
             const todayIdx = records.findIndex(r => r.date === todayStr);
+            const liveCount = getHistoricalActiveCount(todayStr);
             const todayRec: CollectionRecord = {
                 date: todayStr,
                 total_collection: realToday,
-                active_riders_count: liveCount ?? (todayIdx >= 0 ? records[todayIdx].active_riders_count : 1),
+                active_riders_count: liveCount,
                 runrate: 0,
             };
             todayRec.runrate = todayRec.active_riders_count > 0

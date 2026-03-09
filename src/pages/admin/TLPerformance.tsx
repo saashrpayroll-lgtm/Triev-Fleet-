@@ -268,7 +268,23 @@ const TLPerformance: React.FC = () => {
             const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId));
             const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
 
-            const activeRiders = tlRiders.filter(r => r.status === 'active').length;
+            const activeRiders = tlRiders.filter(r => {
+                const ad: string | null = (r as any).allotment_date || (r as any).allotmentDate;
+                if (!ad) return r.status === 'active'; // Fallback for riders without allotment date
+                const adIst = formatter.format(new Date(ad));
+                if (adIst > endDateStr) return false; // Exclude riders allotted after end date
+
+                // If currently active, and allotted before/on endDateStr, they were active on endDateStr
+                if (r.status === 'active') return true;
+
+                // If inactive/deleted, check when they were inactivated
+                const iat: string | null = (r as any).inactivated_at || (r as any).inactivatedAt;
+                const uat: string | null = (r as any).updated_at || (r as any).updatedAt;
+                const inactDate = iat ? formatter.format(new Date(iat)) : (uat ? formatter.format(new Date(uat)) : null);
+
+                // If inactivated AFTER the end date, they were ACTIVE during the end date
+                return inactDate ? inactDate > endDateStr : false;
+            }).length;
 
             // CALCULATE WALLET METRICS
             // Note: wallet_amount now reflects ONLY 'RESET' (Day Opening) + 'MANUAL_ADJUSTMENT'.

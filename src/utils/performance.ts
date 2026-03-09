@@ -71,11 +71,47 @@ export const calculateAIScore = (
     // Filter riders belonging to this TL
     const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
     const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
+    // Basic Stats (Period-aware)
+    let activeRiders = 0;
+    let inactiveRiders = 0;
+    let churnRiders = 0;
+    let totalRiders = 0;
 
-    // Basic Stats
-    const activeRiders = tlRiders.filter(r => r.status === 'active').length;
-    const inactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
-    const churnRiders = tlRiders.filter(r => r.status === 'deleted').length;
+    const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+
+    if (period) {
+        tlRiders.forEach(r => {
+            if (!r.allotmentDate) {
+                if (r.status === 'active') activeRiders++;
+                else if (r.status === 'inactive') inactiveRiders++;
+                else if (r.status === 'deleted') churnRiders++;
+                totalRiders++;
+                return;
+            }
+
+            const allotDateStr = istFormatter.format(new Date(r.allotmentDate));
+            if (allotDateStr <= period.end) {
+                totalRiders++;
+                if (r.inactivatedAt) {
+                    const inactiveDateStr = istFormatter.format(new Date(r.inactivatedAt));
+                    if (inactiveDateStr <= period.end) {
+                        if (r.status === 'deleted') churnRiders++;
+                        else inactiveRiders++;
+                    } else {
+                        // Inactivated AFTER period.end, meaning ACTIVE during period
+                        activeRiders++;
+                    }
+                } else {
+                    activeRiders++;
+                }
+            }
+        });
+    } else {
+        activeRiders = tlRiders.filter(r => r.status === 'active').length;
+        inactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
+        churnRiders = tlRiders.filter(r => r.status === 'deleted').length;
+        totalRiders = tlRiders.length;
+    }
 
     // Wallet Stats
     const positiveWallet = tlRiders.filter(r => r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
@@ -162,10 +198,10 @@ export const calculateAIScore = (
     // Final Normalization
     score = Math.max(0, Math.round(score));
 
-    const efficiency = tlRiders.length > 0 ? Math.round((activeRiders / tlRiders.length) * 100) : 0;
+    const efficiency = totalRiders > 0 ? Math.round((activeRiders / totalRiders) * 100) : 0;
 
     // Trending Logic
-    const isTrending = score > 1000 && (activeRiders / (tlRiders.length || 1)) > 0.85 && netGrowth >= 0;
+    const isTrending = score > 1000 && (activeRiders / (totalRiders || 1)) > 0.85 && netGrowth >= 0;
 
     // Gamification Badges Logic
     const badges: string[] = [];
@@ -188,7 +224,7 @@ export const calculateAIScore = (
         activeRiders,
         inactiveRiders,
         churnRiders,
-        totalRiders: tlRiders.length,
+        totalRiders,
         collection: collections,
         allotments,
         submissions,
@@ -208,3 +244,4 @@ export const calculateAIScore = (
         badges
     };
 };
+
