@@ -69,11 +69,7 @@ export const parseIndianDate = (dateRaw: any): string | null => {
 
     // Check if it's an Excel serial number date
     if (typeof dateRaw === 'number' || (typeof dateRaw === 'string' && !isNaN(Number(dateRaw)) && Number(dateRaw) > 20000)) {
-        // Excel serial dates: 1 = Jan 1, 1900.
-        // JS Date uses ms from Jan 1, 1970
-        // Approx 25569 days between 1900 and 1970 (depending on Excel 1900 leap year bug)
         const days = Number(dateRaw);
-        // Correct for 1900 leap year bug by subtracting 1 more day if > 59 (Feb 28, 1900)
         const msSince1900 = (days - (days > 59 ? 25569 : 25568)) * 86400 * 1000;
         const d = new Date(msSince1900);
         if (!isNaN(d.getTime())) {
@@ -82,7 +78,7 @@ export const parseIndianDate = (dateRaw: any): string | null => {
         return null;
     }
 
-    const cleanDate = String(dateRaw).trim();
+    let cleanDate = String(dateRaw).trim();
     if (!cleanDate) return null;
 
     const pad = (n: any) => String(n).padStart(2, '0');
@@ -94,20 +90,32 @@ export const parseIndianDate = (dateRaw: any): string | null => {
         const hr = h ? pad(h) : '12';
         const min = m ? pad(m) : '00';
         const sec = s ? pad(s) : '00';
-        // Validate month and day are logical
         if (Number(month) <= 12 && Number(day) <= 31) {
             return `${year}-${pad(month)}-${pad(day)}T${hr}:${min}:${sec}.000+05:30`;
         }
     }
 
-    // 2. Try DD/MM/YYYY (Indian format)
-    const ddmmyyyyMatch = cleanDate.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?(?:\s*(AM|PM|am|pm))?/);
+    // 2. Try strict DD/MM/YYYY (Indian format - PRIMARY FALLBACK)
+    // Excel/CSV from Indian locale usually exports DD/MM/YYYY.
+    // If someone types 12/02/2026, we MUST interpret 12=Day, 02=Month.
+    const ddmmyyyyMatch = cleanDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?(?:\s*(AM|PM|am|pm))?/);
     if (ddmmyyyyMatch) {
-        const [, dayStr, monthStr, yearStr, hourStr, minStr, secStr, ampm] = ddmmyyyyMatch;
+        const [, firstStr, secondStr, yearStr, hourStr, minStr, secStr, ampm] = ddmmyyyyMatch;
 
         const yearNum = yearStr.length === 2 ? 2000 + parseInt(yearStr, 10) : parseInt(yearStr, 10);
-        const monthNum = parseInt(monthStr, 10);
-        const dayNum = parseInt(dayStr, 10);
+        let firstNum = parseInt(firstStr, 10);
+        let secondNum = parseInt(secondStr, 10);
+
+        let dayNum = firstNum;
+        let monthNum = secondNum;
+
+        // Auto-correct if firstNum > 12 (it MUST be a day, so DD/MM format is validated)
+        // Auto-correct if secondNum > 12 (it MUST be a day, so MM/DD format was used inadvertently)
+        if (secondNum > 12 && firstNum <= 12) {
+            // US locale used MM/DD/YYYY exported to string
+            dayNum = secondNum;
+            monthNum = firstNum;
+        }
 
         let hourNum = hourStr ? parseInt(hourStr, 10) : 12;
         if (ampm) {
@@ -116,13 +124,14 @@ export const parseIndianDate = (dateRaw: any): string | null => {
             if (!isPM && hourNum === 12) hourNum = 0;
         }
 
-        // Must be a valid date
         if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31 && yearNum > 1900) {
             return `${yearNum}-${pad(monthNum)}-${pad(dayNum)}T${pad(hourNum)}:${pad(minStr || '00')}:${pad(secStr || '00')}.000+05:30`;
         }
     }
 
     // 3. Fallback to native parsing, but force to Noon IST
+    // WARNING: Native JS `new Date("12/02/2026")` evaluates to Dec 02 (MM/DD/YYYY).
+    // Our regex above will catch it first and force it to DD/MM/YYYY!
     const d = new Date(cleanDate);
     if (!isNaN(d.getTime())) {
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00.000+05:30`;
