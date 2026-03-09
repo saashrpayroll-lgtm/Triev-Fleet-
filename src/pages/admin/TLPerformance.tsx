@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
-import { getAIGrade, AI_WEIGHTS } from '@/utils/performance';
 import {
     Download,
     Search,
     TrendingUp,
     Users,
     Activity,
-    Trophy,
     ArrowUpRight,
-    ArrowDownRight,
-    Calendar as CalendarIcon,
-    Flame,
-    Zap,
-    Crosshair,
     Filter,
     Wallet,
     SearchX,
