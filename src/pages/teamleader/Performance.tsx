@@ -209,7 +209,6 @@ const TLPersonalPerformance: React.FC = () => {
             const ds = format(day, 'yyyy-MM-dd');
             const dayData = dailyMap.get(ds);
             const col = dayData?.col || 0;
-            const activeFromDB = dayData?.active || 0;
 
             // Allotments: use IST date only (removed wallet_amount === 0 check to prevent history disappearing)
             const dayAllotments = riders.filter(r => {
@@ -229,16 +228,23 @@ const TLPersonalPerformance: React.FC = () => {
             }).length;
 
             // Active fleet: Historical calculation dynamically computed using repaired dates
-            const activeOnDay = activeFromDB > 0 ? activeFromDB : riders.filter(r => {
+            // If the database has a reliable active snapshot, we use it. 
+            // BUT Bulk Imports frequently break the DB snapshot (because they rely on created_at vs allotment_date).
+            // Therefore, we MUST dynamically calculate historical active riders using allotment_date and inactivated_at.
+            const activeOnDay = riders.filter(r => {
                 const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
                 if (!adIst) return false;
-                if (adIst > ds) return false;
+                if (adIst > ds) return false; // Was allotted AFTER this date
 
                 if (r.status === 'active') return true;
+
                 const iat: string | null = r.inactivated_at;
                 const uat: string | null = r.updated_at;
                 const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
-                return inactDate ? inactDate >= ds : false;
+
+                // If they churned ON `ds`, they are NOT in the active fleet at the end of `ds`. 
+                // They belong to `ds`'s churn, so they should be deducted.
+                return inactDate ? inactDate > ds : false;
             }).length;
 
             const dayLeads = leads.filter(l => l.created_at && toISTStr(new Date(l.created_at)) === ds);
