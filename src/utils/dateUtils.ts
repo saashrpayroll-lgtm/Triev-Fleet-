@@ -1,4 +1,8 @@
-import { PerformancePeriod } from './performance';
+// PerformancePeriod defined here to avoid circular dependency with performance.ts
+export interface PerformancePeriod {
+    start: string; // YYYY-MM-DD
+    end: string;   // YYYY-MM-DD
+}
 
 export type DateFilterType = 'day' | 'week' | 'month' | 'custom' | 'all';
 

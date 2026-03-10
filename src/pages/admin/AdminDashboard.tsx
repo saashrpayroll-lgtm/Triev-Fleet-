@@ -223,13 +223,30 @@ const Dashboard: React.FC = () => {
             setDailyCollections(dayMap);
             setWeeklyCollections(weekMap);
 
-            // ✅ Fleet snapshot totals across all TLs
-            const liveActiveCount = (ridersRes.data || []).filter((r: any) => r.status === 'active').length;
+            // ✅ FIX: Per-TL fleet fleet snapshot with LIVE FALLBACK
+            // Key problem: simple sum of snapshots misses TLs who don't have a daily_collections
+            // entry yet for today (only TLs with today's import have one).
+            // Solution: for each TL, use their snapshot if it exists, else count live active riders.
+            const allRiderData = ridersRes.data || [];
+            const liveFleetByTL: Record<string, number> = {};
+            allRiderData.forEach((r: any) => {
+                if (r.status === 'active' && r.team_leader_id) {
+                    liveFleetByTL[r.team_leader_id] = (liveFleetByTL[r.team_leader_id] || 0) + 1;
+                }
+            });
+            const allTlIds = Object.keys(liveFleetByTL);
+
+            const computeFleetTotal = (snapshotMap: Record<string, number>): number =>
+                allTlIds.reduce((sum, tlId) =>
+                    sum + (snapshotMap[tlId] && snapshotMap[tlId] > 0 ? snapshotMap[tlId] : (liveFleetByTL[tlId] || 0)),
+                    0);
+
+            const liveActiveCount = allRiderData.filter((r: any) => r.status === 'active').length;
             setFleetSnapshots({
-                today: Object.values(tlTodayFleet).reduce((a, b) => a + b, 0) || liveActiveCount,
-                week: Object.values(tlLatestFleetInWeek).reduce((a, b) => a + b, 0) || liveActiveCount,
-                month: Object.values(tlLatestFleetInMonth).reduce((a, b) => a + b, 0) || liveActiveCount,
-                allTime: liveActiveCount,  // live is best for all-time
+                today: computeFleetTotal(tlTodayFleet),
+                week: computeFleetTotal(tlLatestFleetInWeek),
+                month: computeFleetTotal(tlLatestFleetInMonth),
+                allTime: liveActiveCount,  // live is always correct for all-time
             });
 
             // ✅ FIX: Compute total rent collected from daily_collections (authoritative source)

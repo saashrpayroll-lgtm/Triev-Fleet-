@@ -1,10 +1,8 @@
 import { User, Rider, Lead } from '../types';
-import { getValidHistoricalDate } from './dateUtils';
+import { getValidHistoricalDate, PerformancePeriod } from './dateUtils';
 
-export interface PerformancePeriod {
-    start: string; // ISO date string YYYY-MM-DD
-    end: string;   // ISO date string YYYY-MM-DD
-}
+// Re-export for backward compatibility so existing imports still work
+export type { PerformancePeriod };
 
 export interface TLPerformanceMetrics {
     score: number;
