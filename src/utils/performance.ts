@@ -68,9 +68,26 @@ export const calculateAIScore = (
 ): TLPerformanceMetrics => {
     const now = new Date();
 
+    // Unified property extractors for robustness against both raw Supabase (snake_case)
+    // and mapped state objects (camelCase).
+    const getTLId = (u: any) => u.id || u.user_id;
+    const tlId = getTLId(tl);
+
+    const getRiderTLId = (r: any) => r.teamLeaderId || r.team_leader_id;
+    const getRiderStatus = (r: any) => r.status;
+    const getRiderWallet = (r: any) => Number(r.walletAmount ?? r.wallet_amount ?? 0);
+    const getRiderAllotment = (r: any) => r.allotmentDate || r.allotment_date;
+    const getRiderInactivated = (r: any) => r.inactivatedAt || r.inactivated_at;
+    const getRiderCreated = (r: any) => r.createdAt || r.created_at;
+    const getRiderUpdated = (r: any) => r.updatedAt || r.updated_at;
+
+    const getLeadCreatedBy = (l: any) => l.createdBy || l.created_by;
+    const getLeadStatus = (l: any) => l.status;
+
     // Filter riders belonging to this TL
-    const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
-    const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
+    const tlRiders = riders.filter(r => getRiderTLId(r) === tlId);
+    const tlLeads = leads.filter(l => getLeadCreatedBy(l) === tlId);
+
     // Basic Stats (Period-aware)
     let activeRiders = 0;
     let inactiveRiders = 0;
@@ -79,19 +96,19 @@ export const calculateAIScore = (
 
     if (period) {
         tlRiders.forEach(r => {
+            const status = getRiderStatus(r);
             // ✅ FIX: Use getValidHistoricalDate to correctly handle bulk-imported riders
-            // whose allotment_date may be missing (falls back to created_at) or has
-            // a MM/DD vs DD/MM timezone inversion from import tools.
+            // whose allotment_date may be missing (falls back to created_at)
             const allotDateStr = getValidHistoricalDate(
-                r.allotmentDate,
-                (r as any).createdAt || (r as any).created_at
+                getRiderAllotment(r),
+                getRiderCreated(r)
             );
 
             if (!allotDateStr) {
                 // No date info — count by current live status
-                if (r.status === 'active') activeRiders++;
-                else if (r.status === 'inactive') inactiveRiders++;
-                else if (r.status === 'deleted') churnRiders++;
+                if (status === 'active') activeRiders++;
+                else if (status === 'inactive') inactiveRiders++;
+                else if (status === 'deleted') churnRiders++;
                 totalRiders++;
                 return;
             }
@@ -99,40 +116,45 @@ export const calculateAIScore = (
             if (allotDateStr <= period.end) {
                 totalRiders++;
                 const inactiveDateStr = getValidHistoricalDate(
-                    r.inactivatedAt,
-                    (r as any).updatedAt || (r as any).updated_at
+                    getRiderInactivated(r),
+                    getRiderUpdated(r)
                 );
-                if (inactiveDateStr && inactiveDateStr <= period.end) {
-                    if (r.status === 'deleted') churnRiders++;
+                if (status === 'active' && (!inactiveDateStr || inactiveDateStr > period.end)) {
+                    // Currently active and not inactivated before period end
+                    activeRiders++;
+                } else if (inactiveDateStr && inactiveDateStr <= period.end) {
+                    // Inactivated ON or BEFORE period.end
+                    if (status === 'deleted') churnRiders++;
                     else inactiveRiders++;
-                } else {
-                    // Inactivated AFTER period.end (or never inactivated) → ACTIVE during period
+                } else if (allotDateStr <= period.end) {
+                    // Safety fallback: if allotted before end but no inactivation recorded yet
                     activeRiders++;
                 }
             }
         });
     } else {
-        activeRiders = tlRiders.filter(r => r.status === 'active').length;
-        inactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
-        churnRiders = tlRiders.filter(r => r.status === 'deleted').length;
+        activeRiders = tlRiders.filter(r => getRiderStatus(r) === 'active').length;
+        inactiveRiders = tlRiders.filter(r => getRiderStatus(r) === 'inactive').length;
+        churnRiders = tlRiders.filter(r => getRiderStatus(r) === 'deleted').length;
         totalRiders = tlRiders.length;
     }
 
     // ✅ FIX: Prioritize true historical snapshots over dynamic logic for fleet count
-    if (historicalActiveFleet !== undefined && historicalActiveFleet > 0) {
-        activeRiders = historicalActiveFleet;
+    // Accept 0 as a valid historical number (don't fallback if explicitly 0)
+    if (historicalActiveFleet !== undefined) {
+        activeRiders = Number(historicalActiveFleet);
     }
 
     // Wallet Stats
-    const positiveWallet = tlRiders.filter(r => r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
-    const negativeWallet = tlRiders.filter(r => r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
-    const positiveWalletCount = tlRiders.filter(r => r.walletAmount > 0).length;
-    const negativeWalletCount = tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length;
+    const positiveWallet = tlRiders.filter(r => getRiderWallet(r) > 0).reduce((s, r) => s + getRiderWallet(r), 0);
+    const negativeWallet = tlRiders.filter(r => getRiderWallet(r) < 0).reduce((s, r) => s + getRiderWallet(r), 0);
+    const positiveWalletCount = tlRiders.filter(r => getRiderWallet(r) > 0).length;
+    const negativeWalletCount = tlRiders.filter(r => getRiderStatus(r) === 'active' && getRiderWallet(r) < 0).length;
     const collectionPerRider = activeRiders > 0 ? Math.round(collections / activeRiders) : 0;
 
     // Lead Stats
-    const convertedLeads = tlLeads.filter(l => l.status === 'Convert').length;
-    const notConvertedLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
+    const convertedLeads = tlLeads.filter(l => getLeadStatus(l) === 'Convert').length;
+    const notConvertedLeads = tlLeads.filter(l => getLeadStatus(l) === 'Not Convert').length;
     const conversionRate = tlLeads.length > 0 ? Math.round((convertedLeads / tlLeads.length) * 100) : 0;
 
     // Retention/Tenure Stats
@@ -141,9 +163,9 @@ export const calculateAIScore = (
     const todayIST = new Date(todayStr).getTime();
 
     const riderAges = tlRiders
-        .filter(r => r.status === 'active' && r.allotmentDate)
+        .filter(r => getRiderStatus(r) === 'active' && getRiderAllotment(r))
         .map(r => {
-            const rDateStr = istDateFormatter.format(new Date(r.allotmentDate!));
+            const rDateStr = istDateFormatter.format(new Date(getRiderAllotment(r)!));
             const rDateIST = new Date(rDateStr).getTime();
             return Math.max(0, Math.floor((todayIST - rDateIST) / 86400000));
         });
@@ -157,18 +179,19 @@ export const calculateAIScore = (
         allotments = tlRiders.filter(r => {
             // ✅ FIX: Use getValidHistoricalDate for consistent date handling
             const dateStr = getValidHistoricalDate(
-                r.allotmentDate,
-                (r as any).createdAt || (r as any).created_at
+                getRiderAllotment(r),
+                getRiderCreated(r)
             );
             if (!dateStr) return false;
             return dateStr >= period.start && dateStr <= period.end;
         }).length;
 
         submissions = tlRiders.filter(r => {
-            if (r.status !== 'inactive' && r.status !== 'deleted') return false;
+            const status = getRiderStatus(r);
+            if (status !== 'inactive' && status !== 'deleted') return false;
             const dateStr = getValidHistoricalDate(
-                r.inactivatedAt,
-                (r as any).updatedAt || (r as any).updated_at
+                getRiderInactivated(r),
+                getRiderUpdated(r)
             );
             if (!dateStr) return false;
             return dateStr >= period.start && dateStr <= period.end;
