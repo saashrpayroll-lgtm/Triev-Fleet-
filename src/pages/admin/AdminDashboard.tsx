@@ -290,7 +290,6 @@ const Dashboard: React.FC = () => {
         // ✅ FIX: zeroWallet should only count ACTIVE riders with 0 balance, not inactive (all show 0)
         const zeroWalletData = activeRidersList.filter(r => r.walletAmount === 0);
 
-        const positiveSum = positiveWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
         const negativeSum = negativeWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
         const avgWallet = activeRidersList.length > 0 ? Math.round(totalWallet / activeRidersList.length) : 0;
 
