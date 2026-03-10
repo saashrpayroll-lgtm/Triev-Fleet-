@@ -114,7 +114,7 @@ const TLAllotment: React.FC = () => {
                 // Step 3: ✅ daily_collections — proven source of truth for rent/collections per TL
                 supabase
                     .from('daily_collections')
-                    .select('team_leader_id, total_collection, date')
+                    .select('team_leader_id, total_collection, date, active_riders_count')
                     .gte('date', pStart)
                     .lte('date', pEnd)
                     .limit(50000),
@@ -150,6 +150,7 @@ const TLAllotment: React.FC = () => {
 
             // Build collection per TL from daily_collections (historical)
             const collectionByTL = new Map<string, number>();
+            const latestActiveFleetByTL = new Map<string, { date: string, count: number }>();
             (dailyColRes.data || []).forEach((row: any) => {
                 const tlId = row.team_leader_id as string;
                 if (!tlId) return;
@@ -160,6 +161,12 @@ const TLAllotment: React.FC = () => {
                 // Check if this is today's snapshot
                 if (row.date === todayStr) {
                     tlsWithTodaySnapshot.add(tlId);
+                }
+
+                // Track historical active fleet
+                const currentLatest = latestActiveFleetByTL.get(tlId);
+                if (!currentLatest || row.date > currentLatest.date) {
+                    latestActiveFleetByTL.set(tlId, { date: row.date, count: Number(row.active_riders_count || 0) });
                 }
             });
 
@@ -207,17 +214,41 @@ const TLAllotment: React.FC = () => {
             // Build final TL metrics
             const metrics: TLMetric[] = tls.map(tl => {
                 const tlRiders = ridersByTL.get(tl.id) || [];
-                const activeRiders = tlRiders.filter(r => r.status === 'active');
-                const inactiveRiders = tlRiders.filter(r => r.status === 'inactive');
                 const posRiders = tlRiders.filter(r => (r.wallet_amount || 0) > 0);
-                const negRiders = activeRiders.filter(r => (r.wallet_amount || 0) < 0);
+                const negRiders = tlRiders.filter(r => r.status === 'active' && (r.wallet_amount || 0) < 0);
+
+                let activeRiderCount = 0;
+                let inactiveRiderCount = tlRiders.filter(r => r.status === 'inactive').length; // Keep live inactive for consistency
+
+                if (todayStr >= pStart && todayStr <= pEnd) {
+                    // Includes today, use live active count
+                    activeRiderCount = tlRiders.filter(r => r.status === 'active').length;
+                } else {
+                    // Past date range
+                    const snapshot = latestActiveFleetByTL.get(tl.id);
+                    if (snapshot && snapshot.count > 0) {
+                        activeRiderCount = snapshot.count;
+                    } else {
+                        // Dynamic fallback calculation for pEnd
+                        activeRiderCount = tlRiders.filter(r => {
+                            const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
+                            if (!adIst || adIst > pEnd) return false;
+                            if (r.status === 'active') return true;
+
+                            const iat: string | null = r.inactivated_at;
+                            const uat: string | null = r.updated_at;
+                            const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+                            return inactDate ? inactDate > pEnd : false;
+                        }).length;
+                    }
+                }
 
                 return {
                     team_leader_id: tl.id,
                     tl_name: tl.full_name || 'Unknown',
                     tl_email: tl.email || '',
-                    active_rider_count: activeRiders.length,
-                    inactive_rider_count: inactiveRiders.length,
+                    active_rider_count: activeRiderCount,
+                    inactive_rider_count: inactiveRiderCount,
                     positive_wallet_count: posRiders.length,
                     positive_wallet_total: posRiders.reduce((s, r) => s + (r.wallet_amount || 0), 0),
                     negative_wallet_count: negRiders.length,

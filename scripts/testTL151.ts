@@ -30,7 +30,7 @@ export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallb
     }
 };
 
-const envContent = fs.readFileSync('.env.local', 'utf-8');
+const envContent = fs.readFileSync('.env', 'utf-8');
 const env: Record<string, string> = {};
 envContent.split('\n').forEach(line => {
     const [key, ...rest] = line.split('=');
