@@ -185,9 +185,9 @@ const Dashboard: React.FC = () => {
             if (myRidersError) throw myRidersError;
 
             // 2. Fetch My Leads
-            const { data: myLeadsData, error: myLeadsError } = await supabase
+            const { error: myLeadsError } = await supabase
                 .from('leads')
-                .select('*')
+                .select('id')
                 .eq('created_by', userData.id);
 
             if (myLeadsError) throw myLeadsError;
