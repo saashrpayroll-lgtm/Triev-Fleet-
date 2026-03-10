@@ -15,6 +15,7 @@ import { safeRender } from '@/utils/safeRender';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
+import { calculateAIScore } from '@/utils/performance';
 
 interface DashboardStats {
     // Riders
@@ -41,46 +42,144 @@ const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
 
-    // Stats State
-    const [stats, setStats] = useState<DashboardStats>({
-        totalRiders: 0, activeRiders: 0, inactiveRiders: 0, deletedRiders: 0, lowBalanceCount: 0,
-        positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
-        totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
-    });
+    // Stats State mapped from Leaderboard logic to respect Date Filters
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [aiInsight, setAiInsight] = useState<string>('');
 
-    // Leaderboard Data State
-    const [leaderboardData, setLeaderboardData] = useState<{ teamLeaders: User[], riders: Rider[], leads: Lead[] }>({
-        teamLeaders: [], riders: [], leads: []
-    });
+    // Raw Data for Memo
+    const [dailyCollectionsRaw, setDailyCollectionsRaw] = useState<any[]>([]);
+    const [liveTodayByTLRaw, setLiveTodayByTLRaw] = useState<Record<string, number>>({});
+    const [liveFleetByTLRaw, setLiveFleetByTLRaw] = useState<Record<string, number>>({});
 
-    // Collections State for Leaderboard
-    const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
+    // Live Collections for Debt Recovery
     const [tlTodayCollectionsByRider, setTlTodayCollectionsByRider] = useState<Record<string, number>>({});
+
+    // Leaderboard Data State
+
+    const computedPeriodData = React.useMemo(() => {
+        const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+        const now = new Date();
+        const nowStr = istFormatter.format(now);
+        const dayOfWeek = now.getDay() || 7;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - dayOfWeek + 1);
+        const weekStartStr = istFormatter.format(weekStart);
+        const monthStartStr = nowStr.substring(0, 8) + '01';
+
+        const dayMap: Record<string, number> = {};
+        const weekMap: Record<string, number> = {};
+        const monthMap: Record<string, number> = {};
+        const allTimeMap: Record<string, number> = {};
+
+        const tlTodayFleet: Record<string, number> = {};
+        const tlLatestFleetInWeek: Record<string, number> = {};
+        const tlLatestFleetInMonth: Record<string, number> = {};
+        const tlsWithTodaySnapshot = new Set<string>();
+
+        dailyCollectionsRaw.forEach((d: any) => {
+            const tlId = d.team_leader_id;
+            const amt = Number(d.total_collection) || 0;
+            const fleetCount = Number(d.active_riders_count) || 0;
+            const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+
+            allTimeMap[tlId] = (allTimeMap[tlId] || 0) + amt;
+
+            if (dDateStr === nowStr) {
+                tlsWithTodaySnapshot.add(tlId);
+                dayMap[tlId] = (dayMap[tlId] || 0) + amt;
+                if (fleetCount > 0) tlTodayFleet[tlId] = fleetCount;
+            }
+            if (dDateStr >= weekStartStr) {
+                weekMap[tlId] = (weekMap[tlId] || 0) + amt;
+                if (fleetCount > 0 && !tlLatestFleetInWeek[tlId]) tlLatestFleetInWeek[tlId] = fleetCount;
+            }
+            if (dDateStr >= monthStartStr && dDateStr <= nowStr) {
+                monthMap[tlId] = (monthMap[tlId] || 0) + amt;
+                if (fleetCount > 0 && !tlLatestFleetInMonth[tlId]) tlLatestFleetInMonth[tlId] = fleetCount;
+            }
+        });
+
+        Object.keys(liveTodayByTLRaw).forEach(tlId => {
+            if (!tlsWithTodaySnapshot.has(tlId)) {
+                dayMap[tlId] = liveTodayByTLRaw[tlId];
+                weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTLRaw[tlId];
+                monthMap[tlId] = (monthMap[tlId] || 0) + liveTodayByTLRaw[tlId];
+                allTimeMap[tlId] = (allTimeMap[tlId] || 0) + liveTodayByTLRaw[tlId];
+
+                tlTodayFleet[tlId] = liveFleetByTLRaw[tlId] || 0;
+                if (!tlLatestFleetInWeek[tlId]) tlLatestFleetInWeek[tlId] = liveFleetByTLRaw[tlId] || 0;
+                if (!tlLatestFleetInMonth[tlId]) tlLatestFleetInMonth[tlId] = liveFleetByTLRaw[tlId] || 0;
+            }
+        });
+
+        const resolveMap = (mapDay: any, mapWeek: any, mapMonth: any, mapAll: any) => {
+            switch (dateFilter) {
+                case 'day': return mapDay;
+                case 'week': return mapWeek;
+                case 'month': return mapMonth;
+                case 'all': return mapAll;
+                default: return mapAll;
+            }
+        };
+
+        return {
+            collections: resolveMap(dayMap, weekMap, monthMap, allTimeMap),
+            historicalFleet: resolveMap(tlTodayFleet, tlLatestFleetInWeek, tlLatestFleetInMonth, liveFleetByTLRaw)
+        };
+    }, [dateFilter, dailyCollectionsRaw, liveTodayByTLRaw, liveFleetByTLRaw]);
+
+    const computedLeaderStats = React.useMemo(() => {
+        if (!userData || !leaderboardData.riders.length) return null;
+        return calculateAIScore(
+            userData,
+            leaderboardData.riders,
+            leaderboardData.leads,
+            computedPeriodData.collections[userData.id] || 0,
+            resolvePerformancePeriod(dateFilter),
+            computedPeriodData.historicalFleet[userData.id]
+        );
+    }, [userData, leaderboardData, computedPeriodData, dateFilter]);
+
+    const stats: DashboardStats = React.useMemo(() => {
+        if (!computedLeaderStats) return {
+            totalRiders: 0, activeRiders: 0, inactiveRiders: 0, deletedRiders: 0, lowBalanceCount: 0,
+            positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
+            totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
+        };
+        // Some fallback counts still need the myRiders data 
+        const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData?.id);
+        const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length;
+
+        return {
+            totalRiders: computedLeaderStats.totalRiders,
+            activeRiders: computedLeaderStats.activeRiders,
+            inactiveRiders: computedLeaderStats.inactiveRiders,
+            deletedRiders: computedLeaderStats.churnRiders,
+            lowBalanceCount: lowBalanceCount || 0,
+            positiveWallet: computedLeaderStats.positiveWalletCount,
+            negativeWallet: computedLeaderStats.negativeWalletCount,
+            zeroWallet: 0,
+            totalPositiveAmount: computedLeaderStats.positiveWallet,
+            totalNegativeAmount: computedLeaderStats.negativeWallet,
+            totalLeads: computedLeaderStats.leadsTotal,
+            newLeads: 0,
+            convertedLeads: computedLeaderStats.convertedLeads,
+            notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads
+        }
+    }, [computedLeaderStats, leaderboardData.riders, userData?.id]);
 
     // --- Data Fetching & Real-time ---
     const fetchStats = React.useCallback(async () => {
         if (!userData) return;
 
         try {
-            // 1. Fetch My Riders
-            const { data: myRidersData, error: myRidersError } = await supabase
+            // 1. Fetch My Riders (for permission/context if needed, though mostly fetched in bulk below)
+            const { error: myRidersError } = await supabase
                 .from('riders')
-                .select('id, triev_id, rider_name, mobile_number, status, wallet_amount, team_leader_id')
+                .select('id')
                 .eq('team_leader_id', userData.id);
 
             if (myRidersError) throw myRidersError;
-
-            const myRiders = (myRidersData || []).map((r: any) => ({
-                id: r.id,
-                trievId: r.triev_id,
-                riderName: r.rider_name,
-                mobileNumber: r.mobile_number,
-                status: r.status,
-                walletAmount: r.status === 'active' ? r.wallet_amount : 0,
-                teamLeaderId: r.team_leader_id
-            })) as Rider[];
 
             // 2. Fetch My Leads
             const { data: myLeadsData, error: myLeadsError } = await supabase
@@ -92,30 +191,9 @@ const Dashboard: React.FC = () => {
 
             const myLeads = ((myLeadsData || [])).map(mapLeadFromDB);
 
-            // Calculate Stats
-            const newStats: DashboardStats = {
-                // Rider Stats
-                totalRiders: myRiders.length,
-                activeRiders: myRiders.filter(r => r.status === 'active').length,
-                inactiveRiders: myRiders.filter(r => r.status === 'inactive').length,
-                deletedRiders: myRiders.filter(r => r.status === 'deleted').length,
-                lowBalanceCount: myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length,
+            // Calculate Stats is now handled by pure useMemo
 
-                // Wallet Stats
-                positiveWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount > 0).length,
-                negativeWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length,
-                zeroWallet: myRiders.filter(r => r.status === 'active' && r.walletAmount === 0).length,
-                totalPositiveAmount: myRiders.reduce((sum, r) => r.walletAmount > 0 ? sum + r.walletAmount : sum, 0),
-                totalNegativeAmount: myRiders.reduce((sum, r) => r.walletAmount < 0 ? sum + r.walletAmount : sum, 0),
 
-                // Lead Stats
-                totalLeads: myLeads.length,
-                newLeads: myLeads.filter(l => l.status === 'New').length,
-                convertedLeads: myLeads.filter(l => l.status === 'Convert').length,
-                notConvertedLeads: myLeads.filter(l => l.status === 'Not Convert').length,
-            };
-
-            setStats(newStats);
 
             // 3. Global Leaderboard Data
             const { data: tlsData } = await supabase.from('users').select('id, full_name, email, role, profile_pic_url').eq('role', 'teamLeader');
@@ -160,7 +238,7 @@ const Dashboard: React.FC = () => {
             })();
 
             const [dailyRes, todayLedgerRes] = await Promise.all([
-                supabase.from('daily_collections').select('team_leader_id, date, total_collection'),
+                supabase.from('daily_collections').select('team_leader_id, date, total_collection, active_riders_count'),
                 supabase
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(id, team_leader_id)')
@@ -213,7 +291,17 @@ const Dashboard: React.FC = () => {
                 collections[tlId] = (collections[tlId] || 0) + liveTodayByTL[tlId];
             });
 
-            setTlCollections(collections);
+            const liveFleet: Record<string, number> = {};
+            allRiders.forEach(r => {
+                if (r.status === 'active' && r.teamLeaderId) {
+                    liveFleet[r.teamLeaderId] = (liveFleet[r.teamLeaderId] || 0) + 1;
+                }
+            });
+
+            setLiveFleetByTLRaw(liveFleet);
+            setDailyCollectionsRaw(dailyRes.data || []);
+            setLiveTodayByTLRaw(liveTodayByTL);
+
             setTlTodayCollectionsByRider(liveTodayByRider);
 
 
@@ -702,7 +790,8 @@ const Dashboard: React.FC = () => {
                                     teamLeaders={leaderboardData.teamLeaders}
                                     riders={leaderboardData.riders}
                                     leads={leaderboardData.leads}
-                                    collections={tlCollections}
+                                    collections={computedPeriodData.collections}
+                                    historicalFleetCounts={computedPeriodData.historicalFleet}
                                     disableClick={true}
                                     period={resolvePerformancePeriod(dateFilter)}
                                 />

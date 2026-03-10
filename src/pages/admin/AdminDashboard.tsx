@@ -429,13 +429,12 @@ const Dashboard: React.FC = () => {
 
     // --- Chart Data ---
     const chartData = useMemo(() => {
-        const { riders } = filteredData;
 
         return {
             riders: [
-                { name: 'Active', value: riders.filter(r => r.status === 'active').length, color: '#10b981' },
-                { name: 'Inactive', value: riders.filter(r => r.status === 'inactive').length, color: '#f59e0b' },
-                { name: 'Deleted', value: riders.filter(r => r.status === 'deleted').length, color: '#f43f5e' }
+                { name: 'Active', value: stats.activeRiders, color: '#10b981' },
+                { name: 'Inactive', value: stats.inactiveRiders, color: '#f59e0b' },
+                { name: 'Deleted', value: stats.deletedRiders, color: '#f43f5e' }
             ],
             wallet: [
                 { name: 'Collections', value: stats.totalCollection },

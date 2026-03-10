@@ -58,6 +58,7 @@ const LeaderboardPage: React.FC = () => {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [collections, setCollections] = useState<Record<string, number>>({});
+    const [historicalFleetCounts, setHistoricalFleetCounts] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'score', direction: 'desc' });
@@ -107,18 +108,30 @@ const LeaderboardPage: React.FC = () => {
             }
 
             // Collections — daily_collections.date is authoritative for all periods
-            let colQuery = supabase.from('daily_collections').select('team_leader_id, total_collection, date');
+            let colQuery = supabase.from('daily_collections')
+                .select('team_leader_id, total_collection, date, active_riders_count')
+                .order('date', { ascending: true }); // Ascending allows later dates to overwrite, giving us the LATEST snapshot
+
             if (period) { colQuery = colQuery.gte('date', period.start).lte('date', period.end); }
             const { data: dailyRes } = await colQuery;
+
             const colMap: Record<string, number> = {};
+            const activeFleetMap: Record<string, number> = {};
+
             // Track TLs with today's snapshot (to avoid double-counting with live ledger)
             const tlsWithTodaySnap = new Set<string>();
             const now = new Date();
             const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+
             if (dailyRes) {
                 dailyRes.forEach((d: any) => {
                     const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
                     colMap[d.team_leader_id] = (colMap[d.team_leader_id] || 0) + (Number(d.total_collection) || 0);
+
+                    if (d.active_riders_count !== undefined && d.active_riders_count !== null) {
+                        activeFleetMap[d.team_leader_id] = Number(d.active_riders_count);
+                    }
+
                     if (dDate === istDateStr) tlsWithTodaySnap.add(d.team_leader_id);
                 });
             }
@@ -153,6 +166,7 @@ const LeaderboardPage: React.FC = () => {
             }
 
             setCollections(colMap);
+            setHistoricalFleetCounts(activeFleetMap);
         } catch (error) {
             console.error('Leaderboard data error:', error);
         } finally {
@@ -185,7 +199,8 @@ const LeaderboardPage: React.FC = () => {
     const scoredList: ScoredTL[] = useMemo(() => {
         const list = teamLeaders.map(tl => {
             const tlCollection = collections[tl.id] || 0;
-            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period);
+            const historicalFleet = historicalFleetCounts[tl.id];
+            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period, historicalFleet);
             return {
                 ...tl,
                 score: metrics.score,
@@ -236,7 +251,7 @@ const LeaderboardPage: React.FC = () => {
         });
 
         return sorted.map((item: any, index: number) => ({ ...item, rank: index + 1 })) as ScoredTL[];
-    }, [teamLeaders, riders, leads, collections, sortConfig, period]);
+    }, [teamLeaders, riders, leads, collections, historicalFleetCounts, sortConfig, period]);
 
     const filteredList = scoredList.filter(tl =>
         (tl.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -63,7 +63,8 @@ export const calculateAIScore = (
     riders: Rider[],
     leads: Lead[],
     collections: number,
-    period?: PerformancePeriod
+    period?: PerformancePeriod,
+    historicalActiveFleet?: number
 ): TLPerformanceMetrics => {
     const now = new Date();
 
@@ -115,6 +116,11 @@ export const calculateAIScore = (
         inactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
         churnRiders = tlRiders.filter(r => r.status === 'deleted').length;
         totalRiders = tlRiders.length;
+    }
+
+    // ✅ FIX: Prioritize true historical snapshots over dynamic logic for fleet count
+    if (historicalActiveFleet !== undefined && historicalActiveFleet > 0) {
+        activeRiders = historicalActiveFleet;
     }
 
     // Wallet Stats

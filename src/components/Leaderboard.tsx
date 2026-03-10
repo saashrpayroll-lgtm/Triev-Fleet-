@@ -19,6 +19,7 @@ interface LeaderboardProps {
     action?: React.ReactNode;
     disableClick?: boolean;
     period?: PerformancePeriod;
+    historicalFleetCounts?: Record<string, number>;
 }
 
 // ── Rank-change helpers ────────────────────────────────────────────────────────
@@ -48,7 +49,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     collections = {},
     action,
     disableClick = false,
-    period
+    period,
+    historicalFleetCounts = {}
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -57,7 +59,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     const scoredTLs = useMemo(() => {
         return teamLeaders.map(tl => {
             const tlCollection = collections[tl.id] || 0;
-            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period);
+            const historicalFleet = historicalFleetCounts[tl.id];
+            const metrics = calculateAIScore(tl, riders, leads, tlCollection, period, historicalFleet);
             return {
                 ...tl,
                 fullName: tl.fullName || (tl as any).full_name || 'Unknown',
@@ -68,7 +71,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                 stats: metrics
             };
         }).sort((a, b) => b.score - a.score);
-    }, [teamLeaders, riders, leads, collections, period]);
+    }, [teamLeaders, riders, leads, collections, period, historicalFleetCounts]);
 
     // Save current ranks on each render so next session can compare
     useEffect(() => {
