@@ -402,12 +402,12 @@ const Dashboard: React.FC = () => {
                     )}
                     {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
                         <SmartMetricCard
-                            title="Revenue Collected"
+                            title="Positive Wallet Balance"
                             value={stats.totalPositiveAmount}
                             icon={Wallet}
                             color="indigo"
                             trend={{ value: 24, label: 'growth', direction: 'up' }}
-                            subtitle={`${stats.positiveWallet} Riders Positive`}
+                            subtitle={`${stats.positiveWallet} Riders in Positive`}
                             progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
                             onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
                         />

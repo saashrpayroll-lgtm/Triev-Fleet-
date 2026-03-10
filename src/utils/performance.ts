@@ -1,4 +1,5 @@
 import { User, Rider, Lead } from '../types';
+import { getValidHistoricalDate } from './dateUtils';
 
 export interface PerformancePeriod {
     start: string; // ISO date string YYYY-MM-DD
@@ -77,11 +78,18 @@ export const calculateAIScore = (
     let churnRiders = 0;
     let totalRiders = 0;
 
-    const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-
     if (period) {
         tlRiders.forEach(r => {
-            if (!r.allotmentDate) {
+            // ✅ FIX: Use getValidHistoricalDate to correctly handle bulk-imported riders
+            // whose allotment_date may be missing (falls back to created_at) or has
+            // a MM/DD vs DD/MM timezone inversion from import tools.
+            const allotDateStr = getValidHistoricalDate(
+                r.allotmentDate,
+                (r as any).createdAt || (r as any).created_at
+            );
+
+            if (!allotDateStr) {
+                // No date info — count by current live status
                 if (r.status === 'active') activeRiders++;
                 else if (r.status === 'inactive') inactiveRiders++;
                 else if (r.status === 'deleted') churnRiders++;
@@ -89,19 +97,17 @@ export const calculateAIScore = (
                 return;
             }
 
-            const allotDateStr = istFormatter.format(new Date(r.allotmentDate));
             if (allotDateStr <= period.end) {
                 totalRiders++;
-                if (r.inactivatedAt) {
-                    const inactiveDateStr = istFormatter.format(new Date(r.inactivatedAt));
-                    if (inactiveDateStr <= period.end) {
-                        if (r.status === 'deleted') churnRiders++;
-                        else inactiveRiders++;
-                    } else {
-                        // Inactivated AFTER period.end, meaning ACTIVE during period
-                        activeRiders++;
-                    }
+                const inactiveDateStr = getValidHistoricalDate(
+                    r.inactivatedAt,
+                    (r as any).updatedAt || (r as any).updated_at
+                );
+                if (inactiveDateStr && inactiveDateStr <= period.end) {
+                    if (r.status === 'deleted') churnRiders++;
+                    else inactiveRiders++;
                 } else {
+                    // Inactivated AFTER period.end (or never inactivated) → ACTIVE during period
                     activeRiders++;
                 }
             }
@@ -144,22 +150,23 @@ export const calculateAIScore = (
     let submissions = 0;
 
     if (period) {
-        const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-
         allotments = tlRiders.filter(r => {
-            if (!r.allotmentDate) return false;
-            const dateStr = istFormatter.format(new Date(r.allotmentDate));
-            const inPeriod = dateStr >= period.start && dateStr <= period.end;
-
-            // Note: Removed "Genuine New Allotment Rule" (walletAmount === 0) 
-            // because evaluating historical allotments with current wallet balance 
-            // caused past allotments to disappear from the Fleet Flow table once a transaction occurred.
-            return inPeriod;
+            // ✅ FIX: Use getValidHistoricalDate for consistent date handling
+            const dateStr = getValidHistoricalDate(
+                r.allotmentDate,
+                (r as any).createdAt || (r as any).created_at
+            );
+            if (!dateStr) return false;
+            return dateStr >= period.start && dateStr <= period.end;
         }).length;
 
         submissions = tlRiders.filter(r => {
-            if ((r.status !== 'inactive' && r.status !== 'deleted') || !r.inactivatedAt) return false;
-            const dateStr = istFormatter.format(new Date(r.inactivatedAt));
+            if (r.status !== 'inactive' && r.status !== 'deleted') return false;
+            const dateStr = getValidHistoricalDate(
+                r.inactivatedAt,
+                (r as any).updatedAt || (r as any).updated_at
+            );
+            if (!dateStr) return false;
             return dateStr >= period.start && dateStr <= period.end;
         }).length;
     } else {

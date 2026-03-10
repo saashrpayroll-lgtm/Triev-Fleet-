@@ -39,6 +39,8 @@ const Dashboard: React.FC = () => {
     const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
     const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
     const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
+    // ✅ FIX: Separate period-aware rent collection total from wallet data
+    const [periodRentTotal, setPeriodRentTotal] = useState<number>(0);
 
     // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
@@ -192,6 +194,12 @@ const Dashboard: React.FC = () => {
             setDailyCollections(dayMap);
             setWeeklyCollections(weekMap);
 
+            // ✅ FIX: Compute total rent collected from daily_collections (authoritative source)
+            // This is used for the Admin Dashboard "Total Collections" card
+            const totalFromDailyCollections = Object.values(collections).reduce((a, b) => a + b, 0)
+                + Object.values(liveTodayByTL).reduce((a, b) => a + b, 0);
+            setPeriodRentTotal(totalFromDailyCollections);
+
             setRawData({
                 riders: (ridersRes.data as Rider[] || []).map(r => ({ ...r, walletAmount: r.status === 'active' ? r.walletAmount : 0 })),
                 leads: leadsRes.data as Lead[] || [],
@@ -274,20 +282,45 @@ const Dashboard: React.FC = () => {
     const stats = useMemo(() => {
         const { riders, leads, requests, teamLeaders } = filteredData;
 
-        // Wallet Calcs
-        const totalWallet = riders.reduce((sum, r) => sum + r.walletAmount, 0);
-        const positiveWalletData = riders.filter(r => r.walletAmount > 0);
-        const negativeWalletData = riders.filter(r => r.walletAmount < 0);
-        const zeroWalletData = riders.filter(r => r.walletAmount === 0);
+        // Wallet Calcs — only for ACTIVE riders (wallet_amount for inactive is already 0 in rawData)
+        const activeRidersList = riders.filter(r => r.status === 'active');
+        const totalWallet = activeRidersList.reduce((sum, r) => sum + r.walletAmount, 0);
+        const positiveWalletData = activeRidersList.filter(r => r.walletAmount > 0);
+        const negativeWalletData = activeRidersList.filter(r => r.walletAmount < 0);
+        // ✅ FIX: zeroWallet should only count ACTIVE riders with 0 balance, not inactive (all show 0)
+        const zeroWalletData = activeRidersList.filter(r => r.walletAmount === 0);
 
         const positiveSum = positiveWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
         const negativeSum = negativeWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
-        const avgWallet = riders.length > 0 ? Math.round(totalWallet / riders.length) : 0;
+        const avgWallet = activeRidersList.length > 0 ? Math.round(totalWallet / activeRidersList.length) : 0;
 
         // Critical Monitors
         const highDebtRiders = negativeWalletData.filter(r => r.walletAmount < -3000);
         const criticalRequests = requests.filter(r => r.priority === 'high');
-        const activeRidersList = riders.filter(r => r.status === 'active');
+
+        // ✅ FIX: Compute period-specific rent total from daily_collections
+        const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+        const nowStr = istFormatter.format(new Date());
+        const dailyColRaw = (rawData as any).dailyCollectionsRaw || [];
+        let periodRent = 0;
+        if (dateFilter === 'all') {
+            periodRent = periodRentTotal;
+        } else if (dateFilter === 'day') {
+            // Sum all TLs' today collection from dayMap
+            periodRent = Object.values(dailyCollections).reduce((a, b) => a + b, 0);
+        } else if (dateFilter === 'week') {
+            periodRent = Object.values(weeklyCollections).reduce((a, b) => a + b, 0);
+        } else if (dateFilter === 'month') {
+            const yr = new Date().getUTCFullYear();
+            const mo = new Date().getUTCMonth() + 1;
+            const monthStart = `${yr}-${String(mo).padStart(2, '0')}-01`;
+            periodRent = dailyColRaw
+                .filter((d: any) => {
+                    const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                    return dDate >= monthStart && dDate <= nowStr;
+                })
+                .reduce((s: number, d: any) => s + (Number(d.total_collection) || 0), 0);
+        }
 
         return {
             // Riders
@@ -296,7 +329,7 @@ const Dashboard: React.FC = () => {
             inactiveRiders: riders.filter(r => r.status === 'inactive').length,
             deletedRiders: riders.filter(r => r.status === 'deleted').length,
 
-            // Wallet Counts
+            // Wallet Counts (active riders only)
             positiveWalletCount: positiveWalletData.length,
             negativeWalletCount: negativeWalletData.length,
             zeroWalletCount: zeroWalletData.length,
@@ -304,7 +337,9 @@ const Dashboard: React.FC = () => {
             lowBalanceCount: activeRidersList.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
 
             // Finance Amounts
-            totalCollection: positiveSum,
+            // ✅ FIX: totalCollection = actual rent from daily_collections for selected period
+            //         NOT wallet positive balances (which change daily)
+            totalCollection: periodRent,
             outstandingDues: Math.abs(negativeSum),
             netBalance: totalWallet,
             avgBalance: avgWallet,
@@ -329,7 +364,7 @@ const Dashboard: React.FC = () => {
             totalTLs: teamLeaders.length,
             activeTLs: teamLeaders.filter(u => u.status === 'active').length
         };
-    }, [filteredData]);
+    }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter]);
 
     // --- Chart Data ---
     const chartData = useMemo(() => {
