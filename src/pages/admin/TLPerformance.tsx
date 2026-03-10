@@ -269,22 +269,37 @@ const TLPerformance: React.FC = () => {
             const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId));
             const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
 
-            const activeRiders = tlRiders.filter(r => {
-                const adIst = getValidHistoricalDate((r as any).allotment_date || (r as any).allotmentDate, (r as any).created_at || (r as any).createdAt);
-                if (!adIst) return false;
-                if (adIst > endDateStr) return false; // Exclude riders allotted after end date
+            let activeRiders = 0;
 
-                // If currently active, and allotted before/on endDateStr, they were active on endDateStr
-                if (r.status === 'active') return true;
+            const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
+            const collectionSnapshot = rawData.collections.find(item => {
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                return item.team_leader_id === tlId && dDateStr === targetEndDate;
+            });
 
-                // If inactive/deleted, check when they were inactivated
-                const iat: string | null = (r as any).inactivated_at || (r as any).inactivatedAt;
-                const uat: string | null = (r as any).updated_at || (r as any).updatedAt;
-                let inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+            if (targetEndDate < nowISTStr && collectionSnapshot && Number(collectionSnapshot.active_riders_count) > 0) {
+                // Historically proven active fleet from snapshot
+                activeRiders = Number(collectionSnapshot.active_riders_count);
+            } else {
+                // Dynamic calculation fallback (for today or missing snapshots)
+                activeRiders = tlRiders.filter(r => {
+                    const adIst = getValidHistoricalDate((r as any).allotment_date || (r as any).allotmentDate, (r as any).created_at || (r as any).createdAt);
+                    if (!adIst) return false;
+                    if (adIst > endDateStr) return false; // Exclude riders allotted after end date
 
-                // If inactivated AFTER the end date, they were ACTIVE during the end date
-                return inactDate ? inactDate >= endDateStr : false;
-            }).length;
+                    // If currently active, and allotted before/on endDateStr, they were active on endDateStr
+                    if (r.status === 'active') return true;
+
+                    // If inactive/deleted, check when they were inactivated
+                    const iat: string | null = (r as any).inactivated_at || (r as any).inactivatedAt;
+                    const uat: string | null = (r as any).updated_at || (r as any).updatedAt;
+                    let inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+
+                    // If inactivated AFTER the end date, they were ACTIVE during the end date
+                    // Changed to > instead of >= because if they were inactivated ON the endDate, they churned that day.
+                    return inactDate ? inactDate > endDateStr : false;
+                }).length;
+            }
 
             // CALCULATE WALLET METRICS
             // Note: wallet_amount now reflects ONLY 'RESET' (Day Opening) + 'MANUAL_ADJUSTMENT'.
