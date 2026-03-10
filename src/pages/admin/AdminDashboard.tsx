@@ -41,6 +41,13 @@ const Dashboard: React.FC = () => {
     const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
     // ✅ FIX: Separate period-aware rent collection total from wallet data
     const [periodRentTotal, setPeriodRentTotal] = useState<number>(0);
+    // ✅ FIX: Period-aware fleet snapshots from daily_collections.active_riders_count
+    const [fleetSnapshots, setFleetSnapshots] = useState<{
+        today: number;    // sum of today's active_riders_count across all TLs
+        week: number;     // sum of latest snapshot per TL within this week
+        month: number;    // sum of latest snapshot per TL within this month
+        allTime: number;  // live rider count (fallback)
+    }>({ today: 0, week: 0, month: 0, allTime: 0 });
 
     // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
@@ -86,7 +93,7 @@ const Dashboard: React.FC = () => {
                     role,
                     profilePicUrl:profile_pic_url
                 `).eq('role', 'teamLeader'),
-                supabase.from('daily_collections').select('team_leader_id, total_collection, date')
+                supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count')
                     .gte('date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)))
                     .order('date', { ascending: false })
                     .limit(50000),
@@ -150,9 +157,22 @@ const Dashboard: React.FC = () => {
             // Track TLs that already have a today snapshot in daily_collections
             const tlsWithTodaySnapshot = new Set<string>();
 
+            // ✅ FIX: Fleet snapshot maps — track latest active_riders_count per TL per period
+            // We use the MOST RECENT snapshot within each window (last ordered row since we order desc)
+            const tlTodayFleet: Record<string, number> = {};      // TL → fleet on today
+            const tlLatestFleetInWeek: Record<string, number> = {};  // TL → latest snapshot in week
+            const tlLatestFleetInMonth: Record<string, number> = {}; // TL → latest snapshot in month
+
+            const now2 = new Date();
+            const ist2 = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+            const nowStr2 = ist2.format(now2);
+            const [yr2, mo2] = nowStr2.split('-').map(Number);
+            const monthStart2 = `${yr2}-${String(mo2).padStart(2, '0')}-01`;
+
             dailyData.forEach((d: any) => {
                 const tlId = d.team_leader_id;
                 const amt = Number(d.total_collection) || 0;
+                const fleetCount = Number(d.active_riders_count) || 0;
                 const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
 
                 // All-time total
@@ -162,11 +182,20 @@ const Dashboard: React.FC = () => {
                 if (dDateStr === todayStr) {
                     tlsWithTodaySnapshot.add(tlId);
                     dayMap[tlId] = (dayMap[tlId] || 0) + amt;
+                    // Fleet: take today's snapshot
+                    if (fleetCount > 0) tlTodayFleet[tlId] = fleetCount;
                 }
 
                 // Weekly: use date string (authoritative) — includes today if snapshot exists
                 if (dDateStr >= weekStart) {
                     weekMap[tlId] = (weekMap[tlId] || 0) + amt;
+                    // Fleet: keep the most recent (dailyData is ordered desc, first encounter = latest)
+                    if (fleetCount > 0 && !tlLatestFleetInWeek[tlId]) tlLatestFleetInWeek[tlId] = fleetCount;
+                }
+
+                // Monthly fleet snapshot
+                if (dDateStr >= monthStart2 && dDateStr <= nowStr2) {
+                    if (fleetCount > 0 && !tlLatestFleetInMonth[tlId]) tlLatestFleetInMonth[tlId] = fleetCount;
                 }
             });
 
@@ -193,6 +222,15 @@ const Dashboard: React.FC = () => {
             setTlCollections(collections);
             setDailyCollections(dayMap);
             setWeeklyCollections(weekMap);
+
+            // ✅ Fleet snapshot totals across all TLs
+            const liveActiveCount = (ridersRes.data || []).filter((r: any) => r.status === 'active').length;
+            setFleetSnapshots({
+                today: Object.values(tlTodayFleet).reduce((a, b) => a + b, 0) || liveActiveCount,
+                week: Object.values(tlLatestFleetInWeek).reduce((a, b) => a + b, 0) || liveActiveCount,
+                month: Object.values(tlLatestFleetInMonth).reduce((a, b) => a + b, 0) || liveActiveCount,
+                allTime: liveActiveCount,  // live is best for all-time
+            });
 
             // ✅ FIX: Compute total rent collected from daily_collections (authoritative source)
             // This is used for the Admin Dashboard "Total Collections" card
@@ -322,9 +360,16 @@ const Dashboard: React.FC = () => {
         }
 
         return {
-            // Riders
+            // Riders — active fleet is period-aware via daily_collections snapshots
             totalRiders: riders.length,
-            activeRiders: activeRidersList.length,
+            // ✅ FIX: Use historical fleet snapshot for non-live periods
+            activeRiders: dateFilter === 'day'
+                ? (fleetSnapshots.today || activeRidersList.length)
+                : dateFilter === 'week'
+                    ? (fleetSnapshots.week || activeRidersList.length)
+                    : dateFilter === 'month'
+                        ? (fleetSnapshots.month || activeRidersList.length)
+                        : activeRidersList.length,  // 'all' = live count
             inactiveRiders: riders.filter(r => r.status === 'inactive').length,
             deletedRiders: riders.filter(r => r.status === 'deleted').length,
 
@@ -363,7 +408,7 @@ const Dashboard: React.FC = () => {
             totalTLs: teamLeaders.length,
             activeTLs: teamLeaders.filter(u => u.status === 'active').length
         };
-    }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter]);
+    }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter, fleetSnapshots]);
 
     // --- Chart Data ---
     const chartData = useMemo(() => {
