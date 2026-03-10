@@ -55,6 +55,9 @@ const Dashboard: React.FC = () => {
     const [tlTodayCollectionsByRider, setTlTodayCollectionsByRider] = useState<Record<string, number>>({});
 
     // Leaderboard Data State
+    const [leaderboardData, setLeaderboardData] = useState<{ teamLeaders: User[], riders: Rider[], leads: Lead[] }>({
+        teamLeaders: [], riders: [], leads: []
+    });
 
     const computedPeriodData = React.useMemo(() => {
         const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
