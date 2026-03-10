@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
-import { getValidHistoricalDate } from '@/utils/dateUtils';
 import {
     Download,
     Search,
@@ -18,6 +17,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
 
 
 const TLPerformance: React.FC = () => {
@@ -262,14 +262,28 @@ const TLPerformance: React.FC = () => {
         }
 
 
+        const period: PerformancePeriod = { start: startDateStr, end: endDateStr };
+
+        // Days in current week elapsed (Mon=1 … Sun=7)
+        // FIX: use getUTCDay() on IST date anchor — avoids Intl locale short-name inconsistency
+        const weekDayIST = (() => {
+            const now2 = new Date();
+            const istStr2 = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now2);
+            const [iy, im, id] = istStr2.split('-').map(Number);
+            const istUTCDate = new Date(Date.UTC(iy, im - 1, id));
+            const dayNum = istUTCDate.getUTCDay(); // 0=Sun, 1=Mon … 6=Sat
+            return dayNum === 0 ? 7 : dayNum;      // Mon=1 … Sat=6, Sun=7
+        })();
 
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
-            // Support both snake_case and camelCase from Supabase mappings
-            const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId));
-            const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
-
-            let activeRiders = 0;
+            const tlCollection = (dateFilter === 'today' ? (rawData as any).dailyCollectionsMap?.[tlId] : undefined) ??
+                rawData.collections.filter(item => {
+                    const isTL = item.team_leader_id === tlId;
+                    if (!isTL) return false;
+                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                    return dDateStr >= startDateStr && dDateStr <= endDateStr;
+                }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
 
             const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
             const collectionSnapshot = rawData.collections.find(item => {
@@ -277,164 +291,66 @@ const TLPerformance: React.FC = () => {
                 return item.team_leader_id === tlId && dDateStr === targetEndDate;
             });
 
-            if (targetEndDate < nowISTStr && collectionSnapshot && Number(collectionSnapshot.active_riders_count) > 0) {
-                // Historically proven active fleet from snapshot
-                activeRiders = Number(collectionSnapshot.active_riders_count);
-            } else {
-                // Dynamic calculation fallback (for today or missing snapshots)
-                activeRiders = tlRiders.filter(r => {
-                    const adIst = getValidHistoricalDate((r as any).allotment_date || (r as any).allotmentDate, (r as any).created_at || (r as any).createdAt);
-                    if (!adIst) return false;
-                    if (adIst > endDateStr) return false; // Exclude riders allotted after end date
+            const historicalFleet = (targetEndDate < nowISTStr && collectionSnapshot && Number(collectionSnapshot.active_riders_count) > 0)
+                ? Number(collectionSnapshot.active_riders_count)
+                : undefined;
 
-                    // If currently active, and allotted before/on endDateStr, they were active on endDateStr
-                    if (r.status === 'active') return true;
-
-                    // If inactive/deleted, check when they were inactivated
-                    const iat: string | null = (r as any).inactivated_at || (r as any).inactivatedAt;
-                    const uat: string | null = (r as any).updated_at || (r as any).updatedAt;
-                    let inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
-
-                    // If inactivated AFTER the end date, they were ACTIVE during the end date
-                    // Changed to > instead of >= because if they were inactivated ON the endDate, they churned that day.
-                    return inactDate ? inactDate > endDateStr : false;
-                }).length;
-            }
-
-            // CALCULATE WALLET METRICS
-            // Note: wallet_amount now reflects ONLY 'RESET' (Day Opening) + 'MANUAL_ADJUSTMENT'.
-            // Automated Collections (DAILY_COLLECTION, RENT_COLLECTION) are EXCLUDED from this balance.
-            const wallet = tlRiders.reduce((acc, r) => ({
-                total: acc.total + (r.wallet_amount || 0),
-                positiveCount: acc.positiveCount + (r.wallet_amount > 0 ? 1 : 0),
-                positiveAmount: acc.positiveAmount + (r.wallet_amount > 0 ? r.wallet_amount : 0),
-                negativeCount: acc.negativeCount + (r.wallet_amount < 0 && r.status === 'active' ? 1 : 0),
-                negativeAmount: acc.negativeAmount + (r.wallet_amount < 0 && r.status === 'active' ? r.wallet_amount : 0)
-            }), { total: 0, positiveCount: 0, positiveAmount: 0, negativeCount: 0, negativeAmount: 0 });
-
-            const converted = tlLeads.filter(l => l.status === 'Convert').length;
-            const churnLeads = tlLeads.filter(l => l.status === 'Not Convert').length;
-            const leadsToday = tlLeads.filter(l => {
-                const leadDateStr = formatter.format(new Date(l.created_at || l.createdAt));
-                return leadDateStr === nowISTStr;
-            }).length;
-            const criticalDebtCount = tlRiders.filter(r => r.status === 'active' && (r.wallet_amount || 0) < -3000).length;
-
-            const conversionRate = tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0;
-
+            // Activity Tracking
+            const tlRiders = rawData.riders.filter(r => (r.team_leader_id === tlId || r.teamLeaderId === tlId));
+            const tlLeads = rawData.leads.filter(l => l.created_by === tlId || l.createdBy === tlId);
             const lastLeadTime = tlLeads.length > 0 ? Math.max(...tlLeads.map(l => new Date(l.created_at || l.createdAt).getTime())) : 0;
             const lastRiderUpdate = tlRiders.length > 0 ? Math.max(...tlRiders.map(r => new Date(r.updated_at || r.updatedAt || r.created_at || r.createdAt).getTime())) : 0;
             const activityTime = Math.max(lastLeadTime, lastRiderUpdate);
             const lastActivity = activityTime > 0 ? new Date(activityTime).toISOString() : undefined;
 
-            // Date Range metrics calculations
-            const allotments = tlRiders.filter(r => {
-                const adStr = getValidHistoricalDate(r.allotment_date, r.created_at);
-                if (!adStr) return false;
-                return adStr >= startDateStr && adStr <= endDateStr;
-            }).length;
+            // Standardize metrics using our AI Core Utility
+            const metrics = calculateAIScore(
+                tl,
+                rawData.riders,
+                rawData.leads,
+                tlCollection,
+                period,
+                historicalFleet
+            );
 
-            const submissions = rawData.riders.filter(r => {
-                if ((r.status !== 'inactive' && r.status !== 'deleted') || !r.inactivated_at) return false;
-                if (r.team_leader_id !== tlId && r.teamLeaderId !== tlId) return false;
-
-                const sdStr = getValidHistoricalDate(r.inactivated_at);
-                if (!sdStr) return false;
-                return sdStr >= startDateStr && sdStr <= endDateStr;
-            }).length;
-
-            const netGrowth = allotments - submissions;
-
-            // Collection for selected range
-            let rangeCollection = 0;
-            if (dateFilter === 'today') {
-                rangeCollection = (rawData as any).dailyCollectionsMap[tlId] || 0;
-            } else {
-                rangeCollection = rawData.collections
-                    .filter(item => {
-                        const isTL = item.team_leader_id === tlId;
-                        if (!isTL) return false;
-                        const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                        return dDateStr >= startDateStr && dDateStr <= endDateStr;
-                    })
-                    .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
-            }
-
-            // Per Day Average Collection
-            let activeDays = 1;
-            let perDayAverageCollection = 0;
-
-            if (dateFilter === 'today') {
-                // ✅ For "Today" view: show today's per-rider avg.
-                // rangeCollection = live wallet_ledger sum from IST midnight → now.
-                // At 00:00 IST it is ₹0 and grows as collections come in.
-                // This resets automatically at midnight when fetchData() re-runs.
-                perDayAverageCollection = activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0;
-                activeDays = 1;
-            } else {
-                activeDays = Math.max(1, new Set(
-                    rawData.collections
-                        .filter(item => {
-                            const isTL = item.team_leader_id === tlId;
-                            if (!isTL) return false;
-                            const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                            return dDateStr >= startDateStr && dDateStr <= endDateStr && Number(item.total_collection) > 0;
-                        })
-                        .map(item => item.date)
-                ).size);
-                perDayAverageCollection = Math.round(rangeCollection / activeDays);
-            }
-
-            const avgRiderCollection = activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0;
-
-            const totalCollection = rawData.collections
-                .filter(item => item.team_leader_id === tlId)
-                .reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
-
-            // Weekly collection — from live weeklyCollectionsMap (Mon 00:00 IST → now)
-            const weeklyCollection = (rawData as any).weeklyCollectionsMap?.[tlId] || 0;
-
-            // Days in current week elapsed (Mon=1 … Sun=7)
-            // FIX: use getUTCDay() on IST date anchor — avoids Intl locale short-name inconsistency
-            const weekDayIST = (() => {
-                const now2 = new Date();
-                const istStr2 = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now2);
-                const [iy, im, id] = istStr2.split('-').map(Number);
-                const istUTCDate = new Date(Date.UTC(iy, im - 1, id));
-                const dayNum = istUTCDate.getUTCDay(); // 0=Sun, 1=Mon … 6=Sat
-                return dayNum === 0 ? 7 : dayNum;      // Mon=1 … Sat=6, Sun=7
-            })();
-            const weeklyPerDayAvg = weekDayIST > 0 ? Math.round(weeklyCollection / weekDayIST) : 0;
-            const weeklyPerRiderAvg = activeRiders > 0 ? Math.round(weeklyCollection / activeRiders) : 0;
-
+            // Keep the return structure compatible with existing table usage
             return {
                 id: tlId,
                 name: tl.full_name || tl.fullName || 'Unknown',
                 email: tl.email,
-                totalRiders: tlRiders.length,
-                activeRiders,
-                wallet,
+                totalRiders: metrics.totalRiders,
+                activeRiders: metrics.activeRiders,
+                wallet: {
+                    total: metrics.positiveWallet + metrics.negativeWallet,
+                    positiveCount: metrics.positiveWalletCount,
+                    positiveAmount: metrics.positiveWallet,
+                    negativeCount: metrics.negativeWalletCount,
+                    negativeAmount: metrics.negativeWallet
+                },
                 leads: {
-                    total: tlLeads.length,
-                    converted,
-                    conversionRate
+                    total: metrics.leadsTotal,
+                    converted: metrics.convertedLeads,
+                    conversionRate: metrics.conversionRate
                 },
                 status: tl.status,
-                totalCollection,
-                rangeCollection,
-                weeklyCollection,
-                weeklyPerDayAvg,
-                weeklyPerRiderAvg,
+                totalCollection: metrics.collection, // This is current range in this map
+                rangeCollection: metrics.collection,
+                weeklyCollection: (rawData as any).weeklyCollectionsMap?.[tlId] || 0,
+                weeklyPerDayAvg: Math.round(((rawData as any).weeklyCollectionsMap?.[tlId] || 0) / (weekDayIST > 0 ? weekDayIST : 1)),
+                weeklyPerRiderAvg: metrics.activeRiders > 0 ? Math.round(((rawData as any).weeklyCollectionsMap?.[tlId] || 0) / metrics.activeRiders) : 0,
                 weekDayIST,
-                perDayAverageCollection,
-                avgRiderCollection,
-                leadsToday,
-                churnLeads,
-                criticalDebtCount,
-                allotments,
-                submissions,
-                netGrowth,
-                lastActivity
+                perDayAverageCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
+                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
+                leadsToday: metrics.leadsTotal, // Note: leads are already filtered by period inside calculateAIScore usually if passed right, but we need to check how it counts "leads today"
+                churnLeads: metrics.leadsTotal - metrics.convertedLeads,
+                criticalDebtCount: metrics.negativeWalletCount,
+                allotments: metrics.allotments,
+                submissions: metrics.submissions,
+                netGrowth: metrics.netGrowth,
+                lastActivity,
+                score: metrics.score,
+                aiGrade: metrics.aiGrade,
+                isTrending: metrics.isTrending
             };
         });
     }, [rawData, dateFilter, customDateRange]);

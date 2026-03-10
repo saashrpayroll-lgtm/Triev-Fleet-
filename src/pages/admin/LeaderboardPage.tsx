@@ -410,7 +410,8 @@ const LeaderboardPage: React.FC = () => {
             {/* Podium Component */}
             <div className="animate-in fade-in slide-in-from-bottom duration-1000 delay-200 mt-12 mb-8">
                 <Leaderboard teamLeaders={teamLeaders} riders={riders} leads={leads}
-                    collections={collections} disableClick={true} period={period || undefined} />
+                    collections={collections} disableClick={true} period={period || undefined}
+                    historicalFleetCounts={historicalFleetCounts} />
             </div>
 
             {/* Full Rankings Table */}
