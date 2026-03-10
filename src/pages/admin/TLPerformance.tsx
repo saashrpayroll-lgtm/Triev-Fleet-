@@ -162,9 +162,21 @@ const TLPerformance: React.FC = () => {
 
 
             setRawData({
-                riders: (ridersRes.data || []).map((r: any) => ({ ...r, wallet_amount: r.status === 'active' ? r.wallet_amount : 0 })),
+                riders: (ridersRes.data || []).map((r: any) => ({
+                    ...r,
+                    // Robust mapping for internal usage if needed, 
+                    // though calculateAIScore now does this itself.
+                    walletAmount: Number(r.wallet_amount ?? r.walletAmount ?? 0),
+                    teamLeaderId: r.team_leader_id ?? r.teamLeaderId,
+                    allotmentDate: r.allotment_date ?? r.allotmentDate,
+                    status: String(r.status || '').toLowerCase()
+                })),
                 leads: leadsRes.data || [],
-                teamLeaders: usersRes.data || [],
+                teamLeaders: (usersRes.data || []).map((u: any) => ({
+                    ...u,
+                    fullName: u.full_name ?? u.fullName,
+                    id: u.id
+                })),
                 collections: dailyRes.data || [],
                 dailyCollectionsMap: daily,
                 weeklyCollectionsMap: weekly

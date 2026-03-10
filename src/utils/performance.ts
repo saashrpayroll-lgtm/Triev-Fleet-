@@ -74,7 +74,7 @@ export const calculateAIScore = (
     const tlId = getTLId(tl);
 
     const getRiderTLId = (r: any) => r.teamLeaderId || r.team_leader_id;
-    const getRiderStatus = (r: any) => r.status;
+    const getRiderStatus = (r: any) => String(r.status || '').toLowerCase();
     const getRiderWallet = (r: any) => Number(r.walletAmount ?? r.wallet_amount ?? 0);
     const getRiderAllotment = (r: any) => r.allotmentDate || r.allotment_date;
     const getRiderInactivated = (r: any) => r.inactivatedAt || r.inactivated_at;
@@ -115,20 +115,34 @@ export const calculateAIScore = (
 
             if (allotDateStr <= period.end) {
                 totalRiders++;
-                const inactiveDateStr = getValidHistoricalDate(
-                    getRiderInactivated(r),
-                    getRiderUpdated(r)
-                );
-                if (status === 'active' && (!inactiveDateStr || inactiveDateStr > period.end)) {
+                // ✅ FIX: Do NOT use UpdatedAt as a fallback for inactivation.
+                // If a rider is 'active' or 'Inactive' (imported capitalization), we must be careful.
+                const inactiveDateStr = getValidHistoricalDate(getRiderInactivated(r));
+
+                const isCurrentlyActive = status === 'active';
+                const isCurrentlyInactive = status === 'inactive';
+                const isCurrentlyDeleted = status === 'deleted';
+
+                if (isCurrentlyActive && (!inactiveDateStr || inactiveDateStr > period.end)) {
                     // Currently active and not inactivated before period end
                     activeRiders++;
                 } else if (inactiveDateStr && inactiveDateStr <= period.end) {
                     // Inactivated ON or BEFORE period.end
-                    if (status === 'deleted') churnRiders++;
+                    if (isCurrentlyDeleted) churnRiders++;
                     else inactiveRiders++;
-                } else if (allotDateStr <= period.end) {
-                    // Safety fallback: if allotted before end but no inactivation recorded yet
+                } else if (isCurrentlyActive) {
+                    // Safety fallback for active riders without inactivation date
                     activeRiders++;
+                } else if (isCurrentlyInactive || isCurrentlyDeleted) {
+                    // If currently inactive/deleted, but were they active during the period?
+                    // If they were inactivated AFTER period.end, they WERE active during the period.
+                    if (inactiveDateStr && inactiveDateStr > period.end) {
+                        activeRiders++;
+                    } else {
+                        // Inactivated before or during
+                        if (isCurrentlyDeleted) churnRiders++;
+                        else inactiveRiders++;
+                    }
                 }
             }
         });
