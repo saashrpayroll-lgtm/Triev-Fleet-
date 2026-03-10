@@ -192,8 +192,6 @@ const Dashboard: React.FC = () => {
 
             if (myLeadsError) throw myLeadsError;
 
-            const myLeads = ((myLeadsData || [])).map(mapLeadFromDB);
-
             // Calculate Stats is now handled by pure useMemo
 
 
