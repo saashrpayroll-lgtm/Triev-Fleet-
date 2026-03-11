@@ -17,6 +17,8 @@ import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
 import CollectionTargetCard from '@/components/dashboard/CollectionTargetCard';
 import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
 import BadgeGallery from '@/components/BadgeGallery';
+import ActivityStreak from '@/components/dashboard/ActivityStreak';
+import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
 import { computeEarnedBadges } from '@/utils/badges';
@@ -801,6 +803,19 @@ const Dashboard: React.FC = () => {
                     ))}
                 </div>
             </motion.div>
+
+            {/* ─── Activity Streak + Announcements ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <ComponentErrorBoundary name="Activity Streak">
+                    <ActivityStreak
+                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                        todayCollections={{}}
+                    />
+                </ComponentErrorBoundary>
+                <ComponentErrorBoundary name="Announcements">
+                    <AnnouncementsWidget />
+                </ComponentErrorBoundary>
+            </div>
 
             {/* --- Fleet Champions Leaderboard --- */}
             <motion.div

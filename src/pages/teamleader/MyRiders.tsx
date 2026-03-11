@@ -15,6 +15,8 @@ import BulkActionsBar from '@/components/BulkActionsBar';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
+import RiskBadge from '@/components/RiskBadge';
+import { calculateRiderRiskScore } from '@/utils/riskScore';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 
@@ -673,6 +675,16 @@ const MyRiders: React.FC = () => {
                                                     <span className={`text-sm font-black ${rider.walletAmount > 0 ? 'text-emerald-600 dark:text-emerald-400' : rider.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'}`}>
                                                         {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
                                                     </span>
+                                                    {rider.status === 'active' && (() => {
+                                                        const risk = calculateRiderRiskScore(rider, null, 0);
+                                                        return (
+                                                            <RiskBadge
+                                                                level={risk.level}
+                                                                score={risk.score}
+                                                                showScore={false}
+                                                            />
+                                                        );
+                                                    })()}
                                                     {rider.status === 'active' && rider.walletAmount < 0 && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Reminder">
                                                             <AlertTriangle size={16} /> Remind
