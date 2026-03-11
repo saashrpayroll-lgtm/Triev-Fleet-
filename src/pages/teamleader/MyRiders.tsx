@@ -16,7 +16,6 @@ import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
 import RiskBadge from '@/components/RiskBadge';
-import { calculateRiderRiskScore } from '@/utils/riskScore';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 
@@ -676,11 +675,14 @@ const MyRiders: React.FC = () => {
                                                         {rider.walletAmount >= 0 ? '+' : ''}₹{rider.walletAmount.toLocaleString('en-IN')}
                                                     </span>
                                                     {rider.status === 'active' && (() => {
-                                                        const risk = calculateRiderRiskScore(rider, null, 0);
+                                                        const w = rider.walletAmount;
+                                                        // No badge for wallet > 250
+                                                        if (w > 250) return null;
+                                                        const level = w <= -1000 ? 'critical' : w <= -249 ? 'high' : w < 0 ? 'medium' : 'low';
                                                         return (
                                                             <RiskBadge
-                                                                level={risk.level}
-                                                                score={risk.score}
+                                                                level={level}
+                                                                score={0}
                                                                 showScore={false}
                                                             />
                                                         );
