@@ -159,11 +159,12 @@ export const calculateAIScore = (
         activeRiders = Number(historicalActiveFleet);
     }
 
-    // Wallet Stats
-    const positiveWallet = tlRiders.filter(r => getRiderWallet(r) > 0).reduce((s, r) => s + getRiderWallet(r), 0);
-    const negativeWallet = tlRiders.filter(r => getRiderWallet(r) < 0).reduce((s, r) => s + getRiderWallet(r), 0);
-    const positiveWalletCount = tlRiders.filter(r => getRiderWallet(r) > 0).length;
-    const negativeWalletCount = tlRiders.filter(r => getRiderStatus(r) === 'active' && getRiderWallet(r) < 0).length;
+    // Wallet Stats — ONLY ACTIVE RIDERS for accurate POS/NEG reporting
+    const activeRidersList = tlRiders.filter(r => getRiderStatus(r) === 'active');
+    const positiveWallet = activeRidersList.filter(r => getRiderWallet(r) > 0).reduce((s, r) => s + getRiderWallet(r), 0);
+    const negativeWallet = activeRidersList.filter(r => getRiderWallet(r) < 0).reduce((s, r) => s + getRiderWallet(r), 0);
+    const positiveWalletCount = activeRidersList.filter(r => getRiderWallet(r) > 0).length;
+    const negativeWalletCount = activeRidersList.filter(r => getRiderWallet(r) < 0).length;
     const collectionPerRider = activeRiders > 0 ? Math.round(collections / activeRiders) : 0;
 
     // Lead Stats
