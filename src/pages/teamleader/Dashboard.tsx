@@ -21,6 +21,7 @@ import ActivityStreak from '@/components/dashboard/ActivityStreak';
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget';
 import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
 import CollectionHeatmap from '@/components/dashboard/CollectionHeatmap';
+import NotificationCenter from '@/components/dashboard/NotificationCenter';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
 import { computeEarnedBadges } from '@/utils/badges';
@@ -817,12 +818,19 @@ const Dashboard: React.FC = () => {
                 </div>
             </motion.div>
 
-            {/* ─── Activity Streak + Announcements ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* ─── Activity Streak + Announcements + Notifications ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <ComponentErrorBoundary name="Activity Streak">
                     <ActivityStreak
                         riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
                         todayCollections={{}}
+                    />
+                </ComponentErrorBoundary>
+                <ComponentErrorBoundary name="Notifications">
+                    <NotificationCenter
+                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                        totalCollection={computedPeriodData.collections[userData.id] || 0}
+                        monthlyTarget={userData.monthlyTarget || 0}
                     />
                 </ComponentErrorBoundary>
                 <ComponentErrorBoundary name="Announcements">

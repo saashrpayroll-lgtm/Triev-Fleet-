@@ -19,6 +19,8 @@ import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard'
 import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
 import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
 import RiderTenure from '@/components/dashboard/RiderTenure';
+import RevenueForecast from '@/components/dashboard/RevenueForecast';
+import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -914,8 +916,19 @@ const Dashboard: React.FC = () => {
             {/* TL Performance Table & System Health (Admin Only) */}
             {!isTL && (
                 <>
-                    {/* Fleet Health + Performance Alerts */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-in slide-in-from-bottom duration-700 delay-350 mb-6">
+                    {/* Admin Quick Insight Strip */}
+                    <QuickInsightStrip
+                        insights={[
+                            { label: 'Fleet', value: stats.activeRiders, suffix: ' riders' },
+                            { label: 'Rent Collected', value: `₹${periodRentTotal.toLocaleString('en-IN')}` },
+                            { label: 'TLs', value: rawData.teamLeaders.length },
+                            { label: 'Leads', value: stats.totalLeads },
+                            { label: 'Debt', value: stats.negativeWalletCount, suffix: ' riders' },
+                        ]}
+                    />
+
+                    {/* Fleet Health + Performance Alerts + Revenue Forecast */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-350 mb-6">
                         <FleetHealthSummary riders={rawData.riders} />
                         <PerformanceAlerts
                             teamLeaders={rawData.teamLeaders}
@@ -923,6 +936,10 @@ const Dashboard: React.FC = () => {
                             leads={rawData.leads}
                             tlCollections={tlCollections}
                             onViewTL={(_tlId) => navigate('/portal/leaderboard')}
+                        />
+                        <RevenueForecast
+                            riders={rawData.riders}
+                            currentMonthCollection={periodRentTotal}
                         />
                     </div>
 
