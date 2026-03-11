@@ -552,14 +552,36 @@ const Dashboard: React.FC = () => {
     // --- Render Loading ---
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[600px]">
-                <div className="text-center space-y-4">
-                    <div className="relative w-16 h-16 mx-auto">
-                        <div className="absolute inset-0 border-4 border-indigo-200 rounded-full animate-ping opacity-25"></div>
-                        <div className="absolute inset-0 border-4 border-t-indigo-600 border-r-indigo-600 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+            <div className="space-y-5 pb-10 animate-in fade-in duration-500">
+                {/* Skeleton Header */}
+                <div className="bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5">
+                    <div className="flex items-center gap-4">
+                        <div className="hidden sm:block w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700 animate-pulse" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-7 w-64 rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+                            <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
                     </div>
-                    <p className="text-muted-foreground font-medium animate-pulse">Initializing Premium Command Center...</p>
                 </div>
+                {/* Skeleton Stat Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-4 rounded-2xl border border-border/40 bg-card/50 space-y-3" style={{ animationDelay: `${i * 100}ms` }}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                                <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            </div>
+                            <div className="h-7 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+                {/* Skeleton Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="lg:col-span-2 h-64 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                    <div className="h-64 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                </div>
+                <p className="text-center text-muted-foreground text-xs font-medium animate-pulse">Initializing Premium Command Center...</p>
             </div>
         );
     }

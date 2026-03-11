@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
@@ -14,6 +14,8 @@ import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
+import CollectionTargetCard from '@/components/dashboard/CollectionTargetCard';
+import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
 
@@ -345,18 +347,36 @@ const Dashboard: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[600px]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="relative w-16 h-16">
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-violet-500 to-indigo-500 opacity-20 animate-ping" />
-                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-500 border-r-indigo-400 animate-spin" />
-                        <div className="absolute inset-2 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-500/20 backdrop-blur-sm" />
-                    </div>
-                    <div className="text-center">
-                        <p className="text-sm font-black text-foreground">Loading Dashboard</p>
-                        <p className="text-[10px] text-muted-foreground font-medium animate-pulse mt-0.5">Fetching real-time fleet data...</p>
+            <div className="space-y-5 pb-10 animate-in fade-in duration-500">
+                {/* Skeleton Header */}
+                <div className="bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="hidden sm:block w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700 animate-pulse" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-7 w-56 rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+                            <div className="h-3 w-36 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
                     </div>
                 </div>
+                {/* Skeleton Stat Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-4 rounded-2xl border border-border/40 bg-card/50 space-y-3" style={{ animationDelay: `${i * 100}ms` }}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                                <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            </div>
+                            <div className="h-7 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+                {/* Skeleton Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="lg:col-span-2 h-52 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                    <div className="h-52 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                </div>
+                <p className="text-center text-muted-foreground text-xs font-medium animate-pulse">Fetching real-time fleet data...</p>
             </div>
         );
     }
@@ -563,6 +583,20 @@ const Dashboard: React.FC = () => {
                         />
                     )}
                 </div>
+
+                {/* ─── Collection Target ─── */}
+                {userData.monthlyTarget && userData.monthlyTarget > 0 && (
+                    <div className="mt-3">
+                        <ComponentErrorBoundary name="Collection Target">
+                            <CollectionTargetCard
+                                collected={computedPeriodData.collections[userData.id] || 0}
+                                target={userData.monthlyTarget}
+                                daysElapsed={new Date().getDate()}
+                                totalDays={new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}
+                            />
+                        </ComponentErrorBoundary>
+                    </div>
+                )}
             </motion.div>
 
 
@@ -584,6 +618,20 @@ const Dashboard: React.FC = () => {
                         todayCollections={tlTodayCollectionsByRider}
                     />
                 </ComponentErrorBoundary>
+
+                {/* ─── Defaulter Alerts ─── */}
+                <div className="mt-3">
+                    <ComponentErrorBoundary name="Defaulter Alerts">
+                        <DefaulterAlertCard
+                            riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                            onViewRider={(rider) => handleNavigate('/team-leader/riders', { highlight: rider.mobileNumber })}
+                            onSendReminder={(rider) => {
+                                const msg = `Hi ${rider.riderName}, your Triev wallet balance is ₹${rider.walletAmount.toLocaleString('en-IN')}. Please recharge at the earliest to avoid service disruption.`;
+                                window.open(`https://wa.me/${rider.mobileNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                        />
+                    </ComponentErrorBoundary>
+                </div>
             </motion.div>
 
             {/* --- Analytics & AI Coach --- */}
