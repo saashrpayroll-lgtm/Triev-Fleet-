@@ -18,6 +18,7 @@ import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
 import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
 import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
+import RiderTenure from '@/components/dashboard/RiderTenure';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -923,6 +924,11 @@ const Dashboard: React.FC = () => {
                             tlCollections={tlCollections}
                             onViewTL={(_tlId) => navigate('/portal/leaderboard')}
                         />
+                    </div>
+
+                    {/* Rider Tenure Distribution */}
+                    <div className="animate-in slide-in-from-bottom duration-700 delay-375 mb-6">
+                        <RiderTenure riders={rawData.riders} />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-6">

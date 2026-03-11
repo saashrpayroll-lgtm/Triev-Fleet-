@@ -19,6 +19,8 @@ import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
 import BadgeGallery from '@/components/BadgeGallery';
 import ActivityStreak from '@/components/dashboard/ActivityStreak';
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget';
+import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
+import CollectionHeatmap from '@/components/dashboard/CollectionHeatmap';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
 import { computeEarnedBadges } from '@/utils/badges';
@@ -483,7 +485,18 @@ const Dashboard: React.FC = () => {
                 </motion.div>
             )}
 
-            {/* ─── Fleet & Operations ─── */}
+            {/* ─── Quick Insight Strip ─── */}
+            <QuickInsightStrip
+                insights={[
+                    { label: 'Fleet', value: stats.activeRiders, suffix: ' active' },
+                    { label: 'Collected', value: `₹${(computedPeriodData.collections[userData.id] || 0).toLocaleString('en-IN')}` },
+                    { label: 'Leads', value: stats.totalLeads },
+                    { label: 'Debt', value: stats.negativeWallet, suffix: ' riders' },
+                    { label: 'AI Score', value: `${computedLeaderStats?.score ?? 0}%` },
+                ]}
+            />
+
+            {/* ── Fleet & Operations ── */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-2">
                     <div className="relative">
@@ -816,6 +829,11 @@ const Dashboard: React.FC = () => {
                     <AnnouncementsWidget />
                 </ComponentErrorBoundary>
             </div>
+
+            {/* ─── Collection Heatmap ─── */}
+            <ComponentErrorBoundary name="Collection Heatmap">
+                <CollectionHeatmap collections={{}} weeks={6} />
+            </ComponentErrorBoundary>
 
             {/* --- Fleet Champions Leaderboard --- */}
             <motion.div
