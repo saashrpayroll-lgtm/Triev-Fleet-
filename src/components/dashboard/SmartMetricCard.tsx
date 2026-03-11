@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { LucideIcon, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import { motion, animate } from 'framer-motion';
 import { safeRender } from '@/utils/safeRender';
+import Sparkline from '@/components/ui/Sparkline';
 
 const AnimatedCounter = ({ value, isCurrency = false }: { value: number; isCurrency?: boolean }) => {
     const nodeRef = useRef<HTMLSpanElement>(null);
@@ -48,6 +49,8 @@ interface SmartMetricCardProps {
     className?: string;
     progress?: number;
     isCurrency?: boolean;
+    sparklineData?: number[];
+    sparklineColor?: string;
 }
 
 // Per-color design tokens
@@ -108,7 +111,9 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     loading = false,
     className,
     progress,
-    isCurrency = true
+    isCurrency = true,
+    sparklineData,
+    sparklineColor,
 }) => {
     const t = colorTokens[color] || colorTokens.indigo;
 
@@ -223,6 +228,18 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
                         </p>
                     </div>
                 ) : null}
+
+                {/* ── SPARKLINE ── */}
+                {sparklineData && sparklineData.length >= 2 && (
+                    <div className="mt-1">
+                        <Sparkline
+                            data={sparklineData}
+                            color={sparklineColor || (t.dot.replace('bg-', ''))}
+                            width={80}
+                            height={24}
+                        />
+                    </div>
+                )}
 
                 {/* ── PROGRESS BAR ── */}
                 {progress !== undefined && (

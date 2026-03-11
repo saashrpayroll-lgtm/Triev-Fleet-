@@ -16,6 +16,8 @@ import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart'
 import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
 import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
+import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
+import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -911,6 +913,18 @@ const Dashboard: React.FC = () => {
             {/* TL Performance Table & System Health (Admin Only) */}
             {!isTL && (
                 <>
+                    {/* Fleet Health + Performance Alerts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 animate-in slide-in-from-bottom duration-700 delay-350 mb-6">
+                        <FleetHealthSummary riders={rawData.riders} />
+                        <PerformanceAlerts
+                            teamLeaders={rawData.teamLeaders}
+                            riders={rawData.riders}
+                            leads={rawData.leads}
+                            tlCollections={tlCollections}
+                            onViewTL={(_tlId) => navigate('/portal/leaderboard')}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-6">
                         <div className="lg:col-span-3">
                             <TeamLeaderPerformanceTable data={tlStats} />

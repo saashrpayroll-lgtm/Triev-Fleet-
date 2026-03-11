@@ -16,8 +16,10 @@ import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
 import CollectionTargetCard from '@/components/dashboard/CollectionTargetCard';
 import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
+import BadgeGallery from '@/components/BadgeGallery';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
+import { computeEarnedBadges } from '@/utils/badges';
 
 interface DashboardStats {
     // Riders
@@ -172,6 +174,14 @@ const Dashboard: React.FC = () => {
             notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads
         }
     }, [computedLeaderStats, leaderboardData.riders, userData?.id]);
+
+    const earnedBadges = React.useMemo(() => {
+        if (!userData || !leaderboardData.riders.length) return [];
+        const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id);
+        const myLeads = leaderboardData.leads.filter(l => l.createdBy === userData.id);
+        const myCollection = computedPeriodData.collections[userData.id] || 0;
+        return computeEarnedBadges(userData, myRiders, myLeads, myCollection, userData.monthlyTarget || 0);
+    }, [userData, leaderboardData, computedPeriodData]);
 
     // --- Data Fetching & Real-time ---
     const fetchStats = React.useCallback(async () => {
@@ -458,6 +468,18 @@ const Dashboard: React.FC = () => {
                     <span className="text-violet-600 dark:text-violet-400 uppercase tracking-widest">Team Leader</span>
                 </div>
             </motion.div>
+
+            {/* ─── Achievement Badges ─── */}
+            {earnedBadges.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-card/50 backdrop-blur-sm border border-border/30 rounded-2xl"
+                >
+                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 flex-shrink-0">Badges</span>
+                    <BadgeGallery badges={earnedBadges} compact maxDisplay={6} />
+                </motion.div>
+            )}
 
             {/* ─── Fleet & Operations ─── */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
