@@ -21,6 +21,8 @@ import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
 import RiderTenure from '@/components/dashboard/RiderTenure';
 import RevenueForecast from '@/components/dashboard/RevenueForecast';
 import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
+import TLComparisonCard from '@/components/dashboard/TLComparisonCard';
+import FleetGrowthIndicator from '@/components/dashboard/FleetGrowthIndicator';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -943,9 +945,16 @@ const Dashboard: React.FC = () => {
                         />
                     </div>
 
-                    {/* Rider Tenure Distribution */}
-                    <div className="animate-in slide-in-from-bottom duration-700 delay-375 mb-6">
+                    {/* Rider Tenure + TL Comparison + Fleet Growth */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-375 mb-6">
                         <RiderTenure riders={rawData.riders} />
+                        <TLComparisonCard
+                            teamLeaders={rawData.teamLeaders}
+                            riders={rawData.riders}
+                            leads={rawData.leads}
+                            tlCollections={tlCollections}
+                        />
+                        <FleetGrowthIndicator riders={rawData.riders} />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-6">

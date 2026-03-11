@@ -22,6 +22,7 @@ import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget';
 import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
 import CollectionHeatmap from '@/components/dashboard/CollectionHeatmap';
 import NotificationCenter from '@/components/dashboard/NotificationCenter';
+import LeadConversionFunnel from '@/components/dashboard/LeadConversionFunnel';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
 import { computeEarnedBadges } from '@/utils/badges';
@@ -838,10 +839,15 @@ const Dashboard: React.FC = () => {
                 </ComponentErrorBoundary>
             </div>
 
-            {/* ─── Collection Heatmap ─── */}
-            <ComponentErrorBoundary name="Collection Heatmap">
-                <CollectionHeatmap collections={{}} weeks={6} />
-            </ComponentErrorBoundary>
+            {/* ─── Collection Heatmap + Lead Funnel ─── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <ComponentErrorBoundary name="Collection Heatmap">
+                    <CollectionHeatmap collections={{}} weeks={6} />
+                </ComponentErrorBoundary>
+                <ComponentErrorBoundary name="Lead Funnel">
+                    <LeadConversionFunnel leads={leaderboardData.leads.filter(l => l.createdBy === userData.id)} />
+                </ComponentErrorBoundary>
+            </div>
 
             {/* --- Fleet Champions Leaderboard --- */}
             <motion.div
