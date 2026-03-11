@@ -236,7 +236,7 @@ const TeamLeaderLayout: React.FC = () => {
             </aside>
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden mb-24 md:mb-0">
+            <div className="flex-1 flex flex-col overflow-hidden mb-24 md:mb-0 max-w-full">
                 {/* Header */}
                 <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-[9990]">
                     <div>

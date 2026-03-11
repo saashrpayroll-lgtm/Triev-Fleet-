@@ -15,10 +15,14 @@ export default defineConfig({
         name: 'Triev Fleet Manager',
         short_name: 'Triev Fleet',
         description: 'The ultimate fleet management solution for EVs',
-        theme_color: '#ffffff',
+        start_url: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        theme_color: '#7c3aed',
+        background_color: '#0f172a',
         icons: [
           { src: 'pwa-icon.png', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-icon.png', sizes: '512x512', type: 'image/png' }
+          { src: 'pwa-icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
         ]
       },
       workbox: {
