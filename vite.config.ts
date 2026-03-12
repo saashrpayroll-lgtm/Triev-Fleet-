@@ -7,9 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // 'prompt' — the new service worker waits for user to reload,
-      // preventing the stale-cache trap that caused "stuck on mobile" issues.
-      registerType: 'prompt',
+      // 'autoUpdate' — new service worker activates immediately without user interaction.
+      // Prevents the PWA from being stuck on old code on mobile devices.
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'Triev Fleet Manager',
@@ -28,20 +28,11 @@ export default defineConfig({
       workbox: {
         // Only cache JS/CSS/HTML — not large API responses
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB limit
-        // Cache strategies
+        // ✅ FIX: Do NOT cache Supabase API calls — the app relies on real-time data.
+        // Caching API responses causes stale data on slow mobile connections.
         runtimeCaching: [
           {
-            // Supabase API calls — network-first, fall back to cache
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 }, // 5 min TTL
-            },
-          },
-          {
-            // Static assets — cache-first for speed
+            // Static assets only — cache-first for speed
             urlPattern: /\.(?:png|jpg|jpeg|svg|webp|ico|woff2?)$/i,
             handler: 'CacheFirst',
             options: {

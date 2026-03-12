@@ -307,8 +307,18 @@ const Dashboard: React.FC = () => {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
+        // ✅ FIX: Re-fetch data when app comes back from background
+        // Mobile browsers kill WebSocket connections when the app is backgrounded.
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchDashboardData();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
             supabase.removeChannel(channel);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [fetchDashboardData]);
 

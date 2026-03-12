@@ -354,8 +354,19 @@ const Dashboard: React.FC = () => {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, () => { fetchStats(); })
             .subscribe();
 
+        // ✅ FIX: Re-fetch data when PWA comes back from background
+        // Mobile browsers kill WebSocket connections when the app is backgrounded.
+        // This ensures data is fresh when the user returns.
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchStats();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
             supabase.removeChannel(channel);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [userData]);
 

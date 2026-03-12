@@ -7,6 +7,7 @@ import { supabase } from '@/config/supabase';
 import { Toaster } from 'sonner';
 import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
+import ReloadPrompt from '@/components/ReloadPrompt';
 import '@/index.css';
 
 // ─── Eagerly loaded (critical path – must be instant) ────────────────────────
@@ -326,6 +327,7 @@ function App() {
           <ToastProvider>
             <BrowserRouter>
               <AppRoutes />
+              <ReloadPrompt />
               <Toaster position="top-right" richColors />
             </BrowserRouter>
           </ToastProvider>
