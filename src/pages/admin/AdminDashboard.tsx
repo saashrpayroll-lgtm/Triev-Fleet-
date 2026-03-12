@@ -386,9 +386,9 @@ const Dashboard: React.FC = () => {
         return {
             // Riders — active fleet is period-aware via daily_collections snapshots
             totalRiders: riders.length,
-            // ✅ FIX: Use historical fleet snapshot for non-live periods
+            // ✅ FIX: Live count for today and all-time, snapshots for past periods
             activeRiders: dateFilter === 'day'
-                ? (fleetSnapshots.today || activeRidersList.length)
+                ? activeRidersList.length
                 : dateFilter === 'week'
                     ? (fleetSnapshots.week || activeRidersList.length)
                     : dateFilter === 'month'

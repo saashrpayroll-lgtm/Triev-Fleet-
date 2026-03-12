@@ -135,9 +135,19 @@ const Dashboard: React.FC = () => {
             }
         };
 
+        const resolveFleetMap = (_mapDay: any, mapWeek: any, mapMonth: any, mapAll: any) => {
+            switch (dateFilter) {
+                case 'day': return mapAll; // Live fleet is authoritative for today
+                case 'week': return mapWeek;
+                case 'month': return mapMonth;
+                case 'all': return mapAll;
+                default: return mapAll;
+            }
+        };
+
         return {
             collections: resolveMap(dayMap, weekMap, monthMap, allTimeMap),
-            historicalFleet: resolveMap(tlTodayFleet, tlLatestFleetInWeek, tlLatestFleetInMonth, liveFleetByTLRaw)
+            historicalFleet: resolveFleetMap(tlTodayFleet, tlLatestFleetInWeek, tlLatestFleetInMonth, liveFleetByTLRaw)
         };
     }, [dateFilter, dailyCollectionsRaw, liveTodayByTLRaw, liveFleetByTLRaw]);
 
