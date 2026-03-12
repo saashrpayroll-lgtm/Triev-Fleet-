@@ -206,10 +206,16 @@ const MyRiders: React.FC = () => {
             setShowAddModal(true);
             setSearchParams(prev => { const p = new URLSearchParams(prev); p.delete('action'); return p; });
         }
+        
+        // Sync searchTerm state if URL search param changes
+        const currentSearch = searchParams.get('search');
+        if (currentSearch !== null) {
+            setSearchTerm(currentSearch);
+        }
     }, [searchParams, canAddRider, setSearchParams]);
 
     useEffect(() => {
-        const state = location.state as { filter?: string };
+        const state = location.state as { filter?: string; highlight?: string; };
         if (state?.filter) {
             if (state.filter === 'positive_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'positive' })); setShowAdvancedFilters(true); }
             else if (state.filter === 'negative_wallet') { setAdvancedFilters(p => ({ ...p, walletRange: 'negative' })); setShowAdvancedFilters(true); }
@@ -218,6 +224,20 @@ const MyRiders: React.FC = () => {
             else if (['active', 'inactive', 'deleted'].includes(state.filter)) setActiveTab(state.filter as TabType);
         }
     }, [location.state]);
+
+    useEffect(() => {
+        const state = location.state as { highlight?: string };
+        if (state?.highlight && riders.length > 0) {
+            const riderToView = riders.find(r => r.mobileNumber === state.highlight || r.trievId === state.highlight);
+            if (riderToView) {
+                setViewingRider(riderToView);
+                // Clear the state so it doesn't reopen if closed
+                const newHistoryState = { ...window.history.state };
+                if (newHistoryState && newHistoryState.usr) delete newHistoryState.usr.highlight;
+                window.history.replaceState(newHistoryState, '');
+            }
+        }
+    }, [location.state, riders]);
 
     useEffect(() => {
         if (!userData?.id) return;
