@@ -663,7 +663,7 @@ const Dashboard: React.FC = () => {
                     <ComponentErrorBoundary name="Defaulter Alerts">
                         <DefaulterAlertCard
                             riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
-                            onViewRider={(rider) => handleNavigate('/team-leader/riders', { highlight: rider.mobileNumber })}
+                            onViewRider={(rider) => handleNavigate(`/team-leader/riders?filter=all&search=${encodeURIComponent(rider.trievId)}`, { highlight: rider.mobileNumber })}
                             onSendReminder={(rider) => {
                                 const msg = `Hi ${rider.riderName}, your Triev wallet balance is ₹${rider.walletAmount.toLocaleString('en-IN')}. Please recharge at the earliest to avoid service disruption.`;
                                 window.open(`https://wa.me/${rider.mobileNumber}?text=${encodeURIComponent(msg)}`, '_blank');

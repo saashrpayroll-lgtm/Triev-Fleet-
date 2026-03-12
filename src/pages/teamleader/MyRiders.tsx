@@ -32,7 +32,7 @@ const MyRiders: React.FC = () => {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [filteredRiders, setFilteredRiders] = useState<Rider[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [viewingRider, setViewingRider] = useState<Rider | null>(null);

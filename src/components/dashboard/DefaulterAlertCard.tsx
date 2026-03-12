@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, MessageCircle, Eye, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, MessageCircle, Eye, ShieldAlert, PhoneCall } from 'lucide-react';
 import { Rider } from '@/types';
 
 interface DefaulterAlertCardProps {
@@ -133,6 +133,14 @@ const DefaulterAlertCard: React.FC<DefaulterAlertCardProps> = ({
                                                         <MessageCircle size={12} />
                                                     </button>
                                                 )}
+                                                <a
+                                                    href={`tel:${rider.mobileNumber}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition-colors flex items-center justify-center"
+                                                    title="Call Rider"
+                                                >
+                                                    <PhoneCall size={12} />
+                                                </a>
                                                 {onViewRider && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); onViewRider(rider); }}
