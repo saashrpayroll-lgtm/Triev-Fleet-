@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Search, RefreshCw, ArchiveRestore, Download, Users, UserCheck, UserX, ShieldAlert } from 'lucide-react';
+import { Plus, Search, RefreshCw, ArchiveRestore, Download, Users, UserCheck, ShieldAlert, Clock } from 'lucide-react';
 import { useUsers } from './hooks/useUsers';
 import UserTable from './components/UserTable';
 import UserFormModal from './components/UserFormModal';
@@ -33,7 +33,7 @@ const UserManagementPage: React.FC = () => {
         users, loading, createUser, updateUser,
         toggleStatus, suspendUser, deleteUser,
         restoreUser, syncUsernames, permanentDeleteUser, bulkDeleteUsers, bulkSuspendUsers, bulkToggleStatus,
-        getNextId, loadMore, hasMore
+        getNextId, loadMore, hasMore, refreshUsers
     } = useUsers();
     const { userData } = useSupabaseAuth();
 
@@ -80,6 +80,17 @@ const UserManagementPage: React.FC = () => {
             }
         }
     }, [location.search]);
+
+    // Visibility change: re-fetch when tab regains focus
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible' && refreshUsers) {
+                refreshUsers(true);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }, [refreshUsers]);
 
     // Fetch password reset requests
     useEffect(() => {
@@ -287,9 +298,10 @@ const UserManagementPage: React.FC = () => {
     // Stats Logic
     const stats = useMemo(() => {
         const active = users.filter(u => u.status === 'active').length;
+        const inactive = users.filter(u => u.status === 'inactive').length;
         const suspended = users.filter(u => u.status === 'suspended').length;
         const admins = users.filter(u => u.role === 'admin').length;
-        return { active, suspended, admins, total: users.length };
+        return { active, inactive, suspended, admins, total: users.length };
     }, [users]);
 
     return (
@@ -313,7 +325,7 @@ const UserManagementPage: React.FC = () => {
                 <StatCard
                     title="Suspended"
                     value={stats.suspended}
-                    icon={UserX}
+                    icon={Clock}
                     color="text-red-500"
                     bg="bg-red-500/10"
                 />
@@ -359,6 +371,30 @@ const UserManagementPage: React.FC = () => {
                         >
                             Leaders
                         </button>
+                    </div>
+
+                    {/* Status Filter Tabs */}
+                    <div className="flex bg-muted/50 p-1 rounded-lg border border-border overflow-hidden">
+                        {(['all', 'active', 'inactive', 'suspended'] as const).map(status => {
+                            const statusConfig = {
+                                all: { label: 'All', count: stats.total },
+                                active: { label: 'Active', count: stats.active },
+                                inactive: { label: 'Inactive', count: stats.inactive },
+                                suspended: { label: 'Suspended', count: stats.suspended }
+                            }[status];
+                            return (
+                                <button
+                                    key={status}
+                                    onClick={() => { setFilterStatus(status); if (status !== 'all') setShowDeleted(false); }}
+                                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${filterStatus === status && !showDeleted ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    {statusConfig.label}
+                                    <span className={`text-[10px] px-1.5 py-0 rounded-full font-bold ${filterStatus === status && !showDeleted ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                        {statusConfig.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -496,6 +532,8 @@ const UserManagementPage: React.FC = () => {
                 onDelete={handleBulkDelete}
                 onSuspend={handleBulkSuspend}
                 onToggleStatus={handleBulkToggleStatus}
+                onSelectAll={() => setSelectedUserIds(filteredUsers.map(u => u.id))}
+                totalCount={filteredUsers.length}
                 isProcessing={isSubmittingBulk}
             />
         </div>

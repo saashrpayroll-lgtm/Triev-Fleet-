@@ -62,7 +62,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                     fullName: initialData.fullName,
                     mobile: initialData.mobile,
                     email: initialData.email,
-                    position: (initialData as any).position || '', // Handle potential missing type
+                    position: initialData.position || '',
                     jobLocation: initialData.jobLocation || '',
                     reportingManager: initialData.reportingManager || '',
                     username: initialData.username || '',

@@ -196,6 +196,7 @@ const UserTable: React.FC<UserTableProps> = ({
                                     onToggleStatus={onToggleStatus}
                                     onDelete={onDelete}
                                     onPermanentDelete={onPermanentDelete}
+                                    onView={onView}
                                 />
                             </td>
                         </tr>

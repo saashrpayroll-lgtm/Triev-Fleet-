@@ -81,6 +81,7 @@ export const useUsers = () => {
                 reportingManager:reporting_manager,
                 permissions,
                 remarks,
+                position,
                 profilePicUrl:profile_pic_url,
                 suspendedUntil:suspended_until,
                 createdAt:created_at,
@@ -159,6 +160,7 @@ export const useUsers = () => {
                             reportingManager: next.reporting_manager,
                             permissions: next.permissions,
                             remarks: next.remarks,
+                            position: next.position,
                             profilePicUrl: next.profile_pic_url,
                             suspendedUntil: next.suspended_until,
                             createdAt: next.created_at,
@@ -183,6 +185,7 @@ export const useUsers = () => {
                                     reportingManager: next.reporting_manager,
                                     permissions: next.permissions,
                                     remarks: next.remarks,
+                                    position: next.position,
                                     profilePicUrl: next.profile_pic_url,
                                     suspendedUntil: next.suspended_until,
                                     updatedAt: next.updated_at
@@ -257,29 +260,14 @@ export const useUsers = () => {
             // The trigger only sets: id, email, role, full_name, mobile, created_at
             // We need to save: user_id (custom), job_location, reporting_manager, remarks, username, position
             const updatePayload: any = {
-                user_id: userData.userId, // Custom ID from form (TRIEV_...)
+                user_id: userData.userId,
                 username: userData.username,
                 job_location: userData.jobLocation,
                 reporting_manager: userData.reportingManager,
                 remarks: userData.remarks,
-                // position: userData.position, // Add column if not exists, or map to 'role'? 
-                // Note: Schema has 'role' (enum) but maybe not 'position'. 
-                // Checking setup_database_full.sql -> 'position' column DOES NOT EXIST. Use 'role' or add it?
-                // UserFormModal has 'position' input. 
-                // Let's assume 'position' might need to be stored in 'remarks' or we add a column.
-                // For now, let's map it to 'job_location' if relevant or just skip if no column.
-                // Actually, let's check validation. If I include a non-existent column, update will fail.
-                // setup_database_full.sql showed: id, user_id, full_name, mobile, email, role, status, job_location, reporting_manager, permissions, remarks, profile_pic_url, suspended_until...
-                // NO 'position' column.
-                // workaround: Append position to remarks? Or just ignore?
-                // I will ignore 'position' for now to prevent SQL error, or append to remarks.
+                position: userData.position || null,
                 updated_at: new Date().toISOString()
             };
-
-            // Append position to remarks if present
-            if (userData.position) {
-                updatePayload.remarks = `${userData.remarks || ''}\n[Position: ${userData.position}]`.trim();
-            }
 
             const { error: updateError } = await supabase
                 .from('users')
@@ -339,6 +327,7 @@ export const useUsers = () => {
             if (data.remarks !== undefined) updatePayload.remarks = data.remarks;
             if (data.username !== undefined) updatePayload.username = data.username;
             if (data.profilePicUrl !== undefined) updatePayload.profile_pic_url = data.profilePicUrl;
+            if (data.position !== undefined) updatePayload.position = data.position;
 
             const { error } = await supabase.from('users').update(updatePayload).eq('id', userId);
             if (error) throw error;

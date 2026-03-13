@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckSquare, Layers, User, Wallet, MessageSquare, Shield, Brain, LayoutDashboard, Users, Settings, BarChart3, Radio, UserCog, Search } from 'lucide-react';
+import { X, CheckSquare, Layers, User, Wallet, MessageSquare, Shield, Brain, LayoutDashboard, Users, Settings, BarChart3, Radio, UserCog, Search, Zap } from 'lucide-react';
 import { UserPermissions } from '@/types';
 
 interface PermissionsEditorProps {
@@ -97,6 +97,93 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('dashboard');
     const [searchQuery, setSearchQuery] = useState('');
+    const [showPresets, setShowPresets] = useState(false);
+
+    // --- Preset Templates ---
+    const presets = [
+        {
+            id: 'full',
+            label: 'Full Access',
+            description: 'All permissions enabled',
+            color: 'bg-green-500',
+            apply: () => {
+                const all = JSON.parse(JSON.stringify(defaultPermissions));
+                const enableAll = (obj: any): any => {
+                    for (const key in obj) {
+                        if (typeof obj[key] === 'boolean') obj[key] = true;
+                        else if (typeof obj[key] === 'object') enableAll(obj[key]);
+                    }
+                    return obj;
+                };
+                return enableAll(all);
+            }
+        },
+        {
+            id: 'readonly',
+            label: 'Read Only',
+            description: 'View-only access, no edits',
+            color: 'bg-blue-500',
+            apply: () => {
+                const ro = JSON.parse(JSON.stringify(defaultPermissions));
+                ro.dashboard.view = true;
+                ro.dashboard.recentActivity = true;
+                ro.modules = { leads: true, riders: true, users: true, notifications: true, requests: true, dataManagement: false, activityLog: true, reports: true, profile: true };
+                ro.riders.view = true;
+                ro.leads.view = true;
+                ro.users.view = true;
+                ro.wallet.view = true;
+                ro.wallet.viewHistory = true;
+                ro.notifications.view = true;
+                ro.requests.view = true;
+                ro.reports.view = true;
+                ro.profile.view = true;
+                return ro;
+            }
+        },
+        {
+            id: 'manager',
+            label: 'Manager',
+            description: 'Edit rights, no deletes',
+            color: 'bg-purple-500',
+            apply: () => {
+                const mgr = JSON.parse(JSON.stringify(defaultPermissions));
+                mgr.dashboard.view = true;
+                mgr.dashboard.recentActivity = true;
+                mgr.modules = { leads: true, riders: true, users: true, notifications: true, requests: true, dataManagement: true, activityLog: true, reports: true, profile: true };
+                mgr.riders = { ...mgr.riders, view: true, create: true, edit: true, statusChange: true, export: true, call: true, whatsapp: true, bulkActions: { statusChange: true, delete: false, sendReminders: true, assignTeamLeader: true, export: true }, fields: { viewSensitive: false }, idCard: true };
+                mgr.leads = { ...mgr.leads, view: true, create: true, edit: true, statusChange: true, export: true, bulkActions: { statusChange: true, delete: false, assign: true, export: true } };
+                mgr.users = { view: true, create: false, edit: true, delete: false, managePermissions: false, suspend: false };
+                mgr.wallet = { view: true, addFunds: true, deductFunds: true, viewHistory: true, bulkUpdate: false };
+                mgr.notifications = { view: true, broadcast: true, delete: false };
+                mgr.requests = { view: true, resolve: true, delete: false };
+                mgr.reports = { view: true, generate: true, export: true };
+                mgr.profile = { view: true, editPersonalDetails: true, editBankDetails: false, changePassword: true };
+                return mgr;
+            }
+        },
+        {
+            id: 'minimal',
+            label: 'Minimal',
+            description: 'Dashboard + Profile only',
+            color: 'bg-gray-500',
+            apply: () => {
+                const min = JSON.parse(JSON.stringify(defaultPermissions));
+                min.dashboard.view = true;
+                min.modules.profile = true;
+                min.profile.view = true;
+                min.profile.changePassword = true;
+                return min;
+            }
+        }
+    ];
+
+    const applyPreset = async (preset: typeof presets[0]) => {
+        const newPerms = preset.apply();
+        setPermissions(newPerms);
+        setShowPresets(false);
+        setIsSaving(true);
+        try { await onSave(newPerms); } catch (e) { console.error('Preset save error:', e); } finally { setIsSaving(false); }
+    };
 
     // --- Helpers ---
     const getNestedValue = (obj: any, path: string) => {
@@ -409,6 +496,34 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                             />
                         </div>
 
+                        {/* Preset Templates */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowPresets(!showPresets)}
+                                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-200 dark:border-indigo-800 rounded-xl text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:from-indigo-500/20 hover:to-purple-500/20 transition-all"
+                            >
+                                <Zap size={16} /> Presets
+                            </button>
+                            {showPresets && (
+                                <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider px-2 py-1">Quick Presets</p>
+                                    {presets.map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            onClick={() => applyPreset(preset)}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors text-left"
+                                        >
+                                            <span className={`w-2.5 h-2.5 rounded-full ${preset.color}`} />
+                                            <div>
+                                                <p className="text-sm font-semibold text-foreground">{preset.label}</p>
+                                                <p className="text-[10px] text-muted-foreground">{preset.description}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <button onClick={onClose} className="p-2 hover:bg-destructive/10 hover:text-destructive rounded-full transition-colors">
                             <X size={20} />
                         </button>
@@ -547,14 +662,12 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 {/* --- Footer --- */}
                 <div className="p-4 border-t border-border bg-card flex justify-between items-center z-30">
                     <button
-                        onClick={() => {
-                            if (window.confirm('Reset all changes to default? (This will also save defaults)')) {
-                                setPermissions(mergePermissions(currentPermissions, defaultPermissions));
-                                handleToggle('reset', false).catch(() => { }); // Hack or just call onSave directly?
-                                // Better:
+                        onClick={async () => {
+                            if (window.confirm('Reset all permissions to their original values? This will save immediately.')) {
                                 const resetPerms = mergePermissions(currentPermissions, defaultPermissions);
                                 setPermissions(resetPerms);
-                                onSave(resetPerms);
+                                setIsSaving(true);
+                                try { await onSave(resetPerms); } catch (e) { console.error('Reset save error:', e); } finally { setIsSaving(false); }
                             }
                         }}
                         className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-2 px-4 py-2 hover:bg-accent rounded-lg transition-colors"
@@ -565,7 +678,17 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                     <div className="flex items-center gap-4">
                         <div className="text-right hidden sm:block">
                             <div className="text-xs font-bold text-foreground">
-                                {Object.values(permissions).reduce((acc, val) => acc + (typeof val === 'object' ? Object.values(val).filter(b => b === true).length : 0), 0)} Permissions Active
+                                {(() => {
+                                    const countBooleans = (obj: any): number => {
+                                        let count = 0;
+                                        for (const key in obj) {
+                                            if (typeof obj[key] === 'boolean' && obj[key]) count++;
+                                            else if (typeof obj[key] === 'object' && obj[key]) count += countBooleans(obj[key]);
+                                        }
+                                        return count;
+                                    };
+                                    return countBooleans(permissions);
+                                })()} Permissions Active
                             </div>
                             <div className="text-[10px] text-muted-foreground">Changes saved automatically</div>
                         </div>

@@ -139,6 +139,7 @@ export interface User {
     createdAt: string;
     updatedAt: string;
     remarks?: string;
+    position?: string;
     profilePicUrl?: string;
     monthlyTarget?: number; // Target collection amount
     awardedBadges?: string[]; // E.g., ['top_collector', 'zero_churn']
