@@ -113,7 +113,7 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     const iat: string | null = r.inactivated_at;
                     const uat: string | null = r.updated_at;
                     const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
-                    return inactDate ? inactDate >= ds : false;
+                    return inactDate ? inactDate > ds : false;
                 }).length;
             };
 
