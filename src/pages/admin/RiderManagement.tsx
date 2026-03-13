@@ -631,7 +631,7 @@ const RiderManagement: React.FC = () => {
         setReminderType('low_balance');
     };
 
-    // Bulk Actions
+    // Bulk Actions — uses single batch UPDATE for reliability
     const handleBulkStatusChange = async (newStatus: RiderStatus) => {
         if (currentUser?.permissions?.riders?.bulkActions?.statusChange === false) {
             toast.error("Permission Denied: Status change access required.");
@@ -640,38 +640,55 @@ const RiderManagement: React.FC = () => {
         if (selectedRiders.size === 0) return;
         if (!confirm(`Change status of ${selectedRiders.size} rider(s) to ${newStatus}?`)) return;
 
+        const riderIds = Array.from(selectedRiders);
+        const totalCount = riderIds.length;
+
         try {
-            const updates = Array.from(selectedRiders).map(async (riderId) => {
-                const rider = riders.find(r => r.id === riderId);
+            toast.loading(`Updating ${totalCount} riders...`, { id: 'bulk-status' });
+
+            // Process in chunks of 50 to avoid Supabase payload limits
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < riderIds.length; i += CHUNK_SIZE) {
+                const chunk = riderIds.slice(i, i + CHUNK_SIZE);
                 const { error } = await supabase.from('riders').update({
                     status: newStatus,
                     updated_at: new Date().toISOString(),
-                }).eq('id', riderId);
+                    ...(newStatus === 'inactive' || newStatus === 'deleted'
+                        ? { inactivated_at: new Date().toISOString() }
+                        : {}),
+                }).in('id', chunk);
 
                 if (error) throw error;
-
-                if (rider) {
-                    const actionType = newStatus === 'active' ? 'status_active' : 'status_inactive';
-                    await notifyTeamLeader(rider.teamLeaderId, actionType, rider.riderName, rider.id);
-                }
-            });
-
-            await Promise.all(updates);
+            }
 
             await logActivity({
-                actionType: 'bulkImport', // Use bulkAction or similar if defined
+                actionType: 'bulkImport',
                 targetType: 'rider',
                 targetId: 'multiple',
-                details: `Changed status of ${selectedRiders.size} riders to ${newStatus}`,
+                details: `Changed status of ${totalCount} riders to ${newStatus}`,
                 performedBy: currentUser?.email
             });
 
-            toast.success('Riders updated successfully');
+            // Send summary notifications to affected TLs (batch, not per-rider)
+            const affectedTLs = new Map<string, number>();
+            riderIds.forEach(id => {
+                const rider = riders.find(r => r.id === id);
+                if (rider?.teamLeaderId) {
+                    affectedTLs.set(rider.teamLeaderId, (affectedTLs.get(rider.teamLeaderId) || 0) + 1);
+                }
+            });
+            // Fire-and-forget summary notifications
+            for (const [tlId, count] of affectedTLs) {
+                const actionType = newStatus === 'active' ? 'status_active' : 'status_inactive';
+                notifyTeamLeader(tlId, actionType, `${count} rider(s)`, 'bulk').catch(() => {});
+            }
+
+            toast.success(`${totalCount} riders updated to ${newStatus}`, { id: 'bulk-status' });
             setSelectedRiders(new Set());
             await fetchData();
         } catch (error) {
             console.error('Error in bulk status change:', error);
-            toast.error('Failed to update riders.');
+            toast.error(`Failed to update riders: ${(error as any)?.message || 'Unknown error'}`, { id: 'bulk-status' });
         }
     };
 
@@ -683,79 +700,116 @@ const RiderManagement: React.FC = () => {
         if (selectedRiders.size === 0) return;
         if (!confirm(`Delete ${selectedRiders.size} riders?`)) return;
 
+        const riderIds = Array.from(selectedRiders);
+        const totalCount = riderIds.length;
+
         try {
-            const updates = Array.from(selectedRiders).map(async (riderId) => {
-                const rider = riders.find(r => r.id === riderId);
+            toast.loading(`Deleting ${totalCount} riders...`, { id: 'bulk-delete' });
+
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < riderIds.length; i += CHUNK_SIZE) {
+                const chunk = riderIds.slice(i, i + CHUNK_SIZE);
                 const { error } = await supabase.from('riders').update({
                     status: 'deleted' as RiderStatus,
                     deleted_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
-                }).eq('id', riderId);
+                }).in('id', chunk);
 
                 if (error) throw error;
-                if (rider) await notifyTeamLeader(rider.teamLeaderId, 'status_inactive', rider.riderName, rider.id);
-            });
+            }
 
-            await Promise.all(updates);
             await logActivity({
                 actionType: 'riderDeleted',
                 targetType: 'rider',
                 targetId: 'multiple',
-                details: `Bulk deleted ${selectedRiders.size} riders`,
+                details: `Bulk deleted ${totalCount} riders`,
                 performedBy: currentUser?.email
             });
 
+            // Summary notifications
+            const affectedTLs = new Map<string, number>();
+            riderIds.forEach(id => {
+                const rider = riders.find(r => r.id === id);
+                if (rider?.teamLeaderId) {
+                    affectedTLs.set(rider.teamLeaderId, (affectedTLs.get(rider.teamLeaderId) || 0) + 1);
+                }
+            });
+            for (const [tlId, count] of affectedTLs) {
+                notifyTeamLeader(tlId, 'status_inactive', `${count} rider(s)`, 'bulk').catch(() => {});
+            }
+
+            toast.success(`${totalCount} riders deleted`, { id: 'bulk-delete' });
             setSelectedRiders(new Set());
             await fetchData();
         } catch (error) {
             console.error('Error in bulk delete:', error);
+            toast.error(`Failed to delete riders: ${(error as any)?.message || 'Unknown error'}`, { id: 'bulk-delete' });
         }
     };
 
     const handleBulkAssignTL = async (newTLId: string) => {
         if (!newTLId) return;
 
+        const riderIds = Array.from(selectedRiders);
+        const totalCount = riderIds.length;
+
         try {
             const newTL = teamLeaders.find(u => u.id === newTLId);
             const newTLName = newTL?.fullName || 'Unknown';
 
-            const updates = Array.from(selectedRiders).map(async (riderId) => {
-                const rider = riders.find(r => r.id === riderId);
-                const oldTLId = rider?.teamLeaderId;
+            toast.loading(`Assigning ${totalCount} riders to ${newTLName}...`, { id: 'bulk-assign' });
 
+            // Collect old TLs for notification before update
+            const oldTLCounts = new Map<string, number>();
+            riderIds.forEach(id => {
+                const rider = riders.find(r => r.id === id);
+                if (rider?.teamLeaderId && rider.teamLeaderId !== newTLId) {
+                    oldTLCounts.set(rider.teamLeaderId, (oldTLCounts.get(rider.teamLeaderId) || 0) + 1);
+                }
+            });
+
+            // Single batch update — process in chunks of 50
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < riderIds.length; i += CHUNK_SIZE) {
+                const chunk = riderIds.slice(i, i + CHUNK_SIZE);
                 const { error } = await supabase.from('riders').update({
                     team_leader_id: newTLId,
                     team_leader_name: newTLName,
                     updated_at: new Date().toISOString(),
-                }).eq('id', riderId);
+                }).in('id', chunk);
 
                 if (error) throw error;
 
-                if (rider && oldTLId) {
-                    await notifyTeamLeader(oldTLId, 'reassign_from', rider.riderName, rider.id);
+                // Show progress for large batches
+                if (riderIds.length > CHUNK_SIZE) {
+                    const done = Math.min(i + CHUNK_SIZE, riderIds.length);
+                    toast.loading(`Assigned ${done}/${totalCount} riders...`, { id: 'bulk-assign' });
                 }
-                if (rider) {
-                    await notifyTeamLeader(newTLId, 'reassign_to', rider.riderName, rider.id);
-                }
-            });
-
-            await Promise.all(updates);
+            }
 
             await logActivity({
                 actionType: 'riderEdited',
                 targetType: 'rider',
                 targetId: 'multiple',
-                details: `Reassigned ${selectedRiders.size} riders to ${newTLName}`,
+                details: `Reassigned ${totalCount} riders to ${newTLName}`,
                 performedBy: currentUser?.email
             });
 
-            toast.success('Riders reassigned successfully');
+            // Fire-and-forget summary notifications
+            // Notify old TLs about removal
+            for (const [tlId, count] of oldTLCounts) {
+                notifyTeamLeader(tlId, 'reassign_from', `${count} rider(s)`, 'bulk').catch(() => {});
+            }
+            // Notify new TL about assignment
+            notifyTeamLeader(newTLId, 'reassign_to', `${totalCount} rider(s)`, 'bulk').catch(() => {});
+
+            toast.success(`${totalCount} riders assigned to ${newTLName}`, { id: 'bulk-assign' });
             setSelectedRiders(new Set());
-            setShowBulkAssignTL(false); // Close modal
+            setShowBulkAssignTL(false);
             await fetchData();
         } catch (error) {
             console.error('Error in bulk reassignment:', error);
-            toast.error('Failed to reassign riders');
+            toast.error(`Failed to reassign riders: ${(error as any)?.message || 'Unknown error'}`, { id: 'bulk-assign' });
         }
     };
 
