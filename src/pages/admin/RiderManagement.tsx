@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -57,6 +57,24 @@ const RiderManagement: React.FC = () => {
 
     // Highlight Logic
     const [highlightedRiderId, setHighlightedRiderId] = useState<string | null>(null);
+
+    // Advanced Filter: Searchable TL Dropdown
+    const [tlSearchQuery, setTlSearchQuery] = useState('');
+    const [showTLDropdown, setShowTLDropdown] = useState(false);
+    const tlDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close TL dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (tlDropdownRef.current && !tlDropdownRef.current.contains(e.target as Node)) {
+                setShowTLDropdown(false);
+            }
+        };
+        if (showTLDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [showTLDropdown]);
 
     // URL Filter & Highlight Logic
     useEffect(() => {
@@ -262,7 +280,11 @@ const RiderManagement: React.FC = () => {
         }
 
         if (advancedFilters.teamLeader !== 'all') {
-            filtered = filtered.filter(r => r.teamLeaderId === advancedFilters.teamLeader);
+            if (advancedFilters.teamLeader === 'unassigned') {
+                filtered = filtered.filter(r => !r.teamLeaderId);
+            } else {
+                filtered = filtered.filter(r => r.teamLeaderId === advancedFilters.teamLeader);
+            }
         }
 
         if (advancedFilters.client !== 'all') {
@@ -1346,6 +1368,14 @@ const RiderManagement: React.FC = () => {
                         >
                             {showAdvancedFilters ? <SlidersHorizontal size={18} /> : <Filter size={18} />}
                             {showAdvancedFilters ? 'Hide Filters' : 'Filters'}
+                            {(() => {
+                                const activeCount = [advancedFilters.teamLeader !== 'all', advancedFilters.client !== 'all', advancedFilters.walletRange !== 'all'].filter(Boolean).length;
+                                return activeCount > 0 ? (
+                                    <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black bg-primary text-white">
+                                        {activeCount}
+                                    </span>
+                                ) : null;
+                            })()}
                         </button>
                         <button
                             onClick={() => setShowExportModal(true)}
@@ -1359,55 +1389,226 @@ const RiderManagement: React.FC = () => {
 
                 {/* Advanced Filters Panel */}
                 {showAdvancedFilters && (
-                    <div className="pt-4 border-t border-border/50 grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Team Leader</label>
-                            <select
-                                value={advancedFilters.teamLeader}
-                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, teamLeader: e.target.value })}
-                                className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                            >
-                                <option value="all">All Team Leaders</option>
-                                {teamLeaders.map(tl => (
-                                    <option key={tl.id} value={tl.id}>{tl.fullName}</option>
-                                ))}
-                            </select>
+                    <div className="pt-4 border-t border-border/50 animate-in slide-in-from-top-2 duration-200 space-y-4">
+                        {/* Active filters summary */}
+                        {(advancedFilters.teamLeader !== 'all' || advancedFilters.client !== 'all' || advancedFilters.walletRange !== 'all') && (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Active:</span>
+                                {advancedFilters.teamLeader !== 'all' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                                        TL: {teamLeaders.find(t => t.id === advancedFilters.teamLeader)?.fullName || 'Unknown'}
+                                        <button onClick={() => setAdvancedFilters(p => ({ ...p, teamLeader: 'all' }))} className="ml-0.5 hover:text-red-500 transition-colors">&times;</button>
+                                    </span>
+                                )}
+                                {advancedFilters.client !== 'all' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                                        Client: {advancedFilters.client}
+                                        <button onClick={() => setAdvancedFilters(p => ({ ...p, client: 'all' }))} className="ml-0.5 hover:text-red-500 transition-colors">&times;</button>
+                                    </span>
+                                )}
+                                {advancedFilters.walletRange !== 'all' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                        Wallet: {advancedFilters.walletRange.replace('_', ' ')}
+                                        <button onClick={() => setAdvancedFilters(p => ({ ...p, walletRange: 'all' }))} className="ml-0.5 hover:text-red-500 transition-colors">&times;</button>
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                            {/* ═══ Team Leader — Searchable Scrollable Dropdown ═══ */}
+                            <div className="relative" ref={tlDropdownRef}>
+                                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mb-1.5">
+                                    Team Leader
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowTLDropdown(prev => !prev); setTlSearchQuery(''); }}
+                                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 border rounded-lg text-sm font-medium transition-all text-left
+                                        ${advancedFilters.teamLeader !== 'all'
+                                            ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary/20'
+                                            : 'border-input bg-background/50 text-foreground hover:border-primary/40'
+                                        }`}
+                                >
+                                    <span className="truncate block w-full">
+                                        {advancedFilters.teamLeader === 'all'
+                                            ? 'All Team Leaders'
+                                            : teamLeaders.find(t => t.id === advancedFilters.teamLeader)?.fullName || 'Unknown'
+                                        }
+                                    </span>
+                                    <svg className={`w-4 h-4 flex-shrink-0 text-muted-foreground transition-transform ${showTLDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {/* Dropdown panel */}
+                                {showTLDropdown && (
+                                    <div className="absolute z-[100] mt-1 w-full min-w-[280px] bg-card border border-border rounded-xl shadow-2xl shadow-black/10 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                                        {/* Search input */}
+                                        <div className="p-2 border-b border-border/50">
+                                            <div className="relative">
+                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60" size={14} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search Team Leader..."
+                                                    value={tlSearchQuery}
+                                                    onChange={(e) => setTlSearchQuery(e.target.value)}
+                                                    autoFocus
+                                                    className="w-full pl-8 pr-3 py-2 text-sm border border-input rounded-lg bg-background/80 focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary placeholder:text-muted-foreground/50"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Scrollable list */}
+                                        <div className="max-h-[240px] overflow-y-auto overscroll-contain">
+                                            {/* "All" option */}
+                                            <button
+                                                type="button"
+                                                onClick={() => { setAdvancedFilters(p => ({ ...p, teamLeader: 'all' })); setShowTLDropdown(false); }}
+                                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors text-left hover:bg-accent/50
+                                                    ${advancedFilters.teamLeader === 'all' ? 'bg-primary/5 text-primary font-bold' : 'text-foreground'}
+                                                `}
+                                            >
+                                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center flex-shrink-0">
+                                                    <Users size={13} className="text-slate-500 dark:text-slate-400" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <span className="block font-semibold">All Team Leaders</span>
+                                                    <span className="text-[10px] text-muted-foreground">{riders.length} riders total</span>
+                                                </div>
+                                                {advancedFilters.teamLeader === 'all' && (
+                                                    <CheckCircle size={16} className="text-primary flex-shrink-0" />
+                                                )}
+                                            </button>
+
+                                            {/* "Unassigned" option */}
+                                            {(() => {
+                                                const unassignedCount = riders.filter(r => !r.teamLeaderId).length;
+                                                if (unassignedCount > 0 && (!tlSearchQuery || 'unassigned'.includes(tlSearchQuery.toLowerCase()))) {
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setAdvancedFilters(p => ({ ...p, teamLeader: 'unassigned' })); setShowTLDropdown(false); }}
+                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors text-left hover:bg-accent/50
+                                                                ${advancedFilters.teamLeader === 'unassigned' ? 'bg-primary/5 text-primary font-bold' : 'text-foreground'}
+                                                            `}
+                                                        >
+                                                            <div className="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-amber-600 text-[10px] font-black">?</span>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="block font-semibold">Unassigned</span>
+                                                                <span className="text-[10px] text-muted-foreground">{unassignedCount} rider{unassignedCount !== 1 ? 's' : ''}</span>
+                                                            </div>
+                                                            {advancedFilters.teamLeader === 'unassigned' && (
+                                                                <CheckCircle size={16} className="text-primary flex-shrink-0" />
+                                                            )}
+                                                        </button>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+
+                                            {/* TL list */}
+                                            {teamLeaders
+                                                .filter(tl => !tlSearchQuery || tl.fullName.toLowerCase().includes(tlSearchQuery.toLowerCase()))
+                                                .sort((a, b) => a.fullName.localeCompare(b.fullName))
+                                                .map(tl => {
+                                                    const riderCount = riders.filter(r => r.teamLeaderId === tl.id).length;
+                                                    const activeCount = riders.filter(r => r.teamLeaderId === tl.id && r.status === 'active').length;
+                                                    return (
+                                                        <button
+                                                            key={tl.id}
+                                                            type="button"
+                                                            onClick={() => { setAdvancedFilters(p => ({ ...p, teamLeader: tl.id })); setShowTLDropdown(false); }}
+                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors text-left hover:bg-accent/50
+                                                                ${advancedFilters.teamLeader === tl.id ? 'bg-primary/5 text-primary font-bold' : 'text-foreground'}
+                                                            `}
+                                                        >
+                                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-indigo-600 dark:text-indigo-400 text-[11px] font-black">
+                                                                    {tl.fullName.charAt(0).toUpperCase()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="block font-semibold whitespace-normal break-words leading-tight">{tl.fullName}</span>
+                                                                <span className="text-[10px] text-muted-foreground">
+                                                                    {activeCount} active · {riderCount} total
+                                                                </span>
+                                                            </div>
+                                                            {advancedFilters.teamLeader === tl.id && (
+                                                                <CheckCircle size={16} className="text-primary flex-shrink-0" />
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })
+                                            }
+
+                                            {/* No results */}
+                                            {tlSearchQuery && teamLeaders.filter(tl => tl.fullName.toLowerCase().includes(tlSearchQuery.toLowerCase())).length === 0 && (
+                                                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                                                    No team leader matches "<strong>{tlSearchQuery}</strong>"
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ═══ Client Filter ═══ */}
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mb-1.5">Client</label>
+                                <select
+                                    value={advancedFilters.client}
+                                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as ClientName | 'all' })}
+                                    className={`w-full px-3 py-2.5 border rounded-lg text-sm font-medium transition-all outline-none
+                                        ${advancedFilters.client !== 'all'
+                                            ? 'border-violet-500 bg-violet-500/5 ring-1 ring-violet-500/20'
+                                            : 'border-input bg-background/50 hover:border-primary/40'
+                                        } focus:ring-2 focus:ring-primary/20 focus:border-primary`}
+                                >
+                                    <option value="all">All Clients</option>
+                                    {['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'].map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* ═══ Wallet Status Filter ═══ */}
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mb-1.5">Wallet Status</label>
+                                <select
+                                    value={advancedFilters.walletRange}
+                                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
+                                    className={`w-full px-3 py-2.5 border rounded-lg text-sm font-medium transition-all outline-none
+                                        ${advancedFilters.walletRange !== 'all'
+                                            ? 'border-amber-500 bg-amber-500/5 ring-1 ring-amber-500/20'
+                                            : 'border-input bg-background/50 hover:border-primary/40'
+                                        } focus:ring-2 focus:ring-primary/20 focus:border-primary`}
+                                >
+                                    <option value="all">All Wallets</option>
+                                    <option value="positive">✅ Positive Balance</option>
+                                    <option value="negative">🔴 Negative Balance</option>
+                                    <option value="zero">⚪ Zero Balance</option>
+                                    <option value="low_balance">⚠️ Low Balance (₹0–250)</option>
+                                    <option value="high_debt">🚨 High Debt (&lt; ₹-3,000)</option>
+                                </select>
+                            </div>
+
+                            {/* ═══ Reset Button ═══ */}
+                            <div className="flex items-end">
+                                <button
+                                    onClick={() => { setAdvancedFilters({ teamLeader: 'all', client: 'all', walletRange: 'all' }); setTlSearchQuery(''); setShowTLDropdown(false); }}
+                                    className="w-full px-4 py-2.5 border border-dashed border-input rounded-lg hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-2 font-medium"
+                                >
+                                    <RefreshCw size={14} /> Reset All Filters
+                                </button>
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Client</label>
-                            <select
-                                value={advancedFilters.client}
-                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, client: e.target.value as ClientName | 'all' })}
-                                className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                            >
-                                <option value="all">All Clients</option>
-                                {['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'].map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Wallet Status</label>
-                            <select
-                                value={advancedFilters.walletRange}
-                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, walletRange: e.target.value as any })}
-                                className="w-full px-3 py-2 border border-input rounded-lg bg-background/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                            >
-                                <option value="all">All Wallets</option>
-                                <option value="positive">Positive Balance</option>
-                                <option value="negative">Negative Balance</option>
-                                <option value="zero">Zero Balance</option>
-                                <option value="low_balance">Low Balance (0-250)</option>
-                                <option value="high_debt">Highly Indebted (&lt; -3000)</option>
-                            </select>
-                        </div>
-                        <div className="flex items-end">
-                            <button
-                                onClick={() => setAdvancedFilters({ teamLeader: 'all', client: 'all', walletRange: 'all' })}
-                                className="w-full px-4 py-2 border border-dashed border-input rounded-lg hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-2"
-                            >
-                                <RefreshCw size={14} /> Reset Filters
-                            </button>
+
+                        {/* Filter result count */}
+                        <div className="text-[11px] text-muted-foreground font-medium">
+                            Showing <strong className="text-foreground">{filteredRiders.length}</strong> of <strong className="text-foreground">{riders.length}</strong> riders
                         </div>
                     </div>
                 )}
