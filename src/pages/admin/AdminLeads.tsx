@@ -424,10 +424,10 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
         if (!mobile) return;
 
         if (status === 'Match') {
-            navigate(`/ portal / riders ? highlight = ${mobile} `);
+            navigate(`/portal/riders?highlight=${mobile}`);
         } else if (status === 'Duplicate') {
             setSearchTerm(mobile);
-            toast.info(`Showing duplicates for: ${mobile} `);
+            toast.info(`Showing duplicates for: ${mobile}`);
         }
     };
 
