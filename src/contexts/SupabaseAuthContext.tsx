@@ -46,6 +46,17 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
         const interval = setInterval(checkInactivity, 30000);
 
+        // Also check inactivity when tab/app regains focus.
+        // setInterval is paused/suspended by browsers when the screen is off
+        // or the tab is hidden. Checking on visibilitychange ensures that
+        // when the user comes back after 30+ min, logout fires immediately.
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                checkInactivity();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
         // updateActivity only writes to a ref — zero re-renders, zero listener churn
         const updateActivity = () => { lastActivityRef.current = Date.now(); };
 
@@ -57,6 +68,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
         return () => {
             clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('mousemove', updateActivity);
             window.removeEventListener('keydown', updateActivity);
             window.removeEventListener('click', updateActivity);
@@ -84,6 +96,8 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             jobLocation: data.job_location || data.jobLocation,
             profilePicUrl: data.profile_pic_url || data.profilePicUrl,
             username: data.username,
+            force_password_change: data.force_password_change ?? data.forcePasswordChange ?? false,
+            last_password_change: data.last_password_change || data.lastPasswordChange,
             createdAt: typeof (data.created_at || data.createdAt) === 'object' ? new Date(data.created_at || data.createdAt).toISOString() : (data.created_at || data.createdAt),
             updatedAt: typeof (data.updated_at || data.updatedAt) === 'object' ? new Date(data.updated_at || data.updatedAt).toISOString() : (data.updated_at || data.updatedAt),
             remarks: typeof data.remarks === 'object' ? JSON.stringify(data.remarks) : data.remarks,
@@ -173,6 +187,8 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                     remarks,
                     suspendedUntil:suspended_until,
                     username,
+                    force_password_change,
+                    last_password_change,
                     createdAt:created_at,
                     updatedAt:updated_at
                 `)

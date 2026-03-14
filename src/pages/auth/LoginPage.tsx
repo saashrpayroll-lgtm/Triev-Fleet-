@@ -64,6 +64,8 @@ const LoginPage: React.FC = () => {
 
                     setLoggedInUserId(user.id);
                     setShowForcePasswordChange(true);
+                    setLoading(false);
+                    return; // Block navigation — user MUST change password first
                 }
             }
         } catch (err: any) {
