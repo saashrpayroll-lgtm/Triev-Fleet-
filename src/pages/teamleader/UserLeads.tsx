@@ -316,7 +316,7 @@ const UserLeads: React.FC = () => {
                 isAdmin={false}
             />
 
-            <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-card border border-border rounded-lg shadow-sm">
                 <LeadsTable
                     leads={filteredLeads}
                     loading={loading}

@@ -172,7 +172,14 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
             {actionMenu && activeLead && (
                 <div
                     className="fixed w-60 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
-                    style={{ top: `${actionMenu.top}px`, right: `${actionMenu.right}px`, zIndex: 9999 }}
+                    style={{
+                        top: actionMenu.top > 0 ? `${actionMenu.top}px` : undefined,
+                        bottom: actionMenu.top <= 0 ? `${Math.abs(actionMenu.top)}px` : undefined,
+                        right: `${actionMenu.right}px`,
+                        zIndex: 9999,
+                        maxHeight: '70vh',
+                        overflowY: 'auto',
+                    }}
                     onClick={e => e.stopPropagation()}
                 >
                     <div className="p-2 space-y-1">
@@ -335,7 +342,12 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                                                         <button
                                                             onClick={e => {
                                                                 const rect = e.currentTarget.getBoundingClientRect();
-                                                                setActionMenu(actionMenu?.id === lead.id ? null : { id: lead.id, top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                                                                const spaceBelow = window.innerHeight - rect.bottom;
+                                                                const menuHeight = 400; // approximate menu height
+                                                                const top = spaceBelow >= menuHeight
+                                                                    ? rect.bottom + 8 // open below
+                                                                    : -(window.innerHeight - rect.top + 8); // negative = use 'bottom' instead
+                                                                setActionMenu(actionMenu?.id === lead.id ? null : { id: lead.id, top, right: window.innerWidth - rect.right });
                                                             }}
                                                             className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-500/10 transform hover:scale-110 active:scale-90 transition-all"
                                                         ><MoreVertical size={15} /></button>
