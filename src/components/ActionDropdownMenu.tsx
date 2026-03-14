@@ -56,11 +56,23 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
         e.preventDefault();
         if (!isMobile && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
-            // Using viewport coordinates for Portal placement
-            setMenuPos({
-                top: rect.bottom + window.scrollY + 6,
-                right: window.innerWidth - (rect.right + window.scrollX)
-            });
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const menuHeight = 350; // approximate menu height
+
+            if (spaceBelow >= menuHeight) {
+                // Enough space below — open downward
+                setMenuPos({
+                    top: rect.bottom + window.scrollY + 6,
+                    right: window.innerWidth - (rect.right + window.scrollX)
+                });
+            } else {
+                // Not enough space below — open upward
+                // Use negative top as a signal to render with 'bottom' instead
+                setMenuPos({
+                    top: -(document.documentElement.scrollHeight - (rect.top + window.scrollY) + 6),
+                    right: window.innerWidth - (rect.right + window.scrollX)
+                });
+            }
         }
         setIsOpen(true);
     };
@@ -205,7 +217,14 @@ const ActionDropdownMenu: React.FC<ActionDropdownMenuProps> = ({
                             <div
                                 ref={menuRef}
                                 className="absolute w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-[50001] animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
-                                style={{ top: menuPos.top, right: menuPos.right }}
+                                style={{
+                                    ...(menuPos.top >= 0
+                                        ? { top: menuPos.top }
+                                        : { bottom: Math.abs(menuPos.top) }),
+                                    right: menuPos.right,
+                                    maxHeight: '70vh',
+                                    overflowY: 'auto',
+                                }}
                                 onClick={e => e.stopPropagation()}
                             >
                                 <MenuItems />
