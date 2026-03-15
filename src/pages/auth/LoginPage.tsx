@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Eye, EyeOff, LogIn, Mail, Lock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Mail, Lock, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 import AnimatedBackground from '@/components/auth/AnimatedBackground';
+import { toast } from 'sonner';
 
 const LoginPage: React.FC = () => {
     const [loginInput, setLoginInput] = useState('');
@@ -17,6 +18,7 @@ const LoginPage: React.FC = () => {
     const [showForcePasswordChange, setShowForcePasswordChange] = useState(false);
     const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
     const [rememberMe, setRememberMe] = useState(false);
+    const [focusedField, setFocusedField] = useState<string | null>(null);
 
     const { login } = useSupabaseAuth();
 
@@ -65,11 +67,14 @@ const LoginPage: React.FC = () => {
                     setLoggedInUserId(user.id);
                     setShowForcePasswordChange(true);
                     setLoading(false);
-                    return; // Block navigation — user MUST change password first
+                    return;
                 }
             }
+
+            toast.success('Login successful! Redirecting...');
         } catch (err: any) {
             setError(err.message || 'Failed to login. Please check your credentials.');
+            toast.error(err.message || 'Login failed');
         } finally {
             setLoading(false);
         }
@@ -77,38 +82,43 @@ const LoginPage: React.FC = () => {
 
     const containerVariants = {
         hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
+        visible: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
     };
 
     const itemVariants = {
-        hidden: { opacity: 0, y: 24 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+        hidden: { opacity: 0, y: 28, filter: 'blur(6px)' },
+        visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
     };
 
     return (
-        <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30">
+        <div className="min-h-screen min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30">
             <AnimatedBackground variant="login" />
 
             <motion.div
-                className="w-full max-w-md relative"
+                className="w-full max-w-[420px] relative"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
             >
                 {/* Brand Header */}
-                <motion.div variants={itemVariants} className="text-center mb-8 space-y-5">
+                <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8 space-y-4 sm:space-y-5">
                     {/* Logo */}
                     <div className="relative inline-block">
                         {/* Glow rings */}
                         <motion.div
                             className="absolute inset-0 rounded-[40px] bg-orange-500/30 blur-2xl"
-                            animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.8, 0.4] }}
+                            animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.7, 0.3] }}
                             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                         />
                         <motion.div
-                            className="relative w-28 h-28 sm:w-32 sm:h-32 bg-white/8 backdrop-blur-3xl rounded-[32px] sm:rounded-[40px] border border-white/15 shadow-2xl flex items-center justify-center p-5 sm:p-6 ring-1 ring-white/20"
-                            whileHover={{ scale: 1.08, rotate: [0, -2, 2, 0] }}
-                            transition={{ duration: 0.4 }}
+                            className="absolute -inset-4 rounded-[48px] border border-orange-500/10"
+                            animate={{ opacity: [0.1, 0.3, 0.1], scale: [0.96, 1.04, 0.96] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                        />
+                        <motion.div
+                            className="relative w-24 h-24 sm:w-28 sm:h-28 bg-white/8 backdrop-blur-3xl rounded-[28px] sm:rounded-[36px] border border-white/15 shadow-2xl flex items-center justify-center p-4 sm:p-5 ring-1 ring-white/10"
+                            whileHover={{ scale: 1.08, rotate: [0, -3, 3, 0] }}
+                            transition={{ duration: 0.5 }}
                         >
                             <img
                                 src="/triev_logo.png"
@@ -116,42 +126,53 @@ const LoginPage: React.FC = () => {
                                 className="w-full h-full object-contain drop-shadow-2xl"
                             />
                         </motion.div>
-                        {/* Orbit dot */}
+                        {/* Status dot */}
                         <motion.div
-                            className="absolute top-2 -right-1 w-3 h-3 bg-orange-500 rounded-full shadow-[0_0_10px_#f97316]"
-                            animate={{ scale: [1, 1.4, 1], opacity: [0.8, 1, 0.8] }}
+                            className="absolute top-1 -right-1 w-3 h-3 bg-green-500 rounded-full shadow-[0_0_12px_#22c55e] ring-2 ring-slate-950"
+                            animate={{ scale: [1, 1.3, 1], opacity: [0.8, 1, 0.8] }}
                             transition={{ duration: 2, repeat: Infinity }}
                         />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                         <motion.h1
-                            className="text-3xl sm:text-4xl font-black text-white tracking-tighter uppercase italic"
+                            className="text-3xl sm:text-4xl font-black text-white tracking-tighter"
                             initial={{ opacity: 0, letterSpacing: '0.3em' }}
-                            animate={{ opacity: 1, letterSpacing: '-0.02em' }}
+                            animate={{ opacity: 1, letterSpacing: '-0.03em' }}
                             transition={{ duration: 0.8, delay: 0.3 }}
                         >
-                            TRIEV <span className="text-orange-500 not-italic">Rider's</span>
+                            TRIEV{' '}
+                            <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                                Rider's
+                            </span>
                         </motion.h1>
-                        <p className="text-orange-100/40 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.25em]">#JoinTheEVTrive</p>
+                        <motion.p
+                            className="text-orange-200/40 text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em]"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5, duration: 0.6 }}
+                        >
+                            Fleet Management Portal
+                        </motion.p>
                     </div>
                 </motion.div>
 
                 {/* Login Card */}
-                <motion.div
-                    variants={itemVariants}
-                    className="relative"
-                >
+                <motion.div variants={itemVariants} className="relative">
                     {/* Card glow border */}
-                    <div className="absolute -inset-[1px] rounded-[36px] sm:rounded-[44px] bg-gradient-to-br from-orange-500/30 via-fuchsia-500/15 to-blue-600/20 opacity-60" />
+                    <motion.div
+                        className="absolute -inset-[1px] rounded-[28px] sm:rounded-[36px] bg-gradient-to-br from-orange-500/30 via-fuchsia-500/15 to-blue-600/20"
+                        animate={{ opacity: [0.4, 0.7, 0.4] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                    />
 
-                    <div className="relative bg-slate-900/40 backdrop-blur-[50px] border border-white/10 rounded-[34px] sm:rounded-[42px] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.5)] overflow-hidden">
-                        {/* Subtle top shimmer line */}
+                    <div className="relative bg-slate-900/50 backdrop-blur-[40px] border border-white/[0.08] rounded-[26px] sm:rounded-[34px] p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+                        {/* Top shimmer */}
                         <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-                        {/* Inner gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-orange-500/[0.03] pointer-events-none rounded-[42px]" />
+                        {/* Inner glow */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-orange-500/[0.02] pointer-events-none rounded-[34px]" />
 
-                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-7 relative z-10">
+                        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 relative z-10">
                             {/* Error Alert */}
                             <AnimatePresence>
                                 {error && (
@@ -160,15 +181,17 @@ const LoginPage: React.FC = () => {
                                         animate={{ opacity: 1, height: 'auto', y: 0 }}
                                         exit={{ opacity: 0, height: 0 }}
                                         transition={{ duration: 0.3 }}
-                                        className="bg-red-500/10 border border-red-500/25 text-red-100 p-4 rounded-2xl text-sm font-medium flex items-center gap-3"
+                                        className="bg-red-500/10 border border-red-500/25 p-3.5 rounded-2xl"
                                     >
-                                        <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
-                                        <span>{error}</span>
+                                        <div className="flex items-start gap-2.5">
+                                            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                            <p className="text-sm text-red-200 font-medium leading-snug">{error}</p>
+                                        </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
 
-                            <div className="space-y-4 sm:space-y-5">
+                            <div className="space-y-4">
                                 {/* Identifier Input */}
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-orange-300/60 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
@@ -176,19 +199,25 @@ const LoginPage: React.FC = () => {
                                         Secure ID
                                     </label>
                                     <div className="relative group">
-                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-orange-500/40 group-focus-within:text-orange-400 transition-colors duration-300">
+                                        <motion.div
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-500/40 transition-colors duration-300"
+                                            animate={{ color: focusedField === 'id' ? '#fb923c' : 'rgba(249,115,22,0.4)' }}
+                                        >
                                             <Mail size={17} />
-                                        </div>
+                                        </motion.div>
                                         <input
                                             type="text"
                                             value={loginInput}
                                             onChange={(e) => setLoginInput(e.target.value)}
-                                            className="w-full pl-14 pr-5 py-4 sm:py-[18px] bg-black/25 border border-white/8 rounded-2xl text-white placeholder-white/18 focus:outline-none focus:border-orange-500/50 focus:ring-[3px] focus:ring-orange-500/10 transition-all duration-300 font-medium text-sm sm:text-base"
+                                            onFocus={() => setFocusedField('id')}
+                                            onBlur={() => setFocusedField(null)}
+                                            className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-white/[0.04] border border-white/[0.08] rounded-xl sm:rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 focus:bg-white/[0.06] transition-all duration-300 font-medium text-sm"
                                             placeholder="Email, Mobile or Username"
                                             required
+                                            autoComplete="username"
                                         />
-                                        {/* Focus underline effect */}
-                                        <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-orange-500/50 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
+                                        {/* Focus glow underline */}
+                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
                                     </div>
                                 </div>
 
@@ -199,33 +228,41 @@ const LoginPage: React.FC = () => {
                                         Passkey
                                     </label>
                                     <div className="relative group">
-                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-orange-500/40 group-focus-within:text-orange-400 transition-colors duration-300">
+                                        <motion.div
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-500/40 transition-colors duration-300"
+                                            animate={{ color: focusedField === 'pass' ? '#fb923c' : 'rgba(249,115,22,0.4)' }}
+                                        >
                                             <Lock size={17} />
-                                        </div>
+                                        </motion.div>
                                         <input
                                             type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full pl-14 pr-14 py-4 sm:py-[18px] bg-black/25 border border-white/8 rounded-2xl text-white placeholder-white/18 focus:outline-none focus:border-orange-500/50 focus:ring-[3px] focus:ring-orange-500/10 transition-all duration-300 font-medium tracking-widest"
+                                            onFocus={() => setFocusedField('pass')}
+                                            onBlur={() => setFocusedField(null)}
+                                            className="w-full pl-12 pr-12 py-3.5 sm:py-4 bg-white/[0.04] border border-white/[0.08] rounded-xl sm:rounded-2xl text-white placeholder-white/20 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 focus:bg-white/[0.06] transition-all duration-300 font-medium tracking-widest text-lg"
                                             placeholder="••••••••"
                                             required
+                                            autoComplete="current-password"
                                         />
+                                        {/* Eye toggle — high visibility */}
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-5 top-1/2 -translate-y-1/2 text-white/25 hover:text-orange-400 transition-colors p-1.5"
-                                            whileTap={{ scale: 0.85 }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.06] hover:bg-orange-500/20 text-white/40 hover:text-orange-300 transition-all duration-200 border border-white/[0.06] hover:border-orange-500/30"
+                                            whileTap={{ scale: 0.88 }}
+                                            title={showPassword ? 'Hide password' : 'Show password'}
                                         >
-                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                         </motion.button>
-                                        <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-orange-500/50 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
+                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Options */}
-                            <div className="flex items-center justify-between px-1">
-                                <label className="flex items-center gap-2.5 text-orange-100/50 cursor-pointer group/chk">
+                            {/* Options Row */}
+                            <div className="flex items-center justify-between px-0.5">
+                                <label className="flex items-center gap-2 text-orange-100/50 cursor-pointer group/chk select-none">
                                     <div className="relative flex items-center justify-center">
                                         <input
                                             type="checkbox"
@@ -234,7 +271,7 @@ const LoginPage: React.FC = () => {
                                             className="peer w-4 h-4 opacity-0 absolute cursor-pointer"
                                         />
                                         <motion.div
-                                            className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-300 ${rememberMe ? 'bg-orange-600 border-orange-600' : 'border-white/15'}`}
+                                            className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${rememberMe ? 'bg-orange-600 border-orange-600 shadow-[0_0_8px_rgba(234,88,12,0.4)]' : 'border-white/20 group-hover/chk:border-white/40'}`}
                                             whileTap={{ scale: 0.8 }}
                                         >
                                             {rememberMe && <CheckCircle className="w-2.5 h-2.5 text-white" />}
@@ -257,8 +294,8 @@ const LoginPage: React.FC = () => {
                             <motion.button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full relative bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-4 sm:py-5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_8px_25px_rgba(234,88,12,0.35)] disabled:opacity-50 overflow-hidden group/btn"
-                                whileHover={!loading ? { scale: 1.02 } : {}}
+                                className="w-full relative bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-300 flex items-center justify-center gap-2.5 shadow-[0_6px_20px_rgba(234,88,12,0.35)] hover:shadow-[0_8px_30px_rgba(234,88,12,0.5)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/btn"
+                                whileHover={!loading ? { scale: 1.02, y: -1 } : {}}
                                 whileTap={!loading ? { scale: 0.98 } : {}}
                             >
                                 {/* Shimmer sweep */}
@@ -273,12 +310,12 @@ const LoginPage: React.FC = () => {
                                             animate={{ rotate: 360 }}
                                             transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                                         />
-                                        <span className="tracking-[0.15em] text-sm font-black uppercase">Verifying...</span>
+                                        <span className="tracking-[0.12em] text-sm font-black uppercase">Verifying...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <LogIn size={18} className="group-hover/btn:translate-x-0.5 transition-transform" />
-                                        <span className="tracking-[0.15em] text-sm font-black uppercase italic">Access Portal</span>
+                                        <LogIn size={17} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                                        <span className="tracking-[0.12em] text-sm font-black uppercase">Access Portal</span>
                                     </>
                                 )}
                             </motion.button>
@@ -287,17 +324,19 @@ const LoginPage: React.FC = () => {
                 </motion.div>
 
                 {/* Footer */}
-                <motion.div variants={itemVariants} className="mt-8 text-center space-y-2">
-                    <p className="text-white/15 text-[10px] font-bold tracking-[0.3em] uppercase">
-                        © 2026 Triev Rider Technologies • Secure Node V2.5
+                <motion.div variants={itemVariants} className="mt-6 sm:mt-8 text-center space-y-2.5">
+                    <p className="text-white/15 text-[10px] font-bold tracking-[0.25em] uppercase">
+                        © 2026 Triev Rider Technologies
                     </p>
-                    <div className="flex items-center justify-center gap-2 text-white/10">
+                    <div className="flex items-center justify-center gap-2">
                         <motion.div
                             className="w-1.5 h-1.5 rounded-full bg-green-500"
                             animate={{ opacity: [0.5, 1, 0.5] }}
                             transition={{ duration: 2, repeat: Infinity }}
                         />
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-green-500/30">Systems Online</span>
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-green-500/40 flex items-center gap-1">
+                            <Zap size={8} /> Systems Online
+                        </span>
                     </div>
                 </motion.div>
             </motion.div>

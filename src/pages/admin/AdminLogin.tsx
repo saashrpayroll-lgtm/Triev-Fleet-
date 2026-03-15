@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
-import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle, User } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle, User, Fingerprint } from 'lucide-react';
 import AnimatedBackground from '@/components/auth/AnimatedBackground';
 import { toast } from 'sonner';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
@@ -14,6 +14,7 @@ const AdminLogin: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [showForcePasswordChange, setShowForcePasswordChange] = useState(false);
     const [loggedInUserId, setLoggedInUserId] = useState<string | null>(null);
+    const [focusedField, setFocusedField] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,11 +69,12 @@ const AdminLogin: React.FC = () => {
                 return;
             }
 
-            toast.success("Security Clearance Verified.");
+            toast.success("Security Clearance Verified. Welcome back.");
             window.location.href = '/portal';
 
         } catch (err: any) {
             setError(err.message || 'Authentication failed');
+            toast.error(err.message || 'Authentication failed');
             if (err.message && err.message.includes("DENIED")) {
                 await supabase.auth.signOut();
             }
@@ -83,82 +85,92 @@ const AdminLogin: React.FC = () => {
 
     const containerVariants = {
         hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+        visible: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.08 } },
     };
 
     const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+        hidden: { opacity: 0, y: 24, filter: 'blur(6px)' },
+        visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
     };
 
     return (
-        <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 selection:bg-red-500/30">
+        <div className="min-h-screen min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-red-500/30">
             <AnimatedBackground variant="admin" />
 
             <motion.div
-                className="w-full max-w-md relative"
+                className="w-full max-w-[420px] relative"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
             >
                 {/* Header */}
-                <motion.div variants={itemVariants} className="text-center mb-8 space-y-5">
+                <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8 space-y-4 sm:space-y-5">
                     {/* Shield Icon */}
                     <div className="relative inline-block">
-                        {/* Pulsing glow rings */}
+                        {/* Pulsing glow */}
                         <motion.div
                             className="absolute inset-0 rounded-3xl bg-red-600/40 blur-2xl"
-                            animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
+                            animate={{ scale: [1, 1.3, 1], opacity: [0.25, 0.6, 0.25] }}
                             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
                         />
+                        {/* Outer ring */}
                         <motion.div
-                            className="absolute -inset-3 rounded-[36px] border border-red-500/20"
-                            animate={{ opacity: [0.2, 0.5, 0.2], scale: [0.95, 1.05, 0.95] }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                            className="absolute -inset-4 rounded-[40px] border border-red-500/15"
+                            animate={{ opacity: [0.15, 0.4, 0.15], scale: [0.95, 1.05, 0.95] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
                         />
                         <motion.div
-                            className="relative inline-flex p-5 rounded-3xl bg-slate-900/70 backdrop-blur-2xl border border-red-500/25 shadow-[0_0_40px_rgba(239,68,68,0.2)]"
+                            className="relative inline-flex p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/70 backdrop-blur-2xl border border-red-500/25 shadow-[0_0_40px_rgba(239,68,68,0.2)]"
                             whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
                             transition={{ duration: 0.5 }}
                         >
-                            <ShieldCheck className="w-10 h-10 sm:w-12 sm:h-12 text-red-500" />
+                            <ShieldCheck className="w-9 h-9 sm:w-11 sm:h-11 text-red-500" />
                         </motion.div>
                     </div>
 
                     <div className="space-y-1.5">
                         <motion.h1
-                            className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tighter"
+                            className="text-2xl sm:text-4xl font-black text-white tracking-tighter"
                             initial={{ opacity: 0, letterSpacing: '0.2em' }}
                             animate={{ opacity: 1, letterSpacing: '-0.03em' }}
                             transition={{ duration: 0.8, delay: 0.3 }}
                         >
                             COMMAND{' '}
-                            <span className="text-red-600 bg-red-600/10 px-2 rounded-lg inline-block">CENTER</span>
+                            <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent px-1">CENTER</span>
                         </motion.h1>
-                        <p className="text-red-400/50 font-mono text-[10px] uppercase tracking-[0.3em]">
+                        <motion.p
+                            className="text-red-400/40 font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.25em]"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5, duration: 0.6 }}
+                        >
                             Authorized Personnel Only • Tier 1 Access
-                        </p>
+                        </motion.p>
                     </div>
                 </motion.div>
 
                 {/* Login Card */}
                 <motion.div variants={itemVariants} className="relative">
                     {/* Glowing border */}
-                    <div className="absolute -inset-[1px] rounded-[36px] sm:rounded-[44px] bg-gradient-to-br from-red-600/25 via-red-900/10 to-transparent opacity-70" />
+                    <motion.div
+                        className="absolute -inset-[1px] rounded-[28px] sm:rounded-[36px] bg-gradient-to-br from-red-600/25 via-red-900/10 to-transparent"
+                        animate={{ opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                    />
 
-                    <div className="relative bg-slate-900/50 backdrop-blur-[50px] border border-white/8 rounded-[34px] sm:rounded-[42px] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.6)] overflow-hidden">
-                        {/* Top shimmer line */}
+                    <div className="relative bg-slate-900/55 backdrop-blur-[40px] border border-white/[0.08] rounded-[26px] sm:rounded-[34px] p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden">
+                        {/* Top shimmer */}
                         <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-red-500/40 to-transparent" />
                         {/* Inner gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-red-600/[0.04] via-transparent to-transparent pointer-events-none" />
-                        {/* Scan line effect */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-red-600/[0.03] via-transparent to-transparent pointer-events-none" />
+                        {/* Scan line */}
                         <motion.div
-                            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/20 to-transparent"
+                            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/15 to-transparent"
                             animate={{ top: ['0%', '100%'] }}
-                            transition={{ duration: 5, repeat: Infinity, ease: 'linear', repeatDelay: 3 }}
+                            transition={{ duration: 6, repeat: Infinity, ease: 'linear', repeatDelay: 3 }}
                         />
 
-                        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-7 relative z-10">
+                        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 relative z-10">
                             {/* Error Alert */}
                             <AnimatePresence>
                                 {error && (
@@ -167,66 +179,80 @@ const AdminLogin: React.FC = () => {
                                         animate={{ opacity: 1, height: 'auto', y: 0 }}
                                         exit={{ opacity: 0, height: 0 }}
                                         transition={{ duration: 0.3 }}
-                                        className="bg-red-950/50 border-l-4 border-red-600 p-4 rounded-2xl"
+                                        className="bg-red-950/50 border-l-4 border-red-600 p-3.5 rounded-xl sm:rounded-2xl"
                                     >
-                                        <div className="flex gap-3">
-                                            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
-                                            <p className="text-sm text-red-200 font-medium">{error}</p>
+                                        <div className="flex items-start gap-2.5">
+                                            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                                            <p className="text-sm text-red-200 font-medium leading-snug">{error}</p>
                                         </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
 
-                            <div className="space-y-4 sm:space-y-5">
+                            <div className="space-y-4">
                                 {/* Identifier Input */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-red-500/70 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
-                                        <User size={9} className="text-red-500/60" />
+                                    <label className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
+                                        <User size={9} className="text-red-500/50" />
                                         Terminal Identity
                                     </label>
                                     <div className="relative group">
-                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-red-500/35 group-focus-within:text-red-400 transition-colors duration-300">
+                                        <motion.div
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-300"
+                                            animate={{ color: focusedField === 'id' ? '#f87171' : 'rgba(239,68,68,0.35)' }}
+                                        >
                                             <User size={17} />
-                                        </div>
+                                        </motion.div>
                                         <input
                                             type="text"
                                             value={loginInput}
                                             onChange={(e) => setLoginInput(e.target.value)}
-                                            className="w-full pl-14 pr-5 py-4 sm:py-[18px] bg-black/35 border border-white/6 rounded-2xl text-white placeholder-white/12 focus:outline-none focus:border-red-500/50 focus:ring-[3px] focus:ring-red-500/8 transition-all duration-300 font-mono text-sm"
+                                            onFocus={() => setFocusedField('id')}
+                                            onBlur={() => setFocusedField(null)}
+                                            className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-black/30 border border-white/[0.06] rounded-xl sm:rounded-2xl text-white placeholder-white/15 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 focus:bg-black/40 transition-all duration-300 font-mono text-sm"
                                             placeholder="Enter Credentials"
                                             required
+                                            autoComplete="username"
                                         />
-                                        <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-red-500/50 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
+                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
                                     </div>
                                 </div>
 
                                 {/* Password Input */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-red-500/70 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
-                                        <Lock size={9} className="text-red-500/60" />
+                                    <label className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
+                                        <Lock size={9} className="text-red-500/50" />
                                         Access Key
                                     </label>
                                     <div className="relative group">
-                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-red-500/35 group-focus-within:text-red-400 transition-colors duration-300">
+                                        <motion.div
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-300"
+                                            animate={{ color: focusedField === 'pass' ? '#f87171' : 'rgba(239,68,68,0.35)' }}
+                                        >
                                             <Lock size={17} />
-                                        </div>
+                                        </motion.div>
                                         <input
                                             type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full pl-14 pr-14 py-4 sm:py-[18px] bg-black/35 border border-white/6 rounded-2xl text-white placeholder-white/12 focus:outline-none focus:border-red-500/50 focus:ring-[3px] focus:ring-red-500/8 transition-all duration-300 font-mono text-lg tracking-widest"
+                                            onFocus={() => setFocusedField('pass')}
+                                            onBlur={() => setFocusedField(null)}
+                                            className="w-full pl-12 pr-14 py-3.5 sm:py-4 bg-black/30 border border-white/[0.06] rounded-xl sm:rounded-2xl text-white placeholder-white/15 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 focus:bg-black/40 transition-all duration-300 font-mono tracking-widest text-lg"
                                             placeholder="••••••••"
                                             required
+                                            autoComplete="current-password"
                                         />
+                                        {/* Eye toggle — high visibility */}
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 hover:text-red-400 transition-colors p-1.5"
-                                            whileTap={{ scale: 0.85 }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.06] hover:bg-red-500/20 text-white/40 hover:text-red-300 transition-all duration-200 border border-white/[0.06] hover:border-red-500/30"
+                                            whileTap={{ scale: 0.88 }}
+                                            title={showPassword ? 'Hide password' : 'Show password'}
                                         >
-                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                         </motion.button>
-                                        <div className="absolute bottom-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-red-500/50 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
+                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
                                     </div>
                                 </div>
                             </div>
@@ -235,8 +261,8 @@ const AdminLogin: React.FC = () => {
                             <motion.button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full relative bg-gradient-to-r from-red-700 to-red-600 text-white font-black py-4 sm:py-5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_8px_25px_rgba(220,38,38,0.35)] disabled:opacity-50 overflow-hidden group/btn"
-                                whileHover={!loading ? { scale: 1.02 } : {}}
+                                className="w-full relative bg-gradient-to-r from-red-700 to-red-600 text-white font-black py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-300 flex items-center justify-center gap-2.5 shadow-[0_6px_20px_rgba(220,38,38,0.35)] hover:shadow-[0_8px_30px_rgba(220,38,38,0.5)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/btn"
+                                whileHover={!loading ? { scale: 1.02, y: -1 } : {}}
                                 whileTap={!loading ? { scale: 0.98 } : {}}
                             >
                                 {/* Shimmer sweep */}
@@ -251,12 +277,12 @@ const AdminLogin: React.FC = () => {
                                             animate={{ rotate: 360 }}
                                             transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                                         />
-                                        <span className="tracking-[0.2em] text-sm font-black uppercase italic">Encrypting...</span>
+                                        <span className="tracking-[0.15em] text-sm font-black uppercase">Encrypting...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Lock size={16} className="group-hover/btn:scale-110 transition-transform" />
-                                        <span className="tracking-[0.15em] text-sm font-black uppercase">Initialize Access</span>
+                                        <Fingerprint size={17} className="group-hover/btn:scale-110 transition-transform" />
+                                        <span className="tracking-[0.12em] text-sm font-black uppercase">Initialize Access</span>
                                     </>
                                 )}
                             </motion.button>
@@ -265,8 +291,8 @@ const AdminLogin: React.FC = () => {
                 </motion.div>
 
                 {/* Footer */}
-                <motion.div variants={itemVariants} className="mt-8 text-center space-y-2">
-                    <p className="text-red-500/30 text-[10px] font-mono tracking-[0.25em] flex items-center justify-center gap-2">
+                <motion.div variants={itemVariants} className="mt-6 sm:mt-8 text-center space-y-2">
+                    <p className="text-red-500/25 text-[9px] sm:text-[10px] font-mono tracking-[0.2em] flex items-center justify-center gap-2">
                         <motion.span
                             className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block"
                             animate={{ opacity: [0.4, 1, 0.4] }}
