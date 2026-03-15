@@ -41,6 +41,7 @@ export interface TLSnapshot {
     perDayAverageCollection: number;
     activeDays: number;
     lastActivity?: string;
+    reportingManager?: string;
 }
 
 interface TeamLeaderPerformanceTableProps {
@@ -52,6 +53,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
     const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff', direction: 'asc' | 'desc' } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+    const [filterRM, setFilterRM] = useState<string>('all');
     const [historyModalData, setHistoryModalData] = useState<{ id: string, name: string } | null>(null);
 
     const filteredData = React.useMemo(() => {
@@ -71,8 +73,13 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
             );
         }
 
+        // 3. Filter by Reporting Manager
+        if (filterRM !== 'all') {
+            processed = processed.filter(tl => (tl.reportingManager || '') === filterRM);
+        }
+
         return processed;
-    }, [data, filterStatus, searchTerm]);
+    }, [data, filterStatus, searchTerm, filterRM]);
 
     const sortedData = React.useMemo(() => {
         let sortable = [...filteredData];
@@ -156,6 +163,24 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                         <option value="inactive">Inactive</option>
                     </select>
 
+                    {/* Reporting Manager Filter */}
+                    {(() => {
+                        const uniqueRMs = Array.from(new Set(data.map(tl => tl.reportingManager).filter(Boolean))).sort() as string[];
+                        if (uniqueRMs.length === 0) return null;
+                        return (
+                            <select
+                                value={filterRM}
+                                onChange={(e: any) => setFilterRM(e.target.value)}
+                                className={`px-3 py-2 text-sm border rounded-lg focus:bg-background outline-none focus:ring-2 focus:ring-teal-500/20 cursor-pointer transition-colors ${filterRM !== 'all' ? 'bg-teal-50 border-teal-500 text-teal-700 ring-1 ring-teal-500/20' : 'bg-muted/30'}`}
+                            >
+                                <option value="all">All Managers</option>
+                                {uniqueRMs.map(rm => (
+                                    <option key={rm} value={rm}>{rm}</option>
+                                ))}
+                            </select>
+                        );
+                    })()}
+
                     <div className="text-xs text-muted-foreground ml-auto font-medium">
                         Showing {sortedData.length} of {data.length}
                     </div>
@@ -211,6 +236,9 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                                 {tl.leadsToday > 2 && <span className="bg-orange-100 text-orange-600 text-[8px] px-1 rounded-sm font-black uppercase tracking-tighter">Hot Sourcing</span>}
                                             </p>
                                             <p className="text-[10px] text-muted-foreground">{tl.email}</p>
+                                            {tl.reportingManager && (
+                                                <p className="text-[9px] text-teal-600 dark:text-teal-400 font-bold truncate">↳ {tl.reportingManager}</p>
+                                            )}
                                         </div>
                                     </div>
                                 </td>

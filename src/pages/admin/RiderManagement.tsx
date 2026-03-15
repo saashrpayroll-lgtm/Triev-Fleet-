@@ -30,6 +30,7 @@ interface AdvancedFilters {
     teamLeader: string;
     client: ClientName | 'all';
     walletRange: 'all' | 'positive' | 'negative' | 'zero' | 'low_balance' | 'high_debt';
+    reportingManager: string;
 }
 
 const RiderManagement: React.FC = () => {
@@ -103,6 +104,7 @@ const RiderManagement: React.FC = () => {
         teamLeader: 'all',
         client: 'all',
         walletRange: 'all',
+        reportingManager: 'all',
     });
 
     // Pagination
@@ -300,6 +302,13 @@ const RiderManagement: React.FC = () => {
                 if (advancedFilters.walletRange === 'high_debt') return r.walletAmount < -3000;
                 return true;
             });
+        }
+
+        if (advancedFilters.reportingManager !== 'all') {
+            const tlIdsForRM = teamLeaders
+                .filter(tl => (tl.reportingManager || '') === advancedFilters.reportingManager)
+                .map(tl => tl.id);
+            filtered = filtered.filter(r => tlIdsForRM.includes(r.teamLeaderId));
         }
 
         filtered.sort((a, b) => {
@@ -1391,7 +1400,7 @@ const RiderManagement: React.FC = () => {
                 {showAdvancedFilters && (
                     <div className="pt-4 border-t border-border/50 animate-in slide-in-from-top-2 duration-200 space-y-4">
                         {/* Active filters summary */}
-                        {(advancedFilters.teamLeader !== 'all' || advancedFilters.client !== 'all' || advancedFilters.walletRange !== 'all') && (
+                        {(advancedFilters.teamLeader !== 'all' || advancedFilters.client !== 'all' || advancedFilters.walletRange !== 'all' || advancedFilters.reportingManager !== 'all') && (
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Active:</span>
                                 {advancedFilters.teamLeader !== 'all' && (
@@ -1412,10 +1421,16 @@ const RiderManagement: React.FC = () => {
                                         <button onClick={() => setAdvancedFilters(p => ({ ...p, walletRange: 'all' }))} className="ml-0.5 hover:text-red-500 transition-colors">&times;</button>
                                     </span>
                                 )}
+                                {advancedFilters.reportingManager !== 'all' && (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-600 border border-teal-500/20">
+                                        RM: {advancedFilters.reportingManager}
+                                        <button onClick={() => setAdvancedFilters(p => ({ ...p, reportingManager: 'all' }))} className="ml-0.5 hover:text-red-500 transition-colors">&times;</button>
+                                    </span>
+                                )}
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
                             {/* ═══ Team Leader — Searchable Scrollable Dropdown ═══ */}
                             <div className="relative" ref={tlDropdownRef}>
                                 <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mb-1.5">
@@ -1595,10 +1610,29 @@ const RiderManagement: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* ═══ Reporting Manager Filter ═══ */}
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mb-1.5">Reporting Manager</label>
+                                <select
+                                    value={advancedFilters.reportingManager}
+                                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, reportingManager: e.target.value })}
+                                    className={`w-full px-3 py-2.5 border rounded-lg text-sm font-medium transition-all outline-none
+                                        ${advancedFilters.reportingManager !== 'all'
+                                            ? 'border-teal-500 bg-teal-500/5 ring-1 ring-teal-500/20'
+                                            : 'border-input bg-background/50 hover:border-primary/40'
+                                        } focus:ring-2 focus:ring-primary/20 focus:border-primary`}
+                                >
+                                    <option value="all">All Managers</option>
+                                    {Array.from(new Set(teamLeaders.map(tl => tl.reportingManager).filter(Boolean))).sort().map(rm => (
+                                        <option key={rm} value={rm}>{rm} ({teamLeaders.filter(tl => tl.reportingManager === rm).length} TLs)</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {/* ═══ Reset Button ═══ */}
                             <div className="flex items-end">
                                 <button
-                                    onClick={() => { setAdvancedFilters({ teamLeader: 'all', client: 'all', walletRange: 'all' }); setTlSearchQuery(''); setShowTLDropdown(false); }}
+                                    onClick={() => { setAdvancedFilters({ teamLeader: 'all', client: 'all', walletRange: 'all', reportingManager: 'all' }); setTlSearchQuery(''); setShowTLDropdown(false); }}
                                     className="w-full px-4 py-2.5 border border-dashed border-input rounded-lg hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-all flex items-center justify-center gap-2 font-medium"
                                 >
                                     <RefreshCw size={14} /> Reset All Filters

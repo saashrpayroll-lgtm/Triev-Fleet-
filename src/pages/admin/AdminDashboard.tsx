@@ -561,7 +561,8 @@ const Dashboard: React.FC = () => {
                 lastActivity,
                 allotments: metrics.allotments,
                 submissions: metrics.submissions,
-                netGrowth: metrics.netGrowth
+                netGrowth: metrics.netGrowth,
+                reportingManager: tl.reportingManager || ''
             };
         });
     }, [rawData, tlCollections, dailyCollections, weeklyCollections, period]);

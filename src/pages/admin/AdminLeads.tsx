@@ -38,7 +38,8 @@ const AdminLeads: React.FC = () => {
 
     // Advanced Filters
     const [showFilterModal, setShowFilterModal] = useState(false);
-    const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string }[]>([]);
+    const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string; rm?: string }[]>([]);
+    const [rmFilter, setRmFilter] = useState<string>('all');
     const [filterConfig, setFilterConfig] = useState<FilterConfig>({
         dateRange: null,
         teamLeaderId: null,
@@ -99,6 +100,19 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                 });
 
                 setTeamLeaders(Array.from(uniqueTLs.entries()).map(([id, name]) => ({ id, name })));
+
+                // Fetch RM info for TLs from users table
+                const tlIds = Array.from(uniqueTLs.keys());
+                if (tlIds.length > 0) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('id, reporting_manager')
+                        .in('id', tlIds);
+                    if (userData) {
+                        const rmMap = new Map(userData.map((u: any) => [u.id, u.reporting_manager || '']));
+                        setTeamLeaders(Array.from(uniqueTLs.entries()).map(([id, name]) => ({ id, name, rm: rmMap.get(id) || '' })));
+                    }
+                }
             }
 
             setLoading(false);
@@ -159,6 +173,12 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                 return false;
             }
 
+            // Reporting Manager
+            if (rmFilter !== 'all') {
+                const tlRM = teamLeaders.find(t => t.id === lead.createdBy);
+                if (!tlRM || tlRM.rm !== rmFilter) return false;
+            }
+
             // Status (Multi-select)
             if (filterConfig.status.length > 0 && !filterConfig.status.includes(lead.status)) {
                 // console.log("Failed Status:", lead.status, filterConfig.status);
@@ -197,7 +217,7 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
 
             return true;
         });
-    }, [leads, searchTerm, activeTab, activeFilter, filterConfig]);
+    }, [leads, searchTerm, activeTab, activeFilter, filterConfig, rmFilter, teamLeaders]);
 
     // Reset to page 1 whenever filters change
     React.useEffect(() => { setCurrentPage(1); }, [filteredLeads.length]);
@@ -544,6 +564,25 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
                         className="w-full pl-10 pr-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
                     />
                 </div>
+
+                {/* Reporting Manager Filter */}
+                {(() => {
+                    const uniqueRMs = Array.from(new Set(teamLeaders.map(t => t.rm).filter(Boolean))).sort() as string[];
+                    if (uniqueRMs.length === 0) return null;
+                    return (
+                        <select
+                            value={rmFilter}
+                            onChange={(e) => setRmFilter(e.target.value)}
+                            className={`px-3 py-3 border rounded-xl text-sm font-medium transition-all outline-none cursor-pointer shadow-sm ${rmFilter !== 'all' ? 'bg-teal-50 border-teal-500 text-teal-700 ring-1 ring-teal-500/20' : 'bg-background border-input hover:bg-accent'}`}
+                        >
+                            <option value="all">All Managers</option>
+                            {uniqueRMs.map(rm => (
+                                <option key={rm} value={rm}>{rm}</option>
+                            ))}
+                        </select>
+                    );
+                })()}
+
                 <button
                     onClick={() => setShowFilterModal(true)}
                     className={`px - 4 py - 3 border rounded - xl flex items - center gap - 2 text - sm font - medium transition - colors ${Object.values(filterConfig).some(v => Array.isArray(v) ? v.length > 0 : v)

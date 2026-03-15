@@ -11,7 +11,8 @@ import {
     Wallet,
     SearchX,
     Calendar,
-    ChevronDown
+    ChevronDown,
+    UserCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -45,6 +46,9 @@ const TLPerformance: React.FC = () => {
     // New Date Filter States
     const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'custom'>('today'); // Default to today
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
+
+    // Reporting Manager Filter
+    const [rmFilter, setRmFilter] = useState<string>('all');
 
     // Sorting & Multi-TL Filter States
     const [selectedTLs, setSelectedTLs] = useState<string[]>([]);
@@ -366,6 +370,7 @@ const TLPerformance: React.FC = () => {
                 id: tlId,
                 name: tl.full_name || tl.fullName || 'Unknown',
                 email: tl.email,
+                reportingManager: tl.reporting_manager || '',
                 totalRiders: metrics.totalRiders,
                 activeRiders: metrics.activeRiders,
                 inactiveRiders,
@@ -407,6 +412,18 @@ const TLPerformance: React.FC = () => {
         });
     }, [rawData, dateFilter, customDateRange]);
 
+    // Extract unique Reporting Managers
+    const uniqueReportingManagers = useMemo(() => {
+        const rmMap = new Map<string, number>();
+        rawData.teamLeaders.forEach(tl => {
+            const rm = (tl.reporting_manager || '').trim();
+            if (rm) rmMap.set(rm, (rmMap.get(rm) || 0) + 1);
+        });
+        return Array.from(rmMap.entries())
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [rawData.teamLeaders]);
+
     const filteredData = useMemo(() => {
         let data = performanceData.filter(tl => {
             const matchesSearch = tl.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -424,7 +441,9 @@ const TLPerformance: React.FC = () => {
 
             const matchesTL = selectedTLs.length === 0 || selectedTLs.includes(tl.id);
 
-            return matchesSearch && matchesStatus && matchesRisk && matchesPerf && matchesTL;
+            const matchesRM = rmFilter === 'all' || tl.reportingManager === rmFilter;
+
+            return matchesSearch && matchesStatus && matchesRisk && matchesPerf && matchesTL && matchesRM;
         });
 
         // Apply Sorting
@@ -452,7 +471,7 @@ const TLPerformance: React.FC = () => {
         }
 
         return data;
-    }, [performanceData, searchTerm, filterStatus, riskFilter, perfFilter, selectedTLs, sortConfig]);
+    }, [performanceData, searchTerm, filterStatus, riskFilter, perfFilter, selectedTLs, sortConfig, rmFilter]);
 
     const handleSort = (key: string) => {
         setSortConfig(prev => {
@@ -467,6 +486,7 @@ const TLPerformance: React.FC = () => {
         const data = filteredData.map(tl => ({
             'Name': tl.name,
             'Email': tl.email,
+            'Reporting Manager': tl.reportingManager || 'N/A',
             'Active Riders': tl.activeRiders,
             'Inactive Riders': tl.inactiveRiders,
             'Total Riders': tl.totalRiders,
@@ -495,6 +515,7 @@ const TLPerformance: React.FC = () => {
         data.push({
             'Name': 'TOTALS',
             'Email': '',
+            'Reporting Manager': '',
             'Active Riders': filteredData.reduce((s, t) => s + t.activeRiders, 0),
             'Inactive Riders': filteredData.reduce((s, t) => s + t.inactiveRiders, 0),
             'Total Riders': filteredData.reduce((s, t) => s + t.totalRiders, 0),
@@ -541,6 +562,7 @@ const TLPerformance: React.FC = () => {
 
         const tableColumn = [
             "TL Name",
+            "Reporting Mgr",
             "Active/Total",
             "Collection",
             "Weekly",
@@ -558,6 +580,7 @@ const TLPerformance: React.FC = () => {
 
         const tableRows = filteredData.map(tl => [
             tl.name,
+            tl.reportingManager || 'N/A',
             `${tl.activeRiders}/${tl.totalRiders}`,
             `INR ${tl.rangeCollection.toLocaleString()}`,
             `INR ${tl.weeklyCollection.toLocaleString()}`,
@@ -589,10 +612,11 @@ const TLPerformance: React.FC = () => {
     };
 
     const exportToCSV = () => {
-        const headers = ['Name', 'Email', 'Active Riders', 'Inactive Riders', 'Total Riders', 'Positive Riders', 'Positive Amount', 'Negative Riders', 'Negative Amount', 'Per Day Collection', 'Per Rider/Day Avg', 'Weekly Collection', 'Monthly Collection', 'Grand Total', 'Allotments', 'Submissions', 'Net Growth', 'Leads Total', 'Leads Converted', 'Churn Leads', 'Conversion Rate', 'Avg Tenure (Days)', 'AI Score', 'AI Grade', 'Status'];
+        const headers = ['Name', 'Email', 'Reporting Manager', 'Active Riders', 'Inactive Riders', 'Total Riders', 'Positive Riders', 'Positive Amount', 'Negative Riders', 'Negative Amount', 'Per Day Collection', 'Per Rider/Day Avg', 'Weekly Collection', 'Monthly Collection', 'Grand Total', 'Allotments', 'Submissions', 'Net Growth', 'Leads Total', 'Leads Converted', 'Churn Leads', 'Conversion Rate', 'Avg Tenure (Days)', 'AI Score', 'AI Grade', 'Status'];
         const rows = filteredData.map(tl => [
             tl.name,
             tl.email,
+            tl.reportingManager || 'N/A',
             tl.activeRiders,
             tl.inactiveRiders,
             tl.totalRiders,
@@ -741,6 +765,24 @@ const TLPerformance: React.FC = () => {
                                         </div>
                                     )}
 
+                                    {/* Reporting Manager Filter */}
+                                    {uniqueReportingManagers.length > 0 && (
+                                        <div className="relative flex-1 md:flex-none">
+                                            <select
+                                                value={rmFilter}
+                                                onChange={(e) => setRmFilter(e.target.value)}
+                                                className={`w-full md:w-auto pl-9 pr-8 py-2 bg-background border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 cursor-pointer appearance-none shadow-sm font-medium transition-colors ${rmFilter !== 'all' ? 'border-teal-500 text-teal-700 bg-teal-50/50 dark:bg-teal-900/20 dark:text-teal-400 ring-2 ring-teal-500/20' : 'border-border/60 text-foreground'}`}
+                                            >
+                                                <option value="all">All Managers ({rawData.teamLeaders.length} TLs)</option>
+                                                {uniqueReportingManagers.map(rm => (
+                                                    <option key={rm.name} value={rm.name}>{rm.name} ({rm.count} TLs)</option>
+                                                ))}
+                                            </select>
+                                            <UserCheck className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${rmFilter !== 'all' ? 'text-teal-600' : 'text-muted-foreground'}`} />
+                                            <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${rmFilter !== 'all' ? 'text-teal-500/70' : 'text-muted-foreground/70'}`} />
+                                        </div>
+                                    )}
+
                                     <button
                                         onClick={() => setIsFilterOpen(!isFilterOpen)}
                                         className={`p-2 border border-border/60 rounded-xl transition-colors bg-background shadow-sm hover:bg-muted ml-auto ${(filterStatus !== 'all' || riskFilter !== 'all' || perfFilter !== 'all') ? 'ring-2 ring-primary/20 bg-primary/5 text-primary' : ''}`}
@@ -752,7 +794,7 @@ const TLPerformance: React.FC = () => {
                                     <div className="absolute right-0 mt-3 w-72 bg-card border border-border rounded-2xl shadow-2xl z-50 p-6 space-y-5 animate-in slide-in-from-top-4">
                                         <div className="flex items-center justify-between border-b pb-3">
                                             <span className="font-black text-xs uppercase tracking-widest italic">Neural Filter Core</span>
-                                            <button onClick={() => { setFilterStatus('all'); setRiskFilter('all'); setPerfFilter('all'); }} className="text-[10px] text-primary font-bold hover:underline">Reset All</button>
+                                            <button onClick={() => { setFilterStatus('all'); setRiskFilter('all'); setPerfFilter('all'); setRmFilter('all'); }} className="text-[10px] text-primary font-bold hover:underline">Reset All</button>
                                         </div>
 
                                         <div className="space-y-4">
@@ -985,6 +1027,9 @@ const TLPerformance: React.FC = () => {
                                                         )}
                                                     </p>
                                                     <p className="text-[10px] text-muted-foreground truncate">{tl.email}</p>
+                                                    {tl.reportingManager && (
+                                                        <p className="text-[9px] text-teal-600 dark:text-teal-400 font-bold truncate mt-0.5">↳ {tl.reportingManager}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
