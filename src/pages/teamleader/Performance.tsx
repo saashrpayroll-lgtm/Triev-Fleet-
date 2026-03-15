@@ -82,7 +82,7 @@ const TLPersonalPerformance: React.FC = () => {
                 // All TL's riders (including deleted for historical accuracy in Fleet Flow)
                 supabase
                     .from('riders')
-                    .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at')
+                    .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at')
                     .eq('team_leader_id', userData.id)
                     .limit(10000),
 
@@ -129,12 +129,40 @@ const TLPersonalPerformance: React.FC = () => {
             const riderData = ridersRes.data || [];
             const activeNow = riderData.filter((r: any) => r.status === 'active').length;
 
-            // Build merged daily records: daily_collections as base, override today
+            // ── Helper: compute historical active count for any date ──
+            const getHistoricalActiveCount = (ds: string) => {
+                return riderData.filter((r: any) => {
+                    const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
+                    if (!adIst) return false;
+                    if (adIst > ds) return false;
+
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? getValidHistoricalDate(iat) : null;
+
+                    if (r.status === 'active') {
+                        if (inactDate && inactDate <= ds) {
+                            const lsc = r.last_status_change_at || uat;
+                            const reactivDate = lsc ? getValidHistoricalDate(lsc) : null;
+                            if (reactivDate && reactivDate > inactDate) {
+                                return reactivDate <= ds;
+                            }
+                            return true;
+                        }
+                        return true;
+                    }
+
+                    const effectiveInactDate = inactDate || (uat ? getValidHistoricalDate(uat) : null);
+                    return effectiveInactDate ? effectiveInactDate > ds : false;
+                }).length;
+            };
+
+            // Build merged daily records: daily_collections as base, recompute active counts
             let dailyRecords: Array<{ date: string; total_collection: number; active_riders_count: number }> =
                 (dailyRes.data || []).map((r: any) => ({
                     date: r.date as string,
                     total_collection: Number(r.total_collection) || 0,
-                    active_riders_count: Number(r.active_riders_count) || 0,
+                    active_riders_count: getHistoricalActiveCount(r.date),
                 }));
 
             const realTodayCol = (todayLedgerRes.data || []).reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);

@@ -74,24 +74,41 @@ const CollectionHistory: React.FC = () => {
                     })()),
                 supabase
                     .from('riders')
-                    .select('status, allotment_date, inactivated_at, updated_at, created_at')
+                    .select('status, allotment_date, inactivated_at, updated_at, created_at, last_status_change_at')
                     .eq('team_leader_id', userData!.id)
             ]);
 
             const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
             // Helper to compute historical active count safely handling imported dates
+            // Handles: same-day allotment/submission, re-activations, and gap periods
             const getHistoricalActiveCount = (ds: string) => {
                 return (allRiders || []).filter(r => {
                     const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
                     if (!adIst) return false;
-                    if (adIst > ds) return false;
+                    if (adIst > ds) return false; // Not yet allotted on this date
 
-                    if (r.status === 'active') return true;
                     const iat: string | null = r.inactivated_at;
                     const uat: string | null = r.updated_at;
-                    const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
-                    return inactDate ? inactDate > ds : false;
+                    const inactDate = iat ? getValidHistoricalDate(iat) : null;
+
+                    if (r.status === 'active') {
+                        // If rider was previously inactivated and then re-activated,
+                        // check if the date falls within the inactive gap
+                        if (inactDate && inactDate <= ds) {
+                            const lsc = r.last_status_change_at || uat;
+                            const reactivDate = lsc ? getValidHistoricalDate(lsc) : null;
+                            if (reactivDate && reactivDate > inactDate) {
+                                return reactivDate <= ds;
+                            }
+                            return true;
+                        }
+                        return true;
+                    }
+
+                    // Inactive/deleted rider: was active from allotment to inactivation
+                    const effectiveInactDate = inactDate || (uat ? getValidHistoricalDate(uat) : null);
+                    return effectiveInactDate ? effectiveInactDate > ds : false;
                 }).length;
             };
 

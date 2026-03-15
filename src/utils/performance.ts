@@ -294,3 +294,40 @@ export const calculateAIScore = (
     };
 };
 
+/**
+ * Robust helper to calculate the number of active riders on ANY past date.
+ * Accurately handles same-day submissions/allotments, and re-activated riders
+ * by checking their last_status_change_at against the target date.
+ */
+export const getHistoricalActiveCount = (riders: any[], ds: string): number => {
+    return (riders || []).filter(r => {
+        const adIst = getValidHistoricalDate(r.allotment_date || r.allotmentDate, r.created_at || r.createdAt);
+        if (!adIst) return false;
+        if (adIst > ds) return false; // Not yet allotted on this date
+
+        const iat: string | null = r.inactivated_at || r.inactivatedAt;
+        const uat: string | null = r.updated_at || r.updatedAt;
+        const inactDate = iat ? getValidHistoricalDate(iat) : null;
+
+        if (r.status === 'active') {
+            // If rider was previously inactivated and then re-activated,
+            // check if the date falls within the inactive gap
+            if (inactDate && inactDate <= ds) {
+                // Check if re-activated by comparing last_status_change_at
+                const lsc = r.last_status_change_at || r.lastStatusChangeAt || uat;
+                const reactivDate = lsc ? getValidHistoricalDate(lsc) : null;
+                if (reactivDate && reactivDate > inactDate) {
+                    // Re-activated after inactivation — only count if reactivation <= ds
+                    return reactivDate <= ds;
+                }
+                // inactivated_at is set but no re-activation detected → stale data, count as active
+                return true;
+            }
+            return true;
+        }
+
+        // Inactive/deleted rider: was active from allotment to inactivation
+        const effectiveInactDate = inactDate || (uat ? getValidHistoricalDate(uat) : null);
+        return effectiveInactDate ? effectiveInactDate > ds : false;
+    }).length;
+};

@@ -2,9 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { useRMTeamData } from '@/hooks/useRMTeamData';
 import { Wallet, Download, Calendar } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { getHistoricalActiveCount } from '@/utils/performance';
 
 const RMCollectionHistory: React.FC = () => {
-    const { teamLeaders, loading: teamLoading } = useRMTeamData();
+    const { teamLeaders, riders, loading: teamLoading } = useRMTeamData();
     const [collections, setCollections] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [days, setDays] = useState(7);
@@ -42,10 +43,15 @@ const RMCollectionHistory: React.FC = () => {
             if (!groups[date]) groups[date] = { total: 0, tls: [] };
             const amt = Number(c.total_collection) || 0;
             groups[date].total += amt;
+            
+            // Recompute active count from riders to fix any stale db cache mismatches
+            const tlRiders = riders.filter(r => r.teamLeaderId === c.team_leader_id);
+            const liveCount = getHistoricalActiveCount(tlRiders, date);
+
             groups[date].tls.push({
                 name: tlMap.get(c.team_leader_id) || 'Unknown',
                 collection: amt,
-                riders: Number(c.active_riders_count) || 0
+                riders: liveCount > 0 ? liveCount : (Number(c.active_riders_count) || 0)
             });
         });
 
