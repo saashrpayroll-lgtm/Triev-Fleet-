@@ -120,7 +120,7 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 placeholder="Enter new password"
-                                className="w-full pl-11 pr-11 py-3 border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                                className="w-full pl-11 pr-11 py-3 border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
                                 required
                                 disabled={loading}
                             />
@@ -146,7 +146,7 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 placeholder="Confirm new password"
-                                className="w-full pl-11 pr-11 py-3 border rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                                className="w-full pl-11 pr-11 py-3 border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
                                 required
                                 disabled={loading}
                             />

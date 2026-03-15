@@ -200,7 +200,9 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 
   if (user && userData) {
-    const redirectPath = userData.role === 'admin' ? '/portal' : '/team-leader';
+    const redirectPath = userData.role === 'admin' ? '/portal' 
+                       : userData.role === 'reportingManager' ? '/rm-panel'
+                       : '/team-leader';
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -323,7 +325,7 @@ function AppRoutes() {
                     <p>User ID: {user?.id}</p>
                   </div>
                   <br />
-                  <button onClick={() => window.history.back()} className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 mr-2">Go Back</button>
+                  <button onClick={() => window.history.back()} className="px-5 py-2.5 bg-emerald-500 text-white font-medium rounded-lg hover:bg-emerald-600 transition-colors mr-3">Go Back</button>
                   <button onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }} className="px-4 py-2 border border-border rounded-lg hover:bg-accent">Sign Out</button>
                 </div>
               </div>
