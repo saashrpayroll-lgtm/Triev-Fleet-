@@ -364,6 +364,12 @@ const TLPerformance: React.FC = () => {
             const perRiderPerDayAvg = (metrics.activeRiders > 0 && daysInPeriod > 0)
                 ? Math.round(metrics.collection / metrics.activeRiders / daysInPeriod)
                 : 0;
+            
+            // ── DYNAMIC PERIOD METRICS ──
+            // Instead of hardcoded "This Week", we use the exact selected date filter bounds
+            const periodCollection = metrics.collection; // Already bounded by startDateStr and endDateStr
+            const periodDayAvg = daysInPeriod > 0 ? Math.round(periodCollection / daysInPeriod) : 0;
+            const periodPerRiderAvg = metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0;
 
             // Keep the return structure compatible with existing table usage
             return {
@@ -390,11 +396,14 @@ const TLPerformance: React.FC = () => {
                 totalCollection: grandTotal,
                 rangeCollection: metrics.collection,
                 monthlyCollection,
-                weeklyCollection: (rawData as any).weeklyCollectionsMap?.[tlId] || 0,
-                weeklyPerDayAvg: Math.round(((rawData as any).weeklyCollectionsMap?.[tlId] || 0) / (weekDayIST > 0 ? weekDayIST : 1)),
-                weeklyPerRiderAvg: metrics.activeRiders > 0 ? Math.round(((rawData as any).weeklyCollectionsMap?.[tlId] || 0) / metrics.activeRiders) : 0,
-                weekDayIST,
-                perDayAverageCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
+                
+                // Dynamic Period Metrics
+                periodCollection,
+                periodDayAvg,
+                periodPerRiderAvg,
+                daysInPeriod,
+
+                perDayAverageCollection: periodDayAvg, // Legacy prop mapping
                 perRiderPerDayAvg,
                 avgRiderCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
                 avgTenureDays,
@@ -494,10 +503,9 @@ const TLPerformance: React.FC = () => {
             'Positive Amount': tl.wallet.positiveAmount,
             'Negative Riders': tl.wallet.negativeCount,
             'Negative Amount': Math.abs(tl.wallet.negativeAmount),
-            'Per Day Collection': tl.rangeCollection,
-            'Per Rider/Day Avg': tl.perRiderPerDayAvg,
-            'Weekly Collection': tl.weeklyCollection,
-            'Monthly Collection': tl.monthlyCollection,
+            'Period Collection': tl.periodCollection,
+            'Period Day Avg': tl.periodDayAvg,
+            'Period Rider Avg': tl.periodPerRiderAvg,
             'Grand Total': tl.totalCollection,
             'Fleet Flow (A/S/N)': `${tl.allotments}/${tl.submissions}/${tl.netGrowth}`,
             'Net Growth': tl.netGrowth,
@@ -523,10 +531,9 @@ const TLPerformance: React.FC = () => {
             'Positive Amount': filteredData.reduce((s, t) => s + t.wallet.positiveAmount, 0),
             'Negative Riders': filteredData.reduce((s, t) => s + t.wallet.negativeCount, 0),
             'Negative Amount': filteredData.reduce((s, t) => s + Math.abs(t.wallet.negativeAmount), 0),
-            'Per Day Collection': filteredData.reduce((s, t) => s + t.rangeCollection, 0),
-            'Per Rider/Day Avg': 0,
-            'Weekly Collection': filteredData.reduce((s, t) => s + t.weeklyCollection, 0),
-            'Monthly Collection': filteredData.reduce((s, t) => s + t.monthlyCollection, 0),
+            'Period Collection': filteredData.reduce((s, t) => s + t.periodCollection, 0),
+            'Period Day Avg': 0,
+            'Period Rider Avg': 0,
             'Grand Total': filteredData.reduce((s, t) => s + t.totalCollection, 0),
             'Fleet Flow (A/S/N)': '',
             'Net Growth': filteredData.reduce((s, t) => s + t.netGrowth, 0),
@@ -564,11 +571,10 @@ const TLPerformance: React.FC = () => {
             "TL Name",
             "Reporting Mgr",
             "Active/Total",
-            "Collection",
-            "Weekly",
-            "Monthly",
+            "Period Coll.",
+            "Day Avg",
+            "Rider Avg",
             "Grand Total",
-            "Per Rider/Day",
             "Pos/Neg",
             "Risk Amt",
             "A/S/N",
@@ -582,11 +588,10 @@ const TLPerformance: React.FC = () => {
             tl.name,
             tl.reportingManager || 'N/A',
             `${tl.activeRiders}/${tl.totalRiders}`,
-            `INR ${tl.rangeCollection.toLocaleString()}`,
-            `INR ${tl.weeklyCollection.toLocaleString()}`,
-            `INR ${tl.monthlyCollection.toLocaleString()}`,
+            `INR ${tl.periodCollection.toLocaleString()}`,
+            `INR ${tl.periodDayAvg.toLocaleString()}`,
+            `INR ${tl.periodPerRiderAvg.toLocaleString()}`,
             `INR ${tl.totalCollection.toLocaleString()}`,
-            `INR ${tl.perRiderPerDayAvg.toLocaleString()}`,
             `${tl.wallet.positiveCount}/${tl.wallet.negativeCount}`,
             `INR ${Math.abs(tl.wallet.negativeAmount).toLocaleString()}`,
             `${tl.allotments}/${tl.submissions}/${tl.netGrowth}`,
@@ -612,7 +617,7 @@ const TLPerformance: React.FC = () => {
     };
 
     const exportToCSV = () => {
-        const headers = ['Name', 'Email', 'Reporting Manager', 'Active Riders', 'Inactive Riders', 'Total Riders', 'Positive Riders', 'Positive Amount', 'Negative Riders', 'Negative Amount', 'Per Day Collection', 'Per Rider/Day Avg', 'Weekly Collection', 'Monthly Collection', 'Grand Total', 'Allotments', 'Submissions', 'Net Growth', 'Leads Total', 'Leads Converted', 'Churn Leads', 'Conversion Rate', 'Avg Tenure (Days)', 'AI Score', 'AI Grade', 'Status'];
+        const headers = ['Name', 'Email', 'Reporting Manager', 'Active Riders', 'Inactive Riders', 'Total Riders', 'Positive Riders', 'Positive Amount', 'Negative Riders', 'Negative Amount', 'Period Collection', 'Period Day Avg', 'Period Rider Avg', 'Grand Total', 'Allotments', 'Submissions', 'Net Growth', 'Leads Total', 'Leads Converted', 'Churn Leads', 'Conversion Rate', 'Avg Tenure (Days)', 'AI Score', 'AI Grade', 'Status'];
         const rows = filteredData.map(tl => [
             tl.name,
             tl.email,
@@ -624,10 +629,9 @@ const TLPerformance: React.FC = () => {
             tl.wallet.positiveAmount,
             tl.wallet.negativeCount,
             Math.abs(tl.wallet.negativeAmount),
-            tl.rangeCollection,
-            tl.perRiderPerDayAvg,
-            tl.weeklyCollection,
-            tl.monthlyCollection,
+            tl.periodCollection,
+            tl.periodDayAvg,
+            tl.periodPerRiderAvg,
             tl.totalCollection,
             tl.allotments,
             tl.submissions,
@@ -913,32 +917,32 @@ const TLPerformance: React.FC = () => {
                                 <th className="px-5 py-4 min-w-[220px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('rangeCollection')}>
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider">
-                                            Collection ({dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Week' : dateFilter === 'month' ? 'Month' : 'Range'})
+                                            Collection
                                             {sortConfig?.key === 'rangeCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                         </div>
                                         <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground mt-0.5">
-                                            <span>Total: <span className="text-foreground">₹{performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}</span></span>
-                                            <span className="text-emerald-500">Avg/R: ₹{performanceData.length > 0 ? Math.round(performanceData.reduce((a, b) => a + b.rangeCollection, 0) / (performanceData.reduce((a, b) => a + b.activeRiders, 0) || 1)).toLocaleString() : 0}</span>
+                                            <span>Period: <span className="text-foreground">₹{performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}</span></span>
+                                            <span className="text-emerald-500">Total: ₹{performanceData.reduce((a, b) => a + (b as any).totalCollection, 0).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </th>
-                                <th className="px-5 py-4 min-w-[120px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('perDayAverageCollection')}>
+                                <th className="px-5 py-4 min-w-[120px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('periodDayAvg')}>
                                     <div className="flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider">
-                                        Per Day Avg
-                                        {sortConfig?.key === 'perDayAverageCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
+                                        Day Avg
+                                        {sortConfig?.key === 'periodDayAvg' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
-                                {/* ── NEW: This Week column ─────────────────────── */}
-                                <th className="px-5 py-4 min-w-[210px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('weeklyCollection')}>
+                                {/* ── DYNAMIC PERIOD METRICS ─────────────────────── */}
+                                <th className="px-5 py-4 min-w-[210px] cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('periodCollection')}>
                                     <div className="flex flex-col gap-0.5">
                                         <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider text-violet-600">
                                             <Calendar className="h-3 w-3" />
-                                            This Week
-                                            {sortConfig?.key === 'weeklyCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
+                                            {dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : 'Filtered Period'}
+                                            {sortConfig?.key === 'periodCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                         </div>
                                         <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground mt-0.5">
-                                            <span>Total: <span className="text-violet-600">₹{performanceData.reduce((a, b) => a + (b as any).weeklyCollection, 0).toLocaleString()}</span></span>
-                                            <span className="text-violet-400">Resets Mon 12AM</span>
+                                            <span>Amt: <span className="text-violet-600">₹{performanceData.reduce((a, b) => a + (b as any).periodCollection, 0).toLocaleString()}</span></span>
+                                            <span className="text-violet-400">({performanceData.length > 0 ? (performanceData[0] as any).daysInPeriod : 0} Days)</span>
                                         </div>
                                     </div>
                                 </th>
@@ -955,16 +959,10 @@ const TLPerformance: React.FC = () => {
                                     </div>
                                 </th>
                                 <th className="px-5 py-4 min-w-[90px] text-right text-xs font-black uppercase tracking-wider">Status</th>
-                                <th className="px-4 py-4 min-w-[130px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('monthlyCollection')}>
+                                <th className="px-4 py-4 min-w-[130px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('periodPerRiderAvg')}>
                                     <div className="flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider text-orange-600">
-                                        Monthly
-                                        {sortConfig?.key === 'monthlyCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
-                                    </div>
-                                </th>
-                                <th className="px-4 py-4 min-w-[100px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('perRiderPerDayAvg')}>
-                                    <div className="flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider">
-                                        R/Day Avg
-                                        {sortConfig?.key === 'perRiderPerDayAvg' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
+                                        Rider Avg
+                                        {sortConfig?.key === 'periodPerRiderAvg' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                     </div>
                                 </th>
                                 <th className="px-4 py-4 min-w-[90px] cursor-pointer hover:bg-muted/30 transition-colors text-center" onClick={() => handleSort('avgTenureDays')}>
@@ -1063,13 +1061,13 @@ const TLPerformance: React.FC = () => {
                                         <td className="px-5 py-4 min-w-[220px]">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col border-r pr-4 border-border/40">
-                                                    <span className="text-[9px] text-muted-foreground font-black uppercase">{dateFilter === 'today' ? 'Today Vol.' : dateFilter === 'week' ? 'Weekly Vol.' : dateFilter === 'month' ? 'Monthly Vol.' : 'Range Vol.'}</span>
-                                                    <span className="text-base font-black text-emerald-600">₹{tl.rangeCollection.toLocaleString()}</span>
+                                                    <span className="text-[9px] text-muted-foreground font-black uppercase">Period Vol.</span>
+                                                    <span className="text-base font-black text-emerald-600">₹{tl.periodCollection.toLocaleString()}</span>
                                                 </div>
                                                 <div className="space-y-1">
                                                     <div className="flex items-center justify-between gap-3">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Avg/Rider</span>
-                                                        <span className="text-xs font-black text-blue-600">₹{tl.avgRiderCollection.toLocaleString()}</span>
+                                                        <span className="text-xs font-black text-blue-600">₹{tl.periodPerRiderAvg.toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between gap-3">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Grand Total</span>
@@ -1081,27 +1079,27 @@ const TLPerformance: React.FC = () => {
 
                                         {/* 5. Per Day Avg */}
                                         <td className="px-5 py-4 min-w-[120px] text-center">
-                                            <span className="text-base font-black text-foreground">₹{(tl.perDayAverageCollection || 0).toLocaleString()}</span>
+                                            <span className="text-base font-black text-foreground">₹{(tl.periodDayAvg || 0).toLocaleString()}</span>
                                             <p className="text-[9px] text-muted-foreground font-medium mt-0.5">
-                                                {dateFilter === 'today' ? 'Per Rider' : 'Daily Pace'}
+                                                Daily Pace
                                             </p>
                                         </td>
 
-                                        {/* 5b. This Week */}
+                                        {/* 5b. Period Focus */}
                                         <td className="px-5 py-4 min-w-[210px]">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex flex-col border-r pr-3 border-violet-500/20">
-                                                    <span className="text-[9px] text-violet-400 font-black uppercase">Week Total</span>
-                                                    <span className="text-base font-black text-violet-600">₹{((tl as any).weeklyCollection || 0).toLocaleString()}</span>
+                                                    <span className="text-[9px] text-violet-400 font-black uppercase">Period Total</span>
+                                                    <span className="text-base font-black text-violet-600">₹{((tl as any).periodCollection || 0).toLocaleString()}</span>
                                                 </div>
                                                 <div className="space-y-1">
                                                     <div className="flex items-center justify-between gap-2">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Day Avg</span>
-                                                        <span className="text-xs font-black text-violet-500">₹{((tl as any).weeklyPerDayAvg || 0).toLocaleString()}</span>
+                                                        <span className="text-xs font-black text-violet-500">₹{((tl as any).periodDayAvg || 0).toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between gap-2">
                                                         <span className="text-[9px] text-muted-foreground font-black uppercase">Per Rider</span>
-                                                        <span className="text-xs font-bold text-violet-400">₹{((tl as any).weeklyPerRiderAvg || 0).toLocaleString()}</span>
+                                                        <span className="text-xs font-bold text-violet-400">₹{((tl as any).periodPerRiderAvg || 0).toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1164,14 +1162,9 @@ const TLPerformance: React.FC = () => {
                                             </span>
                                         </td>
 
-                                        {/* 9. Monthly Collection */}
+                                        {/* 9. Period Rider Avg */}
                                         <td className="px-4 py-4 min-w-[130px] text-center">
-                                            <span className="text-sm font-black text-orange-600">₹{tl.monthlyCollection.toLocaleString()}</span>
-                                        </td>
-
-                                        {/* 10. Per Rider/Day Avg */}
-                                        <td className="px-4 py-4 min-w-[100px] text-center">
-                                            <span className="text-sm font-black text-cyan-600">₹{tl.perRiderPerDayAvg.toLocaleString()}</span>
+                                            <span className="text-sm font-black text-orange-600">₹{tl.periodPerRiderAvg.toLocaleString()}</span>
                                         </td>
 
                                         {/* 11. Avg Tenure */}
@@ -1206,9 +1199,9 @@ const TLPerformance: React.FC = () => {
                                             <span className="text-rose-600">{filteredData.reduce((s, t) => s + t.wallet.negativeCount, 0)} NEG</span>
                                         </div>
                                     </td>
-                                    <td className="px-5 py-3 text-emerald-600">₹{filteredData.reduce((s, t) => s + t.rangeCollection, 0).toLocaleString()}</td>
+                                    <td className="px-5 py-3 text-emerald-600">₹{filteredData.reduce((s, t) => s + t.periodCollection, 0).toLocaleString()}</td>
                                     <td className="px-5 py-3 text-center">–</td>
-                                    <td className="px-5 py-3 text-violet-600">₹{filteredData.reduce((s, t) => s + t.weeklyCollection, 0).toLocaleString()}</td>
+                                    <td className="px-5 py-3 text-violet-600">₹{filteredData.reduce((s, t) => s + (t as any).periodCollection, 0).toLocaleString()}</td>
                                     <td className="px-5 py-3">
                                         <span className="text-emerald-600">+{filteredData.reduce((s, t) => s + t.allotments, 0)}</span> / <span className="text-rose-600">-{filteredData.reduce((s, t) => s + t.submissions, 0)}</span> / <span className={filteredData.reduce((s, t) => s + t.netGrowth, 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{filteredData.reduce((s, t) => s + t.netGrowth, 0)}</span>
                                     </td>
@@ -1216,8 +1209,7 @@ const TLPerformance: React.FC = () => {
                                         {filteredData.reduce((s, t) => s + t.leads.converted, 0)} / {filteredData.reduce((s, t) => s + t.leadsToday, 0)}
                                     </td>
                                     <td className="px-5 py-3">–</td>
-                                    <td className="px-4 py-3 text-center text-orange-600">₹{filteredData.reduce((s, t) => s + t.monthlyCollection, 0).toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-center">–</td>
+                                    <td className="px-4 py-3 text-center text-orange-600">–</td>
                                     <td className="px-4 py-3 text-center">–</td>
                                     <td className="px-4 py-3 text-center">–</td>
                                 </tr>
