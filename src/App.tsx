@@ -53,6 +53,17 @@ const AdminNotificationsPage = React.lazy(() => import('@/pages/admin/AdminNotif
 const AdminForms = React.lazy(() => import('@/pages/admin/AdminForms'));
 const AdminLeads = React.lazy(() => import('@/pages/admin/AdminLeads'));
 
+// Reporting Manager Pages
+const RMLayout = React.lazy(() => import('@/layouts/RMLayout'));
+const RMDashboard = React.lazy(() => import('@/pages/rm/RMDashboard'));
+const RMTLPerformance = React.lazy(() => import('@/pages/rm/RMTLPerformance'));
+const RMLeaderboard = React.lazy(() => import('@/pages/rm/RMLeaderboard'));
+const RMRiderOverview = React.lazy(() => import('@/pages/rm/RMRiderOverview'));
+const RMLeadOverview = React.lazy(() => import('@/pages/rm/RMLeadOverview'));
+const RMReports = React.lazy(() => import('@/pages/rm/RMReports'));
+const RMCollectionHistory = React.lazy(() => import('@/pages/rm/RMCollectionHistory'));
+const RMProfile = React.lazy(() => import('@/pages/rm/RMProfile'));
+
 // ─── Loading fallback used by Suspense boundaries ─────────────────────────────
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -112,7 +123,7 @@ const LoadingScreen = () => {
 // ─── Protected Route ──────────────────────────────────────────────────────────
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'teamLeader')[];
+  allowedRoles?: ('admin' | 'teamLeader' | 'reportingManager')[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
@@ -271,13 +282,30 @@ function AppRoutes() {
             <Route path="profile" element={<AdminProfile />} />
           </Route>
 
+          {/* Reporting Manager Panel Routes */}
+          <Route
+            path="/rm-panel"
+            element={<ProtectedRoute allowedRoles={['reportingManager']}><RMLayout /></ProtectedRoute>}
+          >
+            <Route index element={<RMDashboard />} />
+            <Route path="tl-performance" element={<RMTLPerformance />} />
+            <Route path="leaderboard" element={<RMLeaderboard />} />
+            <Route path="riders" element={<RMRiderOverview />} />
+            <Route path="leads" element={<RMLeadOverview />} />
+            <Route path="reports" element={<RMReports />} />
+            <Route path="collections" element={<RMCollectionHistory />} />
+            <Route path="profile" element={<RMProfile />} />
+          </Route>
+
           {/* Default root redirect */}
           <Route
             path="/"
             element={
               userData?.role === 'admin'
                 ? <Navigate to="/portal" replace />
-                : <Navigate to="/team-leader" replace />
+                : userData?.role === 'reportingManager'
+                  ? <Navigate to="/rm-panel" replace />
+                  : <Navigate to="/team-leader" replace />
             }
           />
 

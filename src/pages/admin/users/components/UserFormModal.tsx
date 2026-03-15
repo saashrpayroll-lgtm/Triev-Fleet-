@@ -208,6 +208,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                                     disabled={isEditMode}
                                 >
                                     <option value="teamLeader">Team Leader</option>
+                                    <option value="reportingManager">Reporting Manager</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </div>

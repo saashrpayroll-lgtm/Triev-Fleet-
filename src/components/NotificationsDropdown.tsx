@@ -12,7 +12,7 @@ import { safeRender } from '@/utils/safeRender';
 
 interface NotificationsDropdownProps {
     userId: string;
-    userRole: 'admin' | 'teamLeader';
+    userRole: 'admin' | 'teamLeader' | 'reportingManager';
 }
 
 const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, userRole }) => {

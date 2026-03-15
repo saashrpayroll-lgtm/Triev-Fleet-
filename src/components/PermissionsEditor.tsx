@@ -71,7 +71,12 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         requests: { view: false, resolve: false, delete: false },
         reports: { view: false, generate: false, export: false },
         profile: { view: false, editPersonalDetails: false, editBankDetails: false, changePassword: false },
-        system: { resetUserPassword: false }
+        system: { resetUserPassword: false },
+        rmPanel: {
+            dashboard: false, tlPerformance: false, leaderboard: false,
+            riderOverview: false, leadOverview: false, reports: false,
+            collectionHistory: false, export: false
+        }
     };
 
     const mergePermissions = (current: any, defaults: any): any => {
@@ -448,6 +453,21 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             icon: Settings,
             permissions: [
                 { id: 'data_module', label: 'Data Management Access', description: 'Access bulk data tools', risk: 'high', path: 'modules.dataManagement' },
+            ]
+        },
+        {
+            id: 'rmPanel',
+            label: 'RM Panel',
+            icon: UserCog,
+            permissions: [
+                { id: 'rm_dash', label: 'Dashboard', description: 'View RM Dashboard with team metrics', risk: 'low', path: 'rmPanel.dashboard' },
+                { id: 'rm_tl', label: 'TL Performance', description: 'View Team Leader performance table', risk: 'low', path: 'rmPanel.tlPerformance' },
+                { id: 'rm_leader', label: 'Leaderboard', description: 'View team leaderboard & rankings', risk: 'low', path: 'rmPanel.leaderboard' },
+                { id: 'rm_riders', label: 'Rider Overview', description: 'View all riders under their TLs', risk: 'low', path: 'rmPanel.riderOverview' },
+                { id: 'rm_leads', label: 'Lead Overview', description: 'View all leads created by their TLs', risk: 'low', path: 'rmPanel.leadOverview' },
+                { id: 'rm_reports', label: 'Reports', description: 'View weekly/monthly performance reports', risk: 'medium', path: 'rmPanel.reports' },
+                { id: 'rm_collection', label: 'Collection History', description: 'View date-wise collection tracking', risk: 'low', path: 'rmPanel.collectionHistory' },
+                { id: 'rm_export', label: 'Export Data', description: 'Download data from any RM panel page', risk: 'medium', path: 'rmPanel.export' },
             ]
         }
     ];

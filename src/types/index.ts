@@ -1,5 +1,5 @@
 // User Types
-export type UserRole = 'admin' | 'teamLeader';
+export type UserRole = 'admin' | 'teamLeader' | 'reportingManager';
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deleted';
 export type WalletAccessLevel = 'full' | 'readOnly' | 'none';
 
@@ -120,6 +120,17 @@ export interface UserPermissions {
     };
     system: {
         resetUserPassword: boolean; // Admin action for others
+    };
+    // Reporting Manager Panel permissions (only relevant for RM role)
+    rmPanel?: {
+        dashboard: boolean;
+        tlPerformance: boolean;
+        leaderboard: boolean;
+        riderOverview: boolean;
+        leadOverview: boolean;
+        reports: boolean;
+        collectionHistory: boolean;
+        export: boolean; // Can export data from any allowed page
     };
 }
 

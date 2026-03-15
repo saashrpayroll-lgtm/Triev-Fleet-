@@ -43,7 +43,7 @@ const UserManagementPage: React.FC = () => {
 
     // Local State
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'teamLeader'>('all');
+    const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'teamLeader' | 'reportingManager'>('all');
     // New status filter
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
     const [showDeleted, setShowDeleted] = useState(false);
@@ -68,7 +68,7 @@ const UserManagementPage: React.FC = () => {
         const statusParam = params.get('status');
 
         if (roleParam) {
-            setFilterRole(roleParam as 'all' | 'admin' | 'teamLeader');
+            setFilterRole(roleParam as 'all' | 'admin' | 'teamLeader' | 'reportingManager');
         }
 
         if (statusParam) {
@@ -370,6 +370,12 @@ const UserManagementPage: React.FC = () => {
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterRole === 'teamLeader' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             Leaders
+                        </button>
+                        <button
+                            onClick={() => setFilterRole('reportingManager')}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterRole === 'reportingManager' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            RMs
                         </button>
                     </div>
 
