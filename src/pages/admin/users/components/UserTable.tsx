@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, PasswordResetRequest } from '@/types';
 import ActionMenu from './ActionMenu';
-import { UserCheck, UserX, Clock, ShieldAlert } from 'lucide-react';
+import { UserCheck, UserX, Clock, ShieldAlert, Users, Briefcase } from 'lucide-react';
 import PasswordResetIndicator from '@/components/PasswordResetIndicator';
 
 interface UserTableProps {
@@ -175,7 +175,9 @@ const UserTable: React.FC<UserTableProps> = ({
                                 <div className="flex flex-col gap-1">
                                     <span className="capitalize font-medium text-foreground flex items-center gap-1.5">
                                         {user.role === 'admin' && <ShieldAlert size={14} className="text-purple-500" />}
-                                        {user.role}
+                                        {user.role === 'teamLeader' && <Users size={14} className="text-blue-500" />}
+                                        {user.role === 'reportingManager' && <Briefcase size={14} className="text-teal-500" />}
+                                        {user.role === 'reportingManager' ? 'Reporting Manager' : user.role === 'teamLeader' ? 'Team Leader' : user.role}
                                     </span>
                                     <span className="text-xs text-muted-foreground">{user.jobLocation || 'Remote'}</span>
                                 </div>

@@ -24,7 +24,9 @@ export const useUsers = () => {
 
     // Helper: Generate ID
     const getNextId = useCallback(async (role: string) => {
-        const prefix = role === 'admin' ? 'TRIEV_ADM' : 'TRIEV_TL';
+        let prefix = 'TRIEV_TL'; // Default
+        if (role === 'admin') prefix = 'TRIEV_ADM';
+        else if (role === 'reportingManager') prefix = 'Trive_RM';
 
         try {
             const { data: lastUser, error } = await supabase
