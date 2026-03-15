@@ -37,6 +37,24 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
         setLoading(true);
 
         try {
+            // First, ensure the auth session is active by refreshing it
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError || !sessionData.session) {
+                console.error('No active session found:', sessionError);
+                // Try refreshing the session
+                const { error: refreshError } = await supabase.auth.refreshSession();
+                if (refreshError) {
+                    console.error('Session refresh failed:', refreshError);
+                    setErrors([
+                        'Your session has expired. Please close this dialog, sign out, and log in again.',
+                        `Technical: ${refreshError.message}`
+                    ]);
+                    setLoading(false);
+                    return;
+                }
+            }
+
             // Update password in Supabase Auth
             const { error: authError } = await supabase.auth.updateUser({
                 password: newPassword
@@ -44,7 +62,8 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
 
             if (authError) {
                 console.error('Error updating password:', authError);
-                setErrors(['Failed to update password. Please try again.']);
+                // Show the ACTUAL error from Supabase instead of a generic message
+                setErrors([`Password update failed: ${authError.message}`]);
                 setLoading(false);
                 return;
             }
@@ -62,22 +81,24 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
                 console.error('Error updating user record:', updateError);
             }
 
-            // Log activity
-            await supabase.from('activity_logs').insert({
+            // Log activity (non-blocking)
+            supabase.from('activity_logs').insert({
                 user_id: userId,
                 action_type: 'password_changed',
                 target_type: 'user',
                 target_id: userId,
                 details: 'User changed password after reset',
                 timestamp: new Date().toISOString()
+            }).then(({ error }) => {
+                if (error) console.warn('Activity log failed (non-critical):', error);
             });
 
             toast.success('Password changed successfully!');
             onPasswordChanged();
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error:', err);
-            setErrors(['An unexpected error occurred. Please try again.']);
+            setErrors([`An unexpected error occurred: ${err?.message || 'Please try again.'}`]);
         } finally {
             setLoading(false);
         }
