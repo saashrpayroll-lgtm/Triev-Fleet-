@@ -47,7 +47,7 @@ export function useRMTeamData(): RMTeamData {
                         suspendedUntil:suspended_until, createdAt:created_at, updatedAt:updated_at,
                         position, monthlyTarget:monthly_target, awardedBadges:awarded_badges
                     `)
-                    .eq('reporting_manager', rmName)
+                    .ilike('reporting_manager', `%${rmName.trim()}%`)
                     .eq('role', 'teamLeader');
 
                 if (tlError) throw tlError;
