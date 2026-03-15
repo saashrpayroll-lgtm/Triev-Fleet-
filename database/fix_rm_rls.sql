@@ -48,17 +48,7 @@ USING (
   )
 );
 
--- 5. Transactions table
-DROP POLICY IF EXISTS "Reporting Managers can view transactions" ON public.transactions;
-CREATE POLICY "Reporting Managers can view transactions"
-ON public.transactions
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.users AS viewer 
-    WHERE viewer.id = auth.uid() AND viewer.role = 'reportingManager'
-  )
-);
+
 
 -- 6. Wallet Ledger table
 DROP POLICY IF EXISTS "Reporting Managers can view wallet ledger" ON public.wallet_ledger;
