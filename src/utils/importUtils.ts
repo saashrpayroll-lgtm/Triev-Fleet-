@@ -88,6 +88,25 @@ const chunkArray = <T>(arr: T[], size: number): T[][] => {
 };
 
 // Start: Bulk Rider Import Logic
+async function fetchAllRidersWithSelect(selectQuery: string) {
+    const allData: any[] = [];
+    let from = 0;
+    const limit = 1000;
+    while (true) {
+        const { data, error } = await supabase
+            .from('riders')
+            .select(selectQuery)
+            .range(from, from + limit - 1);
+            
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < limit) break;
+        from += limit;
+    }
+    return allData;
+}
+
 export const processRiderImport = async (
     fileData: any[],
     adminId: string,
@@ -132,10 +151,7 @@ export const processRiderImport = async (
     const riderTrievMap = new Map<string, any>();   // normalizeTrievId(triev_id) → rider
     const riderMobileMap = new Map<string, any>();  // normalizeMobile(mobile)    → rider
     try {
-        const { data: allRiders, error: riderError } = await supabase
-            .from('riders')
-            .select('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status, inactivated_at');
-        if (riderError) throw riderError;
+        const allRiders = await fetchAllRidersWithSelect('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status, inactivated_at');
         allRiders?.forEach(r => {
             const tid = normalizeTrievId(String(r.triev_id || ''));
             const mob = normalizeMobile(String(r.mobile_number || ''));
@@ -364,11 +380,8 @@ export const processWalletUpdate = async (
     summary.total = fileData.length;
 
     // 1. Pre-fetch ALL Riders for Map-based lookup (Massive performance gain)
-    const { data: allRiders, error: fetchError } = await supabase
-        .from('riders')
-        .select('id, triev_id, mobile_number, rider_name, team_leader_id, wallet_amount, status');
-
-    if (fetchError) throw fetchError;
+    // Uses pagination helper to bypass 1000 row limits
+    const allRiders = await fetchAllRidersWithSelect('id, triev_id, mobile_number, rider_name, team_leader_id, wallet_amount, status');
 
     const trievMap = new Map<string, any>();
     const mobileMap = new Map<string, any>();
@@ -586,10 +599,7 @@ export const processRentCollectionImport = async (
         summary.total = fileData.length;
 
         // 1. Pre-fetch All Riders (Cache in memory)
-        const { data: allRiders, error: fetchError } = await supabase
-            .from('riders')
-            .select('id, triev_id, mobile_number');
-        if (fetchError) throw fetchError;
+        const allRiders = await fetchAllRidersWithSelect('id, triev_id, mobile_number');
 
         const trievMap = new Map<string, string>();
         const mobileMap = new Map<string, string>();
