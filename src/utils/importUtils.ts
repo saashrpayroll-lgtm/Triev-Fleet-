@@ -329,11 +329,13 @@ export const processRiderImport = async (
     // ── Strict Mirror (Optional) ─────────────────────────────────────────────
     if (strictMirror && summary.success > fileData.length * 0.1) {
         try {
-            const { data: activeRiders, error: activeErr } = await fetchAllRidersPaginated('id', { column: 'status', value: 'active' });
+            const { data: activeRiders, error: activeErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number', { column: 'status', value: 'active' });
             if (activeErr) throw activeErr;
             if (activeRiders) {
                 const idsToDeactivate = activeRiders.filter(r => {
-                    return !riderTrievMap.has(r.id) && !riderMobileMap.has(r.id);
+                    const tid = normalizeTrievId(String(r.triev_id || ''));
+                    const mob = normalizeMobile(String(r.mobile_number || ''));
+                    return (!tid || !riderTrievMap.has(tid)) && (!mob || !riderMobileMap.has(mob));
                 }).map(r => r.id);
                 if (idsToDeactivate.length > 0) {
                     await supabase.from('riders').update({ status: 'deleted', remarks: 'Removed via Sync' }).in('id', idsToDeactivate);

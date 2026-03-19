@@ -4,6 +4,7 @@ import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
 import DataImport from './DataImport';
 import { normalizeKey } from '@/utils/importUtils';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { logActivity } from '@/utils/activityLog';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -39,10 +40,9 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
         setStep('analyzing');
         try {
             // 1. Fetch ALL Riders from DB (Active and Inactive)
-            const { data: dbRiders, error } = await supabase
-                .from('riders')
-                .select('id, rider_name, mobile_number, triev_id, status, team_leader_name, inactivated_at, allotment_date')
-                .in('status', ['active', 'inactive', 'deleted']);
+            const { data: dbRiders, error } = await fetchAllRidersPaginated(
+                'id, rider_name, mobile_number, triev_id, status, team_leader_name, inactivated_at, allotment_date'
+            );
 
             if (error) throw error;
             if (!dbRiders) throw new Error("No riders found in database");
