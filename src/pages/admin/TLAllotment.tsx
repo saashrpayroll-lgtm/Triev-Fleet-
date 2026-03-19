@@ -32,6 +32,7 @@ interface TLMetric {
     team_leader_id: string;
     tl_name: string;
     tl_email: string;
+    reporting_manager: string;
     active_rider_count: number;
     inactive_rider_count: number;
     positive_wallet_count: number;
@@ -63,6 +64,8 @@ const TLAllotment: React.FC = () => {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [filterRisk, setFilterRisk] = useState<'all' | 'high_risk' | 'low_risk'>('all');
     const [filterPerformers, setFilterPerformers] = useState<'all' | 'growing' | 'shrinking'>('all');
+    const [rmList, setRmList] = useState<{ id: string; name: string }[]>([]);
+    const [filterRM, setFilterRM] = useState<string>('all');
     const [sortConfig, setSortConfig] = useState<{ key: keyof TLMetric | 'net_growth'; direction: 'asc' | 'desc' }>({
         key: 'active_rider_count',
         direction: 'desc',
@@ -98,13 +101,14 @@ const TLAllotment: React.FC = () => {
             const endOfDayIST = new Date(Date.UTC(yr, mo - 1, dy, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             // Fetch all data in parallel
-            const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
-                // Step 1: Active TLs
+            const [tlsRes, ridersRes, dailyColRes, todayLedgerRes, rmsRes] = await Promise.all([
+                // Step 1: Active TLs (include reporting_manager for RM filtering)
                 supabase
                     .from('users')
-                    .select('id, full_name, email')
+                    .select('id, full_name, email, reporting_manager')
                     .eq('role', 'teamLeader')
                     .eq('status', 'active'),
+
 
                 // Step 2: All riders (including deleted) to ensure historical allotments/submissions are included
                 fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at'),
@@ -129,6 +133,13 @@ const TLAllotment: React.FC = () => {
                     ]},
                     { operator: 'or', value: `and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})` }
                 ]),
+
+                // Step 5: Fetch all RM users for filter dropdown
+                supabase
+                    .from('users')
+                    .select('id, full_name')
+                    .eq('role', 'reportingManager')
+                    .eq('status', 'active'),
             ]);
 
             if (tlsRes.error) throw tlsRes.error;
@@ -137,6 +148,11 @@ const TLAllotment: React.FC = () => {
 
             const tls = tlsRes.data || [];
             const riders = ridersRes.data || [];
+
+            // Build RM list for dropdown
+            const rms = (rmsRes.data || []).map((rm: any) => ({ id: rm.id, name: rm.full_name || '' }));
+            setRmList(rms);
+
             if (tls.length === 0) { setData([]); return; }
 
             // Track TLs that already have a today snapshot in daily_collections
@@ -241,6 +257,7 @@ const TLAllotment: React.FC = () => {
                     team_leader_id: tl.id,
                     tl_name: tl.full_name || 'Unknown',
                     tl_email: tl.email || '',
+                    reporting_manager: tl.reporting_manager || '',
                     active_rider_count: activeRiderCount,
                     inactive_rider_count: inactiveRiderCount,
                     positive_wallet_count: posRiders.length,
@@ -288,6 +305,11 @@ const TLAllotment: React.FC = () => {
             item.tl_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             item.tl_email.toLowerCase().includes(searchTerm.toLowerCase())
         );
+        // RM Filter
+        if (filterRM !== 'all') {
+            const rmName = rmList.find(r => r.id === filterRM)?.name || '';
+            result = result.filter(i => i.reporting_manager.toLowerCase().includes(rmName.toLowerCase()));
+        }
         if (filterRisk === 'high_risk') result = result.filter(i => Math.abs(i.negative_wallet_total) > i.positive_wallet_total);
         else if (filterRisk === 'low_risk') result = result.filter(i => Math.abs(i.negative_wallet_total) <= i.positive_wallet_total);
         if (filterPerformers === 'growing') result = result.filter(i => i.allotment_count - i.submission_count > 0);
@@ -309,7 +331,7 @@ const TLAllotment: React.FC = () => {
             return 0;
         });
         return result;
-    }, [data, searchTerm, filterRisk, filterPerformers, sortConfig]);
+    }, [data, searchTerm, filterRisk, filterPerformers, filterRM, rmList, sortConfig]);
 
     const handleSort = (key: keyof TLMetric | 'net_growth') => {
         setSortConfig(prev => ({
@@ -501,6 +523,24 @@ const TLAllotment: React.FC = () => {
                             />
                         </div>
 
+                        {/* RM Filter Dropdown */}
+                        {rmList.length > 0 && (
+                            <select
+                                value={filterRM}
+                                onChange={e => setFilterRM(e.target.value)}
+                                className={`px-3 py-2.5 rounded-2xl text-sm font-bold border transition-all outline-none cursor-pointer ${
+                                    filterRM !== 'all'
+                                        ? 'bg-teal-500/10 border-teal-500/30 text-teal-700 dark:text-teal-300'
+                                        : 'bg-background border-border/60 hover:bg-muted text-foreground'
+                                }`}
+                            >
+                                <option value="all">All RMs</option>
+                                {rmList.map(rm => (
+                                    <option key={rm.id} value={rm.id}>{rm.name}</option>
+                                ))}
+                            </select>
+                        )}
+
                         <div className="relative">
                             <button
                                 onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -541,7 +581,7 @@ const TLAllotment: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="mt-4 pt-3 border-t border-border/40">
-                                        <button onClick={() => { setFilterRisk('all'); setFilterPerformers('all'); setIsFilterOpen(false); }}
+                                        <button onClick={() => { setFilterRisk('all'); setFilterPerformers('all'); setFilterRM('all'); setIsFilterOpen(false); }}
                                             className="w-full py-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
                                             Clear All Filters
                                         </button>
