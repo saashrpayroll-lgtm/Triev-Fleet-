@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { Calendar, TrendingUp, ArrowLeft, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -72,10 +73,10 @@ const CollectionHistory: React.FC = () => {
                         const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
                         return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
                     })()),
-                supabase
-                    .from('riders')
-                    .select('status, allotment_date, inactivated_at, updated_at, created_at, last_status_change_at')
-                    .eq('team_leader_id', userData!.id)
+                fetchAllRidersPaginated(
+                    'status, allotment_date, inactivated_at, updated_at, created_at, last_status_change_at',
+                    { column: 'team_leader_id', value: userData!.id }
+                )
             ]);
 
             const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);

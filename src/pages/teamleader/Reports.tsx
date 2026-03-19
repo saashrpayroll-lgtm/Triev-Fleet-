@@ -20,6 +20,7 @@ import {
 } from 'recharts';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -59,32 +60,45 @@ const Reports: React.FC = () => {
 
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('riders')
-                .select(`
+            const { data, error } = await fetchAllRidersPaginated(`
                     id, 
-                    trievId:triev_id, 
-                    riderName:rider_name, 
-                    mobileNumber:mobile_number, 
-                    chassisNumber:chassis_number, 
-                    clientName:client_name, 
-                    clientId:client_id, 
-                    walletAmount:wallet_amount, 
-                    allotmentDate:allotment_date, 
+                    triev_id, 
+                    rider_name, 
+                    mobile_number, 
+                    chassis_number, 
+                    client_name, 
+                    client_id, 
+                    wallet_amount, 
+                    allotment_date, 
                     remarks,
                     status, 
-                    teamLeaderId:team_leader_id,
-                    teamLeaderName:team_leader_name,
-                    createdAt:created_at,
-                    updatedAt:updated_at
-                `)
-                .eq('team_leader_id', userData.id);
+                    team_leader_id,
+                    team_leader_name,
+                    created_at,
+                    updated_at
+                `, { column: 'team_leader_id', value: userData.id });
 
             if (error) {
                 console.error('Error fetching riders:', error);
                 toast.error('Failed to load rider data');
             } else {
-                setRiders((data || []) as Rider[]);
+                setRiders((data || []).map((r: any) => ({
+                    id: r.id, 
+                    trievId: r.triev_id, 
+                    riderName: r.rider_name, 
+                    mobileNumber: r.mobile_number, 
+                    chassisNumber: r.chassis_number, 
+                    clientName: r.client_name, 
+                    clientId: r.client_id, 
+                    walletAmount: r.wallet_amount, 
+                    allotmentDate: r.allotment_date, 
+                    remarks: r.remarks,
+                    status: r.status, 
+                    teamLeaderId: r.team_leader_id,
+                    teamLeaderName: r.team_leader_name,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at
+                })));
             }
 
             // Fetch daily collections for this TL

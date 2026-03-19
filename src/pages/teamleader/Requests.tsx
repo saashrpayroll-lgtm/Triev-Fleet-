@@ -6,6 +6,7 @@ import { Request, RequestType, RequestPriority, Rider } from '@/types';
 import { Plus, Search, Filter, CheckCircle, Clock, XCircle, FileText, Sparkles, Loader, Trash2, CheckSquare, Square } from 'lucide-react';
 import { AIService } from '@/services/AIService';
 import { logActivity } from '@/utils/activityLog';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 
 const Requests: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -171,10 +172,7 @@ const Requests: React.FC = () => {
 
     const fetchMyRiders = async () => {
         try {
-            const { data, error } = await supabase
-                .from('riders')
-                .select('*')
-                .eq('team_leader_id', userData?.id); // snake_case
+            const { data, error } = await fetchAllRidersPaginated('*', { column: 'team_leader_id', value: userData?.id });
 
             if (error) throw error;
 

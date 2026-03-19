@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
 import CollectionTargetCard from '@/components/dashboard/CollectionTargetCard';
 import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
@@ -234,9 +235,9 @@ const Dashboard: React.FC = () => {
                 profilePicUrl: u.profile_pic_url || undefined
             })) as User[];
 
-            const { data: allRidersData } = await supabase
-                .from('riders')
-                .select('id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date, inactivated_at, created_at, updated_at');
+            const { data: allRidersData } = await fetchAllRidersPaginated(
+                'id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date, inactivated_at, created_at, updated_at'
+            );
             const allRiders = (allRidersData || []).map((r: any) => ({
                 id: r.id,
                 status: r.status,
