@@ -46,7 +46,7 @@ export function useRMTeamData(): RMTeamData {
                         username, jobLocation:job_location, reportingManager:reporting_manager,
                         permissions, remarks, profilePicUrl:profile_pic_url,
                         suspendedUntil:suspended_until, createdAt:created_at, updatedAt:updated_at,
-                        position, monthlyTarget:monthly_target, awardedBadges:awarded_badges
+                        position
                     `)
                     .ilike('reporting_manager', `%${rmName.trim()}%`)
                     .eq('role', 'teamLeader');
