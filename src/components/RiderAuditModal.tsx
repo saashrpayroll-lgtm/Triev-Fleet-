@@ -293,16 +293,23 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
         <div className="fixed z-[20000] inset-0 overflow-y-auto">
             <div className="flex items-center justify-center min-h-screen p-4">
                 <div
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+                    className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
                     onClick={onClose}
                 />
 
-                <div className="relative bg-background rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center p-6 border-b">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                            <Search className="text-purple-500" /> Audit & Sync Check
-                        </h2>
-                        <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+                <div className="relative bg-card border border-border/50 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col z-10 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-emerald-500"></div>
+                    <div className="flex justify-between items-center p-6 border-b bg-muted/10">
+                        <div>
+                            <h2 className="text-2xl font-black flex items-center gap-3 tracking-tight">
+                                <div className="p-2 bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-xl">
+                                    <Search size={22} />
+                                </div>
+                                Audit & Sync Check
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-1 ml-12">Identify missing vs returning riders directly from your Master Sheet</p>
+                        </div>
+                        <button onClick={onClose} className="p-2 bg-muted/50 hover:bg-destructive/10 hover:text-destructive rounded-full transition-colors">
                             <X size={20} />
                         </button>
                     </div>
@@ -337,33 +344,45 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                         {step === 'results' && results && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="bg-muted/30 p-4 rounded-xl border border-border">
-                                        <div className="text-muted-foreground text-sm font-medium mb-1">Active System Riders (DB)</div>
-                                        <div className="text-2xl font-bold flex items-center gap-2">
-                                            <Database size={20} className="text-blue-500" /> {results.dbCount}
+                                    <div className="bg-blue-50/50 dark:bg-blue-950/20 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex flex-col justify-center relative overflow-hidden group">
+                                        <div className="absolute right-[-10px] bottom-[-10px] opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                            <Database size={80} />
+                                        </div>
+                                        <div className="text-blue-600 dark:text-blue-400 text-sm font-bold uppercase tracking-wider mb-2 z-10">Active System Riders</div>
+                                        <div className="text-4xl font-black text-foreground z-10 flex items-center gap-3">
+                                            {results.dbCount}
                                         </div>
                                     </div>
-                                    <div className="bg-muted/30 p-4 rounded-xl border border-border">
-                                        <div className="text-muted-foreground text-sm font-medium mb-1">Sheet Rows</div>
-                                        <div className="text-2xl font-bold flex items-center gap-2">
-                                            <FileSpreadsheet size={20} className="text-green-500" /> {results.sheetCount}
+                                    <div className="bg-purple-50/50 dark:bg-purple-950/20 p-5 rounded-2xl border border-purple-100 dark:border-purple-900/50 flex flex-col justify-center relative overflow-hidden group">
+                                        <div className="absolute right-[-10px] bottom-[-10px] opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                            <FileSpreadsheet size={80} />
+                                        </div>
+                                        <div className="text-purple-600 dark:text-purple-400 text-sm font-bold uppercase tracking-wider mb-2 z-10">Uploaded Sheet Rows</div>
+                                        <div className="text-4xl font-black text-foreground z-10 flex items-center gap-3">
+                                            {results.sheetCount}
                                         </div>
                                     </div>
-                                    <div className="bg-muted/30 p-4 rounded-xl border border-border">
-                                        <div className="text-muted-foreground text-sm font-medium mb-1">Matched (Active)</div>
-                                        <div className="text-2xl font-bold flex items-center gap-2">
-                                            <CheckCircle size={20} className="text-emerald-500" /> {results.matchedCount}
+                                    <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 flex flex-col justify-center relative overflow-hidden group">
+                                        <div className="absolute right-[-10px] bottom-[-10px] opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                            <CheckCircle size={80} />
+                                        </div>
+                                        <div className="text-emerald-600 dark:text-emerald-400 text-sm font-bold uppercase tracking-wider mb-2 z-10">Perfect Matches</div>
+                                        <div className="text-4xl font-black text-foreground z-10 flex items-center gap-3">
+                                            {results.matchedCount}
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                                     {/* EXTRA RIDERS (Missing from Sheet) */}
-                                    <div className="space-y-4">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                            <h3 className="text-lg font-bold flex items-center text-destructive">
-                                                <UserX size={20} className="mr-2" />
-                                                Missing from Sheet ({results.extraRiders.length})
+                                    <div className="space-y-4 bg-red-50/20 dark:bg-red-950/10 p-5 rounded-2xl border border-red-100 dark:border-red-900/30">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-100 dark:border-red-900/30 pb-4">
+                                            <h3 className="text-lg font-black flex items-center text-red-600 dark:text-red-400 tracking-tight">
+                                                <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-lg mr-3">
+                                                    <UserX size={18} />
+                                                </div>
+                                                Missing from Sheet
+                                                <span className="ml-2 px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md text-xs font-bold">{results.extraRiders.length}</span>
                                             </h3>
                                             {results.extraRiders.length > 0 && (
                                                 <div className="flex items-center gap-2">
@@ -371,18 +390,18 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                         <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                                         <input
                                                             type="text"
-                                                            placeholder="Search..."
+                                                            placeholder="Search riders..."
                                                             value={searchExtra}
                                                             onChange={e => setSearchExtra(e.target.value)}
-                                                            className="pl-8 pr-3 py-1.5 text-xs bg-background border rounded-lg max-w-[140px]"
+                                                            className="pl-8 pr-3 py-2 text-xs bg-background border border-border rounded-xl max-w-[150px] focus:ring-red-500/20"
                                                         />
                                                     </div>
                                                     <button
                                                         onClick={handleDeactivateSelected}
                                                         disabled={selectedExtraIds.size === 0 || isProcessing}
-                                                        className="px-3 py-1.5 text-xs bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all font-bold disabled:opacity-50 shadow-sm"
+                                                        className="px-4 py-2 text-xs bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold disabled:opacity-50 shadow-md shadow-red-500/20 flex items-center gap-2"
                                                     >
-                                                        Deactivate ({selectedExtraIds.size})
+                                                        Deactivate <span className="bg-black/20 px-1.5 py-0.5 rounded">{selectedExtraIds.size}</span>
                                                     </button>
                                                 </div>
                                             )}
@@ -418,8 +437,8 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                                     r.team_leader_name?.toLowerCase().includes(searchExtra.toLowerCase())
                                                                 )
                                                                 .map(rider => (
-                                                                    <tr key={rider.id} className={`hover:bg-accent/50 transition-colors ${selectedExtraIds.has(rider.id) ? 'bg-red-50/50' : ''}`}>
-                                                                        <td className="px-4 py-3 w-[40px] align-top">
+                                                                    <tr key={rider.id} className={`hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors ${selectedExtraIds.has(rider.id) ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
+                                                                        <td className="px-4 py-3 w-[40px] align-middle">
                                                                             <input
                                                                                 type="checkbox"
                                                                                 checked={selectedExtraIds.has(rider.id)}
@@ -429,19 +448,20 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                                                     else newSet.add(rider.id);
                                                                                     setSelectedExtraIds(newSet);
                                                                                 }}
-                                                                                className="rounded border-gray-300 text-destructive focus:ring-destructive mt-1 cursor-pointer"
+                                                                                className="rounded border-red-300 text-red-600 focus:ring-red-600 cursor-pointer w-4 h-4"
                                                                             />
                                                                         </td>
                                                                         <td className="px-4 py-3">
-                                                                            <p className="font-bold text-destructive">{rider.rider_name}</p>
-                                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                                                                                <span>{rider.mobile_number}</span>
-                                                                                <span className="w-1 h-1 rounded-full bg-border" />
-                                                                                <span>{rider.triev_id}</span>
+                                                                            <p className="font-bold text-foreground text-[13px]">{rider.rider_name}</p>
+                                                                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+                                                                                <span className="bg-muted px-1.5 py-0.5 rounded flex items-center gap-1 font-medium">📱 {rider.mobile_number}</span>
+                                                                                <span className="bg-muted px-1.5 py-0.5 rounded flex items-center gap-1 font-medium">🆔 {rider.triev_id}</span>
                                                                             </div>
                                                                         </td>
-                                                                        <td className="px-4 py-3 text-xs text-muted-foreground align-top pt-4">
-                                                                            <span className="px-2 py-1 bg-muted rounded-md font-medium text-foreground/80">{rider.team_leader_name || 'Unassigned'}</span>
+                                                                        <td className="px-4 py-3 align-middle">
+                                                                            <span className="px-2 py-1 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900 rounded-md text-[11px] font-bold shadow-sm whitespace-nowrap">
+                                                                                👤 {rider.team_leader_name || 'Unassigned'}
+                                                                            </span>
                                                                         </td>
                                                                     </tr>
                                                                 ))}
@@ -453,30 +473,33 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                     </div>
 
                                     {/* RETURNING RIDERS (Inactive but found in Sheet) */}
-                                    <div className="space-y-4">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                            <h3 className="text-lg font-bold flex items-center text-emerald-600">
-                                                <UserCheck size={20} className="mr-2" />
-                                                Returning Riders ({results.returningRiders.length})
+                                    <div className="space-y-4 bg-emerald-50/20 dark:bg-emerald-950/10 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100 dark:border-emerald-900/30 pb-4">
+                                            <h3 className="text-lg font-black flex items-center text-emerald-600 dark:text-emerald-400 tracking-tight">
+                                                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg mr-3">
+                                                    <UserCheck size={18} />
+                                                </div>
+                                                Returning Riders
+                                                <span className="ml-2 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-md text-xs font-bold">{results.returningRiders.length}</span>
                                             </h3>
                                             {results.returningRiders.length > 0 && (
                                                 <div className="flex items-center gap-2">
                                                     <div className="relative">
-                                                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-600/50" />
+                                                        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                                         <input
                                                             type="text"
-                                                            placeholder="Search..."
+                                                            placeholder="Search riders..."
                                                             value={searchReturning}
                                                             onChange={e => setSearchReturning(e.target.value)}
-                                                            className="pl-8 pr-3 py-1.5 text-xs bg-emerald-50/50 border-emerald-200 border rounded-lg max-w-[140px] focus:ring-emerald-500/20"
+                                                            className="pl-8 pr-3 py-2 text-xs bg-background border border-border rounded-xl max-w-[150px] focus:ring-emerald-500/20"
                                                         />
                                                     </div>
                                                     <button
                                                         onClick={handleReactivateSelected}
                                                         disabled={selectedReturningIds.size === 0 || isProcessing}
-                                                        className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                                                        className="px-4 py-2 text-xs bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50 flex items-center gap-2"
                                                     >
-                                                        Reactivate ({selectedReturningIds.size})
+                                                        Reactivate <span className="bg-black/20 px-1.5 py-0.5 rounded">{selectedReturningIds.size}</span>
                                                     </button>
                                                 </div>
                                             )}
@@ -511,8 +534,8 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                                     const reactivateInfo = getReactivationDetails(rider.inactivated_at, rider.last_status_change_at);
 
                                                                     return (
-                                                                        <tr key={rider.id} className={`hover:bg-emerald-50/80 transition-colors ${selectedReturningIds.has(rider.id) ? 'bg-emerald-50' : ''}`}>
-                                                                            <td className="px-4 py-3 w-[40px] align-top">
+                                                                        <tr key={rider.id} className={`hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition-colors ${selectedReturningIds.has(rider.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
+                                                                            <td className="px-4 py-3 w-[40px] align-middle">
                                                                                 <input
                                                                                     type="checkbox"
                                                                                     checked={selectedReturningIds.has(rider.id)}
@@ -522,36 +545,38 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                                                         else newSet.add(rider.id);
                                                                                         setSelectedReturningIds(newSet);
                                                                                     }}
-                                                                                    className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-600 mt-1 cursor-pointer"
+                                                                                    className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer w-4 h-4"
                                                                                 />
                                                                             </td>
                                                                             <td className="px-4 py-3">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <p className="font-bold text-foreground">{rider.rider_name}</p>
+                                                                                    <p className="font-bold text-foreground text-[13px]">{rider.rider_name}</p>
                                                                                     {rider.status === 'deleted' && (
-                                                                                        <span className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Deleted</span>
+                                                                                        <span className="bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 text-[9px] px-1.5 py-0.5 rounded font-black tracking-widest uppercase border border-red-200 dark:border-red-800">Deleted</span>
                                                                                     )}
                                                                                 </div>
-                                                                                <div className="flex flex-col gap-1 mt-1">
-                                                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground/80 font-medium bg-muted/50 w-fit px-1.5 py-0.5 rounded">
-                                                                                        <span className="text-emerald-600/70" title="Locked Identity">🔒</span>
-                                                                                        <span>{rider.mobile_number}</span>
-                                                                                        <span className="w-1 h-1 rounded-full bg-border" />
-                                                                                        <span>{rider.triev_id}</span>
+                                                                                <div className="flex flex-col gap-2 mt-1.5">
+                                                                                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
+                                                                                        <span className="bg-muted pl-1.5 pr-2 py-0.5 rounded flex items-center gap-1.5 shadow-sm border border-border/50">
+                                                                                            <span title="Fields Locked by Policy">🔒</span>
+                                                                                            <span>📱 {rider.mobile_number}</span>
+                                                                                            <span className="w-1 h-1 rounded-full bg-border mx-0.5" />
+                                                                                            <span>🆔 {rider.triev_id}</span>
+                                                                                        </span>
                                                                                     </div>
                                                                                     <div className="flex items-center gap-1.5 mt-0.5">
-                                                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-1 ${reactivateInfo.isWithin15Days ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                                                                            {reactivateInfo.isWithin15Days ? <CheckCircle size={10} /> : <AlertTriangle size={10} />}
+                                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1.5 shadow-sm border ${reactivateInfo.isWithin15Days ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800' : 'bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800'}`}>
+                                                                                            {reactivateInfo.isWithin15Days ? <CheckCircle size={12} className="text-indigo-500" /> : <AlertTriangle size={12} className="text-orange-500" />}
                                                                                             {reactivateInfo.text}
                                                                                         </span>
                                                                                         {!reactivateInfo.isWithin15Days && reactivateInfo.days !== undefined && reactivateInfo.days > 0 && (
-                                                                                            <span className="text-[9px] text-muted-foreground italic">Inactive &gt; 15d ({reactivateInfo.days}d)</span>
+                                                                                            <span className="text-[10px] text-muted-foreground italic font-medium">Inactive For {reactivateInfo.days} Days</span>
                                                                                         )}
                                                                                     </div>
                                                                                 </div>
                                                                             </td>
-                                                                            <td className="px-4 py-3 align-top pt-4">
-                                                                                <span className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-muted text-muted-foreground shadow-sm border border-border">
+                                                                            <td className="px-4 py-3 align-middle">
+                                                                                <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-muted text-muted-foreground shadow-sm border border-border">
                                                                                     {rider.status}
                                                                                 </span>
                                                                             </td>
