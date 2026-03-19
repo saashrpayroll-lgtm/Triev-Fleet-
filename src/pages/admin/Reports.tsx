@@ -335,7 +335,9 @@ const Reports: React.FC = () => {
                         .from('riders')
                         .select('*')
                         .lt('wallet_amount', 0) // Only negative
-                        .order('wallet_amount', { ascending: true }); // Highest debt first
+                        .order('wallet_amount', { ascending: true }) // Highest debt first
+                        .limit(50000);
+
 
                     if (!defaulterRiders) throw new Error('Failed to fetch defaulter list');
 
