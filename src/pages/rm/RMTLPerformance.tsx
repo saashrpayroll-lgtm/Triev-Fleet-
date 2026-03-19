@@ -1,45 +1,60 @@
 import React, { useMemo, useState } from 'react';
 import { useRMTeamData } from '@/hooks/useRMTeamData';
-import { BarChart3, Download, Search } from 'lucide-react';
+import { BarChart3, Download, Search, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 
 const RMTLPerformance: React.FC = () => {
     const { teamLeaders, riders, leads, loading } = useRMTeamData();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState<'collection' | 'riders' | 'leads' | 'name'>('collection');
+    const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+    const [expandedTL, setExpandedTL] = useState<string | null>(null);
     const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
     const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
+    const [monthlyCollections, setMonthlyCollections] = useState<Record<string, number>>({});
 
     React.useEffect(() => {
         if (teamLeaders.length === 0) return;
         const tlIds = teamLeaders.map(tl => tl.id);
         const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
         const weekStart = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(weekAgo);
+        const monthAgo = new Date(); monthAgo.setDate(monthAgo.getDate() - 30);
+        const monthStart = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(monthAgo);
 
         const fetch = async () => {
             const { data } = await supabase
                 .from('daily_collections')
                 .select('team_leader_id, total_collection, date')
                 .in('team_leader_id', tlIds)
-                .gte('date', weekStart)
+                .gte('date', monthStart)
                 .lte('date', today);
 
             if (data) {
                 const daily: Record<string, number> = {};
                 const weekly: Record<string, number> = {};
+                const monthly: Record<string, number> = {};
                 data.forEach((d: any) => {
                     const amt = Number(d.total_collection) || 0;
                     if (d.date === today) daily[d.team_leader_id] = (daily[d.team_leader_id] || 0) + amt;
-                    weekly[d.team_leader_id] = (weekly[d.team_leader_id] || 0) + amt;
+                    if (d.date >= weekStart) weekly[d.team_leader_id] = (weekly[d.team_leader_id] || 0) + amt;
+                    monthly[d.team_leader_id] = (monthly[d.team_leader_id] || 0) + amt;
                 });
                 setDailyCollections(daily);
                 setWeeklyCollections(weekly);
+                setMonthlyCollections(monthly);
             }
         };
         fetch();
     }, [teamLeaders]);
+
+    const getCollection = (tlId: string) => {
+        switch (period) {
+            case 'today': return dailyCollections[tlId] || 0;
+            case 'week': return weeklyCollections[tlId] || 0;
+            case 'month': return monthlyCollections[tlId] || 0;
+        }
+    };
 
     const performanceData = useMemo(() => {
         return teamLeaders
@@ -53,23 +68,23 @@ const RMTLPerformance: React.FC = () => {
                 const positiveWallet = tlRiders.filter(r => r.status === 'active' && r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
                 const negativeWallet = tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
                 const criticalDebt = tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length;
+                const collection = getCollection(tl.id);
+                const avgCollection = activeRiders > 0 ? Math.round(collection / activeRiders) : 0;
+                const performanceScore = Math.min(100, Math.round(
+                    (activeRiders > 0 ? 25 : 0) +
+                    (collection > 0 ? Math.min(25, (collection / 5000) * 25) : 0) +
+                    (tlLeads.length > 0 ? Math.min(25, (converted / Math.max(1, tlLeads.length)) * 50) : 0) +
+                    (criticalDebt === 0 ? 25 : Math.max(0, 25 - criticalDebt * 5))
+                ));
 
                 return {
-                    id: tl.id,
-                    name: tl.fullName,
-                    email: tl.email,
-                    activeRiders,
-                    totalRiders: tlRiders.length,
-                    inactiveRiders,
-                    dailyCollection: dailyCollections[tl.id] || 0,
-                    weeklyCollection: weeklyCollections[tl.id] || 0,
-                    leadsTotal: tlLeads.length,
-                    convertedLeads: converted,
+                    id: tl.id, name: tl.fullName, email: tl.email,
+                    activeRiders, totalRiders: tlRiders.length, inactiveRiders,
+                    collection, avgCollection,
+                    leadsTotal: tlLeads.length, convertedLeads: converted,
                     conversionRate: tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0,
-                    positiveWallet,
-                    negativeWallet,
-                    criticalDebt,
-                    avgCollection: activeRiders > 0 ? Math.round((dailyCollections[tl.id] || 0) / activeRiders) : 0
+                    positiveWallet, negativeWallet, criticalDebt, performanceScore,
+                    ridersList: tlRiders,
                 };
             })
             .filter(tl => {
@@ -79,137 +94,248 @@ const RMTLPerformance: React.FC = () => {
             })
             .sort((a, b) => {
                 switch (sortBy) {
-                    case 'collection': return b.dailyCollection - a.dailyCollection;
+                    case 'collection': return b.collection - a.collection;
                     case 'riders': return b.activeRiders - a.activeRiders;
                     case 'leads': return b.leadsTotal - a.leadsTotal;
                     case 'name': return a.name.localeCompare(b.name);
                     default: return 0;
                 }
             });
-    }, [teamLeaders, riders, leads, dailyCollections, weeklyCollections, searchTerm, sortBy]);
+    }, [teamLeaders, riders, leads, dailyCollections, weeklyCollections, monthlyCollections, searchTerm, sortBy, period]);
+
+    // Summary
+    const summary = useMemo(() => ({
+        totalCollection: performanceData.reduce((s, t) => s + t.collection, 0),
+        totalActiveRiders: performanceData.reduce((s, t) => s + t.activeRiders, 0),
+        totalLeads: performanceData.reduce((s, t) => s + t.leadsTotal, 0),
+        totalConverted: performanceData.reduce((s, t) => s + t.convertedLeads, 0),
+    }), [performanceData]);
+
+    const getScoreColor = (score: number) => {
+        if (score >= 80) return 'text-emerald-600 bg-emerald-500';
+        if (score >= 60) return 'text-blue-600 bg-blue-500';
+        if (score >= 40) return 'text-amber-600 bg-amber-500';
+        return 'text-rose-600 bg-rose-500';
+    };
 
     const exportCSV = () => {
-        const headers = ['Name', 'Email', 'Active Riders', 'Total Riders', 'Daily Collection', 'Weekly Collection', 'Leads', 'Converted', 'Conversion %', 'Positive Wallet', 'Negative Wallet', 'Critical Debt'];
-        const rows = performanceData.map(d => [d.name, d.email, d.activeRiders, d.totalRiders, d.dailyCollection, d.weeklyCollection, d.leadsTotal, d.convertedLeads, d.conversionRate + '%', d.positiveWallet, d.negativeWallet, d.criticalDebt]);
+        const headers = ['Name', 'Email', 'Active Riders', 'Total Riders', 'Collection', 'Avg/Rider', 'Leads', 'Converted', 'Conversion %', 'Score', '+ve Wallet', '-ve Wallet', 'Critical Debt'];
+        const rows = performanceData.map(d => [d.name, d.email, d.activeRiders, d.totalRiders, d.collection, d.avgCollection, d.leadsTotal, d.convertedLeads, d.conversionRate + '%', d.performanceScore, d.positiveWallet, d.negativeWallet, d.criticalDebt]);
         const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `tl_performance_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `tl_performance_${period}_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
     };
 
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="w-10 h-10 border-3 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+                <div className="text-center space-y-3">
+                    <div className="w-12 h-12 border-3 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto" />
+                    <p className="text-sm text-muted-foreground font-medium">Loading performance data...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <BarChart3 className="text-teal-500" size={24} />
-                        Team Leader Performance
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">Performance metrics for your {performanceData.length} team leaders</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                        <input
-                            type="text"
-                            placeholder="Search TL..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 text-sm border rounded-lg bg-background focus:ring-2 focus:ring-teal-500/20 outline-none w-48"
-                        />
+        <div className="space-y-5 animate-in fade-in duration-500">
+            {/* ── HEADER ── */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-500 rounded-2xl p-5 text-white shadow-xl">
+                <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-white/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-black flex items-center gap-2.5">
+                            <div className="p-2 bg-white/15 rounded-xl backdrop-blur-sm"><BarChart3 size={22} /></div>
+                            TL Performance
+                        </h1>
+                        <p className="text-indigo-100 mt-1 text-sm">{performanceData.length} team leaders performance metrics</p>
                     </div>
-
-                    <select
-                        value={sortBy}
-                        onChange={(e: any) => setSortBy(e.target.value)}
-                        className="px-3 py-2 text-sm border rounded-lg bg-background cursor-pointer outline-none focus:ring-2 focus:ring-teal-500/20"
-                    >
-                        <option value="collection">Sort by Collection</option>
-                        <option value="riders">Sort by Riders</option>
-                        <option value="leads">Sort by Leads</option>
-                        <option value="name">Sort by Name</option>
-                    </select>
-
-                    <button onClick={exportCSV} className="px-3 py-2 text-sm border rounded-lg hover:bg-accent transition-colors flex items-center gap-1.5">
-                        <Download size={14} /> Export
-                    </button>
+                    {/* Summary stats */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
+                            <p className="text-[8px] font-black uppercase tracking-wider text-indigo-200">Collection</p>
+                            <p className="text-lg font-black">₹{summary.totalCollection.toLocaleString()}</p>
+                        </div>
+                        <div className="bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
+                            <p className="text-[8px] font-black uppercase tracking-wider text-indigo-200">Riders</p>
+                            <p className="text-lg font-black">{summary.totalActiveRiders}</p>
+                        </div>
+                        <div className="bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20">
+                            <p className="text-[8px] font-black uppercase tracking-wider text-indigo-200">Leads</p>
+                            <p className="text-lg font-black">{summary.totalLeads}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Performance Table */}
-            <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-auto max-h-[70vh]">
+            {/* ── TOOLBAR ── */}
+            <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-border/40 flex flex-col md:flex-row justify-between items-center gap-3 bg-gradient-to-r from-indigo-500/5 via-transparent to-violet-500/5">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="relative w-full md:w-56">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <input type="text" placeholder="Search TL..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 bg-background border border-border/60 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all" />
+                        </div>
+
+                        {/* Period toggle */}
+                        <div className="flex gap-1 bg-muted rounded-xl p-0.5">
+                            {(['today', 'week', 'month'] as const).map(p => (
+                                <button key={p} onClick={() => setPeriod(p)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${period === p ? 'bg-indigo-500 text-white shadow-md' : 'hover:bg-accent'}`}>
+                                    {p === 'today' ? 'Today' : p === 'week' ? '7 Days' : '30 Days'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Sort */}
+                        <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)}
+                            className="hidden md:block px-3 py-2.5 rounded-2xl text-sm font-bold bg-background border border-border/60 cursor-pointer outline-none">
+                            <option value="collection">Sort: Collection</option>
+                            <option value="riders">Sort: Riders</option>
+                            <option value="leads">Sort: Leads</option>
+                            <option value="name">Sort: Name</option>
+                        </select>
+                    </div>
+                    <button onClick={exportCSV} className="px-4 py-2.5 text-sm border border-border/60 rounded-2xl hover:bg-accent transition-colors flex items-center gap-2 font-bold">
+                        <Download size={15} /> Export
+                    </button>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-auto max-h-[65vh]">
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 bg-card z-10 shadow-sm">
                             <tr className="text-left border-b">
+                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest w-10">#</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest min-w-[200px]">Team Leader</th>
+                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Score</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Riders (A/I/T)</th>
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Daily Collection</th>
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Weekly Collection</th>
+                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Collection</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Avg/Rider</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Wallet</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Leads</th>
+                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest w-10"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {performanceData.map((tl, i) => (
-                                <tr key={tl.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                                    <td className="p-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm border border-teal-200">
-                                                {i + 1}
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold">{tl.name}</p>
-                                                <p className="text-[10px] text-muted-foreground">{tl.email}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="p-3">
-                                        <span className="font-bold text-emerald-600">{tl.activeRiders}</span>
-                                        <span className="text-muted-foreground"> / </span>
-                                        <span className="text-rose-500">{tl.inactiveRiders}</span>
-                                        <span className="text-muted-foreground"> / </span>
-                                        <span>{tl.totalRiders}</span>
-                                    </td>
-                                    <td className="p-3 font-black text-emerald-600">₹{tl.dailyCollection.toLocaleString()}</td>
-                                    <td className="p-3 font-bold">₹{tl.weeklyCollection.toLocaleString()}</td>
-                                    <td className="p-3 font-bold text-indigo-600">₹{tl.avgCollection.toLocaleString()}</td>
-                                    <td className="p-3">
-                                        <div className="space-y-0.5">
-                                            <div className="text-[10px] font-bold text-emerald-500">+₹{tl.positiveWallet.toLocaleString()}</div>
-                                            <div className="text-[10px] font-bold text-rose-500">-₹{Math.abs(tl.negativeWallet).toLocaleString()}</div>
-                                            {tl.criticalDebt > 0 && (
-                                                <div className="text-[9px] font-black text-rose-600 bg-rose-50 px-1 py-0.5 rounded inline-block">
-                                                    {tl.criticalDebt} CRITICAL
+                                <React.Fragment key={tl.id}>
+                                    <tr className={`border-b hover:bg-muted/20 transition-colors ${expandedTL === tl.id ? 'bg-indigo-500/5' : ''}`}>
+                                        <td className="p-3">
+                                            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black ${
+                                                i === 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 ring-2 ring-amber-300/50'
+                                                : i === 1 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+                                                : i === 2 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
+                                                : 'bg-muted text-muted-foreground'
+                                            }`}>{i + 1}</span>
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-sm border border-indigo-200 dark:border-indigo-800/30">
+                                                    {tl.name.charAt(0)}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="p-3">
-                                        <div>
-                                            <span className="font-bold">{tl.leadsTotal}</span>
-                                            <span className="text-muted-foreground"> • </span>
-                                            <span className="text-emerald-500 font-bold">{tl.convertedLeads} converted</span>
-                                            <p className="text-[10px] text-indigo-500 font-bold">{tl.conversionRate}% rate</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                                <div>
+                                                    <p className="font-semibold">{tl.name}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{tl.email}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-10 h-10 rounded-full relative">
+                                                    <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/30" />
+                                                        <circle cx="18" cy="18" r="14" fill="none" strokeWidth="3"
+                                                            className={getScoreColor(tl.performanceScore).split(' ')[1]}
+                                                            strokeDasharray={`${tl.performanceScore * 0.88} 100`}
+                                                            strokeLinecap="round" />
+                                                    </svg>
+                                                    <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-black ${getScoreColor(tl.performanceScore).split(' ')[0]}`}>
+                                                        {tl.performanceScore}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="p-3">
+                                            <span className="font-bold text-emerald-600">{tl.activeRiders}</span>
+                                            <span className="text-muted-foreground"> / </span>
+                                            <span className="text-rose-500">{tl.inactiveRiders}</span>
+                                            <span className="text-muted-foreground"> / </span>
+                                            <span>{tl.totalRiders}</span>
+                                        </td>
+                                        <td className="p-3 font-black text-emerald-600">₹{tl.collection.toLocaleString()}</td>
+                                        <td className="p-3 font-bold text-indigo-600">₹{tl.avgCollection.toLocaleString()}</td>
+                                        <td className="p-3">
+                                            <div className="space-y-0.5">
+                                                <div className="text-[10px] font-bold text-emerald-500">+₹{tl.positiveWallet.toLocaleString()}</div>
+                                                <div className="text-[10px] font-bold text-rose-500">-₹{Math.abs(tl.negativeWallet).toLocaleString()}</div>
+                                                {tl.criticalDebt > 0 && (
+                                                    <div className="text-[9px] font-black text-rose-600 bg-rose-50 dark:bg-rose-900/20 px-1 py-0.5 rounded inline-flex items-center gap-0.5">
+                                                        <AlertTriangle size={8} /> {tl.criticalDebt}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-3">
+                                            <div>
+                                                <span className="font-bold">{tl.leadsTotal}</span>
+                                                <span className="text-muted-foreground"> • </span>
+                                                <span className="text-emerald-500 font-bold">{tl.convertedLeads}</span>
+                                                <p className="text-[10px] text-indigo-500 font-bold">{tl.conversionRate}%</p>
+                                            </div>
+                                        </td>
+                                        <td className="p-3">
+                                            <button
+                                                onClick={() => setExpandedTL(expandedTL === tl.id ? null : tl.id)}
+                                                className="p-1.5 rounded-lg hover:bg-accent transition-colors"
+                                            >
+                                                {expandedTL === tl.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {/* Expandable rider summary */}
+                                    {expandedTL === tl.id && (
+                                        <tr>
+                                            <td colSpan={9}>
+                                                <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-4 border-b animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <p className="text-xs font-black uppercase text-muted-foreground mb-3 tracking-wider">
+                                                        {tl.name}'s Riders ({tl.totalRiders})
+                                                    </p>
+                                                    {tl.ridersList.length > 0 ? (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-auto">
+                                                            {tl.ridersList.map(r => (
+                                                                <div key={r.id} className="bg-card border border-border/40 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                                                                    <div className="min-w-0">
+                                                                        <p className="font-semibold truncate">{r.riderName}</p>
+                                                                        <p className="text-muted-foreground font-mono text-[10px]">{r.trievId}</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${r.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700'}`}>
+                                                                            {r.status}
+                                                                        </span>
+                                                                        <span className={`font-bold text-[11px] ${r.walletAmount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                            ₹{r.walletAmount.toLocaleString()}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-muted-foreground">No riders assigned</p>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                             {performanceData.length === 0 && (
-                                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No team leaders found</td></tr>
+                                <tr><td colSpan={9} className="p-12 text-center text-muted-foreground">No team leaders found</td></tr>
                             )}
                         </tbody>
                     </table>
