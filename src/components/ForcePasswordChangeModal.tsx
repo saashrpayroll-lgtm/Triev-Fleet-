@@ -34,6 +34,11 @@ const ForcePasswordChangeModal: React.FC<ForcePasswordChangeModalProps> = ({ use
             return;
         }
 
+        if (newPassword === '123456') {
+            setErrors(['New password cannot be the default "123456". Please choose a secure password.']);
+            return;
+        }
+
         setLoading(true);
 
         try {

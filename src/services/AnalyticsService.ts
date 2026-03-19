@@ -1,4 +1,5 @@
 import { supabase } from '@/config/supabase';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { format, subMonths, eachMonthOfInterval } from 'date-fns';
 
 export interface AnalyticsData {
@@ -31,7 +32,7 @@ export const AnalyticsService = {
         try {
             // Parallel Fetching
             const [ridersRes, leadsRes] = await Promise.all([
-                supabase.from('riders').select('id, created_at, client_name, wallet_amount, status, team_leader_id'),
+                fetchAllRidersPaginated('id, created_at, client_name, wallet_amount, status, team_leader_id'),
                 supabase.from('leads').select('id, status, created_at')
             ]);
 

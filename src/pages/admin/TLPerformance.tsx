@@ -19,6 +19,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 
 
 const TLPerformance: React.FC = () => {
@@ -72,7 +73,7 @@ const TLPerformance: React.FC = () => {
             const endOfDayIST = new Date(Date.UTC(year2, month2 - 1, day2, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [ridersRes, leadsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
-                supabase.from('riders').select('*').limit(5000),
+                fetchAllRidersPaginated('*'),
                 supabase.from('leads').select('*'),
                 supabase.from('users').select('*').eq('role', 'teamLeader'),
                 supabase.from('daily_collections').select('*')

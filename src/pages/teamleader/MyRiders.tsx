@@ -15,6 +15,7 @@ import BulkActionsBar from '@/components/BulkActionsBar';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import RiskBadge from '@/components/RiskBadge';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted';
@@ -119,7 +120,7 @@ const MyRiders: React.FC = () => {
             setLoading(true);
 
             // 1. Fetch Riders
-            const { data, error } = await supabase.from('riders').select('*').eq('team_leader_id', userData.id);
+            const { data, error } = await fetchAllRidersPaginated('*', { column: 'team_leader_id', value: userData.id });
             if (error) throw error;
 
             const fetchedRiders = data?.map(mapRiderFromDB) || [];

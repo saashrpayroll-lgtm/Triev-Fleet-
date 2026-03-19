@@ -17,7 +17,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { formatPhoneNumber } from '@/utils/validationUtils';
-
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 const AdminLeads: React.FC = () => {
     const { userData: currentUser } = useSupabaseAuth();
     const location = useLocation();
@@ -73,7 +73,7 @@ const AdminLeads: React.FC = () => {
 
         const fetchData = async () => {
             // 1. Fetch Riders
-            const { data: riderData } = await supabase.from('riders').select(`
+            const { data: riderData } = await fetchAllRidersPaginated(`
 id, mobileNumber: mobile_number, trievId: triev_id, riderName: rider_name
     `);
             if (riderData) setRiders(riderData as any);

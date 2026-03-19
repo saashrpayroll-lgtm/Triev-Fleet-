@@ -4,6 +4,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 
@@ -64,7 +65,7 @@ const Dashboard: React.FC = () => {
 
         try {
             const [ridersRes, leadsRes, requestsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
-                supabase.from('riders').select(`
+                fetchAllRidersPaginated(`
                     id,
                     trievId:triev_id,
                     riderName:rider_name,
@@ -78,7 +79,7 @@ const Dashboard: React.FC = () => {
                     inactivatedAt:inactivated_at,
                     updatedAt:updated_at,
                     createdAt:created_at
-                `).limit(5000),
+                `),
                 supabase.from('leads').select(`
                     id,
                     leadId:lead_id,

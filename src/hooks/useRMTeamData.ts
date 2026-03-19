@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead } from '@/types';
 
 export interface RMTeamData {
@@ -65,17 +66,14 @@ export function useRMTeamData(): RMTeamData {
                 }
 
                 // 2. Fetch Riders under these TLs
-                const { data: riderData, error: riderError } = await supabase
-                    .from('riders')
-                    .select(`
+                const { data: riderData, error: riderError } = await fetchAllRidersPaginated(`
                         id, trievId:triev_id, riderName:rider_name, mobileNumber:mobile_number,
                         teamLeaderId:team_leader_id, teamLeaderName:team_leader_name,
                         clientName:client_name, status, walletAmount:wallet_amount,
                         chassisNumber:chassis_number, vehicleType:vehicle_type,
                         createdAt:created_at, updatedAt:updated_at,
                         inactivatedAt:inactivated_at, lastStatusChangeAt:last_status_change_at
-                    `)
-                    .in('team_leader_id', tlIds);
+                    `, { column: 'team_leader_id', value: tlIds, type: 'in' });
 
                 if (riderError) throw riderError;
                 setRiders((riderData as unknown as Rider[]) || []);

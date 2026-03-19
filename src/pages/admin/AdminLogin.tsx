@@ -209,7 +209,7 @@ const AdminLogin: React.FC = () => {
                                             onChange={(e) => setLoginInput(e.target.value)}
                                             onFocus={() => setFocusedField('id')}
                                             onBlur={() => setFocusedField(null)}
-                                            className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-black/30 border border-white/[0.06] rounded-xl sm:rounded-2xl text-white placeholder-white/15 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 focus:bg-black/40 transition-all duration-300 font-mono text-sm"
+                                            className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-slate-900/60 border border-white/10 rounded-xl sm:rounded-2xl text-white placeholder-white/40 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:bg-slate-900/80 transition-all duration-300 font-mono text-sm sm:text-base shadow-inner"
                                             placeholder="Enter Credentials"
                                             required
                                             autoComplete="username"
@@ -237,7 +237,7 @@ const AdminLogin: React.FC = () => {
                                             onChange={(e) => setPassword(e.target.value)}
                                             onFocus={() => setFocusedField('pass')}
                                             onBlur={() => setFocusedField(null)}
-                                            className="w-full pl-12 pr-14 py-3.5 sm:py-4 bg-black/30 border border-white/[0.06] rounded-xl sm:rounded-2xl text-white placeholder-white/15 focus:outline-none focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10 focus:bg-black/40 transition-all duration-300 font-mono tracking-widest text-lg"
+                                            className="w-full pl-12 pr-14 py-3.5 sm:py-4 bg-slate-900/60 border border-white/10 rounded-xl sm:rounded-2xl text-white placeholder-white/40 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 focus:bg-slate-900/80 transition-all duration-300 font-mono tracking-widest text-lg shadow-inner"
                                             placeholder="••••••••"
                                             required
                                             autoComplete="current-password"
@@ -246,11 +246,11 @@ const AdminLogin: React.FC = () => {
                                         <motion.button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.06] hover:bg-red-500/20 text-white/40 hover:text-red-300 transition-all duration-200 border border-white/[0.06] hover:border-red-500/30"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-red-500/30 text-white/80 hover:text-white transition-all duration-200 border border-white/10 hover:border-red-500/40 shadow-sm"
                                             whileTap={{ scale: 0.88 }}
                                             title={showPassword ? 'Hide password' : 'Show password'}
                                         >
-                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                         </motion.button>
                                         <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
                                     </div>

@@ -23,6 +23,7 @@ import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import { toast } from 'sonner';
 import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted';
 
@@ -211,7 +212,7 @@ const RiderManagement: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const { data: ridersData, error: ridersError } = await supabase.from('riders').select(`
+            const { data: ridersData, error: ridersError } = await fetchAllRidersPaginated(`
                 id,
                 trievId:triev_id,
                 riderName:rider_name,

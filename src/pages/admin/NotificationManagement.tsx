@@ -11,6 +11,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { NotificationType, NotificationPriority } from '@/types';
 import { AIService } from '@/services/AIService';
 import { NotificationService } from '@/services/NotificationService';
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import GlassCard from '@/components/GlassCard';
 import { toast } from 'sonner';
 import { logActivity } from '@/utils/activityLog';
@@ -235,7 +236,7 @@ const NotificationManagement: React.FC = () => {
                     data?.forEach((d: any) => targets.push(d.id));
                 }
                 if (targetRole === 'all') {
-                    const { data } = await supabase.from('riders').select('id').eq('status', 'active');
+                    const { data } = await fetchAllRidersPaginated('id', { column: 'status', value: 'active' });
                     data?.forEach((d: any) => targets.push(d.id));
                 }
                 if (currentUser.id && !targets.includes(currentUser.id)) targets.push(currentUser.id);

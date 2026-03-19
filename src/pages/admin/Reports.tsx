@@ -36,7 +36,7 @@ import {
     ActivityLogEntry,
 } from '@/utils/reportUtils';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/utils/exportUtils';
-
+import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 // --- Types ---
 interface ReportFilters {
     status: string;
@@ -92,7 +92,7 @@ const Reports: React.FC = () => {
         setLoading(true);
         try {
             const [ridersRes, usersRes, requestsRes, leadsRes, dailyCollectionsRes] = await Promise.all([
-                supabase.from('riders').select(`
+                fetchAllRidersPaginated(`
                     id, 
                     trievId:triev_id, 
                     riderName:rider_name, 

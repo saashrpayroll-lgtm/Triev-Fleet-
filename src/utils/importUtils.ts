@@ -2,6 +2,7 @@ import { supabase } from '@/config/supabase';
 import { ImportSummary, ClientName } from '@/types';
 import { logActivity } from './activityLog';
 import { LedgerAPI } from '@/api/ledger';
+import { fetchAllRidersPaginated } from './dbUtils';
 import { parseIndianDate } from './dateUtils';
 
 // Constants for Rider Import
@@ -87,25 +88,7 @@ const chunkArray = <T>(arr: T[], size: number): T[][] => {
     return out;
 };
 
-// Start: Bulk Rider Import Logic
-async function fetchAllRidersWithSelect(selectQuery: string) {
-    const allData: any[] = [];
-    let from = 0;
-    const limit = 1000;
-    while (true) {
-        const { data, error } = await supabase
-            .from('riders')
-            .select(selectQuery)
-            .range(from, from + limit - 1);
-            
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        allData.push(...data);
-        if (data.length < limit) break;
-        from += limit;
-    }
-    return allData;
-}
+
 
 export const processRiderImport = async (
     fileData: any[],
@@ -151,7 +134,8 @@ export const processRiderImport = async (
     const riderTrievMap = new Map<string, any>();   // normalizeTrievId(triev_id) → rider
     const riderMobileMap = new Map<string, any>();  // normalizeMobile(mobile)    → rider
     try {
-        const allRiders = await fetchAllRidersWithSelect('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status, inactivated_at');
+        const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status, inactivated_at');
+        if (fetchErr) throw fetchErr;
         allRiders?.forEach(r => {
             const tid = normalizeTrievId(String(r.triev_id || ''));
             const mob = normalizeMobile(String(r.mobile_number || ''));
@@ -345,7 +329,8 @@ export const processRiderImport = async (
     // ── Strict Mirror (Optional) ─────────────────────────────────────────────
     if (strictMirror && summary.success > fileData.length * 0.1) {
         try {
-            const { data: activeRiders } = await supabase.from('riders').select('id').eq('status', 'active');
+            const { data: activeRiders, error: activeErr } = await fetchAllRidersPaginated('id', { column: 'status', value: 'active' });
+            if (activeErr) throw activeErr;
             if (activeRiders) {
                 const idsToDeactivate = activeRiders.filter(r => {
                     return !riderTrievMap.has(r.id) && !riderMobileMap.has(r.id);
@@ -381,7 +366,8 @@ export const processWalletUpdate = async (
 
     // 1. Pre-fetch ALL Riders for Map-based lookup (Massive performance gain)
     // Uses pagination helper to bypass 1000 row limits
-    const allRiders = await fetchAllRidersWithSelect('id, triev_id, mobile_number, rider_name, team_leader_id, wallet_amount, status');
+    const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, team_leader_id, wallet_amount, status');
+    if (fetchErr) throw fetchErr;
 
     const trievMap = new Map<string, any>();
     const mobileMap = new Map<string, any>();
@@ -507,9 +493,9 @@ export const processWalletUpdate = async (
     if (riderIdsToTouch.length > 0) {
         await supabase.from('riders').update({ updated_at: nowISO }).in('id', riderIdsToTouch);
     }
-    // DELETED: `ledgerExternalIdsToTouch` batch touch. 
-    // It manually overwrote the correct server NOW() with the client's nowISO, 
-    // artificially shifting created_at and triggering the DB sync_wallet_balance 
+    // DELETED: `ledgerExternalIdsToTouch` batch touch.
+    // It manually overwrote the correct server NOW() with the client's nowISO,
+    // artificially shifting created_at and triggering the DB sync_wallet_balance
     // to apply an older RESET balance, reverting the bulk wallet update.
 
     // --- BATCH NOTIFICATIONS SENDING ---
@@ -599,7 +585,8 @@ export const processRentCollectionImport = async (
         summary.total = fileData.length;
 
         // 1. Pre-fetch All Riders (Cache in memory)
-        const allRiders = await fetchAllRidersWithSelect('id, triev_id, mobile_number');
+        const { data: allRiders, error: ridersErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number');
+        if (ridersErr) throw ridersErr;
 
         const trievMap = new Map<string, string>();
         const mobileMap = new Map<string, string>();
