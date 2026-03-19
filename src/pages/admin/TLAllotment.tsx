@@ -64,7 +64,7 @@ const TLAllotment: React.FC = () => {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [filterRisk, setFilterRisk] = useState<'all' | 'high_risk' | 'low_risk'>('all');
     const [filterPerformers, setFilterPerformers] = useState<'all' | 'growing' | 'shrinking'>('all');
-    const [rmList, setRmList] = useState<{ id: string; name: string }[]>([]);
+    const [rmList, setRmList] = useState<string[]>([]);
     const [filterRM, setFilterRM] = useState<string>('all');
     const [sortConfig, setSortConfig] = useState<{ key: keyof TLMetric | 'net_growth'; direction: 'asc' | 'desc' }>({
         key: 'active_rider_count',
@@ -101,14 +101,13 @@ const TLAllotment: React.FC = () => {
             const endOfDayIST = new Date(Date.UTC(yr, mo - 1, dy, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             // Fetch all data in parallel
-            const [tlsRes, ridersRes, dailyColRes, todayLedgerRes, rmsRes] = await Promise.all([
+            const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
                 // Step 1: Active TLs (include reporting_manager for RM filtering)
                 supabase
                     .from('users')
                     .select('id, full_name, email, reporting_manager')
                     .eq('role', 'teamLeader')
                     .eq('status', 'active'),
-
 
                 // Step 2: All riders (including deleted) to ensure historical allotments/submissions are included
                 fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at'),
@@ -120,9 +119,6 @@ const TLAllotment: React.FC = () => {
                 ]),
 
                 // Step 4: ✅ Today's live override via wallet_ledger with !inner JOIN
-                // ✅ FIX: Use transaction_date = todayStr (IST DATE column) instead of
-                // created_at >= midnight. This correctly captures AM-timestamped imports
-                // (e.g., 3:55 AM) regardless of when they were physically imported into the system.
                 fetchTablePaginated('wallet_ledger', 'amount, rider:riders!inner(team_leader_id)', [
                     { column: 'mode', operator: 'eq', value: 'ADD' },
                     { column: 'transaction_type', operator: 'in', value: [
@@ -133,13 +129,6 @@ const TLAllotment: React.FC = () => {
                     ]},
                     { operator: 'or', value: `and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})` }
                 ]),
-
-                // Step 5: Fetch all RM users for filter dropdown
-                supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('role', 'reportingManager')
-                    .eq('status', 'active'),
             ]);
 
             if (tlsRes.error) throw tlsRes.error;
@@ -149,9 +138,11 @@ const TLAllotment: React.FC = () => {
             const tls = tlsRes.data || [];
             const riders = ridersRes.data || [];
 
-            // Build RM list for dropdown
-            const rms = (rmsRes.data || []).map((rm: any) => ({ id: rm.id, name: rm.full_name || '' }));
-            setRmList(rms);
+            // Build unique RM names list for dropdown from TLs' reporting_manager field
+            const uniqueRMs = [...new Set(
+                tls.map((tl: any) => (tl.reporting_manager || '').trim()).filter((rm: string) => rm.length > 0)
+            )].sort();
+            setRmList(uniqueRMs as string[]);
 
             if (tls.length === 0) { setData([]); return; }
 
@@ -307,8 +298,7 @@ const TLAllotment: React.FC = () => {
         );
         // RM Filter
         if (filterRM !== 'all') {
-            const rmName = rmList.find(r => r.id === filterRM)?.name || '';
-            result = result.filter(i => i.reporting_manager.toLowerCase().includes(rmName.toLowerCase()));
+            result = result.filter(i => i.reporting_manager.toLowerCase() === filterRM.toLowerCase());
         }
         if (filterRisk === 'high_risk') result = result.filter(i => Math.abs(i.negative_wallet_total) > i.positive_wallet_total);
         else if (filterRisk === 'low_risk') result = result.filter(i => Math.abs(i.negative_wallet_total) <= i.positive_wallet_total);
@@ -536,7 +526,7 @@ const TLAllotment: React.FC = () => {
                             >
                                 <option value="all">All RMs</option>
                                 {rmList.map(rm => (
-                                    <option key={rm.id} value={rm.id}>{rm.name}</option>
+                                    <option key={rm} value={rm}>{rm}</option>
                                 ))}
                             </select>
                         )}

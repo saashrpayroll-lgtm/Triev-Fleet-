@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/config/supabase';
 import { X, UserCheck, Wand, Eye, EyeOff, Lock, User, Briefcase, Plus, Bot, Hash, RefreshCcw } from 'lucide-react';
 import { User as UserType, UserRole } from '@/types';
 import { validateEmail, validatePasswordStrength } from '@/utils/validationUtils';
@@ -52,22 +51,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isGeneratingRemark, setIsGeneratingRemark] = useState(false);
     const [idLoading, setIdLoading] = useState(false);
-    const [rmOptions, setRmOptions] = useState<{ id: string; name: string }[]>([]);
-
-    // Fetch available RM users for dropdown
-    useEffect(() => {
-        const fetchRMs = async () => {
-            const { data } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('role', 'reportingManager')
-                .eq('status', 'active');
-            if (data) {
-                setRmOptions(data.map((rm: any) => ({ id: rm.id, name: rm.full_name || '' })));
-            }
-        };
-        if (isOpen) fetchRMs();
-    }, [isOpen]);
 
     // Initialize & Reset
     useEffect(() => {
@@ -320,19 +303,12 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                             </div>
                             <div>
                                 <label className={labelClasses}>Reporting Manager</label>
-                                <select
+                                <input
                                     value={formData.reportingManager}
                                     onChange={e => setFormData({ ...formData, reportingManager: e.target.value })}
                                     className={inputClasses}
-                                >
-                                    <option value="">-- Select RM --</option>
-                                    {rmOptions.map(rm => (
-                                        <option key={rm.id} value={rm.name}>{rm.name}</option>
-                                    ))}
-                                </select>
-                                {formData.reportingManager && !rmOptions.find(r => r.name === formData.reportingManager) && (
-                                    <p className="text-amber-500 text-xs mt-1">⚠ Current value "{formData.reportingManager}" doesn't match any active RM. Please re-select.</p>
-                                )}
+                                    placeholder="Manager Name"
+                                />
                             </div>
                         </div>
                     </div>
