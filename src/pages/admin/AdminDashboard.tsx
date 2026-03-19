@@ -4,7 +4,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 
@@ -101,11 +101,10 @@ const Dashboard: React.FC = () => {
                     role,
                     profilePicUrl:profile_pic_url
                 `).eq('role', 'teamLeader'),
-                supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count')
-                    .gte('date', new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)))
-                    .order('date', { ascending: false })
-                    .limit(50000),
-                supabase.from('wallet_ledger').select(`
+                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date, active_riders_count', [
+                    { column: 'date', operator: 'gte', value: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)) }
+                ]),
+                fetchTablePaginated('wallet_ledger', `
                     amount,
                     transaction_type,
                     transaction_date,
@@ -113,24 +112,22 @@ const Dashboard: React.FC = () => {
                     rider:riders!inner (
                         team_leader_id
                     )
-                `)
-                    .eq('mode', 'ADD')
-                    .in('transaction_type', [
+                `, [
+                    { column: 'mode', operator: 'eq', value: 'ADD' },
+                    { column: 'transaction_type', operator: 'in', value: [
                         'DAILY_COLLECTION', 'DAILY COLLECTION',
                         'RENT_COLLECTION', 'RENT COLLECTION',
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
-                    ])
-                    // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
-                    // - transaction_date = todayIST covers AM/PM imports correctly
-                    // - fallback: transaction_date IS NULL AND created_at >= midnight IST
-                    .or((() => {
+                    ]},
+                    { operator: 'or', value: (() => {
                         const now = new Date();
                         const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                         const [y, m, d] = todayIST.split('-').map(Number);
                         const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-                        return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
-                    })())
+                        return `and(transaction_date.gte.${midnight},transaction_date.lte.${new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString()}),and(transaction_date.is.null,created_at.gte.${midnight})`;
+                    })() }
+                ])
             ]);
 
             // Note: Removed wallet_transactions fetch to avoid double counting. 

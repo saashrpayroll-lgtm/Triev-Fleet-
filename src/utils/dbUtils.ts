@@ -48,3 +48,56 @@ export async function fetchAllRidersPaginated(
         return { data: null, error: err };
     }
 }
+
+/**
+ * Fetches all matching rows from any table, automatically paginating
+ * beyond Supabase's default 1000-row limit per request.
+ */
+export async function fetchTablePaginated(
+    tableName: string,
+    selectQuery: string = '*',
+    filters?: { column?: string; value: any; operator?: 'eq' | 'in' | 'gte' | 'lte' | 'neq' | 'or' }[]
+): Promise<{ data: any[] | null; error: any }> {
+    const allData: any[] = [];
+    let from = 0;
+    const limit = 1000;
+
+    try {
+        while (true) {
+            let query = supabase
+                .from(tableName as any)
+                .select(selectQuery)
+                .range(from, from + limit - 1);
+
+            if (filters) {
+                for (const filter of filters) {
+                    const op = filter.operator || 'eq';
+                    if (op === 'or') {
+                        query = query.or(filter.value);
+                    } else if (filter.column) {
+                        if (op === 'eq') query = query.eq(filter.column, filter.value);
+                        if (op === 'neq') query = query.neq(filter.column, filter.value);
+                        if (op === 'gte') query = query.gte(filter.column, filter.value);
+                        if (op === 'lte') query = query.lte(filter.column, filter.value);
+                        if (op === 'in' && Array.isArray(filter.value)) query = query.in(filter.column, filter.value);
+                    }
+                }
+            }
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+
+            allData.push(...data);
+
+            if (data.length < limit) break;
+            from += limit;
+        }
+
+        return { data: allData, error: null };
+    } catch (err: any) {
+        console.error(`fetchTablePaginated (${tableName}) error:`, err);
+        return { data: null, error: err };
+    }
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     Activity, Users, Wallet, Target,
@@ -78,50 +79,43 @@ const TLPersonalPerformance: React.FC = () => {
         try {
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
-            const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
+            const [ridersResRaw, leadsResRaw, dailyResRaw, todayLedgerResRaw] = await Promise.all([
                 // All TL's riders (including deleted for historical accuracy in Fleet Flow)
-                supabase
-                    .from('riders')
-                    .select('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at')
-                    .eq('team_leader_id', userData.id)
-                    .limit(10000),
+                fetchAllRidersPaginated('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at', { column: 'team_leader_id', value: userData.id }),
 
                 // Leads for this TL
-                supabase
-                    .from('leads')
-                    .select('status, created_at')
-                    .eq('created_by', userData.id)
-                    .limit(5000),
+                fetchTablePaginated('leads', 'status, created_at', [{ column: 'created_by', value: userData.id }]),
 
                 // ✅ PROVEN: daily_collections has correct TL RLS policies
-                supabase
-                    .from('daily_collections')
-                    .select('date, total_collection, active_riders_count')
-                    .eq('team_leader_id', userData.id)
-                    .order('date', { ascending: false })
-                    .limit(1000),
+                fetchTablePaginated('daily_collections', 'date, total_collection, active_riders_count', [{ column: 'team_leader_id', value: userData.id }]),
 
                 // ✅ PROVEN: wallet_ledger today-only live override (same as CollectionHistory.tsx)
-                supabase
-                    .from('wallet_ledger')
-                    .select('amount, rider:riders!inner(team_leader_id)')
-                    .eq('mode', 'ADD')
-                    .in('transaction_type', [
+                fetchTablePaginated('wallet_ledger', 'amount, rider:riders!inner(team_leader_id)', [
+                    { column: 'mode', value: 'ADD' },
+                    { column: 'transaction_type', operator: 'in', value: [
                         'DAILY_COLLECTION', 'DAILY COLLECTION',
                         'RENT_COLLECTION', 'RENT COLLECTION',
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
-                    ])
-                    .eq('rider.team_leader_id', userData.id)
+                    ]},
+                    { column: 'rider.team_leader_id', value: userData.id },
                     // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
-                    .or((() => {
+                    { operator: 'or', value: (() => {
                         const now = new Date();
                         const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                         const [y, m, d] = todayIST.split('-').map(Number);
                         const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-                        return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
-                    })()),
+                        const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
+                        return `and(transaction_date.gte.${midnight},transaction_date.lte.${endOfDay}),and(transaction_date.is.null,created_at.gte.${midnight})`;
+                    })() }
+                ]),
             ]);
+            
+            // Map Raw Data to matches standard format expected below
+            const ridersRes = { data: ridersResRaw.data, error: ridersResRaw.error };
+            const leadsRes = { data: leadsResRaw.data, error: leadsResRaw.error };
+            const dailyRes = { data: dailyResRaw.data?.sort((a,b) => b.date.localeCompare(a.date)), error: dailyResRaw.error };
+            const todayLedgerRes = { data: todayLedgerResRaw.data, error: todayLedgerResRaw.error };
 
             if (ridersRes.error) throw ridersRes.error;
             if (dailyRes.error) throw dailyRes.error;

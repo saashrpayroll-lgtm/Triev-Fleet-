@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import {
     Download,
     Search,
@@ -106,35 +107,28 @@ const TLAllotment: React.FC = () => {
                     .eq('status', 'active'),
 
                 // Step 2: All riders (including deleted) to ensure historical allotments/submissions are included
-                supabase
-                    .from('riders')
-                    .select('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at')
-                    .limit(50000),
+                fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at'),
 
                 // Step 3: ✅ daily_collections — proven source of truth for rent/collections per TL
-                supabase
-                    .from('daily_collections')
-                    .select('team_leader_id, total_collection, date, active_riders_count')
-                    .gte('date', pStart)
-                    .lte('date', pEnd)
-                    .limit(50000),
+                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date, active_riders_count', [
+                    { column: 'date', operator: 'gte', value: pStart },
+                    { column: 'date', operator: 'lte', value: pEnd }
+                ]),
 
                 // Step 4: ✅ Today's live override via wallet_ledger with !inner JOIN
                 // ✅ FIX: Use transaction_date = todayStr (IST DATE column) instead of
                 // created_at >= midnight. This correctly captures AM-timestamped imports
                 // (e.g., 3:55 AM) regardless of when they were physically imported into the system.
-                supabase
-                    .from('wallet_ledger')
-                    .select('amount, rider:riders!inner(team_leader_id)')
-                    .eq('mode', 'ADD')
-                    .in('transaction_type', [
+                fetchTablePaginated('wallet_ledger', 'amount, rider:riders!inner(team_leader_id)', [
+                    { column: 'mode', operator: 'eq', value: 'ADD' },
+                    { column: 'transaction_type', operator: 'in', value: [
                         'DAILY_COLLECTION', 'DAILY COLLECTION',
                         'RENT_COLLECTION', 'RENT COLLECTION',
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
-                    ])
-                    // ✅ ROBUST: catch rows within IST today boundaries (imports) OR NULL dates created today (legacy manual)
-                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`),
+                    ]},
+                    { operator: 'or', value: `and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})` }
+                ]),
             ]);
 
             if (tlsRes.error) throw tlsRes.error;

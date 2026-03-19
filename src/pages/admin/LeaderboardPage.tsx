@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Leaderboard from '@/components/Leaderboard';
 import { calculateAIScore } from '@/utils/performance';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 
 interface ScoredTL extends User {
     score: number;
@@ -79,9 +80,7 @@ const LeaderboardPage: React.FC = () => {
         try {
             const [usersRes, ridersRes, leadsRes] = await Promise.all([
                 supabase.from('users').select('id, full_name, mobile, email, status, role, profile_pic_url, target_amount').eq('role', 'teamLeader'),
-                supabase.from('riders')
-                    .select('id, triev_id, rider_name, status, wallet_amount, team_leader_id, allotment_date, inactivated_at')
-                    .limit(50000),
+                fetchAllRidersPaginated('id, triev_id, rider_name, status, wallet_amount, team_leader_id, allotment_date, inactivated_at'),
                 supabase.from('leads').select('id, status, created_by, created_at'),
             ]);
 
@@ -108,12 +107,15 @@ const LeaderboardPage: React.FC = () => {
             }
 
             // Collections — daily_collections.date is authoritative for all periods
-            let colQuery = supabase.from('daily_collections')
-                .select('team_leader_id, total_collection, date, active_riders_count')
-                .order('date', { ascending: true }); // Ascending allows later dates to overwrite, giving us the LATEST snapshot
-
-            if (period) { colQuery = colQuery.gte('date', period.start).lte('date', period.end); }
-            const { data: dailyRes } = await colQuery;
+            const filters: any[] = [];
+            if (period) {
+                filters.push({ column: 'date', operator: 'gte', value: period.start });
+                filters.push({ column: 'date', operator: 'lte', value: period.end });
+            }
+            const dailyResRaw = await fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date, active_riders_count', filters.length ? filters : undefined);
+            
+            // Sort ascending allows later dates to overwrite, giving us the LATEST snapshot
+            const dailyRes = (dailyResRaw.data || []).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
             const colMap: Record<string, number> = {};
             const activeFleetMap: Record<string, number> = {};
@@ -141,17 +143,18 @@ const LeaderboardPage: React.FC = () => {
             const midnightISTStr = new Date(Date.UTC(yr3, mo3 - 1, dy3, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             const endOfDayISTStr = new Date(Date.UTC(yr3, mo3 - 1, dy3, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
-            const { data: ledgerRes } = await supabase
-                .from('wallet_ledger')
-                .select('amount, transaction_type, transaction_date, created_at, rider:riders!inner(team_leader_id)')
-                .eq('mode', 'ADD')
-                .in('transaction_type', [
+            const ledgerResRaw = await fetchTablePaginated('wallet_ledger', 'amount, transaction_type, transaction_date, created_at, rider:riders!inner(team_leader_id)', [
+                { column: 'mode', operator: 'eq', value: 'ADD' },
+                { column: 'transaction_type', operator: 'in', value: [
                     'DAILY_COLLECTION', 'DAILY COLLECTION',
                     'RENT_COLLECTION', 'RENT COLLECTION',
                     'FTD_COLLECTION', 'FTD COLLECTION',
                     'COLLECTION', 'RENT'
-                ])
-                .or(`and(transaction_date.gte.${midnightISTStr},transaction_date.lte.${endOfDayISTStr}),and(transaction_date.is.null,created_at.gte.${midnightISTStr})`);
+                ] },
+                { operator: 'or', value: `and(transaction_date.gte.${midnightISTStr},transaction_date.lte.${endOfDayISTStr}),and(transaction_date.is.null,created_at.gte.${midnightISTStr})` }
+            ]);
+            
+            const ledgerRes = ledgerResRaw.data;
 
             if (ledgerRes && (!period || period.end >= istDateStr)) {
                 (ledgerRes as any[]).forEach(txn => {
