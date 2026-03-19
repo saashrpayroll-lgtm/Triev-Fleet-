@@ -229,16 +229,12 @@ export const processRiderImport = async (
 
             if (existingRider) {
                 // ── PASS 1: Calculate New Status and Potential Date Reset ──
-                
-                const updatePayload: any = {};
-                
-                // NEW BEHAVIOR (Requested): Auto-reactivate inactive/deleted riders found in the import sheet.
-                if (existingRider.status !== 'active') {
-                    updatePayload.status = 'active';
-                    updatePayload.inactivated_at = null;
-                }
+                // NEW BEHAVIOR: DO NOT AUTO-REACTIVATE OR CHANGE ALLOTMENT DATE!
+                // We keep them inactive/deleted here. The Audit & Sync check will handle reactivation.
+                // Inactive riders strictly preserve their existing allotment_date until manually Reactivated.
 
                 // ── Check what changed ───────────────────────────────────────
+                const updatePayload: any = {};
                 const addIfDiff = (dbProp: string, newVal: any, dbVal: any = existingRider[dbProp]) => {
                     const cleanNew = String(newVal || '').trim();
                     const cleanDb = String(dbVal || '').trim();
