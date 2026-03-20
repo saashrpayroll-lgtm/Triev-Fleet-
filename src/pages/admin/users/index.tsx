@@ -13,7 +13,7 @@ import { exportToExcel } from '@/utils/exportUtils';
 import { useToast } from '@/contexts/ToastContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { DEFAULT_RESET_PASSWORD } from '@/utils/passwordUtils';
+
 
 // Stats Card Component
 const StatCard = ({ title, value, icon: Icon, color, bg }: { title: string, value: number, icon: any, color: string, bg: string }) => (
@@ -216,18 +216,7 @@ const UserManagementPage: React.FC = () => {
         }
 
         try {
-            // Update user password to default
-            const { error: authError } = await supabase.auth.admin.updateUserById(user.id, {
-                password: DEFAULT_RESET_PASSWORD
-            });
-
-            if (authError) {
-                console.error('Error resetting password:', authError);
-                toast.error('Failed to reset password');
-                return;
-            }
-
-            // Update user record to force password change
+            // Set force_password_change flag — user will be prompted to change password on next login
             const { error: updateError } = await supabase
                 .from('users')
                 .update({
@@ -238,10 +227,12 @@ const UserManagementPage: React.FC = () => {
 
             if (updateError) {
                 console.error('Error updating user record:', updateError);
+                toast.error('Failed to reset password: ' + updateError.message);
+                return;
             }
 
             // Mark all pending reset requests for this user as approved
-            const { error: requestError } = await supabase
+            await supabase
                 .from('password_reset_requests')
                 .update({
                     status: 'approved',
@@ -251,21 +242,20 @@ const UserManagementPage: React.FC = () => {
                 .eq('user_id', user.id)
                 .eq('status', 'pending');
 
-            if (requestError) {
-                console.error('Error updating reset request:', requestError);
-            }
-
             // Log activity
             await supabase.from('activity_logs').insert({
                 user_id: userData?.id,
+                user_name: userData?.fullName,
+                user_role: userData?.role,
                 action_type: 'password_reset',
                 target_type: 'user',
                 target_id: user.id,
-                details: `Admin reset password for ${user.fullName} to default`,
+                details: `Admin flagged ${user.fullName} for forced password change on next login`,
                 timestamp: new Date().toISOString()
             });
 
-            toast.success(`Password reset to "${DEFAULT_RESET_PASSWORD}". ${user.fullName} will be forced to change on next login.`);
+            toast.success(`${user.fullName} will be forced to change password on next login.`);
+            await refreshUsers();
         } catch (err) {
             console.error('Error:', err);
             toast.error('Failed to reset password');

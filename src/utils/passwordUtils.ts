@@ -28,15 +28,11 @@ export const validatePassword = (password: string): PasswordValidation => {
     const errors: string[] = [];
 
     if (!password || password.length < 6) {
-        errors.push('Password must be at least 6 characters long');
+        errors.push('Password must be at least 6 digits long');
     }
 
-    if (!/\d/.test(password)) {
-        errors.push('Password must contain at least one number');
-    }
-
-    if (!/[a-zA-Z]/.test(password)) {
-        errors.push('Password must contain at least one letter');
+    if (password && !/^\d+$/.test(password)) {
+        errors.push('Password must contain only numbers (digits)');
     }
 
     return {
