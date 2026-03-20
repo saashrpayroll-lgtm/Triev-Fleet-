@@ -16,14 +16,18 @@ export function usePresence(userId: string | undefined, email: string | undefine
         // 1. Function to update database with current state
         const updatePresenceDB = async (newStatus: PresenceStatus) => {
             try {
-                await supabase.rpc('upsert_user_presence', {
+                const { error } = await supabase.rpc('upsert_user_presence', {
                     p_user_id: userId,
                     p_email: email,
                     p_role: role,
                     p_status: newStatus
                 });
-            } catch (err) {
-                console.error("Failed to update presence DB:", err);
+                // Silently ignore if function doesn't exist (404) — non-critical feature
+                if (error && error.code !== '42883' && !error.message?.includes('not found')) {
+                    console.warn("Presence update issue:", error.message);
+                }
+            } catch {
+                // Non-critical — don't block app startup
             }
         };
 

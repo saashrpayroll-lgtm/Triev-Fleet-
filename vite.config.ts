@@ -70,8 +70,12 @@ export default defineConfig({
           'framer': ['framer-motion'],
           // Icons
           'icons': ['lucide-react'],
-          // Data utilities
-          'data-utils': ['date-fns', 'papaparse', 'xlsx', 'zod'],
+          // XLSX — heavy (280KB), only used on export/import pages
+          'xlsx-lib': ['xlsx'],
+          // CSV parser — only used in DataImport + exportUtils
+          'csv-lib': ['papaparse'],
+          // Light data utilities — used widely, tree-shakes well
+          'data-utils': ['date-fns', 'zod'],
         }
       }
     }
