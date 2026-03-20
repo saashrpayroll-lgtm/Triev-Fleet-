@@ -545,6 +545,18 @@ const Dashboard: React.FC = () => {
                 totalCollection: metrics.collection,
                 dailyCollection: dailyCollections[tl.id] || 0,
                 weeklyCollection: weeklyCollections[tl.id] || 0,
+                monthlyCollection: (() => {
+                    const now = new Date();
+                    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const nowISTStr = formatter.format(now);
+                    const [y, m] = nowISTStr.split('-').map(Number);
+                    const monthStartStr = new Date(Date.UTC(y, m - 1, 1)).toISOString().split('T')[0];
+                    const monthEndStr = new Date(Date.UTC(y, m, 0)).toISOString().split('T')[0];
+                    const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                    return tlDailyData
+                        .filter((d: any) => d.team_leader_id === tl.id && d.date >= monthStartStr && d.date <= monthEndStr)
+                        .reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                })(),
                 avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
                 perDayAverageCollection: perDayAverageCollection || 0,
                 activeDays, // Added activeDays here
@@ -560,7 +572,9 @@ const Dashboard: React.FC = () => {
                 allotments: metrics.allotments,
                 submissions: metrics.submissions,
                 netGrowth: metrics.netGrowth,
-                reportingManager: tl.reportingManager || ''
+                reportingManager: tl.reportingManager || '',
+                score: metrics.score,
+                aiGrade: metrics.aiGrade
             };
         });
     }, [rawData, tlCollections, dailyCollections, weeklyCollections, period]);

@@ -662,58 +662,110 @@ const TLPerformance: React.FC = () => {
         setIsExportOpen(false);
     };
 
+    // Aggregate stats for header
+    const topPerformer = useMemo(() => performanceData.length > 0 ? performanceData.reduce((best, tl) => tl.score > best.score ? tl : best, performanceData[0]) : null, [performanceData]);
+    const avgAIScore = useMemo(() => performanceData.length > 0 ? Math.round(performanceData.reduce((s, t) => s + t.score, 0) / performanceData.length) : 0, [performanceData]);
+    const avgGrade = avgAIScore >= 90 ? 'S' : avgAIScore >= 70 ? 'A' : avgAIScore >= 50 ? 'B' : avgAIScore >= 30 ? 'C' : 'F';
+    const activeTLCount = useMemo(() => performanceData.filter(t => t.status === 'active').length, [performanceData]);
+    const totalMonthlyCollection = useMemo(() => performanceData.reduce((s, t) => s + t.monthlyCollection, 0), [performanceData]);
+
     return (
-        <div className="p-6 space-y-6 bg-background min-h-screen pb-20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Team Leader Performance Center</h1>
-                    <p className="text-muted-foreground">Real-time analytical depth and operational insights for all Team Leaders.</p>
-                </div>
-                <div className="flex items-center gap-3 relative">
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsExportOpen(!isExportOpen)}
-                            className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors shadow-sm"
-                        >
-                            <Download className="h-4 w-4" />
-                            Export Reports
-                        </button>
-                        {isExportOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1 animate-in slide-in-from-top-2">
-                                <button onClick={exportToExcel} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel Spreadsheet (.xlsx)
-                                </button>
-                                <button onClick={exportToPDF} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-rose-500" /> Portable Document (.pdf)
-                                </button>
-                                <button onClick={exportToCSV} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2 border-t pt-2">
-                                    <div className="w-2 h-2 rounded-full bg-slate-400" /> Legacy CSV (.csv)
-                                </button>
+        <div className="space-y-6 bg-background min-h-screen pb-20">
+            {/* ── PREMIUM DARK HEADER ── */}
+            <div className="relative bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white p-6 md:p-8 overflow-hidden">
+                {/* Decorative blobs */}
+                <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-purple-500/10 rounded-full blur-[60px] translate-y-1/3 pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-indigo-500/20 rounded-xl border border-indigo-400/20">
+                                <TrendingUp className="h-6 w-6 text-indigo-400" />
                             </div>
-                        )}
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-black tracking-tight">Team Leader Performance Center</h1>
+                                <p className="text-sm text-white/50 font-medium">Real-time analytical depth and operational insights</p>
+                            </div>
+                        </div>
+
+                        {/* Inline Stats Row */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-wider border border-white/10">
+                                {performanceData.length} Team Leaders
+                            </span>
+                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-400/20">
+                                {activeTLCount} Active
+                            </span>
+                            {topPerformer && (
+                                <span className="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-[10px] font-black uppercase tracking-wider border border-amber-400/20">
+                                    🏆 {topPerformer.name.split(' ')[0]} ({topPerformer.aiGrade})
+                                </span>
+                            )}
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${avgAIScore >= 50 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/20' : 'bg-rose-500/20 text-rose-300 border-rose-400/20'}`}>
+                                Avg Score: {avgAIScore} ({avgGrade})
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-full text-xs font-bold">
-                        <Activity className="h-3 w-3 animate-pulse" />
-                        Live Neural Sync
+
+                    <div className="flex items-center gap-3 relative flex-shrink-0">
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsExportOpen(!isExportOpen)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm font-medium transition-colors"
+                            >
+                                <Download className="h-4 w-4" />
+                                Export
+                            </button>
+                            {isExportOpen && (
+                                <div className="absolute right-0 mt-2 w-52 bg-card text-foreground border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1 animate-in slide-in-from-top-2">
+                                    <button onClick={exportToExcel} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel Spreadsheet (.xlsx)
+                                    </button>
+                                    <button onClick={exportToPDF} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-rose-500" /> PDF Document (.pdf)
+                                    </button>
+                                    <button onClick={exportToCSV} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2 border-t pt-2">
+                                        <div className="w-2 h-2 rounded-full bg-slate-400" /> CSV Export (.csv)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/20 text-emerald-300 border border-emerald-400/20 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                            <Activity className="h-3 w-3 animate-pulse" />
+                            Live Sync
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="px-6 space-y-6">
+            {/* ── 6 SUMMARY CARDS ── */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                    { label: `Total ${dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`, value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`, desc: 'All active Team Leaders', icon: TrendingUp, color: 'text-emerald-500', bg: 'from-emerald-500/10' },
-                    { label: 'Total Leads Today', value: `+${performanceData.reduce((a, b) => a + b.leadsToday, 0)}`, desc: 'New opportunities in 24h', icon: ArrowUpRight, color: 'text-indigo-500', bg: 'from-indigo-500/10' },
-                    { label: 'Total Active Riders', value: performanceData.reduce((a, b) => a + b.activeRiders, 0), desc: 'Currently on-road', icon: Users, color: 'text-amber-500', bg: 'from-amber-500/10' },
-                    { label: 'Total Market Risk', value: `₹${Math.abs(performanceData.reduce((a, b) => a + b.wallet.negativeAmount, 0)).toLocaleString()}`, desc: 'Total negative balance', icon: Wallet, color: 'text-rose-500', bg: 'from-rose-500/10' }
+                    { label: `${dateFilter === 'today' ? "Today's" : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`, value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5' },
+                    { label: 'Active Riders', value: performanceData.reduce((a, b) => a + b.activeRiders, 0).toLocaleString(), icon: Users, color: 'text-blue-500', border: 'border-blue-500/20', bg: 'bg-blue-500/5' },
+                    { label: 'Leads Today', value: `+${performanceData.reduce((a, b) => a + b.leadsToday, 0)}`, icon: ArrowUpRight, color: 'text-indigo-500', border: 'border-indigo-500/20', bg: 'bg-indigo-500/5' },
+                    { label: 'Market Risk', value: `₹${Math.abs(performanceData.reduce((a, b) => a + b.wallet.negativeAmount, 0)).toLocaleString()}`, icon: Wallet, color: 'text-rose-500', border: 'border-rose-500/20', bg: 'bg-rose-500/5' },
+                    { label: 'Avg AI Score', value: `${avgAIScore}`, icon: Activity, color: avgAIScore >= 50 ? 'text-emerald-500' : 'text-amber-500', border: avgAIScore >= 50 ? 'border-emerald-500/20' : 'border-amber-500/20', bg: avgAIScore >= 50 ? 'bg-emerald-500/5' : 'bg-amber-500/5', badge: avgGrade },
+                    { label: 'Monthly Total', value: `₹${totalMonthlyCollection.toLocaleString()}`, icon: Calendar, color: 'text-violet-500', border: 'border-violet-500/20', bg: 'bg-violet-500/5' },
                 ].map((card, i) => (
-                    <div key={i} className={`p-5 rounded-2xl border border-border/50 bg-gradient-to-br ${card.bg} to-transparent shadow-sm space-y-3`}>
+                    <div key={i} className={`p-4 rounded-2xl border ${card.border} ${card.bg} shadow-sm space-y-2`}>
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{card.label}</span>
-                            <card.icon className={`h-4 w-4 ${card.color}`} />
+                            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{card.label}</span>
+                            <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
                         </div>
-                        <div className="text-2xl font-black">{card.value}</div>
-                        <p className="text-[10px] text-muted-foreground font-medium">{card.desc}</p>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-xl font-black">{card.value}</span>
+                            {(card as any).badge && (
+                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                                    (card as any).badge === 'S' || (card as any).badge === 'A' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    : (card as any).badge === 'B' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : (card as any).badge === 'C' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                                }`}>{(card as any).badge}</span>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
@@ -1219,6 +1271,7 @@ const TLPerformance: React.FC = () => {
                     </table>
                 </div>
             </div>
+            </div>{/* end px-6 wrapper */}
         </div>
     );
 };
