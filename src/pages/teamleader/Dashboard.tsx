@@ -934,6 +934,7 @@ const Dashboard: React.FC = () => {
                                     historicalFleetCounts={computedPeriodData.historicalFleet}
                                     disableClick={true}
                                     period={resolvePerformancePeriod(dateFilter)}
+                                    currentUserId={userData.id}
                                 />
                             </ComponentErrorBoundary>
                         ) : (

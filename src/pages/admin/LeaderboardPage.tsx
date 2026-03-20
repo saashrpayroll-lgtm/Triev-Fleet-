@@ -391,14 +391,15 @@ const LeaderboardPage: React.FC = () => {
                 </div>
             </motion.div>
 
-            {/* Summary Stats Bar — 5 cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Summary Stats Bar — 6 cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
                     { label: 'Total Leaders', value: scoredList.length, icon: <Users size={18} className="text-blue-400" />, color: 'from-blue-500/10' },
                     { label: 'Total Riders', value: riders.length, icon: <Target size={18} className="text-emerald-400" />, color: 'from-emerald-500/10' },
                     { label: 'Total Leads', value: leads.length, icon: <Zap size={18} className="text-yellow-400" />, color: 'from-yellow-500/10' },
                     { label: 'Total Collections', value: `₹${(totalCollection / 1000).toFixed(1)}k`, icon: <Wallet size={18} className="text-purple-400" />, color: 'from-purple-500/10' },
                     { label: 'Avg / Rider', value: `₹${avgCollectionPerRider.toLocaleString()}`, icon: <TrendingUp size={18} className="text-rose-400" />, color: 'from-rose-500/10' },
+                    { label: 'Avg AI Score', value: scoredList.length > 0 ? `${Math.round(scoredList.reduce((s, t) => s + t.score, 0) / scoredList.length)}%` : '—', icon: <Star size={18} className="text-indigo-400" />, color: 'from-indigo-500/10' },
                 ].map(stat => (
                     <div key={stat.label} className={`bg-gradient-to-br ${stat.color} to-transparent border border-white/10 dark:border-white/5 rounded-2xl p-4 flex items-center gap-3 backdrop-blur-xl`}>
                         <div className="p-2 bg-white/10 rounded-xl">{stat.icon}</div>

@@ -3,7 +3,7 @@ import { User, Rider, Lead } from '../types';
 import {
     Trophy, Crown, Sparkles, Wallet,
     ArrowRight, TrendingUp, Target, TrendingDown, PlusCircle, Activity,
-    AlertTriangle, Clock, ChevronUp, ChevronDown, Minus, Star
+    AlertTriangle, Clock, ChevronUp, ChevronDown, Minus, Star, Flame, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -20,6 +20,7 @@ interface LeaderboardProps {
     disableClick?: boolean;
     period?: PerformancePeriod;
     historicalFleetCounts?: Record<string, number>;
+    currentUserId?: string;
 }
 
 // ── Rank-change helpers ────────────────────────────────────────────────────────
@@ -50,7 +51,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     action,
     disableClick = false,
     period,
-    historicalFleetCounts = {}
+    historicalFleetCounts = {},
+    currentUserId
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -193,6 +195,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                         const rank = mobileIdx + 1;
                         const cfg = rankConfig(rank);
                         const isFirst = rank === 1;
+                        const isYou = currentUserId === tl.id;
                         const desktopOrder = mobileIdx === 0 ? 'md:order-2' : mobileIdx === 1 ? 'md:order-1' : 'md:order-3';
                         const grade = gradeConfig[tl.aiGrade] || gradeConfig.C;
                         const rankChange = getRankChange(tl.id, rank);
@@ -210,8 +213,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                 className={`relative flex flex-col rounded-[2.5rem] border cursor-pointer
                                     w-full ${desktopOrder} ${cfg.zIndex} ${cfg.glow} ${cfg.border}
                                     md:w-[320px] ${cfg.height}
+                                    ${isYou ? 'ring-2 ring-yellow-400/60 ring-offset-2 ring-offset-slate-950' : ''}
                                     transition-all duration-500 backdrop-blur-3xl`}
                             >
+                                {/* "YOU" Badge for TL self-highlight */}
+                                {isYou && (
+                                    <motion.div
+                                        initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                        className="absolute -top-3 right-8 z-30 flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-yellow-400 to-amber-500 text-black rounded-full shadow-[0_0_20px_rgba(234,179,8,0.6)] border border-yellow-300"
+                                    >
+                                        <Flame size={10} className="fill-orange-600" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">YOU</span>
+                                    </motion.div>
+                                )}
+
                                 <motion.div
                                     animate={{ y: [0, -6, 0] }}
                                     transition={{ repeat: Infinity, duration: 3 + mobileIdx, ease: 'easeInOut' }}
@@ -220,6 +235,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                     <div className="absolute inset-0 rounded-[2.5rem] bg-slate-950/40" />
                                     <div className={`absolute inset-0 rounded-[2.5rem] ${cfg.cardBg}`} />
                                     <div className="absolute inset-x-0 top-0 h-28 rounded-t-[2.5rem] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+
+                                    {/* Sparkle particles for #1 */}
+                                    {isFirst && (
+                                        <>
+                                            <motion.div animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute top-8 right-20 w-1 h-1 bg-yellow-300 rounded-full z-10" />
+                                            <motion.div animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 2.5, delay: 0.5 }} className="absolute top-16 left-10 w-1.5 h-1.5 bg-yellow-200 rounded-full z-10" />
+                                            <motion.div animate={{ opacity: [0.2, 0.8, 0.2], scale: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 3, delay: 1 }} className="absolute bottom-20 right-8 w-1 h-1 bg-amber-300 rounded-full z-10" />
+                                        </>
+                                    )}
 
                                     {/* Crown / Trophy */}
                                     <motion.div
@@ -536,13 +560,21 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             {/* ── Other Rankings Table ── */}
             {scoredTLs.length > 3 && (
                 <div className="mt-10 px-2 md:px-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/30 text-center mb-4">Other Rankings</p>
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-300 dark:to-white/10" />
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 dark:bg-slate-900/60 rounded-full border border-slate-200 dark:border-white/10">
+                            <Shield size={10} className="text-indigo-500" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-white/40">Other Rankings</p>
+                        </div>
+                        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-300 dark:to-white/10" />
+                    </div>
                     <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-white/8 shadow-lg">
 
                         {/* Table Header - Desktop Only */}
-                        <div className="hidden lg:grid grid-cols-[40px_1fr_80px_80px_80px_70px_90px_80px_70px_60px_60px] xl:grid-cols-[40px_1fr_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 px-4 py-2.5 bg-slate-100/80 dark:bg-slate-900/60 text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 dark:text-white/30 border-b border-slate-200 dark:border-white/8">
+                        <div className="hidden lg:grid grid-cols-[40px_1fr_60px_80px_80px_80px_70px_90px_80px_70px_60px_60px] xl:grid-cols-[40px_1fr_70px_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 px-4 py-2.5 bg-slate-100/80 dark:bg-slate-900/60 text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 dark:text-white/30 border-b border-slate-200 dark:border-white/8">
                             <span className="text-center">#</span>
                             <span>Leader</span>
+                            <span className="text-center">Grade</span>
                             <span className="text-center">AI Score</span>
                             <span className="text-center">Fleet</span>
                             <span className="text-center">Flow</span>
@@ -560,6 +592,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                     const currentRank = idx + 4;
                                     const rankChange = getRankChange(tl.id, currentRank);
                                     const positiveWalletPct = tl.stats.totalRiders > 0 ? Math.round((tl.stats.positiveWalletCount / tl.stats.totalRiders) * 100) : 0;
+                                    const isYouRow = currentUserId === tl.id;
 
                                     return (
                                         <motion.div
@@ -569,9 +602,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                             animate={{ opacity: 1, x: 0 }}
                                             exit={{ opacity: 0, x: 16 }}
                                             transition={{ delay: idx * 0.04 }}
-                                            className="group relative px-4 py-3 bg-white/90 dark:bg-slate-900/40 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 hover:shadow-md transition-all duration-200 cursor-default"
+                                            className={`group relative px-4 py-3 hover:shadow-md transition-all duration-200 cursor-default
+                                                ${isYouRow
+                                                    ? 'bg-yellow-50/90 dark:bg-yellow-900/15 ring-1 ring-yellow-400/30'
+                                                    : 'bg-white/90 dark:bg-slate-900/40 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20'
+                                                }`}
                                             style={{
-                                                borderLeft: rankChange > 0 ? '3px solid #10b981' : rankChange < 0 ? '3px solid #f43f5e' : '3px solid transparent'
+                                                borderLeft: isYouRow ? '3px solid #eab308' : rankChange > 0 ? '3px solid #10b981' : rankChange < 0 ? '3px solid #f43f5e' : '3px solid transparent'
                                             }}
                                         >
                                             {/* --- MOBILE / TABLET VIEW --- */}
@@ -607,9 +644,17 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-xl font-black bg-gradient-to-r from-indigo-500 to-violet-600 bg-clip-text text-transparent italic">{tl.score.toLocaleString()}</span>
-                                                        <span className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest mt-0.5">pts</span>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        {isYouRow && (
+                                                            <span className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-black rounded-full text-[8px] font-black uppercase tracking-widest">
+                                                                <Flame size={8} className="fill-orange-600" />YOU
+                                                            </span>
+                                                        )}
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black border ${gradeConfig[tl.aiGrade]?.bg || ''} ${gradeConfig[tl.aiGrade]?.text || ''} ${gradeConfig[tl.aiGrade]?.border || ''}`}>{tl.aiGrade}</span>
+                                                            <span className="text-xl font-black bg-gradient-to-r from-indigo-500 to-violet-600 bg-clip-text text-transparent italic">{tl.score.toLocaleString()}</span>
+                                                        </div>
+                                                        <span className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest">pts</span>
                                                     </div>
                                                 </div>
 
@@ -661,7 +706,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                     <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
                                                         <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Tenure</span>
                                                         <span className="text-sm font-black text-sky-600 dark:text-sky-300">
-                                                            {tl.stats.avgRiderAge > 0 ? `${tl.stats.avgRiderAge}v` : '—'}
+                                                            {tl.stats.avgRiderAge > 0 ? `${tl.stats.avgRiderAge}d` : '—'}
                                                         </span>
                                                         <span className="text-[9px] font-bold text-slate-400 mt-0.5">days</span>
                                                     </div>
@@ -669,7 +714,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                             </div>
 
                                             {/* --- DESKTOP VIEW --- */}
-                                            <div className="hidden lg:grid grid-cols-[40px_1fr_80px_80px_80px_70px_90px_80px_70px_60px_60px] xl:grid-cols-[40px_1fr_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 items-center">
+                                            <div className="hidden lg:grid grid-cols-[40px_1fr_60px_80px_80px_80px_70px_90px_80px_70px_60px_60px] xl:grid-cols-[40px_1fr_70px_100px_90px_90px_80px_100px_90px_80px_70px_60px] gap-2 items-center">
                                                 {/* Rank */}
                                                 <div className="flex items-center justify-center gap-1">
                                                     <span className="text-sm font-black text-slate-400 dark:text-white/30 w-5 text-center">{currentRank}</span>
@@ -685,14 +730,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                                     onError={(e) => { const t = e.currentTarget; t.style.display = 'none'; const p = t.parentElement; if (p) p.innerHTML = `<span class="text-xs font-black">${tl.fullName.charAt(0).toUpperCase()}</span>`; }} />
                                                             ) : tl.fullName.charAt(0).toUpperCase()}
                                                         </div>
-                                                        {/* Grade dot */}
-                                                        <div className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white dark:border-slate-900 flex items-center justify-center ${gradeConfig[tl.aiGrade]?.bg || ''}`}>
-                                                            <span className={`text-[5px] font-black ${gradeConfig[tl.aiGrade]?.text || 'text-slate-400'}`}>{tl.aiGrade}</span>
-                                                        </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-1 mb-0.5">
                                                             <p className="text-xs font-black text-slate-800 dark:text-white truncate">{safeRender(tl.fullName)}</p>
+                                                            {isYouRow && (
+                                                                <span className="flex-shrink-0 px-1.5 py-0.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-black rounded text-[7px] font-black uppercase">YOU</span>
+                                                            )}
                                                             {tl.stats.badges && tl.stats.badges.length > 0 && (
                                                                 <TooltipProvider delayDuration={300}>
                                                                     <Tooltip>
@@ -708,6 +752,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                         </div>
                                                         <p className="text-[9px] text-slate-500 dark:text-white/40 truncate">{tl.email}</p>
                                                     </div>
+                                                </div>
+
+                                                {/* Grade Capsule (NEW) */}
+                                                <div className="flex items-center justify-center">
+                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${gradeConfig[tl.aiGrade]?.bg || ''} ${gradeConfig[tl.aiGrade]?.text || ''} ${gradeConfig[tl.aiGrade]?.border || ''}`}>
+                                                        {tl.aiGrade}
+                                                    </span>
                                                 </div>
 
                                                 {/* AI Score */}
