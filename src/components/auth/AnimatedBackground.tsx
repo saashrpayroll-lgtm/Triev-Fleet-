@@ -7,10 +7,10 @@ interface AnimatedBackgroundProps {
 
 const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ variant = 'login' }) => {
     const colorMap = {
-        login:    { orb1: '#ea580c', orb2: '#d946ef', orb3: '#2563eb', particle: '#f97316', accent: '#fb923c' },
-        register: { orb1: '#ea580c', orb2: '#d946ef', orb3: '#2563eb', particle: '#f97316', accent: '#fb923c' },
-        admin:    { orb1: '#b91c1c', orb2: '#7f1d1d', orb3: '#450a0a', particle: '#ef4444', accent: '#f87171' },
-        rm:       { orb1: '#0d9488', orb2: '#0f766e', orb3: '#134e4a', particle: '#2dd4bf', accent: '#5eead4' },
+        login:    { orb1: '#ea580c', orb2: '#d946ef', orb3: '#2563eb', orb4: '#fb923c', particle: '#f97316', accent: '#fb923c' },
+        register: { orb1: '#ea580c', orb2: '#d946ef', orb3: '#2563eb', orb4: '#fb923c', particle: '#f97316', accent: '#fb923c' },
+        admin:    { orb1: '#b91c1c', orb2: '#7f1d1d', orb3: '#450a0a', orb4: '#dc2626', particle: '#ef4444', accent: '#f87171' },
+        rm:       { orb1: '#0d9488', orb2: '#0f766e', orb3: '#134e4a', orb4: '#14b8a6', particle: '#2dd4bf', accent: '#5eead4' },
     };
     const colors = colorMap[variant] || colorMap.login;
 
@@ -21,7 +21,7 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ variant = 'logi
         rm:       'bg-[radial-gradient(at_0%_20%,_#0d9488_0,_transparent_50%),_radial-gradient(at_80%_0%,_#0f766e_0,_transparent_40%),_radial-gradient(at_40%_100%,_#042f2e_0,_transparent_55%)]',
     };
 
-    const particles = Array.from({ length: 20 }, (_, i) => i);
+    const particles = Array.from({ length: 30 }, (_, i) => i);
 
     return (
         <div className="fixed inset-0 -z-10 overflow-hidden bg-slate-950">
@@ -49,6 +49,13 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ variant = 'logi
                 animate={{ x: [0, 80, -40, 0], y: [0, -60, 20, 0], scale: [1, 1.2, 0.9, 1] }}
                 transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 7 }}
             />
+            {/* Animated Orb 4 — subtle center float */}
+            <motion.div
+                className="absolute top-1/4 left-1/3 rounded-full filter blur-[140px] opacity-10 pointer-events-none"
+                style={{ width: 800, height: 800, background: colors.orb4 }}
+                animate={{ x: [0, -60, 40, 0], y: [0, 50, -50, 0], scale: [1, 1.3, 0.8, 1] }}
+                transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 10 }}
+            />
 
             {/* Glowing accent ring */}
             <motion.div
@@ -69,16 +76,17 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ variant = 'logi
                         left: `${(i * 5 + Math.random() * 5) % 100}%`,
                         top: `${(i * 5.5 + Math.random() * 10) % 100}%`,
                         background: colors.particle,
+                        boxShadow: `0 0 10px ${colors.particle}`,
                         opacity: 0.3 + Math.random() * 0.4,
                     }}
                     animate={{
-                        y: [0, -(25 + i * 3), 0],
-                        x: [0, (i % 2 === 0 ? 10 : -10), 0],
-                        opacity: [0.15, 0.65, 0.15],
-                        scale: [1, 1.6, 1],
+                        y: [0, -(35 + i * 4), 0],
+                        x: [0, (i % 2 === 0 ? 15 : -15), 0],
+                        opacity: [0.15, 0.75, 0.15],
+                        scale: [1, 1.8, 1],
                     }}
                     transition={{
-                        duration: 4 + i * 0.4,
+                        duration: 5 + i * 0.4,
                         repeat: Infinity,
                         ease: 'easeInOut',
                         delay: i * 0.25,
@@ -86,8 +94,12 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ variant = 'logi
                 />
             ))}
 
-            {/* Fine Grid Pattern (inline SVG — no external URL) */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,white_30%,transparent_80%)]" />
+            {/* Fine Grid Pattern (Animated) */}
+            <motion.div 
+                className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,white_30%,transparent_80%)]" 
+                animate={{ backgroundPosition: ['0px 0px', '64px 64px'] }}
+                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+            />
 
             {/* Bottom Vignette */}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-70" />

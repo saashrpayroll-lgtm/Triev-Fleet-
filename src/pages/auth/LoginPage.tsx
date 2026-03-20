@@ -138,8 +138,8 @@ const LoginPage: React.FC = () => {
                         <motion.h1
                             className="text-3xl sm:text-4xl font-black text-white tracking-tighter"
                             initial={{ opacity: 0, letterSpacing: '0.3em' }}
-                            animate={{ opacity: 1, letterSpacing: '-0.03em' }}
-                            transition={{ duration: 0.8, delay: 0.3 }}
+                            animate={{ opacity: 1, letterSpacing: '-0.03em', y: [0, -3, 0] }}
+                            transition={{ duration: 0.8, delay: 0.3, y: { duration: 4, repeat: Infinity, ease: "easeInOut" } }}
                         >
                             TRIEV{' '}
                             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
@@ -161,12 +161,16 @@ const LoginPage: React.FC = () => {
                 <motion.div variants={itemVariants} className="relative">
                     {/* Card glow border */}
                     <motion.div
-                        className="absolute -inset-[1px] rounded-[28px] sm:rounded-[36px] bg-gradient-to-br from-orange-500/30 via-fuchsia-500/15 to-blue-600/20"
-                        animate={{ opacity: [0.4, 0.7, 0.4] }}
+                        className="absolute -inset-[1px] rounded-[28px] sm:rounded-[36px] bg-gradient-to-br from-orange-500/40 via-fuchsia-500/20 to-blue-600/25 shadow-[0_0_15px_rgba(249,115,22,0.2)]"
+                        animate={{ opacity: [0.5, 0.9, 0.5] }}
                         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                     />
 
-                    <div className="relative bg-slate-900/50 backdrop-blur-[40px] border border-white/[0.08] rounded-[26px] sm:rounded-[34px] p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+                    <motion.div 
+                        className="relative bg-slate-900/55 backdrop-blur-[40px] border border-white/[0.08] rounded-[26px] sm:rounded-[34px] p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
+                        whileHover={{ boxShadow: "0 25px 60px rgba(0,0,0,0.7)", borderColor: "rgba(255,255,255,0.12)" }}
+                        transition={{ duration: 0.3 }}
+                    >
                         {/* Top shimmer */}
                         <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                         {/* Inner glow */}
@@ -240,21 +244,23 @@ const LoginPage: React.FC = () => {
                                             onChange={(e) => setPassword(e.target.value)}
                                             onFocus={() => setFocusedField('pass')}
                                             onBlur={() => setFocusedField(null)}
-                                            className="w-full pl-12 pr-12 py-3.5 sm:py-4 bg-slate-900/60 border border-white/10 rounded-xl sm:rounded-2xl text-white placeholder-white/40 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:bg-slate-900/80 transition-all duration-300 font-medium tracking-widest text-lg shadow-inner"
+                                            className="w-full pl-12 pr-12 py-3.5 sm:py-4 bg-slate-900/60 border border-white/10 rounded-xl sm:rounded-2xl text-white placeholder-white/40 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:bg-slate-900/80 transition-all duration-300 font-medium tracking-widest text-lg shadow-inner [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
                                             placeholder="••••••••"
                                             required
                                             autoComplete="current-password"
                                         />
-                                        {/* Eye toggle — high visibility */}
-                                        <motion.button
+                                        {/* Eye toggle — safe from framer-motion positioning bugs */}
+                                        <button
                                             type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-orange-500/30 text-white/80 hover:text-white transition-all duration-200 border border-white/10 hover:border-orange-500/40 shadow-sm"
-                                            whileTap={{ scale: 0.88 }}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setShowPassword(!showPassword);
+                                            }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-orange-500/30 text-white/80 hover:text-white transition-all duration-200 border border-white/10 hover:border-orange-500/40 shadow-sm active:scale-90"
                                             title={showPassword ? 'Hide password' : 'Show password'}
                                         >
                                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                        </motion.button>
+                                        </button>
                                         <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
                                     </div>
                                 </div>
@@ -294,33 +300,37 @@ const LoginPage: React.FC = () => {
                             <motion.button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full relative bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-300 flex items-center justify-center gap-2.5 shadow-[0_6px_20px_rgba(234,88,12,0.35)] hover:shadow-[0_8px_30px_rgba(234,88,12,0.5)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/btn"
-                                whileHover={!loading ? { scale: 1.02, y: -1 } : {}}
+                                className="w-full relative bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-300 flex items-center justify-center gap-2.5 shadow-[0_6px_20px_rgba(234,88,12,0.4)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/btn"
+                                whileHover={!loading ? { scale: 1.02, y: -2, boxShadow: "0 12px 35px rgba(234,88,12,0.6)" } : {}}
                                 whileTap={!loading ? { scale: 0.98 } : {}}
                             >
+                                {/* Background glow effect on button hover */}
+                                <motion.div 
+                                    className="absolute inset-0 bg-orange-400/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 blur-xl"
+                                />
                                 {/* Shimmer sweep */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out" />
                                 {/* Top highlight */}
                                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
 
                                 {loading ? (
                                     <>
                                         <motion.div
-                                            className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                            className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full z-10 relative"
                                             animate={{ rotate: 360 }}
                                             transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                                         />
-                                        <span className="tracking-[0.12em] text-sm font-black uppercase">Verifying...</span>
+                                        <span className="tracking-[0.12em] text-sm font-black uppercase z-10 relative">Verifying...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <LogIn size={17} className="group-hover/btn:translate-x-0.5 transition-transform" />
-                                        <span className="tracking-[0.12em] text-sm font-black uppercase">Access Portal</span>
+                                        <LogIn size={17} className="group-hover/btn:translate-x-0.5 transition-transform z-10 relative" />
+                                        <span className="tracking-[0.12em] text-sm font-black uppercase z-10 relative">Access Portal</span>
                                     </>
                                 )}
                             </motion.button>
                         </form>
-                    </div>
+                    </motion.div>
                 </motion.div>
 
                 {/* Footer */}
