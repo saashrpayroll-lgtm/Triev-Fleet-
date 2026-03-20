@@ -205,32 +205,32 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
             </div>
 
             <div className="overflow-auto flex-1 custom-scrollbar">
-                <table className="w-full text-sm relative">
+                <table className="w-full min-w-[1100px] text-sm relative">
                     <thead className="sticky top-0 z-10 bg-slate-50/90 dark:bg-slate-900/80 backdrop-blur-sm shadow-sm">
                         <tr className="text-left border-b border-border/30">
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[170px] md:w-[220px]">Team Leader</th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('activeRiders')}>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[170px]">Team Leader</th>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[90px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('activeRiders')}>
                                 Riders <SortIcon col="activeRiders" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('criticalDebtCount')}>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[150px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('criticalDebtCount')}>
                                 Risk & Dues <SortIcon col="criticalDebtCount" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('avgRiderCollection')}>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('avgRiderCollection')}>
                                 Avg Metrics <SortIcon col="avgRiderCollection" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('dailyCollection')}>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[200px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('dailyCollection')}>
                                 Collections (D/W/M/T) <SortIcon col="dailyCollection" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('netGrowth')}>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[110px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('netGrowth')}>
                                 Fleet Flow <SortIcon col="netGrowth" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('leadsToday')}>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[100px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('leadsToday')}>
                                 Leads <SortIcon col="leadsToday" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-indigo-500 uppercase tracking-widest cursor-pointer hover:text-indigo-700 transition-colors text-center" onClick={() => handleSort('score' as any)}>
+                            <th className="p-3 font-black text-[9px] text-indigo-500 uppercase tracking-widest min-w-[70px] cursor-pointer hover:text-indigo-700 transition-colors text-center" onClick={() => handleSort('score' as any)}>
                                 AI Score <SortIcon col="score" />
                             </th>
-                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest text-right">Actions</th>
+                            <th className="p-3 font-black text-[9px] text-muted-foreground uppercase tracking-widest min-w-[60px] text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border/10">
@@ -291,8 +291,8 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2 text-[10px] font-bold">
-                                            <span className="text-emerald-600">₹{tl.wallet.positiveAmount.toLocaleString()}</span>
-                                            <span className="text-rose-600">₹{Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
+                                            <span className="text-emerald-600 whitespace-nowrap">₹{tl.wallet.positiveAmount >= 10000 ? `${(tl.wallet.positiveAmount / 1000).toFixed(1)}k` : tl.wallet.positiveAmount.toLocaleString()}</span>
+                                            <span className="text-rose-600 whitespace-nowrap">₹{Math.abs(tl.wallet.negativeAmount) >= 10000 ? `${(Math.abs(tl.wallet.negativeAmount) / 1000).toFixed(1)}k` : Math.abs(tl.wallet.negativeAmount).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </td>
@@ -302,35 +302,35 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between gap-2">
                                             <span className="text-[8px] text-muted-foreground font-bold uppercase">Avg/Rider</span>
-                                            <span className="text-xs font-black text-indigo-600">₹{tl.avgRiderCollection.toLocaleString()}</span>
+                                            <span className="text-xs font-black text-indigo-600 whitespace-nowrap">₹{tl.avgRiderCollection.toLocaleString()}</span>
                                         </div>
                                         <div className="flex items-center justify-between gap-2 border-t border-border/30 pt-0.5">
                                             <span className="text-[8px] text-muted-foreground font-bold uppercase">Per Day</span>
-                                            <span className="text-[10px] font-black text-emerald-600">₹{tl.perDayAverageCollection.toLocaleString()}</span>
+                                            <span className="text-[10px] font-black text-emerald-600 whitespace-nowrap">₹{tl.perDayAverageCollection.toLocaleString()}</span>
                                         </div>
                                         <span className="text-[7px] text-muted-foreground italic text-right">{tl.activeDays || 1}d basis</span>
                                     </div>
                                 </td>
 
                                 {/* 5. Collections D/W/M/T */}
-                                <td className="p-3">
+                                <td className="p-3 min-w-[200px]">
                                     <div className="space-y-1">
                                         <div className="flex flex-col">
                                             <span className="text-[8px] text-muted-foreground font-bold uppercase">Today</span>
-                                            <span className="text-sm font-black text-emerald-600">₹{tl.dailyCollection.toLocaleString()}</span>
+                                            <span className="text-sm font-black text-emerald-600 whitespace-nowrap">₹{tl.dailyCollection.toLocaleString()}</span>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2 border-t border-border/30 pt-1">
-                                            <div className="flex flex-col">
+                                        <div className="grid grid-cols-3 gap-3 border-t border-border/30 pt-1">
+                                            <div className="flex flex-col min-w-0">
                                                 <span className="text-[7px] text-muted-foreground font-bold uppercase">Week</span>
-                                                <span className="text-[10px] font-bold">₹{tl.weeklyCollection.toLocaleString()}</span>
+                                                <span className="text-[10px] font-bold whitespace-nowrap">₹{tl.weeklyCollection >= 100000 ? `${(tl.weeklyCollection / 1000).toFixed(0)}k` : tl.weeklyCollection.toLocaleString()}</span>
                                             </div>
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col min-w-0">
                                                 <span className="text-[7px] text-violet-500 font-bold uppercase">Month</span>
-                                                <span className="text-[10px] font-bold text-violet-600">₹{(tl.monthlyCollection || 0).toLocaleString()}</span>
+                                                <span className="text-[10px] font-bold text-violet-600 whitespace-nowrap">₹{(tl.monthlyCollection || 0) >= 100000 ? `${((tl.monthlyCollection || 0) / 1000).toFixed(0)}k` : (tl.monthlyCollection || 0).toLocaleString()}</span>
                                             </div>
-                                            <div className="flex flex-col text-right">
+                                            <div className="flex flex-col text-right min-w-0">
                                                 <span className="text-[7px] text-muted-foreground font-bold uppercase">Total</span>
-                                                <span className="text-[10px] font-bold text-muted-foreground">₹{tl.totalCollection.toLocaleString()}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">₹{tl.totalCollection >= 100000 ? `${(tl.totalCollection / 1000).toFixed(0)}k` : tl.totalCollection.toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
