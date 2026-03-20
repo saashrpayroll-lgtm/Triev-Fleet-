@@ -258,10 +258,10 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             // This prevents Supabase auth.signOut() from hanging indefinitely
             await supabase.removeAllChannels();
 
-            // Clear all state immediately
-            setSession(null);
-            setUser(null);
-            setUserData(null);
+            // Commented out to prevent `<Navigate to="/login">` from preempting the role-based hard navigation:
+            // setSession(null);
+            // setUser(null);
+            // setUserData(null);
 
             // Clear local storage (if any user preferences were saved)
             // Do not clear the theme unless desired, but we can clear auth tokens as a fallback
