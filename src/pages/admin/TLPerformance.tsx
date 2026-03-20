@@ -244,10 +244,21 @@ const TLPerformance: React.FC = () => {
         };
         const weeklyTimer = scheduleWeeklyReset();
 
+        // ── PWA/Background: Auto-refresh on visibility restore ───────────────
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') fetchData();
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        // ── Fallback: Poll every 2 minutes for stale-data protection ─────────
+        const pollInterval = setInterval(() => fetchData(), 2 * 60 * 1000);
+
         return () => {
             channels.forEach(ch => supabase.removeChannel(ch));
             window.clearTimeout(midnightTimer);
             window.clearTimeout(weeklyTimer);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            clearInterval(pollInterval);
         };
     }, []);
 
@@ -750,15 +761,15 @@ const TLPerformance: React.FC = () => {
                     { label: 'Avg AI Score', value: `${avgAIScore}`, icon: Activity, color: avgAIScore >= 50 ? 'text-emerald-500' : 'text-amber-500', border: avgAIScore >= 50 ? 'border-emerald-500/20' : 'border-amber-500/20', bg: avgAIScore >= 50 ? 'bg-emerald-500/5' : 'bg-amber-500/5', badge: avgGrade },
                     { label: 'Monthly Total', value: `₹${totalMonthlyCollection.toLocaleString()}`, icon: Calendar, color: 'text-violet-500', border: 'border-violet-500/20', bg: 'bg-violet-500/5' },
                 ].map((card, i) => (
-                    <div key={i} className={`p-4 rounded-2xl border ${card.border} ${card.bg} shadow-sm space-y-2`}>
-                        <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{card.label}</span>
-                            <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
+                <div key={i} className={`p-3 sm:p-4 rounded-2xl border ${card.border} ${card.bg} shadow-sm space-y-1.5`}>
+                        <div className="flex items-center justify-between gap-1">
+                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-muted-foreground truncate">{card.label}</span>
+                            <card.icon className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${card.color} flex-shrink-0`} />
                         </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-xl font-black">{card.value}</span>
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                            <span className="text-base sm:text-xl font-black truncate">{card.value}</span>
                             {(card as any).badge && (
-                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                                <span className={`text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                                     (card as any).badge === 'S' || (card as any).badge === 'A' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                     : (card as any).badge === 'B' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                     : (card as any).badge === 'C' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'

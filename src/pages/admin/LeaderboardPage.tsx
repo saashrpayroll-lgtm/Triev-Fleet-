@@ -196,7 +196,21 @@ const LeaderboardPage: React.FC = () => {
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
-        return () => { subscription.unsubscribe(); if (ledgerDebounceRef.current) clearTimeout(ledgerDebounceRef.current); };
+        // ── PWA/Background: Auto-refresh on visibility restore ───────────
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') fetchData();
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        // ── Fallback: Poll every 2 minutes ───────────────────────────────
+        const pollInterval = setInterval(() => fetchData(), 2 * 60 * 1000);
+
+        return () => {
+            subscription.unsubscribe();
+            if (ledgerDebounceRef.current) clearTimeout(ledgerDebounceRef.current);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            clearInterval(pollInterval);
+        };
     }, [fetchData]);
 
     const scoredList: ScoredTL[] = useMemo(() => {

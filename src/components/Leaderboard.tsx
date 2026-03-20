@@ -659,56 +659,54 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                                 </div>
 
                                                 {/* Stats Grid */}
-                                                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Fleet</span>
-                                                        <span className="text-sm font-black text-slate-700 dark:text-white">{tl.stats.activeRiders}<span className="text-[10px] text-slate-400">/{tl.stats.totalRiders}</span></span>
-                                                        <span className="text-[9px] font-bold text-blue-500 mt-0.5">{tl.stats.efficiency}%</span>
+                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-1.5 sm:gap-2">
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Fleet</span>
+                                                        <span className="text-xs sm:text-sm font-black text-slate-700 dark:text-white truncate w-full text-center">{tl.stats.activeRiders}<span className="text-[8px] sm:text-[10px] text-slate-400">/{tl.stats.totalRiders}</span></span>
+                                                        <span className="text-[8px] sm:text-[9px] font-bold text-blue-500 mt-0.5">{tl.stats.efficiency}%</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Net Flow</span>
-                                                        <span className={`text-sm font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Flow</span>
+                                                        <span className={`text-xs sm:text-sm font-black ${tl.stats.netGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
                                                             {tl.stats.netGrowth > 0 ? '+' : ''}{tl.stats.netGrowth}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">+{tl.stats.allotments}/-{tl.stats.submissions}</span>
+                                                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 truncate w-full text-center">+{tl.stats.allotments}/-{tl.stats.submissions}</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Rent</span>
-                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Rent</span>
+                                                        <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 truncate w-full text-center">
                                                             ₹{tl.stats.collection >= 1000 ? `${(tl.stats.collection / 1000).toFixed(1)}k` : tl.stats.collection}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">Collected</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Wallet</span>
-                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">+{(tl.stats.positiveWallet / 1000).toFixed(1)}k</span>
-                                                        <span className="text-[9px] font-bold text-rose-400 mt-0.5">-{(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(1)}k</span>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Wallet</span>
+                                                        <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 truncate w-full text-center">+{(tl.stats.positiveWallet / 1000).toFixed(0)}k</span>
+                                                        <span className="text-[8px] sm:text-[9px] font-bold text-rose-400 mt-0.5 truncate w-full text-center">-{(Math.abs(tl.stats.negativeWallet) / 1000).toFixed(0)}k</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Leads</span>
-                                                        <span className="text-sm font-black text-yellow-600 dark:text-yellow-400">{tl.stats.conversionRate}%</span>
-                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">{tl.stats.convertedLeads}/{tl.stats.leadsTotal}</span>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Leads</span>
+                                                        <span className="text-xs sm:text-sm font-black text-yellow-600 dark:text-yellow-400">{tl.stats.conversionRate}%</span>
+                                                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5">{tl.stats.convertedLeads}/{tl.stats.leadsTotal}</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">/Rider</span>
-                                                        <span className="text-sm font-black text-purple-600 dark:text-purple-300">
-                                                            ₹{tl.stats.collectionPerRider >= 1000 ? `${(tl.stats.collectionPerRider / 1000).toFixed(1)}k` : tl.stats.collectionPerRider}
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">/Rider</span>
+                                                        <span className="text-xs sm:text-sm font-black text-purple-600 dark:text-purple-300 truncate w-full text-center">
+                                                            ₹{tl.stats.collectionPerRider >= 1000 ? `${(tl.stats.collectionPerRider / 1000).toFixed(0)}k` : tl.stats.collectionPerRider}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">Average</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Churn</span>
-                                                        <span className={`text-sm font-black ${tl.stats.churnRiders > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Churn</span>
+                                                        <span className={`text-xs sm:text-sm font-black ${tl.stats.churnRiders > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                                                             {tl.stats.churnRiders}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">{tl.stats.inactiveRiders} inact</span>
+                                                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5">{tl.stats.inactiveRiders} inact</span>
                                                     </div>
-                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5">
-                                                        <span className="text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-1 tracking-wider">Tenure</span>
-                                                        <span className="text-sm font-black text-sky-600 dark:text-sky-300">
+                                                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center border border-slate-100 dark:border-white/5 min-w-0">
+                                                        <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-white/30 mb-0.5 sm:mb-1 tracking-wider">Tenure</span>
+                                                        <span className="text-xs sm:text-sm font-black text-sky-600 dark:text-sky-300">
                                                             {tl.stats.avgRiderAge > 0 ? `${tl.stats.avgRiderAge}d` : '—'}
                                                         </span>
-                                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">days</span>
+                                                        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5">days</span>
                                                     </div>
                                                 </div>
                                             </div>
