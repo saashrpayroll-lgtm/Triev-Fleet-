@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, PasswordResetRequest } from '@/types';
 import ActionMenu from './ActionMenu';
-import { UserCheck, UserX, Clock, ShieldAlert, Users, Briefcase } from 'lucide-react';
+import { UserX, Clock, ShieldAlert, Users, Briefcase, KeyRound } from 'lucide-react';
 import PasswordResetIndicator from '@/components/PasswordResetIndicator';
 
 interface UserTableProps {
@@ -15,11 +15,9 @@ interface UserTableProps {
     onDelete: (user: User) => void;
     onPermanentDelete?: (user: User) => void;
     onView: (user: User) => void;
-    // Selection Props
     selectedUsers: string[];
     onToggleSelect: (userId: string) => void;
     onSelectAll: (userIds: string[]) => void;
-    // Password Reset Props
     passwordResetRequests?: PasswordResetRequest[];
 }
 
@@ -39,10 +37,8 @@ const UserTable: React.FC<UserTableProps> = ({
     onSelectAll,
     passwordResetRequests = []
 }) => {
-    // Helper to check if all visible users are selected
     const allSelected = users.length > 0 && users.every(u => selectedUsers.includes(u.id));
 
-    // Helper to toggle all
     const handleSelectAll = () => {
         if (allSelected) {
             onSelectAll([]);
@@ -53,9 +49,9 @@ const UserTable: React.FC<UserTableProps> = ({
 
     if (loading) {
         return (
-            <div className="space-y-4 p-4">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 w-full bg-muted/40 animate-pulse rounded-xl" />
+            <div className="space-y-3 p-4">
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-16 w-full bg-muted/30 animate-pulse rounded-xl" style={{ animationDelay: `${i * 100}ms` }} />
                 ))}
             </div>
         );
@@ -63,24 +59,49 @@ const UserTable: React.FC<UserTableProps> = ({
 
     if (users.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
-                    <UserX size={32} />
+            <div className="flex flex-col items-center justify-center p-16 text-muted-foreground">
+                <div className="w-16 h-16 bg-muted/30 rounded-2xl flex items-center justify-center mb-4">
+                    <UserX size={28} className="opacity-40" />
                 </div>
-                <h3 className="text-lg font-semibold">No Users Found</h3>
-                <p className="text-sm">Try adjusting your search or filters.</p>
+                <h3 className="text-lg font-bold">No Users Found</h3>
+                <p className="text-sm mt-1">Try adjusting your search or filters.</p>
             </div>
         );
     }
 
+    const getRoleIcon = (role: string) => {
+        switch (role) {
+            case 'admin': return <ShieldAlert size={13} className="text-purple-500" />;
+            case 'teamLeader': return <Users size={13} className="text-blue-500" />;
+            case 'reportingManager': return <Briefcase size={13} className="text-teal-500" />;
+            default: return null;
+        }
+    };
+
+    const getRoleLabel = (role: string) => {
+        switch (role) {
+            case 'admin': return 'Admin';
+            case 'teamLeader': return 'Team Leader';
+            case 'reportingManager': return 'RM';
+            default: return role;
+        }
+    };
+
     const getStatusBadge = (user: User) => {
         switch (user.status) {
             case 'active':
-                return <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600 border border-green-500/20"><UserCheck size={12} /> Active</span>;
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
+                    </span>
+                );
             case 'inactive':
-                return <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-600 border border-gray-500/20"><UserX size={12} /> Inactive</span>;
-            case 'suspended':
-                // Calculate remaining time nicely
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-gray-500/10 text-gray-500 border border-gray-500/20">
+                        <UserX size={10} /> Inactive
+                    </span>
+                );
+            case 'suspended': {
                 let timeRemaining = "Indefinitely";
                 if (user.suspendedUntil) {
                     const now = new Date();
@@ -89,32 +110,33 @@ const UserTable: React.FC<UserTableProps> = ({
 
                     if (diffMs > 0) {
                         const mins = Math.ceil(diffMs / 60000);
-                        if (mins < 60) timeRemaining = `${mins}m left`;
+                        if (mins < 60) timeRemaining = `${mins}m`;
                         else {
                             const hours = Math.ceil(mins / 60);
-                            timeRemaining = `${hours}h left`;
+                            if (hours < 24) timeRemaining = `${hours}h`;
+                            else timeRemaining = `${Math.ceil(hours / 24)}d`;
                         }
                     } else {
-                        timeRemaining = "Expiring...";
+                        timeRemaining = "Expiring";
                     }
                 }
-
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20" title={user.suspendedUntil ? `Until: ${new Date(user.suspendedUntil).toLocaleString()}` : 'Indefinitely'}>
-                        <Clock size={12} /> Suspended ({timeRemaining})
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20" title={user.suspendedUntil ? `Until: ${new Date(user.suspendedUntil).toLocaleString()}` : 'Indefinitely'}>
+                        <Clock size={10} /> {timeRemaining}
                     </span>
                 );
+            }
             default:
-                return null;
+                return <span className="text-[10px] font-bold text-muted-foreground">{user.status}</span>;
         }
     };
 
     return (
-        <div className="overflow-x-auto rounded-xl border border-border shadow-sm bg-card/50 backdrop-blur-sm">
-            <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50 text-muted-foreground font-medium uppercase text-xs tracking-wider sticky top-0 z-10 backdrop-blur-md">
+        <div className="overflow-x-auto rounded-2xl border border-border/40 shadow-sm bg-card/50 backdrop-blur-sm">
+            <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-muted-foreground sticky top-0 z-10 backdrop-blur-md">
                     <tr>
-                        <th className="px-6 py-4 w-12">
+                        <th className="px-4 py-3.5 w-10">
                             <input
                                 type="checkbox"
                                 checked={allSelected}
@@ -122,20 +144,21 @@ const UserTable: React.FC<UserTableProps> = ({
                                 className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
                             />
                         </th>
-                        <th className="px-6 py-4">User Details</th>
-                        <th className="px-6 py-4">Role & Location</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4 text-right">Joined</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
+                        <th className="px-4 py-3.5 text-left font-black text-[10px] uppercase tracking-widest">User</th>
+                        <th className="px-4 py-3.5 text-left font-black text-[10px] uppercase tracking-widest">Role & Location</th>
+                        <th className="px-4 py-3.5 text-left font-black text-[10px] uppercase tracking-widest">Status</th>
+                        <th className="px-4 py-3.5 text-left font-black text-[10px] uppercase tracking-widest">Reporting Manager</th>
+                        <th className="px-4 py-3.5 text-right font-black text-[10px] uppercase tracking-widest">Joined</th>
+                        <th className="px-4 py-3.5 text-right font-black text-[10px] uppercase tracking-widest w-12"></th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border/30">
                     {users.map((user) => (
                         <tr
                             key={user.id}
-                            className={`group transition-colors ${selectedUsers.includes(user.id) ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                            className={`group transition-colors ${selectedUsers.includes(user.id) ? 'bg-primary/5' : 'hover:bg-muted/20'}`}
                         >
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-3.5">
                                 <input
                                     type="checkbox"
                                     checked={selectedUsers.includes(user.id)}
@@ -143,52 +166,71 @@ const UserTable: React.FC<UserTableProps> = ({
                                     className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
                                 />
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-3.5">
                                 <div className="flex items-center gap-3">
                                     <div
                                         onClick={() => onView(user)}
-                                        className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold cursor-pointer hover:shadow-md transition-all uppercase"
+                                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm cursor-pointer hover:shadow-md transition-all uppercase border ${
+                                            user.role === 'admin' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                                            : user.role === 'teamLeader' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                                            : 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
+                                        }`}
                                     >
                                         {(user.fullName || user.email || '?').charAt(0).toUpperCase()}
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <div
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span
                                                 onClick={() => onView(user)}
-                                                className="font-semibold text-foreground cursor-pointer hover:text-primary transition-colors"
+                                                className="font-semibold text-foreground cursor-pointer hover:text-primary transition-colors truncate"
                                             >
                                                 {user.fullName || 'No Name'}
-                                            </div>
-                                            {/* Show yellow key if user has pending reset request */}
+                                            </span>
+                                            {/* Pending password reset request */}
                                             {passwordResetRequests.some(req => req.userId === user.id) && (
                                                 <PasswordResetIndicator
                                                     hasPendingReset={true}
                                                     onClick={() => onResetPassword(user)}
                                                 />
                                             )}
+                                            {/* Force password change badge */}
+                                            {(user as any).force_password_change && (
+                                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Pending password change on next login">
+                                                    <KeyRound size={8} /> PW
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="text-xs text-muted-foreground font-mono">{user.email}</div>
+                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                            <span className="font-mono truncate">{user.email}</span>
+                                            {user.userId && (
+                                                <>
+                                                    <span className="text-border">•</span>
+                                                    <span className="font-mono font-bold text-primary/60">{user.userId}</span>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-3.5">
                                 <div className="flex flex-col gap-1">
-                                    <span className="capitalize font-medium text-foreground flex items-center gap-1.5">
-                                        {user.role === 'admin' && <ShieldAlert size={14} className="text-purple-500" />}
-                                        {user.role === 'teamLeader' && <Users size={14} className="text-blue-500" />}
-                                        {user.role === 'reportingManager' && <Briefcase size={14} className="text-teal-500" />}
-                                        {user.role === 'reportingManager' ? 'Reporting Manager' : user.role === 'teamLeader' ? 'Team Leader' : user.role}
+                                    <span className="capitalize font-medium text-foreground flex items-center gap-1.5 text-xs">
+                                        {getRoleIcon(user.role)}
+                                        {getRoleLabel(user.role)}
                                     </span>
-                                    <span className="text-xs text-muted-foreground">{user.jobLocation || 'Remote'}</span>
+                                    <span className="text-[10px] text-muted-foreground">{user.jobLocation || 'Remote'}</span>
                                 </div>
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-3.5">
                                 {getStatusBadge(user)}
                             </td>
-                            <td className="px-6 py-4 text-right text-muted-foreground font-mono text-xs">
-                                {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
+                            <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                                {user.reportingManager || <span className="text-muted-foreground/40">—</span>}
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-4 py-3.5 text-right text-muted-foreground font-mono text-[10px]">
+                                {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
                                 <ActionMenu
                                     user={user}
                                     onEdit={onEdit}

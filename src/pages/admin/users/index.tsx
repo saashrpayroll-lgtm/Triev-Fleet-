@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Search, RefreshCw, ArchiveRestore, Download, Users, UserCheck, ShieldAlert, Clock } from 'lucide-react';
+import { Plus, Search, RefreshCw, ArchiveRestore, Download, Users, KeyRound, X } from 'lucide-react';
 import { useUsers } from './hooks/useUsers';
 import UserTable from './components/UserTable';
 import UserFormModal from './components/UserFormModal';
@@ -14,37 +14,21 @@ import { useToast } from '@/contexts/ToastContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 
-
-// Stats Card Component
-const StatCard = ({ title, value, icon: Icon, color, bg }: { title: string, value: number, icon: any, color: string, bg: string }) => (
-    <div className="bg-card/50 backdrop-blur-sm border border-border p-4 rounded-xl flex items-center gap-4 hover:shadow-md transition-all duration-300">
-        <div className={`p-3 rounded-lg ${bg} ${color}`}>
-            <Icon size={24} />
-        </div>
-        <div>
-            <p className="text-sm text-muted-foreground font-medium">{title}</p>
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{value}</h3>
-        </div>
-    </div>
-);
-
 const UserManagementPage: React.FC = () => {
     const {
         users, loading, createUser, updateUser,
         toggleStatus, suspendUser, deleteUser,
-        restoreUser, syncUsernames, permanentDeleteUser, bulkDeleteUsers, bulkSuspendUsers, bulkToggleStatus,
+        restoreUser, permanentDeleteUser, bulkDeleteUsers, bulkSuspendUsers, bulkToggleStatus,
         getNextId, loadMore, hasMore, refreshUsers
     } = useUsers();
     const { userData } = useSupabaseAuth();
 
-    // Toast context returns the toaster methods directly
     const toast = useToast();
     const location = useLocation();
 
     // Local State
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'teamLeader' | 'reportingManager'>('all');
-    // New status filter
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
     const [showDeleted, setShowDeleted] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -54,11 +38,7 @@ const UserManagementPage: React.FC = () => {
     const [suspendingUser, setSuspendingUser] = useState<User | null>(null);
     const [viewingUser, setViewingUser] = useState<User | null>(null);
     const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
-
-    // New: Selected Users for Bulk
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-
-    // Password Reset Requests
     const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
 
     // Effect to parse URL params
@@ -107,7 +87,6 @@ const UserManagementPage: React.FC = () => {
 
         fetchResetRequests();
 
-        // Subscribe to changes
         const subscription = supabase
             .channel('password_reset_requests_changes')
             .on('postgres_changes', {
@@ -185,6 +164,7 @@ const UserManagementPage: React.FC = () => {
             Status: u.status,
             Mobile: u.mobile,
             'Job Location': u.jobLocation || 'N/A',
+            'Reporting Manager': u.reportingManager || 'N/A',
             'Joined Date': u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'
         }));
 
@@ -195,7 +175,7 @@ const UserManagementPage: React.FC = () => {
 
     const handleCreateUser = async (data: any) => {
         setIsSubmitting(true);
-        const success = await createUser(data, data.password); // Password from form
+        const success = await createUser(data, data.password);
         setIsSubmitting(false);
         if (success) setShowCreateModal(false);
     };
@@ -265,7 +245,7 @@ const UserManagementPage: React.FC = () => {
     // Derived Logic
     const filteredUsers = useMemo(() => {
         return users.filter(user => {
-            if (!user) return false; // Safety check
+            if (!user) return false;
 
             if (showDeleted) {
                 if (user.status !== 'deleted') return false;
@@ -276,7 +256,10 @@ const UserManagementPage: React.FC = () => {
             const matchesSearch =
                 (user.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.jobLocation || '').toLowerCase().includes(searchTerm.toLowerCase());
+                (user.userId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (user.jobLocation || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (user.reportingManager || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (user.mobile || '').includes(searchTerm);
 
             const matchesRole = filterRole === 'all' || user.role === filterRole;
             const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
@@ -287,152 +270,208 @@ const UserManagementPage: React.FC = () => {
 
     // Stats Logic
     const stats = useMemo(() => {
-        const active = users.filter(u => u.status === 'active').length;
-        const inactive = users.filter(u => u.status === 'inactive').length;
-        const suspended = users.filter(u => u.status === 'suspended').length;
-        const admins = users.filter(u => u.role === 'admin').length;
-        return { active, inactive, suspended, admins, total: users.length };
-    }, [users]);
+        const nonDeleted = users.filter(u => u.status !== 'deleted');
+        const active = nonDeleted.filter(u => u.status === 'active').length;
+        const inactive = nonDeleted.filter(u => u.status === 'inactive').length;
+        const suspended = nonDeleted.filter(u => u.status === 'suspended').length;
+        const admins = nonDeleted.filter(u => u.role === 'admin').length;
+        const teamLeaders = nonDeleted.filter(u => u.role === 'teamLeader').length;
+        const reportingManagers = nonDeleted.filter(u => u.role === 'reportingManager').length;
+        const pendingResets = passwordResetRequests.length;
+        const forceChange = nonDeleted.filter(u => (u as any).force_password_change).length;
+        return { active, inactive, suspended, admins, teamLeaders, reportingManagers, pendingResets, forceChange, total: nonDeleted.length };
+    }, [users, passwordResetRequests]);
+
+    const activeFilterCount = [filterRole !== 'all', filterStatus !== 'all', searchTerm.length > 0].filter(Boolean).length;
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-24">
-            {/* Header & Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    title="Total Users"
-                    value={stats.total}
-                    icon={Users}
-                    color="text-blue-500"
-                    bg="bg-blue-500/10"
-                />
-                <StatCard
-                    title="Active Users"
-                    value={stats.active}
-                    icon={UserCheck}
-                    color="text-green-500"
-                    bg="bg-green-500/10"
-                />
-                <StatCard
-                    title="Suspended"
-                    value={stats.suspended}
-                    icon={Clock}
-                    color="text-red-500"
-                    bg="bg-red-500/10"
-                />
-                <StatCard
-                    title="Administrators"
-                    value={stats.admins}
-                    icon={ShieldAlert}
-                    color="text-purple-500"
-                    bg="bg-purple-500/10"
-                />
+        <div className="space-y-6 animate-in fade-in duration-500 pb-24">
+            {/* ── PREMIUM HEADER ── */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-700 to-zinc-800 rounded-2xl p-6 text-white shadow-xl">
+                <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-blue-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[250px] h-[250px] bg-purple-500/10 rounded-full blur-[80px] translate-y-1/3 -translate-x-1/4 pointer-events-none" />
+                <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h1 className="text-2xl font-black flex items-center gap-3">
+                                <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+                                    <Users size={22} />
+                                </div>
+                                Staff & Roles
+                            </h1>
+                            <p className="text-slate-300 mt-1.5 text-sm">Manage all users, permissions, and access control</p>
+                        </div>
+
+                        {/* Quick Stats in Header */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/10 text-center min-w-[60px]">
+                                <p className="text-xl font-black">{stats.total}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Total</p>
+                            </div>
+                            <div className="bg-emerald-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-emerald-400/20 text-center min-w-[60px]">
+                                <p className="text-xl font-black text-emerald-400">{stats.active}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-emerald-300/70">Active</p>
+                            </div>
+                            <div className="bg-purple-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-purple-400/20 text-center min-w-[60px]">
+                                <p className="text-xl font-black text-purple-400">{stats.admins}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-purple-300/70">Admins</p>
+                            </div>
+                            <div className="bg-blue-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-blue-400/20 text-center min-w-[60px]">
+                                <p className="text-xl font-black text-blue-400">{stats.teamLeaders}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-blue-300/70">TLs</p>
+                            </div>
+                            <div className="bg-teal-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-teal-400/20 text-center min-w-[60px]">
+                                <p className="text-xl font-black text-teal-400">{stats.reportingManagers}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-teal-300/70">RMs</p>
+                            </div>
+                            {stats.pendingResets > 0 && (
+                                <div className="bg-amber-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-amber-400/20 text-center min-w-[60px] animate-pulse">
+                                    <p className="text-xl font-black text-amber-400">{stats.pendingResets}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-amber-300/70">Resets</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Sub Stats Row */}
+                    <div className="flex items-center gap-4 mt-4 text-xs text-slate-400">
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 bg-red-400 rounded-full" />
+                            {stats.suspended} Suspended
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 bg-gray-400 rounded-full" />
+                            {stats.inactive} Inactive
+                        </span>
+                        {stats.forceChange > 0 && (
+                            <span className="flex items-center gap-1.5">
+                                <KeyRound size={12} className="text-amber-400" />
+                                {stats.forceChange} pending password change
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* Toolbar */}
-            <div className="flex flex-wrap gap-4 items-center justify-between bg-card/30 p-4 rounded-xl border border-border backdrop-blur-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search users..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary w-64 transitioning-all outline-none shadow-sm"
-                        />
-                    </div>
+            {/* ── TOOLBAR ── */}
+            <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden">
+                <div className="p-4 flex flex-wrap gap-3 items-center justify-between bg-gradient-to-r from-slate-500/5 via-transparent to-zinc-500/5">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Search */}
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search name, email, ID, location..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 pr-4 py-2.5 bg-background border border-border/60 rounded-2xl focus:ring-2 focus:ring-primary/20 w-72 transition-all outline-none text-sm font-medium"
+                            />
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
 
-                    <div className="flex bg-muted/50 p-1 rounded-lg border border-border overflow-hidden">
-                        <button
-                            onClick={() => setFilterRole('all')}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterRole === 'all' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            All
-                        </button>
-                        <button
-                            onClick={() => setFilterRole('admin')}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterRole === 'admin' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            Admins
-                        </button>
-                        <button
-                            onClick={() => setFilterRole('teamLeader')}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterRole === 'teamLeader' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            Leaders
-                        </button>
-                        <button
-                            onClick={() => setFilterRole('reportingManager')}
-                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterRole === 'reportingManager' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            RMs
-                        </button>
-                    </div>
-
-                    {/* Status Filter Tabs */}
-                    <div className="flex bg-muted/50 p-1 rounded-lg border border-border overflow-hidden">
-                        {(['all', 'active', 'inactive', 'suspended'] as const).map(status => {
-                            const statusConfig = {
-                                all: { label: 'All', count: stats.total },
-                                active: { label: 'Active', count: stats.active },
-                                inactive: { label: 'Inactive', count: stats.inactive },
-                                suspended: { label: 'Suspended', count: stats.suspended }
-                            }[status];
-                            return (
+                        {/* Role Filter */}
+                        <div className="flex bg-muted/50 p-0.5 rounded-xl border border-border/40 overflow-hidden">
+                            {([
+                                { value: 'all', label: 'All' },
+                                { value: 'admin', label: 'Admin' },
+                                { value: 'teamLeader', label: 'TL' },
+                                { value: 'reportingManager', label: 'RM' },
+                            ] as const).map(opt => (
                                 <button
-                                    key={status}
-                                    onClick={() => { setFilterStatus(status); if (status !== 'all') setShowDeleted(false); }}
-                                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${filterStatus === status && !showDeleted ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                    key={opt.value}
+                                    onClick={() => setFilterRole(opt.value)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterRole === opt.value ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
                                 >
-                                    {statusConfig.label}
-                                    <span className={`text-[10px] px-1.5 py-0 rounded-full font-bold ${filterStatus === status && !showDeleted ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                        {statusConfig.count}
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Status Filter */}
+                        <div className="flex bg-muted/50 p-0.5 rounded-xl border border-border/40 overflow-hidden">
+                            {([
+                                { value: 'all', label: 'All', count: stats.total },
+                                { value: 'active', label: 'Active', count: stats.active },
+                                { value: 'inactive', label: 'Inactive', count: stats.inactive },
+                                { value: 'suspended', label: 'Suspend', count: stats.suspended },
+                            ] as const).map(opt => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => { setFilterStatus(opt.value); if (opt.value !== 'all') setShowDeleted(false); }}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${filterStatus === opt.value && !showDeleted ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+                                >
+                                    {opt.label}
+                                    <span className={`text-[9px] px-1 py-0 rounded-full font-black ${filterStatus === opt.value && !showDeleted ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
+                                        {opt.count}
                                     </span>
                                 </button>
-                            );
-                        })}
+                            ))}
+                        </div>
+
+                        {/* Active Filter count */}
+                        {activeFilterCount > 0 && (
+                            <button
+                                onClick={() => { setSearchTerm(''); setFilterRole('all'); setFilterStatus('all'); setShowDeleted(false); }}
+                                className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 px-2 py-1.5"
+                            >
+                                <X size={12} /> Clear {activeFilterCount}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => refreshUsers && refreshUsers(true)}
+                            className="p-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
+                            title="Refresh"
+                        >
+                            <RefreshCw size={16} />
+                        </button>
+
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-3.5 py-2.5 bg-background border border-border/60 hover:bg-accent rounded-2xl transition-colors text-xs font-bold shadow-sm"
+                        >
+                            <Download size={14} /> Export
+                        </button>
+
+                        <button
+                            onClick={() => setShowDeleted(!showDeleted)}
+                            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl transition-colors text-xs font-bold border ${showDeleted ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 border-rose-200 dark:border-rose-800/30' : 'bg-background border-border/60 hover:bg-accent'}`}
+                        >
+                            <ArchiveRestore size={14} />
+                            {showDeleted ? "Hide Trash" : "Trash"}
+                        </button>
+
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            disabled={userData?.permissions?.users?.create === false}
+                            className={`flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-2xl transition-all shadow-lg font-bold text-xs whitespace-nowrap ${userData?.permissions?.users?.create === false
+                                ? 'opacity-50 cursor-not-allowed'
+                                : 'hover:bg-primary/90 hover:shadow-primary/25 active:scale-95'
+                                }`}
+                        >
+                            <Plus size={16} /> Add User
+                        </button>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={syncUsernames}
-                        className="p-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
-                        title="Sync Usernames"
-                    >
-                        <RefreshCw size={20} />
-                    </button>
-
-                    <div className="h-6 w-px bg-border hidden sm:block"></div>
-
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-background border border-border hover:bg-accent rounded-xl transition-colors text-sm font-medium shadow-sm hover:shadow-md"
-                    >
-                        <Download size={18} />
-                        <span className="hidden sm:inline">Export</span>
-                    </button>
-
-                    <button
-                        onClick={() => setShowDeleted(!showDeleted)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors text-sm font-medium shadow-sm hover:shadow-md border border-transparent ${showDeleted ? 'bg-red-50 text-red-600 border-red-200' : 'bg-background border-border hover:bg-accent'}`}
-                    >
-                        <ArchiveRestore size={18} />
-                        <span className="hidden sm:inline">{showDeleted ? "Hide Trash" : "Trash"}</span>
-                    </button>
-
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        disabled={userData?.permissions?.users?.create === false}
-                        className={`flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl transition-all shadow-lg font-medium whitespace-nowrap ${userData?.permissions?.users?.create === false
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:bg-primary/90 hover:shadow-primary/25 active:scale-95'
-                            }`}
-                        title={userData?.permissions?.users?.create === false ? "Permission Denied" : "Add New User"}
-                    >
-                        <Plus size={20} />
-                        <span>Add User</span>
-                    </button>
+                {/* Results count */}
+                <div className="px-4 py-2 border-t border-border/30 bg-muted/10 flex items-center justify-between">
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                        Showing <span className="font-black text-foreground">{filteredUsers.length}</span> of {stats.total} users
+                        {searchTerm && <span> matching "<span className="font-bold">{searchTerm}</span>"</span>}
+                    </p>
+                    {selectedUserIds.length > 0 && (
+                        <p className="text-[11px] text-primary font-bold">
+                            {selectedUserIds.length} selected
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -456,10 +495,10 @@ const UserManagementPage: React.FC = () => {
 
             {/* Pagination / Load More */}
             {hasMore && !loading && (
-                <div className="flex justify-center pt-4">
+                <div className="flex justify-center pt-2">
                     <button
                         onClick={loadMore}
-                        className="px-6 py-2 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-full text-sm font-medium transition-colors shadow-sm"
+                        className="px-6 py-2.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-2xl text-sm font-bold transition-colors shadow-sm"
                     >
                         Load More Users
                     </button>
@@ -502,8 +541,6 @@ const UserManagementPage: React.FC = () => {
                     onSave={async (perms: any) => {
                         if (editingPermissions) {
                             await updateUser(editingPermissions.id, { permissions: perms });
-                            // Do not close modal to allow real-time toggles
-                            // setEditingPermissions(null); 
                         }
                     }}
                 />
