@@ -11,6 +11,8 @@ const RMRiderOverview: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [filterWallet, setFilterWallet] = useState<'all' | 'positive' | 'negative' | 'zero'>('all');
     const [filterClient, setFilterClient] = useState('all');
+    const [sortBy, setSortBy] = useState<'name' | 'trievId' | 'wallet' | 'allotmentDate'>('name');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
@@ -69,8 +71,31 @@ const RMRiderOverview: React.FC = () => {
                 );
             }
             return true;
+        }).sort((a, b) => {
+            let sortRes = 0;
+            switch (sortBy) {
+                case 'name':
+                    sortRes = (a.riderName || '').localeCompare(b.riderName || '');
+                    break;
+                case 'trievId':
+                    sortRes = (a.trievId || '').localeCompare(b.trievId || '');
+                    break;
+                case 'wallet': {
+                    const wA = a.status === 'inactive' ? 0 : (a.walletAmount || 0);
+                    const wB = b.status === 'inactive' ? 0 : (b.walletAmount || 0);
+                    sortRes = wA - wB;
+                    break;
+                }
+                case 'allotmentDate': {
+                    const dA = a.allotmentDate ? new Date(a.allotmentDate).getTime() : 0;
+                    const dB = b.allotmentDate ? new Date(b.allotmentDate).getTime() : 0;
+                    sortRes = dA - dB;
+                    break;
+                }
+            }
+            return sortOrder === 'asc' ? sortRes : -sortRes;
         });
-    }, [riders, searchTerm, filterTL, filterStatus, filterWallet, filterClient]);
+    }, [riders, searchTerm, filterTL, filterStatus, filterWallet, filterClient, sortBy, sortOrder]);
 
     const paginatedRiders = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
@@ -256,6 +281,21 @@ const RMRiderOverview: React.FC = () => {
                             {teamLeaders.filter(tl => tl.status === 'active').map(tl => <option key={tl.id} value={tl.id}>{tl.fullName}</option>)}
                         </select>
 
+                        {/* Sort Dropdown */}
+                        <div className="flex items-center gap-1">
+                            <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)}
+                                className={`hidden md:block px-3 py-2.5 rounded-2xl text-sm font-bold border transition-all outline-none cursor-pointer bg-background border-border/60 hover:bg-muted text-foreground`}>
+                                <option value="name">Sort: Name</option>
+                                <option value="trievId">Sort: Triev ID</option>
+                                <option value="wallet">Sort: Wallet</option>
+                                <option value="allotmentDate">Sort: Join Date</option>
+                            </select>
+                            <button onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                className="px-3 py-2.5 rounded-2xl border border-border/60 bg-background hover:bg-muted transition-colors font-black text-sm text-muted-foreground hidden md:block">
+                                {sortOrder === 'asc' ? '↑' : '↓'}
+                            </button>
+                        </div>
+                        
                         {/* Filter button */}
                         <div className="relative">
                             <button
@@ -297,14 +337,31 @@ const RMRiderOverview: React.FC = () => {
                                                 </select>
                                             </div>
                                         )}
-                                        {/* TL (mobile) */}
-                                        <div className="md:hidden">
-                                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Team Leader</p>
-                                            <select value={filterTL} onChange={(e) => { setFilterTL(e.target.value); setCurrentPage(1); }}
-                                                className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-muted border-0 outline-none cursor-pointer">
-                                                <option value="all">All TLs</option>
-                                                {teamLeaders.filter(tl => tl.status === 'active').map(tl => <option key={tl.id} value={tl.id}>{tl.fullName}</option>)}
-                                            </select>
+                                        <div className="md:hidden space-y-4">
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Team Leader</p>
+                                                <select value={filterTL} onChange={(e) => { setFilterTL(e.target.value); setCurrentPage(1); }}
+                                                    className="w-full px-3 py-2 rounded-lg text-xs font-bold bg-muted border-0 outline-none cursor-pointer">
+                                                    <option value="all">All TLs</option>
+                                                    {teamLeaders.filter(tl => tl.status === 'active').map(tl => <option key={tl.id} value={tl.id}>{tl.fullName}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Sort By</p>
+                                                <div className="flex gap-2">
+                                                    <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)}
+                                                        className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-muted border-0 outline-none cursor-pointer">
+                                                        <option value="name">Name</option>
+                                                        <option value="trievId">Triev ID</option>
+                                                        <option value="wallet">Wallet</option>
+                                                        <option value="allotmentDate">Join Date</option>
+                                                    </select>
+                                                    <button onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                                        className="px-3 py-2 rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 transition-colors">
+                                                        {sortOrder === 'asc' ? '↑' : '↓'}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="mt-4 pt-3 border-t border-border/40">

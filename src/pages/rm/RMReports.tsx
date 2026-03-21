@@ -5,24 +5,37 @@ import { supabase } from '@/config/supabase';
 
 const RMReports: React.FC = () => {
     const { teamLeaders, riders, leads, loading } = useRMTeamData();
-    const [period, setPeriod] = useState<'today' | 'week' | 'month'>('week');
+    const [period, setPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'total' | 'custom'>('this_month' as any); // fallback initial, but we'll use 'month'
+    const [customDate, setCustomDate] = useState({ start: '', end: '' });
     const [dailyData, setDailyData] = useState<any[]>([]);
 
     React.useEffect(() => {
         if (teamLeaders.length === 0) return;
         const tlIds = teamLeaders.map(tl => tl.id);
         const now = new Date();
+        const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
         let startDate: string;
-        const endDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+        let endDate: string = todayStr;
 
         if (period === 'today') {
-            startDate = endDate;
+            startDate = todayStr;
+        } else if (period === 'yesterday') {
+            const d = new Date(); d.setDate(d.getDate() - 1);
+            startDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+            endDate = startDate;
         } else if (period === 'week') {
             const d = new Date(); d.setDate(d.getDate() - 7);
             startDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
-        } else {
+        } else if (period === 'month' || period as any === 'this_month') {
             const d = new Date(); d.setDate(d.getDate() - 30);
             startDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+        } else if (period === 'total') {
+            startDate = '2000-01-01';
+        } else if (period === 'custom' && customDate.start && customDate.end) {
+            startDate = customDate.start;
+            endDate = customDate.end;
+        } else {
+            startDate = todayStr;
         }
 
         const fetch = async () => {
@@ -36,14 +49,41 @@ const RMReports: React.FC = () => {
             setDailyData(data || []);
         };
         fetch();
-    }, [teamLeaders, period]);
+    }, [teamLeaders, period, customDate]);
+
+    // Date filter helper
+    const isDateInRange = (dateString: string | null | undefined) => {
+        if (!dateString) return false;
+        const d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(dateString));
+        
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+        const yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(yesterdayDate);
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekStart = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(weekAgo);
+        const monthAgo = new Date(); monthAgo.setDate(monthAgo.getDate() - 30);
+        const monthStart = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(monthAgo);
+
+        if (period === 'today') return d === today;
+        if (period === 'yesterday') return d === yesterday;
+        if (period === 'week') return d >= weekStart && d <= today;
+        if (period === 'month' || period as any === 'this_month') return d >= monthStart && d <= today;
+        if (period === 'total') return true;
+        if (period === 'custom') {
+            if (!customDate.start || !customDate.end) return true;
+            return d >= customDate.start && d <= customDate.end;
+        }
+        return true;
+    };
 
     const reportData = useMemo(() => {
         const totalCollection = dailyData.reduce((s, d) => s + (Number(d.total_collection) || 0), 0);
         const activeTLs = teamLeaders.filter(tl => tl.status === 'active').length;
         const activeRiders = riders.filter(r => r.status === 'active').length;
-        const totalLeads = leads.length;
-        const convertedLeads = leads.filter(l => l.status === 'Convert').length;
+        
+        const filteredLeads = leads.filter(l => isDateInRange(l.createdAt));
+        const totalLeads = filteredLeads.length;
+        const convertedLeads = filteredLeads.filter(l => l.status === 'Convert').length;
         const positiveWallet = riders.filter(r => r.status === 'active' && r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
         const negativeWallet = riders.filter(r => r.status === 'active' && r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
 
@@ -54,7 +94,7 @@ const RMReports: React.FC = () => {
                 const tlCollection = dailyData.filter(d => d.team_leader_id === tl.id).reduce((s, d) => s + (Number(d.total_collection) || 0), 0);
                 const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
                 const tlActive = tlRiders.filter(r => r.status === 'active').length;
-                const tlLeads = leads.filter(l => l.createdBy === tl.id);
+                const tlLeads = filteredLeads.filter(l => l.createdBy === tl.id);
                 const tlConverted = tlLeads.filter(l => l.status === 'Convert').length;
                 return {
                     name: tl.fullName, collection: tlCollection, activeRiders: tlActive,
@@ -102,17 +142,26 @@ const RMReports: React.FC = () => {
                     <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="text-teal-500" size={24} /> Reports</h1>
                     <p className="text-sm text-muted-foreground mt-1">Team performance summary and analytics</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="flex gap-1 bg-muted rounded-lg p-0.5">
-                        {(['today', 'week', 'month'] as const).map(p => (
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap gap-1 bg-muted rounded-lg p-0.5">
+                        {(['today', 'yesterday', 'week', 'month', 'total', 'custom'] as const).map(p => (
                             <button key={p} onClick={() => setPeriod(p)}
-                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${period === p ? 'bg-teal-500 text-white shadow' : 'hover:bg-accent'}`}>
-                                {p === 'today' ? 'Today' : p === 'week' ? '7 Days' : '30 Days'}
+                                className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${period === p ? 'bg-teal-500 text-white shadow' : 'hover:bg-accent'}`}>
+                                {p.charAt(0).toUpperCase() + p.slice(1)}
                             </button>
                         ))}
                     </div>
-                    <button onClick={exportReport} className="px-3 py-2 text-sm border rounded-lg hover:bg-accent transition-colors flex items-center gap-1.5 font-medium">
-                        <Download size={14} /> Download Report
+                    {period === 'custom' && (
+                        <div className="flex items-center gap-2 animate-in slide-in-from-right-4 duration-300">
+                            <input type="date" value={customDate.start} onChange={e => setCustomDate(prev => ({ ...prev, start: e.target.value }))}
+                                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background border border-border outline-none focus:ring-2 focus:ring-teal-500/20" />
+                            <span className="text-muted-foreground">-</span>
+                            <input type="date" value={customDate.end} onChange={e => setCustomDate(prev => ({ ...prev, end: e.target.value }))}
+                                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-background border border-border outline-none focus:ring-2 focus:ring-teal-500/20" />
+                        </div>
+                    )}
+                    <button onClick={exportReport} className="ml-auto px-3 py-2 text-sm border rounded-lg hover:bg-accent transition-colors flex items-center gap-1.5 font-medium whitespace-nowrap">
+                        <Download size={14} /> Export
                     </button>
                 </div>
             </div>

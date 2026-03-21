@@ -10,6 +10,7 @@ const RMTLPerformance: React.FC = () => {
     const [period, setPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'total' | 'custom'>('today');
     const [customDate, setCustomDate] = useState({ start: '', end: '' });
     const [expandedTL, setExpandedTL] = useState<string | null>(null);
+    const [inlineFilter, setInlineFilter] = useState<'all' | 'positive' | 'negative' | 'active' | 'inactive'>('all');
     const [collectionData, setCollectionData] = useState<Record<string, number>>({});
     const [loadingCollections, setLoadingCollections] = useState(false);
 
@@ -98,10 +99,18 @@ const RMTLPerformance: React.FC = () => {
                 const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
                 const activeRiders = tlRiders.filter(r => r.status === 'active').length;
                 const inactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
-                const tlLeads = leads.filter(l => l.createdBy === tl.id);
+                
+                // Date specific leads filtering
+                const tlLeads = leads.filter(l => l.createdBy === tl.id && isDateInRange(l.createdAt));
                 const converted = tlLeads.filter(l => l.status === 'Convert').length;
-                const positiveWallet = tlRiders.filter(r => r.status === 'active' && r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
-                const negativeWallet = tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
+                
+                const positiveRiders = tlRiders.filter(r => r.status === 'active' && r.walletAmount > 0);
+                const negativeRiders = tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0);
+                const positiveWallet = positiveRiders.reduce((s, r) => s + r.walletAmount, 0);
+                const negativeWallet = negativeRiders.reduce((s, r) => s + r.walletAmount, 0);
+                const positiveRidersCount = positiveRiders.length;
+                const negativeRidersCount = negativeRiders.length;
+                
                 const criticalDebt = tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length;
                 const collection = collectionData[tl.id] || 0;
                 
@@ -137,7 +146,7 @@ const RMTLPerformance: React.FC = () => {
                     allotment, submission, netGrowth, avgAge,
                     leadsTotal: tlLeads.length, convertedLeads: converted,
                     conversionRate: tlLeads.length > 0 ? Math.round((converted / tlLeads.length) * 100) : 0,
-                    positiveWallet, negativeWallet, criticalDebt, performanceScore,
+                    positiveWallet, negativeWallet, positiveRidersCount, negativeRidersCount, criticalDebt, performanceScore,
                     ridersList: tlRiders,
                 };
             })
@@ -361,8 +370,8 @@ const RMTLPerformance: React.FC = () => {
                                         </td>
                                         <td className="p-3">
                                             <div className="space-y-0.5">
-                                                <div className="text-[10px] font-bold text-emerald-500">+₹{tl.positiveWallet.toLocaleString()}</div>
-                                                <div className="text-[10px] font-bold text-rose-500">-₹{Math.abs(tl.negativeWallet).toLocaleString()}</div>
+                                                <div className="text-[10px] font-bold text-emerald-500" title={`${tl.positiveRidersCount} positive riders`}>+₹{tl.positiveWallet.toLocaleString()} <span className="opacity-70 font-normal">({tl.positiveRidersCount})</span></div>
+                                                <div className="text-[10px] font-bold text-rose-500" title={`${tl.negativeRidersCount} negative riders`}>-₹{Math.abs(tl.negativeWallet).toLocaleString()} <span className="opacity-70 font-normal">({tl.negativeRidersCount})</span></div>
                                                 {tl.criticalDebt > 0 && (
                                                     <div className="text-[9px] font-black text-rose-600 bg-rose-50 dark:bg-rose-900/20 px-1 py-0.5 rounded inline-flex items-center gap-0.5">
                                                         <AlertTriangle size={8} /> {tl.criticalDebt}
@@ -380,7 +389,10 @@ const RMTLPerformance: React.FC = () => {
                                         </td>
                                         <td className="p-3">
                                             <button
-                                                onClick={() => setExpandedTL(expandedTL === tl.id ? null : tl.id)}
+                                                onClick={() => {
+                                                    setExpandedTL(expandedTL === tl.id ? null : tl.id);
+                                                    setInlineFilter('all');
+                                                }}
                                                 className="p-1.5 rounded-lg hover:bg-accent transition-colors"
                                             >
                                                 {expandedTL === tl.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -392,12 +404,28 @@ const RMTLPerformance: React.FC = () => {
                                         <tr>
                                             <td colSpan={9}>
                                                 <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-4 border-b animate-in fade-in slide-in-from-top-2 duration-200">
-                                                    <p className="text-xs font-black uppercase text-muted-foreground mb-3 tracking-wider">
-                                                        {tl.name}'s Riders ({tl.totalRiders})
-                                                    </p>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <p className="text-xs font-black uppercase text-muted-foreground tracking-wider">
+                                                            {tl.name}'s Riders ({tl.totalRiders})
+                                                        </p>
+                                                        <div className="flex items-center gap-1 bg-background rounded-lg p-1 border border-border/50">
+                                                            {(['all', 'positive', 'negative', 'active', 'inactive'] as const).map(f => (
+                                                                <button key={f} onClick={() => setInlineFilter(f)}
+                                                                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${inlineFilter === f ? 'bg-indigo-500 text-white shadow' : 'hover:bg-accent text-muted-foreground'}`}>
+                                                                    {f}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                     {tl.ridersList.length > 0 ? (
                                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-auto">
-                                                            {tl.ridersList.map(r => (
+                                                            {tl.ridersList.filter(r => {
+                                                                if (inlineFilter === 'active') return r.status === 'active';
+                                                                if (inlineFilter === 'inactive') return r.status === 'inactive';
+                                                                if (inlineFilter === 'positive') return r.status === 'active' && r.walletAmount > 0;
+                                                                if (inlineFilter === 'negative') return r.status === 'active' && r.walletAmount < 0;
+                                                                return true;
+                                                            }).map(r => (
                                                                 <div key={r.id} className="bg-card border border-border/40 rounded-xl p-2.5 flex items-center justify-between text-xs">
                                                                     <div className="min-w-0">
                                                                         <p className="font-semibold truncate">{r.riderName}</p>
@@ -413,6 +441,15 @@ const RMTLPerformance: React.FC = () => {
                                                                     </div>
                                                                 </div>
                                                             ))}
+                                                            {tl.ridersList.filter(r => {
+                                                                if (inlineFilter === 'active') return r.status === 'active';
+                                                                if (inlineFilter === 'inactive') return r.status === 'inactive';
+                                                                if (inlineFilter === 'positive') return r.status === 'active' && r.walletAmount > 0;
+                                                                if (inlineFilter === 'negative') return r.status === 'active' && r.walletAmount < 0;
+                                                                return true;
+                                                            }).length === 0 && (
+                                                                <p className="text-xs text-muted-foreground col-span-full">No riders match this filter.</p>
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         <p className="text-xs text-muted-foreground">No riders assigned</p>
