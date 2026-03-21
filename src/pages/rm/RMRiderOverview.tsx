@@ -51,9 +51,13 @@ const RMRiderOverview: React.FC = () => {
         return riders.filter(r => {
             if (filterStatus !== 'all' && r.status !== filterStatus) return false;
             if (filterTL !== 'all' && r.teamLeaderId !== filterTL) return false;
-            if (filterWallet === 'positive' && r.walletAmount <= 0) return false;
-            if (filterWallet === 'negative' && r.walletAmount >= 0) return false;
-            if (filterWallet === 'zero' && r.walletAmount !== 0) return false;
+            
+            // For wallet filtering: inactive riders have 0 wallet
+            const effectiveWallet = r.status === 'inactive' ? 0 : (r.walletAmount || 0);
+            if (filterWallet === 'positive' && effectiveWallet <= 0) return false;
+            if (filterWallet === 'negative' && effectiveWallet >= 0) return false;
+            if (filterWallet === 'zero' && effectiveWallet !== 0) return false;
+
             if (filterClient !== 'all' && (r.clientName || '').trim() !== filterClient) return false;
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
@@ -217,6 +221,20 @@ const RMRiderOverview: React.FC = () => {
 
             {/* ── TABLE CARD ── */}
             <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden">
+                {/* ── STATUS TABS ── */}
+                <div className="flex bg-muted/40 p-2 sm:p-3 border-b border-border/40 gap-2 overflow-x-auto hide-scrollbar">
+                    {(['all', 'active', 'inactive'] as const).map(s => (
+                        <button
+                            key={s}
+                            onClick={() => { setFilterStatus(s); setCurrentPage(1); }}
+                            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-black capitalize transition-all whitespace-nowrap flex items-center gap-2 ${filterStatus === s ? (s === 'active' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : s === 'inactive' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'bg-card border-border/60 shadow-sm text-foreground') : 'hover:bg-accent/50 text-muted-foreground bg-transparent'}`}
+                        >
+                            {s === 'all' ? <Users size={16} /> : <Activity size={16} />}
+                            {s} Riders
+                        </button>
+                    ))}
+                </div>
+
                 {/* Toolbar */}
                 <div className="p-4 border-b border-border/40 flex flex-col md:flex-row justify-between items-center gap-3 bg-gradient-to-r from-teal-500/5 via-transparent to-emerald-500/5">
                     <div className="flex items-center gap-3 w-full md:w-auto flex-1">
@@ -255,18 +273,7 @@ const RMRiderOverview: React.FC = () => {
                             {isFilterOpen && (
                                 <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-2xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
                                     <div className="space-y-4">
-                                        {/* Status */}
-                                        <div>
-                                            <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Status</p>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {(['all', 'active', 'inactive'] as const).map(v => (
-                                                    <button key={v} onClick={() => { setFilterStatus(v); setCurrentPage(1); }}
-                                                        className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${filterStatus === v ? (v === 'active' ? 'bg-emerald-500 text-white' : v === 'inactive' ? 'bg-rose-500 text-white' : 'bg-teal-500 text-white') : 'bg-muted hover:bg-muted/80'}`}>
-                                                        {v}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        {/* Status filter removed from here, moved to main tabs above */}
                                         {/* Wallet */}
                                         <div>
                                             <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Wallet</p>
@@ -384,8 +391,8 @@ const RMRiderOverview: React.FC = () => {
                                             {(r.status || 'unknown')}
                                         </span>
                                     </td>
-                                    <td className={`p-3 text-right font-bold tabular-nums ${(r.walletAmount || 0) > 0 ? 'text-emerald-600' : (r.walletAmount || 0) < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
-                                        ₹{(r.walletAmount || 0).toLocaleString()}
+                                    <td className={`p-3 text-right font-bold tabular-nums ${r.status === 'inactive' ? 'text-muted-foreground' : (r.walletAmount || 0) > 0 ? 'text-emerald-600' : (r.walletAmount || 0) < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
+                                        ₹{r.status === 'inactive' ? '0' : (r.walletAmount || 0).toLocaleString()}
                                     </td>
                                     <td className="p-3 text-xs text-muted-foreground">
                                         {r.allotmentDate ? new Date(r.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}

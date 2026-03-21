@@ -140,50 +140,62 @@ const RMDashboard: React.FC = () => {
             {/* ── KEY METRICS ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {/* Team Leaders */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="p-2 bg-teal-500/10 rounded-xl group-hover:scale-110 transition-transform"><Users size={17} className="text-teal-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Team Leaders</span>
+                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-teal-500/30 transition-all duration-300 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                    <div className="relative">
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <div className="p-2 bg-teal-500/10 rounded-xl group-hover:scale-110 group-hover:bg-teal-500/20 transition-all duration-300"><Users size={17} className="text-teal-500" /></div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Team Leaders</span>
+                        </div>
+                        <p className="text-2xl font-black">{metrics.activeTLs}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Active supervisors</p>
                     </div>
-                    <p className="text-2xl font-black">{metrics.activeTLs}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Active supervisors</p>
                 </div>
 
                 {/* Active Fleet */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="p-2 bg-indigo-500/10 rounded-xl group-hover:scale-110 transition-transform"><Activity size={17} className="text-indigo-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Active Fleet</span>
+                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-indigo-500/30 transition-all duration-300 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                    <div className="relative">
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <div className="p-2 bg-indigo-500/10 rounded-xl group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all duration-300"><Activity size={17} className="text-indigo-500" /></div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Active Fleet</span>
+                        </div>
+                        <p className="text-2xl font-black">{metrics.activeRiders} <span className="text-sm font-normal text-muted-foreground">/ {metrics.totalRiders}</span></p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.inactiveRiders} inactive</p>
                     </div>
-                    <p className="text-2xl font-black">{metrics.activeRiders} <span className="text-sm font-normal text-muted-foreground">/ {metrics.totalRiders}</span></p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.inactiveRiders} inactive</p>
                 </div>
 
                 {/* Today's Collection */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 transition-transform"><TrendingUp size={17} className="text-emerald-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Today's Collection</span>
+                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                    <div className="relative">
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all duration-300"><TrendingUp size={17} className="text-emerald-500" /></div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Today's Collection</span>
+                        </div>
+                        <p className="text-2xl font-black text-emerald-600">₹{metrics.todayCollection.toLocaleString()}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Across all TLs</p>
                     </div>
-                    <p className="text-2xl font-black text-emerald-600">₹{metrics.todayCollection.toLocaleString()}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Across all TLs</p>
                 </div>
 
                 {/* Wallet Health */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="p-2 bg-orange-500/10 rounded-xl group-hover:scale-110 transition-transform"><Wallet size={17} className="text-orange-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Wallet Balance</span>
+                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-orange-500/30 transition-all duration-300 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                    <div className="relative">
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <div className="p-2 bg-orange-500/10 rounded-xl group-hover:scale-110 group-hover:bg-orange-500/20 transition-all duration-300"><Wallet size={17} className="text-orange-500" /></div>
+                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Wallet Balance</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-black text-emerald-500">+₹{metrics.positiveWallet.toLocaleString()}</span>
+                            <span className="text-sm font-black text-rose-500">-₹{Math.abs(metrics.negativeWallet).toLocaleString()}</span>
+                        </div>
+                        {metrics.criticalDebt > 0 && (
+                            <p className="text-[10px] text-rose-500 font-black mt-1 animate-pulse flex items-center gap-1">
+                                <AlertTriangle size={10} /> {metrics.criticalDebt} critical debt riders
+                            </p>
+                        )}
                     </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-black text-emerald-500">+₹{metrics.positiveWallet.toLocaleString()}</span>
-                        <span className="text-sm font-black text-rose-500">-₹{Math.abs(metrics.negativeWallet).toLocaleString()}</span>
-                    </div>
-                    {metrics.criticalDebt > 0 && (
-                        <p className="text-[10px] text-rose-500 font-black mt-1 animate-pulse flex items-center gap-1">
-                            <AlertTriangle size={10} /> {metrics.criticalDebt} critical debt riders
-                        </p>
-                    )}
                 </div>
             </div>
 
