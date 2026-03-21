@@ -115,8 +115,8 @@ const RMTLPerformance: React.FC = () => {
                 const collection = collectionData[tl.id] || 0;
                 
                 // New metrics calculations
-                const allotment = tlRiders.filter(r => isDateInRange(r.allotmentDate)).length;
-                const submission = tlRiders.filter(r => r.status === 'inactive' && isDateInRange(r.updatedAt || r.inactivatedAt)).length;
+                const allotment = tlRiders.filter(r => isDateInRange(r.allotmentDate || r.createdAt)).length;
+                const submission = tlRiders.filter(r => r.status === 'inactive' && isDateInRange(r.inactivatedAt || r.updatedAt)).length;
                 const netGrowth = allotment - submission;
 
                 let totalActiveAgeDays = 0;
