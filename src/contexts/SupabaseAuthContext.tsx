@@ -283,7 +283,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             }
 
             // Role-based redirect
-            if (role === 'admin' || role === 'reportingManager') {
+            if (role === 'admin') {
                 window.location.href = '/admin-login';
             } else {
                 window.location.href = '/login';

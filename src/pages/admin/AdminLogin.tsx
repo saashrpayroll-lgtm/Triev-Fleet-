@@ -157,7 +157,12 @@ const AdminLogin: React.FC = () => {
                 </motion.div>
 
                 {/* Login Card */}
-                <motion.div variants={itemVariants} className="relative">
+                <motion.div
+                    variants={itemVariants}
+                    className="relative"
+                    animate={{ y: [0, -6, 0] }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                >
                     {/* Glowing border */}
                     <motion.div
                         className="absolute -inset-[1px] rounded-[28px] sm:rounded-[36px] bg-gradient-to-br from-red-600/35 via-red-900/15 to-transparent shadow-[0_0_15px_rgba(220,38,38,0.2)]"
@@ -253,15 +258,17 @@ const AdminLogin: React.FC = () => {
                                             required
                                             autoComplete="current-password"
                                         />
-                                        {/* Eye toggle — safe from framer-motion positioning bugs */}
+                                        {/* Eye toggle */}
                                         <button
                                             type="button"
+                                            onMouseDown={(e) => e.preventDefault()}
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 setShowPassword(!showPassword);
                                             }}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-red-500/30 text-white/80 hover:text-white transition-all duration-200 border border-white/10 hover:border-red-500/40 shadow-sm active:scale-90"
+                                            className="absolute right-3 top-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-red-500/20 text-white/60 hover:text-red-100 transition-all duration-300 border border-transparent hover:border-red-500/30 group-hover:bg-white/10"
                                             title={showPassword ? 'Hide password' : 'Show password'}
+                                            style={{ transform: 'translateY(-50%)' }}
                                         >
                                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                         </button>
