@@ -123,6 +123,7 @@ const AdminLayout: React.FC = () => {
         {
             title: 'Management',
             items: [
+                { path: '/portal/rm-performance', icon: Activity, label: 'RM Performance', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/forms', icon: FileText, label: 'Company Forms', visible: userData?.permissions?.modules?.requests ?? true },
