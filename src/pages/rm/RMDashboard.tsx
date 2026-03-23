@@ -20,6 +20,10 @@ const RMDashboard: React.FC = () => {
     const [showRecoveryPopup, setShowRecoveryPopup] = React.useState(false);
     const [hasDismissedPopup, setHasDismissedPopup] = React.useState(false);
 
+    // TL Risk Modal State
+    const [selectedRiskTl, setSelectedRiskTl] = React.useState<any | null>(null);
+    const [showRiskModal, setShowRiskModal] = React.useState(false);
+
     React.useEffect(() => {
         const fetchHRForm = async () => {
             const { data } = await supabase.from('external_forms')
@@ -52,6 +56,13 @@ const RMDashboard: React.FC = () => {
             .sort((a, b) => a.totalNegative - b.totalNegative)
             .slice(0, 5);
     }, [teamLeaders, riders]);
+
+    const selectedTlNegativeRiders = useMemo(() => {
+        if (!selectedRiskTl) return [];
+        return riders
+            .filter(r => r.teamLeaderId === selectedRiskTl.id && r.status === 'active' && r.walletAmount < 0)
+            .sort((a, b) => a.walletAmount - b.walletAmount);
+    }, [selectedRiskTl, riders]);
 
     // Daily collections
     const [dailyCollections, setDailyCollections] = React.useState<Record<string, number>>({});
@@ -194,6 +205,88 @@ const RMDashboard: React.FC = () => {
                                 ) : (
                                     <p className="text-xs text-center text-muted-foreground italic">No Hard Recovery form link active in Company Forms.</p>
                                 )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── TL RISK DETAILS MODAL ── */}
+            <AnimatePresence>
+                {showRiskModal && selectedRiskTl && (
+                    <motion.div
+                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div
+                            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                            onClick={() => setShowRiskModal(false)}
+                        />
+                        <motion.div
+                            className="relative bg-card border border-border/50 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] md:max-h-[80vh]"
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        >
+                            <div className="bg-gradient-to-r from-rose-500/10 to-transparent p-4 md:p-5 border-b border-border/50 flex items-start md:items-center justify-between shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-500 font-bold border border-rose-500/30 shrink-0">
+                                        {selectedRiskTl.fullName.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base md:text-lg font-black tracking-tight flex items-center gap-2">
+                                            {selectedRiskTl.fullName}'s Risk Overview
+                                        </h2>
+                                        <p className="text-muted-foreground text-[10px] md:text-xs font-medium">
+                                            {selectedTlNegativeRiders.length} Defaulters <span className="mx-1 opacity-50">•</span> Total Debit: <span className="text-rose-500 font-bold">-₹{Math.abs(selectedRiskTl.totalNegative).toLocaleString()}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowRiskModal(false)} className="p-2 hover:bg-muted rounded-xl transition-colors shrink-0">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="overflow-auto p-0 md:p-5 relative flex-1 custom-scrollbar">
+                                <table className="w-full text-sm">
+                                    <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.1)]">
+                                        <tr className="text-left">
+                                            <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest border-b border-border/50">Rider Info</th>
+                                            <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest border-b border-border/50">Status</th>
+                                            <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right border-b border-border/50">Wallet</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedTlNegativeRiders.map(rider => (
+                                            <tr key={rider.id} className="border-b border-border/20 last:border-0 hover:bg-muted/10 transition-colors">
+                                                <td className="p-3">
+                                                    <p className="font-bold text-foreground text-xs md:text-sm">{rider.riderName}</p>
+                                                    <p className="text-[10px] font-mono text-muted-foreground">{rider.trievId} <span className="opacity-50">•</span> {rider.mobileNumber}</p>
+                                                </td>
+                                                <td className="p-3">
+                                                    {rider.walletAmount <= -1500 ? (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-black text-rose-500 bg-rose-500/10 px-2 py-1 rounded-full border border-rose-500/20">
+                                                            <AlertTriangle size={10} /> CRITICAL
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] font-black text-orange-500 bg-orange-500/10 px-2 py-1 rounded-full border border-orange-500/20">
+                                                            NEGATIVE
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 text-right font-black text-rose-500 md:text-base">
+                                                    -₹{Math.abs(rider.walletAmount).toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {selectedTlNegativeRiders.length === 0 && (
+                                            <tr>
+                                                <td colSpan={3} className="p-8 text-center text-muted-foreground">No negative riders found for this Team Leader.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </motion.div>
                     </motion.div>
@@ -439,9 +532,16 @@ const RMDashboard: React.FC = () => {
                             </thead>
                             <tbody>
                                 {tlRiskOverview.map((tl) => (
-                                    <tr key={tl.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                                    <tr 
+                                        key={tl.id} 
+                                        className="border-b last:border-0 hover:bg-muted/30 transition-all cursor-pointer group"
+                                        onClick={() => { setSelectedRiskTl(tl); setShowRiskModal(true); }}
+                                    >
                                         <td className="p-3">
-                                            <p className="font-semibold">{tl.fullName}</p>
+                                            <p className="font-semibold group-hover:text-teal-500 transition-colors flex items-center gap-1.5">
+                                                {tl.fullName}
+                                                <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-teal-500" />
+                                            </p>
                                             <p className="text-[10px] text-muted-foreground">{tl.email}</p>
                                         </td>
                                         <td className="p-3 text-center">
