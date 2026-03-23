@@ -56,6 +56,7 @@ const RMLayout: React.FC = () => {
             items: [
                 { path: '/rm-panel/riders', icon: Users, label: 'Rider Overview', visible: rmPerms?.riderOverview ?? true },
                 { path: '/rm-panel/leads', icon: Target, label: 'Lead Overview', visible: rmPerms?.leadOverview ?? true },
+                { path: '/rm-panel/company-forms', icon: FileText, label: 'Company Forms', visible: true },
             ].filter(item => item.visible !== false)
         },
         {

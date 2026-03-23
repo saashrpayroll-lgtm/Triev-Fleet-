@@ -15,6 +15,8 @@ interface ExternalForm {
     url: string;
     category: 'form' | 'sheet';
     is_active: boolean;
+    is_visible_to_rm?: boolean;
+    is_visible_to_tl?: boolean;
     display_order: number;
     created_at: string;
 }
@@ -31,6 +33,8 @@ const AdminForms: React.FC = () => {
     const [url, setUrl] = useState('');
     const [category, setCategory] = useState<'form' | 'sheet'>('form');
     const [isActive, setIsActive] = useState(true);
+    const [isVisibleToRM, setIsVisibleToRM] = useState(false);
+    const [isVisibleToTL, setIsVisibleToTL] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => { fetchForms(); }, []);
@@ -54,13 +58,16 @@ const AdminForms: React.FC = () => {
     };
 
     const resetForm = () => {
-        setTitle(''); setUrl(''); setCategory('form'); setIsActive(true);
+        setTitle(''); setUrl(''); setCategory('form'); 
+        setIsActive(true); setIsVisibleToRM(false); setIsVisibleToTL(true);
         setEditingForm(null); setShowModal(false);
     };
 
     const handleOpenEdit = (form: ExternalForm) => {
         setEditingForm(form); setTitle(form.title); setUrl(form.url);
         setCategory(form.category || 'form'); setIsActive(form.is_active);
+        setIsVisibleToRM(form.is_visible_to_rm ?? false);
+        setIsVisibleToTL(form.is_visible_to_tl ?? true);
         setShowModal(true);
     };
 
@@ -73,14 +80,14 @@ const AdminForms: React.FC = () => {
             setIsSubmitting(true);
             if (editingForm) {
                 const { error } = await supabase.from('external_forms')
-                    .update({ title, url, category, is_active: isActive, updated_at: new Date().toISOString() })
+                    .update({ title, url, category, is_active: isActive, is_visible_to_rm: isVisibleToRM, is_visible_to_tl: isVisibleToTL, updated_at: new Date().toISOString() })
                     .eq('id', editingForm.id);
                 if (error) throw error;
                 await logActivity({ actionType: 'form_updated', targetType: 'system', targetId: editingForm.id, details: `Updated external ${category}: ${title}`, performedBy: userData?.email });
                 toast.success(`${category === 'form' ? 'Form' : 'Sheet'} updated successfully`);
             } else {
                 const { error } = await supabase.from('external_forms')
-                    .insert([{ title, url, category, is_active: isActive, display_order: forms.length, created_by: userData?.id }]);
+                    .insert([{ title, url, category, is_active: isActive, is_visible_to_rm: isVisibleToRM, is_visible_to_tl: isVisibleToTL, display_order: forms.length, created_by: userData?.id }]);
                 if (error) throw error;
                 await logActivity({ actionType: 'form_created', targetType: 'system', targetId: 'new', details: `Created new external ${category}: ${title}`, performedBy: userData?.email });
                 toast.success(`${category === 'form' ? 'Form' : 'Sheet'} added successfully`);
@@ -92,19 +99,7 @@ const AdminForms: React.FC = () => {
         } finally { setIsSubmitting(false); }
     };
 
-    const handleToggleStatus = async (form: ExternalForm) => {
-        try {
-            const { error } = await supabase.from('external_forms')
-                .update({ is_active: !form.is_active }).eq('id', form.id);
-            if (error) throw error;
-            await logActivity({ actionType: 'form_toggled', targetType: 'system', targetId: form.id, details: `${form.is_active ? 'Disabled' : 'Enabled'} external form: ${form.title}`, performedBy: userData?.email });
-            toast.success(`Form ${form.is_active ? 'disabled' : 'enabled'}`);
-            setForms(forms.map(f => f.id === form.id ? { ...f, is_active: !f.is_active } : f));
-        } catch (error) {
-            console.error('Error toggling form status:', error);
-            toast.error('Failed to update form status');
-        }
-    };
+
 
     const handleDelete = async (form: ExternalForm) => {
         if (!confirm(`Are you sure you want to delete the form "${form.title}"?`)) return;
@@ -128,7 +123,7 @@ const AdminForms: React.FC = () => {
         try {
             const updates = reorderedForms.map((form, index) => ({
                 id: form.id, title: form.title, url: form.url, category: form.category,
-                is_active: form.is_active, display_order: index, updated_at: new Date().toISOString()
+                is_active: form.is_active, is_visible_to_rm: form.is_visible_to_rm, is_visible_to_tl: form.is_visible_to_tl, display_order: index, updated_at: new Date().toISOString()
             }));
             const { error } = await supabase.from('external_forms').upsert(updates, { onConflict: 'id' });
             if (error) throw error;
@@ -162,6 +157,8 @@ const AdminForms: React.FC = () => {
                                 ? <span className="flex items-center gap-1 text-[9px] uppercase tracking-widest font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shrink-0"><CheckCircle2 size={9} />Active</span>
                                 : <span className="flex items-center gap-1 text-[9px] uppercase tracking-widest font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border shrink-0"><XCircle size={9} />Inactive</span>
                             }
+                            {form.is_visible_to_rm && <span className="text-[8px] uppercase tracking-widest font-black px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0">RM</span>}
+                            {form.is_visible_to_tl && <span className="text-[8px] uppercase tracking-widest font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20 shrink-0">TL</span>}
                         </div>
                         <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground/60">
                             <LinkIcon size={11} className="shrink-0" />
@@ -175,14 +172,15 @@ const AdminForms: React.FC = () => {
 
                 <div className="flex items-center gap-2 shrink-0 pl-8 md:pl-0">
                     {/* Toggle */}
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/30 border border-border/40">
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-wider hidden sm:block">TL Visible</span>
-                        <button
-                            onClick={() => handleToggleStatus(form)}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${form.is_active ? (accent === 'primary' ? 'bg-emerald-500' : 'bg-indigo-500') : 'bg-slate-300 dark:bg-slate-700'}`}
-                        >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${form.is_active ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                        </button>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20 border border-border/30" title="Visible to RM Dashboard">
+                            <span className="text-[9px] font-black text-muted-foreground uppercase hidden sm:block">RM</span>
+                            <div className={`w-2 h-2 rounded-full ${form.is_visible_to_rm ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/20 border border-border/30" title="Visible to TL Dashboard">
+                            <span className="text-[9px] font-black text-muted-foreground uppercase hidden sm:block">TL</span>
+                            <div className={`w-2 h-2 rounded-full ${form.is_visible_to_tl ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
+                        </div>
                     </div>
                     <button onClick={() => handleOpenEdit(form)} className="p-1.5 text-muted-foreground/50 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit"><Edit2 size={15} /></button>
                     <a href={form.url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-muted-foreground/50 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors" title="Open"><ExternalLink size={15} /></a>
@@ -356,13 +354,40 @@ const AdminForms: React.FC = () => {
                                         <p className="text-[11px] text-muted-foreground mt-1.5">Make sure to include https://</p>
                                     </div>
 
-                                    {/* Visibility Toggle */}
-                                    <div className="flex items-center gap-3 py-1">
+                                    {/* Visibility Toggles */}
+                                    <div className="grid grid-cols-2 gap-4 py-2 border-t border-border/60 mt-2 pt-4">
+                                        <div className="flex flex-col gap-2 p-3 bg-muted/30 rounded-xl border border-border/40">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-foreground">Visible to TL</span>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" className="sr-only peer" checked={isVisibleToTL} onChange={(e) => setIsVisibleToTL(e.target.checked)} />
+                                                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-500" />
+                                                </label>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">Shows up in the Team Leader Company Forms page.</p>
+                                        </div>
+                                        <div className="flex flex-col gap-2 p-3 bg-muted/30 rounded-xl border border-border/40">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-foreground">Visible to RM</span>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" className="sr-only peer" checked={isVisibleToRM} onChange={(e) => setIsVisibleToRM(e.target.checked)} />
+                                                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500" />
+                                                </label>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-tight">Shows up in the Reporting Manager Panel & Quick Links.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Global Master Status */}
+                                    <div className="flex items-center justify-between p-3 bg-red-500/5 rounded-xl border border-red-500/20">
+                                        <div>
+                                            <span className="text-xs font-black text-red-600 dark:text-red-400 block">Master Status Active</span>
+                                            <span className="text-[10px] text-muted-foreground">If disabled, no one will see this link regardless of above toggles.</span>
+                                        </div>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input type="checkbox" className="sr-only peer" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-                                            <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-primary" />
+                                            <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500" />
                                         </label>
-                                        <span className="text-xs font-bold text-foreground">Visible to Team Leaders immediately</span>
                                     </div>
 
                                     {/* Footer Buttons */}

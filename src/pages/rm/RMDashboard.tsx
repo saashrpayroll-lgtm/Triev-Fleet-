@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { useRMTeamData } from '@/hooks/useRMTeamData';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, TrendingUp, Wallet, Target, BarChart3,
     Trophy, ArrowRight, Activity, Shield, AlertTriangle,
-    Zap, Calendar
+    Zap, Calendar, X, ExternalLink
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
@@ -12,6 +13,45 @@ import { supabase } from '@/config/supabase';
 const RMDashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const { teamLeaders, riders, leads, loading } = useRMTeamData();
+
+    
+    // Heavy Defaulters & Recovery Form
+    const [recoveryFormUrl, setRecoveryFormUrl] = React.useState<string | null>(null);
+    const [showRecoveryPopup, setShowRecoveryPopup] = React.useState(false);
+    const [hasDismissedPopup, setHasDismissedPopup] = React.useState(false);
+
+    React.useEffect(() => {
+        const fetchHRForm = async () => {
+            const { data } = await supabase.from('external_forms')
+                .select('url').ilike('title', '%recovery%').eq('is_active', true).limit(1).maybeSingle();
+            if (data) setRecoveryFormUrl(data.url);
+        };
+        fetchHRForm();
+    }, []);
+
+    const heavyDefaulters = useMemo(() => {
+        return riders.filter(r => r.status === 'active' && r.walletAmount <= -1500);
+    }, [riders]);
+
+    React.useEffect(() => {
+        if (heavyDefaulters.length > 0 && !hasDismissedPopup) {
+            setShowRecoveryPopup(true);
+        }
+    }, [heavyDefaulters, hasDismissedPopup]);
+
+    const tlRiskOverview = useMemo(() => {
+        return teamLeaders
+            .filter(tl => tl.status === 'active')
+            .map(tl => {
+                const tlRiders = riders.filter(r => r.teamLeaderId === tl.id && r.status === 'active');
+                const negativeRiders = tlRiders.filter(r => r.walletAmount < 0);
+                const criticalRiders = tlRiders.filter(r => r.walletAmount <= -1500);
+                const totalNegative = negativeRiders.reduce((sum, r) => sum + r.walletAmount, 0);
+                return { ...tl, negativeCount: negativeRiders.length, criticalCount: criticalRiders.length, totalNegative };
+            })
+            .sort((a, b) => a.totalNegative - b.totalNegative)
+            .slice(0, 5);
+    }, [teamLeaders, riders]);
 
     // Daily collections
     const [dailyCollections, setDailyCollections] = React.useState<Record<string, number>>({});
@@ -98,6 +138,68 @@ const RMDashboard: React.FC = () => {
 
     return (
         <div className="space-y-5 animate-in fade-in duration-500">
+            {/* ── HEAVY DEFAULTERS MODAL ── */}
+            <AnimatePresence>
+                {showRecoveryPopup && heavyDefaulters.length > 0 && (
+                    <motion.div
+                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div
+                            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                            onClick={() => { setShowRecoveryPopup(false); setHasDismissedPopup(true); }}
+                        />
+                        <motion.div
+                            className="relative bg-card border border-rose-500/30 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        >
+                            <div className="bg-gradient-to-r from-rose-500 to-red-600 p-5 text-white flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-xl"><AlertTriangle size={20} className="animate-pulse" /></div>
+                                    <div>
+                                        <h2 className="text-lg font-black tracking-tight">Heavy Defaulters Alert</h2>
+                                        <p className="text-white/80 text-xs font-medium">{heavyDefaulters.length} riders with critical debt (-₹1500+)</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setShowRecoveryPopup(false); setHasDismissedPopup(true); }} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <div className="p-5">
+                                <div className="max-h-60 overflow-y-auto mb-5 space-y-2 pr-2 custom-scrollbar">
+                                    {heavyDefaulters.map(rider => (
+                                        <div key={rider.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50">
+                                            <div>
+                                                <p className="font-bold text-sm text-foreground">{rider.riderName}</p>
+                                                <p className="text-xs text-muted-foreground">{rider.trievId}</p>
+                                            </div>
+                                            <span className="font-black text-rose-500 text-base">-₹{Math.abs(rider.walletAmount).toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                {recoveryFormUrl ? (
+                                    <a
+                                        href={recoveryFormUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => { setShowRecoveryPopup(false); setHasDismissedPopup(true); }}
+                                        className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(244,63,94,0.4)] transition-all"
+                                    >
+                                        <ExternalLink size={16} /> Fill Hard Recovery Form
+                                    </a>
+                                ) : (
+                                    <p className="text-xs text-center text-muted-foreground italic">No Hard Recovery form link active in Company Forms.</p>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* ── PREMIUM WELCOME HEADER ── */}
             <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-500 rounded-2xl p-6 text-white shadow-xl">
                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none" />
@@ -250,8 +352,10 @@ const RMDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* ── TOP PERFORMERS TABLE ── */}
-            <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden">
+            {/* ── TABLES GRID ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* ── TOP PERFORMERS TABLE ── */}
+                <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden h-full flex flex-col">
                 <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-amber-500/5 via-transparent to-teal-500/5">
                     <div>
                         <h3 className="font-black text-lg flex items-center gap-2">
@@ -310,6 +414,49 @@ const RMDashboard: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                </div>
+                </div>
+
+                {/* ── TL WALLET RISK ALERTS ── */}
+                <div className="bg-card border border-rose-500/20 rounded-2xl shadow-sm overflow-hidden h-full flex flex-col">
+                    <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-rose-500/5 via-transparent to-transparent">
+                        <div>
+                            <h3 className="font-black text-lg flex items-center gap-2 text-rose-500">
+                                <div className="p-1.5 bg-rose-500/10 rounded-lg"><AlertTriangle size={16} /></div>
+                                TL Wallet Risk
+                            </h3>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Ranked by maximum negative wallet exposure</p>
+                        </div>
+                    </div>
+                    <div className="overflow-auto flex-1">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left border-b">
+                                    <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
+                                    <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-center">Defaulters</th>
+                                    <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Total Debit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tlRiskOverview.map((tl) => (
+                                    <tr key={tl.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                                        <td className="p-3">
+                                            <p className="font-semibold">{tl.fullName}</p>
+                                            <p className="text-[10px] text-muted-foreground">{tl.email}</p>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            <span className="font-bold text-rose-500">{tl.negativeCount}</span>
+                                            {tl.criticalCount > 0 && <span className="ml-2 text-[9px] font-black text-white bg-rose-500 px-1.5 py-0.5 rounded-full">{tl.criticalCount} severe</span>}
+                                        </td>
+                                        <td className="p-3 text-right font-black text-rose-500">-₹{Math.abs(tl.totalNegative).toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                                {tlRiskOverview.length === 0 && (
+                                    <tr><td colSpan={3} className="p-8 text-center text-muted-foreground">No wallet risks identified</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

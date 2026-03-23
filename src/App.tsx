@@ -58,6 +58,7 @@ const AdminLeads = React.lazy(() => import('@/pages/admin/AdminLeads'));
 const RMLayout = React.lazy(() => import('@/layouts/RMLayout'));
 const RMDashboard = React.lazy(() => import('@/pages/rm/RMDashboard'));
 const RMTLPerformance = React.lazy(() => import('@/pages/rm/RMTLPerformance'));
+const RMForms = React.lazy(() => import('@/pages/rm/RMForms'));
 const RMLeaderboard = React.lazy(() => import('@/pages/rm/RMLeaderboard'));
 const RMRiderOverview = React.lazy(() => import('@/pages/rm/RMRiderOverview'));
 const RMLeadOverview = React.lazy(() => import('@/pages/rm/RMLeadOverview'));
@@ -299,6 +300,7 @@ function AppRoutes() {
             <Route path="reports" element={<RMReports />} />
             <Route path="collections" element={<RMCollectionHistory />} />
             <Route path="profile" element={<RMProfile />} />
+            <Route path="company-forms" element={<RMForms />} />
           </Route>
 
           {/* Default root redirect */}
