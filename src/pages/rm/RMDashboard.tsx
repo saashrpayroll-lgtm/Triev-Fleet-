@@ -26,6 +26,7 @@ const RMDashboard: React.FC = () => {
 
     // Fleet Bifurcation Clickable State
     const [selectedBracket, setSelectedBracket] = React.useState<string | null>(null);
+    const [bifurcationTlFilter, setBifurcationTlFilter] = React.useState<string>('all');
 
     React.useEffect(() => {
         const fetchHRForm = async () => {
@@ -69,7 +70,11 @@ const RMDashboard: React.FC = () => {
 
     const rmWalletBifurcation = useMemo(() => {
         let b100 = 0, b200 = 0, b500 = 0, b1000 = 0, bMax = 0;
-        riders.filter(r => r.status === 'active').forEach(r => {
+        let filteredRiders = riders.filter(r => r.status === 'active');
+        if (bifurcationTlFilter !== 'all') {
+            filteredRiders = filteredRiders.filter(r => r.teamLeaderId === bifurcationTlFilter);
+        }
+        filteredRiders.forEach(r => {
             const w = r.walletAmount;
             if (w < 0 && w >= -100) b100++;
             else if (w < -100 && w >= -200) b200++;
@@ -78,12 +83,15 @@ const RMDashboard: React.FC = () => {
             else if (w < -1000) bMax++;
         });
         return { b100, b200, b500, b1000, bMax };
-    }, [riders]);
+    }, [riders, bifurcationTlFilter]);
 
     const bracketRiders = useMemo(() => {
         if (!selectedBracket) return [];
-        const activeRidersList = riders.filter(r => r.status === 'active');
-        return activeRidersList.filter(r => {
+        let filteredRiders = riders.filter(r => r.status === 'active');
+        if (bifurcationTlFilter !== 'all') {
+            filteredRiders = filteredRiders.filter(r => r.teamLeaderId === bifurcationTlFilter);
+        }
+        return filteredRiders.filter(r => {
             const w = r.walletAmount;
             if (selectedBracket === 'b100') return w < 0 && w >= -100;
             if (selectedBracket === 'b200') return w < -100 && w >= -200;
@@ -92,7 +100,7 @@ const RMDashboard: React.FC = () => {
             if (selectedBracket === 'bMax') return w < -1000;
             return false;
         }).sort((a,b) => a.walletAmount - b.walletAmount);
-    }, [selectedBracket, riders]);
+    }, [selectedBracket, riders, bifurcationTlFilter]);
 
     // Daily collections
     const [dailyCollections, setDailyCollections] = React.useState<Record<string, number>>({});
@@ -482,7 +490,19 @@ const RMDashboard: React.FC = () => {
                         <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={16} className="text-rose-500" /></div>
                         <h3 className="font-black text-sm text-foreground/90">RM Fleet Wallet Bifurcation</h3>
                     </div>
-                    <span className="text-[9px] font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={bifurcationTlFilter}
+                            onChange={(e) => setBifurcationTlFilter(e.target.value)}
+                            className="bg-transparent text-[11px] font-bold border border-border/60 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-rose-500/50 cursor-pointer text-muted-foreground"
+                        >
+                            <option value="all">All Team Leaders</option>
+                            {teamLeaders.map(tl => (
+                                <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                            ))}
+                        </select>
+                        <span className="text-[9px] hidden sm:inline-block font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
+                    </div>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <div onClick={() => rmWalletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 transition-all shadow-sm' : 'opacity-80'}`}>
