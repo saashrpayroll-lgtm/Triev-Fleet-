@@ -619,13 +619,13 @@ const Dashboard: React.FC = () => {
     const isTL = userData?.role === 'teamLeader';
 
     return (
-        <div className="space-y-5 pb-10">
+        <div className="space-y-4 pb-10">
 
             {/* --- HEADER --- */}
             <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none"
+                className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/30"
             >
                 <div className="flex items-center gap-3 sm:gap-4">
                     <div className="hidden sm:flex p-3 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-2xl border border-indigo-500/20">
@@ -953,7 +953,7 @@ const Dashboard: React.FC = () => {
                     />
 
                     {/* Fleet Health + Performance Alerts + Revenue Forecast */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-350 mb-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-350 mb-4">
                         <FleetHealthSummary riders={rawData.riders} />
                         <PerformanceAlerts
                             teamLeaders={rawData.teamLeaders}
@@ -969,7 +969,7 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Rider Tenure + TL Comparison + Fleet Growth */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-375 mb-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-375 mb-4">
                         <RiderTenure riders={rawData.riders} />
                         <TLComparisonCard
                             teamLeaders={rawData.teamLeaders}
@@ -980,7 +980,7 @@ const Dashboard: React.FC = () => {
                         <FleetGrowthIndicator riders={rawData.riders} />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-4">
                         <div className="lg:col-span-3">
                             <TeamLeaderPerformanceTable data={tlStats} />
                         </div>
@@ -990,7 +990,7 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* V4 Admin Live Presence Dashboard */}
-                    <div className="animate-in slide-in-from-bottom duration-700 delay-500 mb-6">
+                    <div className="animate-in slide-in-from-bottom duration-700 delay-500 mb-4">
                         <LivePresenceDashboard />
                     </div>
                 </>

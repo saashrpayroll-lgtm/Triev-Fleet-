@@ -3,12 +3,13 @@ import { useRMTeamData } from '@/hooks/useRMTeamData';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Users, TrendingUp, Wallet, Target, BarChart3,
+    Users, TrendingUp, Target, BarChart3,
     Trophy, ArrowRight, Activity, Shield, AlertTriangle,
-    Zap, Calendar, X, ExternalLink
+    Zap, Calendar, X, ExternalLink, UserCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
+import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 
 const RMDashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -176,17 +177,42 @@ const RMDashboard: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 border-3 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
-                    <span className="text-sm text-muted-foreground font-medium">Loading your team data...</span>
+            <div className="space-y-4 animate-in fade-in duration-500">
+                {/* Skeleton Header */}
+                <div className="bg-card/60 backdrop-blur-2xl p-5 rounded-2xl border border-white/20 dark:border-white/5">
+                    <div className="flex items-center gap-4">
+                        <div className="hidden sm:block w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700 animate-pulse" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-7 w-56 rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+                            <div className="h-3 w-36 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    </div>
                 </div>
+                {/* Skeleton Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-4 rounded-2xl border border-border/40 bg-card/50 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                                <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            </div>
+                            <div className="h-7 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+                {/* Skeleton Tables */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="h-52 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                    <div className="h-52 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                </div>
+                <p className="text-center text-muted-foreground text-xs font-medium animate-pulse">Loading RM Command Center...</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-5 animate-in fade-in duration-500">
+        <div className="space-y-4 animate-in fade-in duration-500">
             {/* ── HEAVY DEFAULTERS MODAL ── */}
             <AnimatePresence>
                 {showRecoveryPopup && heavyDefaulters.length > 0 && (
@@ -371,69 +397,69 @@ const RMDashboard: React.FC = () => {
             </div>
 
             {/* ── KEY METRICS ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Team Leaders */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-teal-500/30 transition-all duration-300 group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3">
+                <div className="flex items-center gap-2.5 px-1 mt-3">
                     <div className="relative">
-                        <div className="flex items-center gap-2 mb-2.5">
-                            <div className="p-2 bg-teal-500/10 rounded-xl group-hover:scale-110 group-hover:bg-teal-500/20 transition-all duration-300"><Users size={17} className="text-teal-500" /></div>
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Team Leaders</span>
+                        <div className="absolute inset-0 bg-teal-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-teal-500/30 border border-white/20">
+                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
                         </div>
-                        <p className="text-2xl font-black">{metrics.activeTLs}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Active supervisors</p>
                     </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent dark:from-teal-400 dark:to-teal-200">Fleet Overview</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-teal-500/40 via-teal-500/10 to-transparent" />
                 </div>
-
-                {/* Active Fleet */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-indigo-500/30 transition-all duration-300 group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="relative">
-                        <div className="flex items-center gap-2 mb-2.5">
-                            <div className="p-2 bg-indigo-500/10 rounded-xl group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all duration-300"><Activity size={17} className="text-indigo-500" /></div>
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Active Fleet</span>
-                        </div>
-                        <p className="text-2xl font-black">{metrics.activeRiders} <span className="text-sm font-normal text-muted-foreground">/ {metrics.totalRiders}</span></p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{metrics.inactiveRiders} inactive</p>
-                    </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    <SmartMetricCard
+                        title="Team Leaders"
+                        value={String(metrics.activeTLs)}
+                        icon={Users}
+                        color="cyan"
+                        subtitle="Active supervisors"
+                        isCurrency={false}
+                    />
+                    <SmartMetricCard
+                        title="Active Fleet"
+                        value={`${metrics.activeRiders}/${metrics.totalRiders}`}
+                        icon={UserCheck}
+                        color="indigo"
+                        trend={{ value: metrics.totalRiders > 0 ? Math.round((metrics.activeRiders / metrics.totalRiders) * 100) : 0, label: 'utilization', direction: 'up' }}
+                        subtitle={`${metrics.inactiveRiders} inactive`}
+                        progress={metrics.totalRiders > 0 ? (metrics.activeRiders / metrics.totalRiders) * 100 : 0}
+                        isCurrency={false}
+                    />
+                    <SmartMetricCard
+                        title="Today's Collection"
+                        value={metrics.todayCollection}
+                        icon={TrendingUp}
+                        color="emerald"
+                        subtitle="Across all TLs"
+                        isCurrency={true}
+                    />
+                    <SmartMetricCard
+                        title="Outstanding Risk"
+                        value={Math.abs(metrics.negativeWallet)}
+                        icon={AlertTriangle}
+                        color="rose"
+                        aiInsight={metrics.criticalDebt > 0 ? `${metrics.criticalDebt} critical debt riders` : undefined}
+                        subtitle={`+₹${metrics.positiveWallet.toLocaleString()} positive`}
+                        isCurrency={true}
+                    />
                 </div>
-
-                {/* Today's Collection */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="relative">
-                        <div className="flex items-center gap-2 mb-2.5">
-                            <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 group-hover:bg-emerald-500/20 transition-all duration-300"><TrendingUp size={17} className="text-emerald-500" /></div>
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Today's Collection</span>
-                        </div>
-                        <p className="text-2xl font-black text-emerald-600">₹{metrics.todayCollection.toLocaleString()}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Across all TLs</p>
-                    </div>
-                </div>
-
-                {/* Wallet Health */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-orange-500/30 transition-all duration-300 group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-                    <div className="relative">
-                        <div className="flex items-center gap-2 mb-2.5">
-                            <div className="p-2 bg-orange-500/10 rounded-xl group-hover:scale-110 group-hover:bg-orange-500/20 transition-all duration-300"><Wallet size={17} className="text-orange-500" /></div>
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Wallet Balance</span>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-sm font-black text-emerald-500">+₹{metrics.positiveWallet.toLocaleString()}</span>
-                            <span className="text-sm font-black text-rose-500">-₹{Math.abs(metrics.negativeWallet).toLocaleString()}</span>
-                        </div>
-                        {metrics.criticalDebt > 0 && (
-                            <p className="text-[10px] text-rose-500 font-black mt-1 animate-pulse flex items-center gap-1">
-                                <AlertTriangle size={10} /> {metrics.criticalDebt} critical debt riders
-                            </p>
-                        )}
-                    </div>
-                </div>
-            </div>
+            </motion.div>
 
             {/* ── SECOND ROW METRICS ── */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3">
+                <div className="flex items-center gap-2.5 px-1 mt-3">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-violet-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30 border border-white/20">
+                            <Target size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-violet-600 to-violet-400 bg-clip-text text-transparent dark:from-violet-400 dark:to-violet-200">Leads & Quick Access</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-violet-500/40 via-violet-500/10 to-transparent" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {/* Leads */}
                 <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
                     <div className="flex items-center gap-2 mb-2.5">
@@ -481,9 +507,21 @@ const RMDashboard: React.FC = () => {
                         ))}
                     </div>
                 </div>
-            </div>
+                </div>
+            </motion.div>
 
             {/* ── RM WALLET RISK BIFURCATION ── */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3">
+                <div className="flex items-center gap-2.5 px-1 mt-3">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-rose-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-rose-500/30 border border-white/20">
+                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-rose-600 to-rose-400 bg-clip-text text-transparent dark:from-rose-400 dark:to-rose-200">Wallet Risk Bifurcation</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-rose-500/40 via-rose-500/10 to-transparent" />
+                </div>
             <div className="bg-card border border-border/40 rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -504,34 +542,46 @@ const RMDashboard: React.FC = () => {
                         <span className="text-[9px] hidden sm:inline-block font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                    <div onClick={() => rmWalletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 transition-all shadow-sm' : 'opacity-80'}`}>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 shadow-sm' : 'opacity-80'}`}>
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
                         <span className="text-2xl font-black text-slate-700 dark:text-slate-300">{rmWalletBifurcation.b100}</span>
-                    </div>
-                    <div onClick={() => rmWalletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 transition-all shadow-sm' : 'opacity-80'}`}>
+                    </motion.div>
+                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 shadow-sm' : 'opacity-80'}`}>
                         <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
                         <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{rmWalletBifurcation.b200}</span>
-                    </div>
-                    <div onClick={() => rmWalletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 transition-all shadow-sm' : 'opacity-80'}`}>
+                    </motion.div>
+                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 shadow-sm' : 'opacity-80'}`}>
                         <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
                         <span className="text-2xl font-black text-rose-600 dark:text-rose-400">{rmWalletBifurcation.b500}</span>
-                    </div>
-                    <div onClick={() => rmWalletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${rmWalletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 transition-all shadow-sm' : 'opacity-80'}`}>
+                    </motion.div>
+                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${rmWalletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 shadow-sm' : 'opacity-80'}`}>
                         <div className="absolute top-0 right-0 w-12 h-12 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
                         <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
                         <span className="text-2xl font-black text-red-600 dark:text-red-400 relative z-10">{rmWalletBifurcation.b1000}</span>
-                    </div>
-                    <div onClick={() => rmWalletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-4 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_15px_rgba(0,0,0,0.02)] ${rmWalletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500 transition-all' : 'opacity-80'}`}>
+                    </motion.div>
+                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-4 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_15px_rgba(0,0,0,0.02)] ${rmWalletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500' : 'opacity-80'}`}>
                         <div className="absolute -top-4 -right-4 w-16 h-16 bg-rose-500/20 rounded-full blur-md" />
                         <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={12} /> &lt; ₹-1000</span>
                         <span className="text-3xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{rmWalletBifurcation.bMax}</span>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
+            </motion.div>
 
             {/* ── TABLES GRID ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-3">
+                <div className="flex items-center gap-2.5 px-1 mt-3">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-amber-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30 border border-white/20">
+                            <Trophy size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent dark:from-amber-400 dark:to-amber-200">Performance & Risk Tables</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/40 via-amber-500/10 to-transparent" />
+                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {/* ── TOP PERFORMERS TABLE ── */}
                 <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden h-full flex flex-col">
                 <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-amber-500/5 via-transparent to-teal-500/5">
@@ -548,7 +598,7 @@ const RMDashboard: React.FC = () => {
                 </div>
                 <div className="overflow-auto">
                     <table className="w-full text-sm">
-                        <thead>
+                        <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.08)]">
                             <tr className="text-left border-b">
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest w-10">#</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
@@ -608,7 +658,7 @@ const RMDashboard: React.FC = () => {
                     </div>
                     <div className="overflow-auto flex-1">
                         <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.08)]">
                                 <tr className="text-left border-b">
                                     <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
                                     <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-center">Defaulters</th>
@@ -644,6 +694,7 @@ const RMDashboard: React.FC = () => {
                     </div>
                 </div>
             </div>
+            </motion.div>
             {/* ── FLEET BIFURCATION RIDER MODAL ── */}
             <AnimatePresence>
                 {selectedBracket && (

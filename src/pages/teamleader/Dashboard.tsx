@@ -386,19 +386,23 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         fetchStats();
 
-        // Real-time Collections Update via daily_collections table
+        // ✅ ENHANCED: Debounced realtime — prevents rapid re-renders on bulk updates
+        let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (realtimeDebounce) clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(() => fetchStats(), 1200);
+        };
+
         const channel = supabase
             .channel('tl-dashboard-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => { fetchStats(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => { fetchStats(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => { fetchStats(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => { fetchStats(); })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, () => { fetchStats(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
         // ✅ FIX: Re-fetch data when PWA comes back from background
-        // Mobile browsers kill WebSocket connections when the app is backgrounded.
-        // This ensures data is fresh when the user returns.
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
                 fetchStats();
@@ -407,6 +411,7 @@ const Dashboard: React.FC = () => {
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            if (realtimeDebounce) clearTimeout(realtimeDebounce);
             supabase.removeChannel(channel);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
@@ -837,9 +842,9 @@ const Dashboard: React.FC = () => {
                                     ) : (
                                         <div className="p-3 rounded-xl bg-white/5 border border-white/10">
                                             <p className="text-[10px] font-bold leading-relaxed text-indigo-100">
-                                                "3 Riders in your team have not updated their wallets in 48h. Consider sending a reminder."
+                                                "{stats.negativeWallet > 0 ? `${stats.negativeWallet} riders have negative wallets. Total outstanding: ₹${Math.abs(stats.totalNegativeAmount).toLocaleString('en-IN')}. Focus on recovery.` : `All ${stats.activeRiders} active riders are in good standing! Keep up the great work.`}"
                                             </p>
-                                            <button className="mt-2 text-[9px] font-black uppercase tracking-widest bg-indigo-500 px-2 py-1 rounded">Action Now</button>
+                                            <button onClick={() => handleNavigate('/team-leader/riders')} className="mt-2 text-[9px] font-black uppercase tracking-widest bg-indigo-500 px-2 py-1 rounded hover:bg-indigo-400 transition-colors">Action Now</button>
                                         </div>
                                     )}
                                     <div className="p-3 rounded-xl bg-white/5 border border-white/10">
@@ -858,16 +863,17 @@ const Dashboard: React.FC = () => {
                             </div>
                             <div className="space-y-2.5">
                                 {[
-                                    { label: 'Fleet Utilization', value: '94.2%', color: 'bg-emerald-500', pct: 94 },
-                                    { label: 'Lead Quality', value: 'High', color: 'bg-indigo-500', pct: 82 },
+                                    { label: 'Fleet Utilization', value: `${stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0}%`, color: 'bg-emerald-500', pct: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0 },
+                                    { label: 'Lead Conversion', value: `${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}%`, color: 'bg-indigo-500', pct: stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0 },
+                                    { label: 'Wallet Health', value: `${stats.activeRiders > 0 ? Math.round((stats.positiveWallet / stats.activeRiders) * 100) : 0}%`, color: 'bg-violet-500', pct: stats.activeRiders > 0 ? Math.round((stats.positiveWallet / stats.activeRiders) * 100) : 0 },
                                 ].map(item => (
                                     <div key={item.label}>
                                         <div className="flex justify-between items-center text-[10px] font-bold mb-1">
                                             <span className="text-muted-foreground">{item.label}</span>
                                             <span className={item.color.replace('bg-', 'text-')}>{item.value}</span>
                                         </div>
-                                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full">
-                                            <div className={`${item.color} h-1 rounded-full transition-all`} style={{ width: `${item.pct}%` }} />
+                                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                            <div className={`${item.color} h-1.5 rounded-full transition-all duration-1000 ease-out`} style={{ width: `${item.pct}%` }} />
                                         </div>
                                     </div>
                                 ))}
@@ -922,7 +928,7 @@ const Dashboard: React.FC = () => {
                 <ComponentErrorBoundary name="Activity Streak">
                     <ActivityStreak
                         riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
-                        todayCollections={{}}
+                        todayCollections={tlTodayCollectionsByRider}
                     />
                 </ComponentErrorBoundary>
                 <ComponentErrorBoundary name="Notifications">
@@ -940,7 +946,17 @@ const Dashboard: React.FC = () => {
             {/* ─── Collection Heatmap + Lead Funnel ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <ComponentErrorBoundary name="Collection Heatmap">
-                    <CollectionHeatmap collections={{}} weeks={6} />
+                    <CollectionHeatmap collections={React.useMemo(() => {
+                        if (!userData) return {};
+                        const map: Record<string, number> = {};
+                        (dailyCollectionsRaw || []).forEach((d: any) => {
+                            if (d.team_leader_id === userData.id) {
+                                const dateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                                map[dateStr] = (map[dateStr] || 0) + (Number(d.total_collection) || 0);
+                            }
+                        });
+                        return map;
+                    }, [dailyCollectionsRaw, userData])} weeks={6} />
                 </ComponentErrorBoundary>
                 <ComponentErrorBoundary name="Lead Funnel">
                     <LeadConversionFunnel leads={leaderboardData.leads.filter(l => l.createdBy === userData.id)} />
