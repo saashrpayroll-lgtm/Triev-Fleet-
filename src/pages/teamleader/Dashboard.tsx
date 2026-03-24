@@ -163,6 +163,19 @@ const Dashboard: React.FC = () => {
         };
     }, [dateFilter, dailyCollectionsRaw, liveTodayByTLRaw, liveFleetByTLRaw]);
 
+    // ✅ Collection history for TL heatmap (moved from inline JSX to fix React hooks rules)
+    const tlCollectionHistory = React.useMemo(() => {
+        if (!userData) return {} as Record<string, number>;
+        const map: Record<string, number> = {};
+        (dailyCollectionsRaw || []).forEach((d: any) => {
+            if (d.team_leader_id === userData.id) {
+                const dateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                map[dateStr] = (map[dateStr] || 0) + (Number(d.total_collection) || 0);
+            }
+        });
+        return map;
+    }, [dailyCollectionsRaw, userData]);
+
     const computedLeaderStats = React.useMemo(() => {
         if (!userData || !leaderboardData.riders.length) return null;
         return calculateAIScore(
@@ -946,17 +959,7 @@ const Dashboard: React.FC = () => {
             {/* ─── Collection Heatmap + Lead Funnel ─── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <ComponentErrorBoundary name="Collection Heatmap">
-                    <CollectionHeatmap collections={React.useMemo(() => {
-                        if (!userData) return {};
-                        const map: Record<string, number> = {};
-                        (dailyCollectionsRaw || []).forEach((d: any) => {
-                            if (d.team_leader_id === userData.id) {
-                                const dateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
-                                map[dateStr] = (map[dateStr] || 0) + (Number(d.total_collection) || 0);
-                            }
-                        });
-                        return map;
-                    }, [dailyCollectionsRaw, userData])} weeks={6} />
+                    <CollectionHeatmap collections={tlCollectionHistory} weeks={6} />
                 </ComponentErrorBoundary>
                 <ComponentErrorBoundary name="Lead Funnel">
                     <LeadConversionFunnel leads={leaderboardData.leads.filter(l => l.createdBy === userData.id)} />
