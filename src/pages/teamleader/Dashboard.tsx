@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp } from 'lucide-react';
+import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { mapLeadFromDB } from '@/utils/leadUtils';
 import { safeRender } from '@/utils/safeRender';
@@ -56,6 +56,8 @@ const Dashboard: React.FC = () => {
     // Stats State mapped from Leaderboard logic to respect Date Filters
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [aiInsight, setAiInsight] = useState<string>('');
+
+    const [selectedBracket, setSelectedBracket] = useState<string | null>(null);
 
     // Raw Data for Memo
     const [dailyCollectionsRaw, setDailyCollectionsRaw] = useState<any[]>([]);
@@ -215,6 +217,20 @@ const Dashboard: React.FC = () => {
         });
         return { b100, b200, b500, b1000, bMax };
     }, [userData, leaderboardData.riders]);
+
+    const bracketRiders = React.useMemo(() => {
+        if (!selectedBracket || !userData || !leaderboardData.riders.length) return [];
+        const myActiveRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active');
+        return myActiveRiders.filter(r => {
+            const w = r.walletAmount;
+            if (selectedBracket === 'b100') return w < 0 && w >= -100;
+            if (selectedBracket === 'b200') return w < -100 && w >= -200;
+            if (selectedBracket === 'b500') return w < -200 && w >= -500;
+            if (selectedBracket === 'b1000') return w < -500 && w >= -1000;
+            if (selectedBracket === 'bMax') return w < -1000;
+            return false;
+        }).sort((a,b) => a.walletAmount - b.walletAmount);
+    }, [selectedBracket, userData, leaderboardData.riders]);
 
     // --- Data Fetching & Real-time ---
     const fetchStats = React.useCallback(async () => {
@@ -671,24 +687,24 @@ const Dashboard: React.FC = () => {
                         <span className="text-[9px] font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
                     </div>
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                        <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+                        <div onClick={() => walletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${walletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 transition-all shadow-sm' : 'opacity-80'}`}>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
                             <span className="text-xl font-black text-slate-700 dark:text-slate-300">{walletBifurcation.b100}</span>
                         </div>
-                        <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center">
+                        <div onClick={() => walletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${walletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 transition-all shadow-sm' : 'opacity-80'}`}>
                             <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
                             <span className="text-xl font-black text-orange-600 dark:text-orange-400">{walletBifurcation.b200}</span>
                         </div>
-                        <div className="bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center">
+                        <div onClick={() => walletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${walletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 transition-all shadow-sm' : 'opacity-80'}`}>
                             <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
                             <span className="text-xl font-black text-rose-600 dark:text-rose-400">{walletBifurcation.b500}</span>
                         </div>
-                        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                        <div onClick={() => walletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${walletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 transition-all shadow-sm' : 'opacity-80'}`}>
                             <div className="absolute top-0 right-0 w-8 h-8 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
                             <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
                             <span className="text-xl font-black text-red-600 dark:text-red-400 relative z-10">{walletBifurcation.b1000}</span>
                         </div>
-                        <div className="bg-rose-100 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]">
+                        <div onClick={() => walletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] ${walletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500 transition-all' : 'opacity-80'}`}>
                             <div className="absolute -top-4 -right-4 w-12 h-12 bg-rose-500/20 rounded-full blur-md" />
                             <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={10} /> &lt; ₹-1000</span>
                             <span className="text-2xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{walletBifurcation.bMax}</span>
@@ -997,6 +1013,69 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
             </motion.div>
+
+            {/* Bracket Filter Focus Modal */}
+            <AnimatePresence>
+                {selectedBracket && (
+                    <div className="fixed inset-[0px] z-[99999] flex items-center justify-center p-4 sm:p-6" style={{ pointerEvents: 'auto' }}>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-[0px] bg-background/80 backdrop-blur-sm"
+                            onClick={() => setSelectedBracket(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            className="relative w-full max-w-2xl bg-card border border-border shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[85vh]"
+                        >
+                            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-muted/30">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-rose-500/10 rounded-lg">
+                                        <AlertTriangle size={18} className="text-rose-500" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-base md:text-lg text-foreground leading-tight">
+                                            Wallet Defaulters
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Bracket: {selectedBracket === 'b100' ? '-1 to -100' : selectedBracket === 'b200' ? '-101 to -200' : selectedBracket === 'b500' ? '-201 to -500' : selectedBracket === 'b1000' ? '-501 to -1000' : '< -1000'} &nbsp; • &nbsp; {bracketRiders.length} Riders
+                                        </p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setSelectedBracket(null)} className="p-2 hover:bg-muted rounded-full transition-colors">
+                                    <X size={20} className="text-muted-foreground" />
+                                </button>
+                            </div>
+
+                            <div className="overflow-y-auto p-4 sm:p-5 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/20">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {bracketRiders.map((rider) => (
+                                        <div key={rider.id} className="bg-background border border-border rounded-xl p-3 flex flex-col justify-between hover:shadow-md hover:border-primary/30 transition-all group">
+                                            <div className="overflow-hidden flex items-start justify-between">
+                                                <div>
+                                                    <h4 className="font-bold text-sm text-foreground truncate">{rider.riderName}</h4>
+                                                    <div className="flex flex-col mt-0.5">
+                                                        <span className="text-[10px] text-muted-foreground font-mono">{rider.trievId}</span>
+                                                        <span className="text-[11px] text-muted-foreground mt-0.5 font-medium">{rider.mobileNumber}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right shrink-0 ml-2">
+                                                    <span className="inline-block px-2.5 py-1 bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 rounded-lg font-black text-[13px]">
+                                                        ₹{rider.walletAmount.toLocaleString('en-IN')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
