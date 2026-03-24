@@ -174,6 +174,32 @@ const RMTLPerformance: React.FC = () => {
         totalConverted: performanceData.reduce((s, t) => s + t.convertedLeads, 0),
     }), [performanceData]);
 
+    // Footers
+    const filteredTotals = useMemo(() => {
+        return performanceData.reduce((acc, tl) => {
+            acc.allotment += tl.allotment;
+            acc.submission += tl.submission;
+            acc.netGrowth += tl.netGrowth;
+            acc.activeRiders += tl.activeRiders;
+            acc.totalRiders += tl.totalRiders;
+            acc.collection += tl.collection;
+            acc.positiveWallet += tl.positiveWallet;
+            acc.negativeWallet += tl.negativeWallet;
+            acc.positiveRidersCount += tl.positiveRidersCount;
+            acc.negativeRidersCount += tl.negativeRidersCount;
+            acc.criticalDebt += tl.criticalDebt;
+            acc.leadsTotal += tl.leadsTotal;
+            acc.convertedLeads += tl.convertedLeads;
+            return acc;
+        }, {
+            allotment: 0, submission: 0, netGrowth: 0,
+            activeRiders: 0, totalRiders: 0, collection: 0,
+            positiveWallet: 0, negativeWallet: 0, 
+            positiveRidersCount: 0, negativeRidersCount: 0, criticalDebt: 0,
+            leadsTotal: 0, convertedLeads: 0
+        });
+    }, [performanceData]);
+
     const getScoreColor = (score: number) => {
         if (score >= 80) return 'text-emerald-600 bg-emerald-500';
         if (score >= 60) return 'text-blue-600 bg-blue-500';
@@ -464,6 +490,62 @@ const RMTLPerformance: React.FC = () => {
                                 <tr><td colSpan={9} className="p-12 text-center text-muted-foreground">No team leaders found</td></tr>
                             )}
                         </tbody>
+                        {performanceData.length > 0 && (
+                            <tfoot className="sticky bottom-0 bg-indigo-50/95 dark:bg-indigo-950/95 border-t border-indigo-200 dark:border-indigo-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 backdrop-blur-md">
+                                <tr className="border-t-2 border-indigo-500/20">
+                                    <td colSpan={3} className="p-3 text-right font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest text-xs">
+                                        Grand Totals
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-emerald-500 font-black">{filteredTotals.allotment}</span>
+                                            <span className="text-muted-foreground text-[10px]">-</span>
+                                            <span className="text-rose-500 font-bold">{filteredTotals.submission}</span>
+                                            <span className="text-muted-foreground text-[10px]">=</span>
+                                            <span className={`font-black ${filteredTotals.netGrowth > 0 ? 'text-emerald-600' : filteredTotals.netGrowth < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                                                {filteredTotals.netGrowth > 0 && '+'}{filteredTotals.netGrowth}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="font-bold text-emerald-600">{filteredTotals.activeRiders}</span>
+                                            <span className="text-[10px] text-muted-foreground">/{filteredTotals.totalRiders}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-3">
+                                        <p className="font-black text-emerald-600 text-[13px]">
+                                            {loadingCollections ? <span className="text-muted-foreground/30 animate-pulse text-[10px]">loading...</span> : `₹${filteredTotals.collection.toLocaleString()}`}
+                                        </p>
+                                        <p className="text-[10px] text-indigo-500 font-bold mt-0.5" title="Overall Avg per active rider">
+                                            avg: ₹{(filteredTotals.activeRiders > 0 ? Math.round(filteredTotals.collection / filteredTotals.activeRiders) : 0).toLocaleString()}
+                                        </p>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="space-y-0.5">
+                                            <div className="text-[10px] font-bold text-emerald-500">+₹{filteredTotals.positiveWallet.toLocaleString()} <span className="opacity-70 font-normal">({filteredTotals.positiveRidersCount})</span></div>
+                                            <div className="text-[10px] font-bold text-rose-500">-₹{Math.abs(filteredTotals.negativeWallet).toLocaleString()} <span className="opacity-70 font-normal">({filteredTotals.negativeRidersCount})</span></div>
+                                            {filteredTotals.criticalDebt > 0 && (
+                                                <div className="text-[9px] font-black text-rose-600 bg-rose-50 dark:bg-rose-900/20 px-1 py-0.5 rounded inline-flex items-center gap-0.5">
+                                                    <AlertTriangle size={8} /> {filteredTotals.criticalDebt}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="p-3">
+                                        <div>
+                                            <span className="font-bold">{filteredTotals.leadsTotal}</span>
+                                            <span className="text-muted-foreground"> • </span>
+                                            <span className="text-emerald-500 font-bold">{filteredTotals.convertedLeads}</span>
+                                            <p className="text-[10px] text-indigo-500 font-bold">
+                                                {filteredTotals.leadsTotal > 0 ? Math.round((filteredTotals.convertedLeads / filteredTotals.leadsTotal) * 100) : 0}%
+                                            </p>
+                                        </div>
+                                    </td>
+                                    <td className="p-3"></td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
             </div>

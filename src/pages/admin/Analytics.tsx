@@ -11,6 +11,7 @@ import {
 import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
 import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
+import AdminWalletBifurcation from '@/components/dashboard/AdminWalletBifurcation';
 
 // Premium color palette
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -570,6 +571,9 @@ const Analytics: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ─── ADVANCED WALLET BIFURCATION ─── */}
+            <AdminWalletBifurcation />
 
             {/* ─── TL PERFORMANCE & DEBT HEATMAP (ARPU) ─── */}
             <div className="bg-card border border-border rounded-2xl p-6 shadow-sm mb-6">

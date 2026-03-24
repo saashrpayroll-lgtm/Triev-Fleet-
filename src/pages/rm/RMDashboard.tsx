@@ -64,6 +64,19 @@ const RMDashboard: React.FC = () => {
             .sort((a, b) => a.walletAmount - b.walletAmount);
     }, [selectedRiskTl, riders]);
 
+    const rmWalletBifurcation = useMemo(() => {
+        let b100 = 0, b200 = 0, b500 = 0, b1000 = 0, bMax = 0;
+        riders.filter(r => r.status === 'active').forEach(r => {
+            const w = r.walletAmount;
+            if (w < 0 && w >= -100) b100++;
+            else if (w < -100 && w >= -200) b200++;
+            else if (w < -200 && w >= -500) b500++;
+            else if (w < -500 && w >= -1000) b1000++;
+            else if (w < -1000) bMax++;
+        });
+        return { b100, b200, b500, b1000, bMax };
+    }, [riders]);
+
     // Daily collections
     const [dailyCollections, setDailyCollections] = React.useState<Record<string, number>>({});
 
@@ -441,6 +454,41 @@ const RMDashboard: React.FC = () => {
                                 <ArrowRight size={14} className="opacity-0 group-hover/link:opacity-100 transition-opacity" />
                             </Link>
                         ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── RM WALLET RISK BIFURCATION ── */}
+            <div className="bg-card border border-border/40 rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={16} className="text-rose-500" /></div>
+                        <h3 className="font-black text-sm text-foreground/90">RM Fleet Wallet Bifurcation</h3>
+                    </div>
+                    <span className="text-[9px] font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
+                        <span className="text-2xl font-black text-slate-700 dark:text-slate-300">{rmWalletBifurcation.b100}</span>
+                    </div>
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center">
+                        <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
+                        <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{rmWalletBifurcation.b200}</span>
+                    </div>
+                    <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center">
+                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
+                        <span className="text-2xl font-black text-rose-600 dark:text-rose-400">{rmWalletBifurcation.b500}</span>
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-12 h-12 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
+                        <span className="text-2xl font-black text-red-600 dark:text-red-400 relative z-10">{rmWalletBifurcation.b1000}</span>
+                    </div>
+                    <div className="bg-rose-100 dark:bg-rose-950/40 p-4 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_15px_rgba(0,0,0,0.02)]">
+                        <div className="absolute -top-4 -right-4 w-16 h-16 bg-rose-500/20 rounded-full blur-md" />
+                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={12} /> &lt; ₹-1000</span>
+                        <span className="text-3xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{rmWalletBifurcation.bMax}</span>
                     </div>
                 </div>
             </div>

@@ -200,6 +200,22 @@ const Dashboard: React.FC = () => {
         return computeEarnedBadges(userData, myRiders, myLeads, myCollection, userData.monthlyTarget || 0);
     }, [userData, leaderboardData, computedPeriodData]);
 
+    const walletBifurcation = React.useMemo(() => {
+        if (!userData || !leaderboardData.riders.length) return { b100: 0, b200: 0, b500: 0, b1000: 0, bMax: 0 };
+        const myActiveRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active');
+        
+        let b100 = 0, b200 = 0, b500 = 0, b1000 = 0, bMax = 0;
+        myActiveRiders.forEach(r => {
+            const w = r.walletAmount;
+            if (w < 0 && w >= -100) b100++;
+            else if (w < -100 && w >= -200) b200++;
+            else if (w < -200 && w >= -500) b500++;
+            else if (w < -500 && w >= -1000) b1000++;
+            else if (w < -1000) bMax++;
+        });
+        return { b100, b200, b500, b1000, bMax };
+    }, [userData, leaderboardData.riders]);
+
     // --- Data Fetching & Real-time ---
     const fetchStats = React.useCallback(async () => {
         if (!userData) return;
@@ -643,6 +659,41 @@ const Dashboard: React.FC = () => {
                             onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
                         />
                     )}
+                </div>
+
+                {/* ─── Wallet Risk Bifurcation ─── */}
+                <div className="mt-3 bg-card border border-border/40 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={14} className="text-rose-500" /></div>
+                            <h3 className="font-black text-sm text-foreground/90">Negative Wallet Bifurcation</h3>
+                        </div>
+                        <span className="text-[9px] font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                        <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
+                            <span className="text-xl font-black text-slate-700 dark:text-slate-300">{walletBifurcation.b100}</span>
+                        </div>
+                        <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
+                            <span className="text-xl font-black text-orange-600 dark:text-orange-400">{walletBifurcation.b200}</span>
+                        </div>
+                        <div className="bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center">
+                            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
+                            <span className="text-xl font-black text-rose-600 dark:text-rose-400">{walletBifurcation.b500}</span>
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-8 h-8 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
+                            <span className="text-xl font-black text-red-600 dark:text-red-400 relative z-10">{walletBifurcation.b1000}</span>
+                        </div>
+                        <div className="bg-rose-100 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]">
+                            <div className="absolute -top-4 -right-4 w-12 h-12 bg-rose-500/20 rounded-full blur-md" />
+                            <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={10} /> &lt; ₹-1000</span>
+                            <span className="text-2xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{walletBifurcation.bMax}</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ─── Collection Target ─── */}
