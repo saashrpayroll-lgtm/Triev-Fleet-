@@ -63,6 +63,7 @@ const TLForms: React.FC = () => {
                 .from('external_forms')
                 .select('*')
                 .eq('is_active', true)
+                .eq('is_visible_to_tl', true)
                 .order('display_order', { ascending: true })
                 .order('created_at', { ascending: false });
             if (error) throw error;
