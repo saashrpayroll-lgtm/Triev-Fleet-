@@ -127,13 +127,37 @@ const WalletHistory: React.FC = () => {
             const term = debouncedSearch.trim();
 
             if (term) {
-                // Search riders by name AND their TL's full_name
-                const { data: matchedRiders } = await supabase
-                    .from('riders')
-                    .select('id, rider_name, users!riders_team_leader_id_fkey(full_name)')
-                    .or(`rider_name.ilike.%${term}%,users.full_name.ilike.%${term}%`);
+                // Supabase PostgREST cannot filter joined columns in .or(),
+                // so we run 2 parallel lookups and merge the rider IDs.
 
-                matchedRiderIds = (matchedRiders || []).map((r: any) => r.id);
+                // 1. riders whose name matches
+                const ridersByName = supabase
+                    .from('riders')
+                    .select('id')
+                    .ilike('rider_name', `%${term}%`);
+
+                // 2. TLs whose full_name matches → riders under those TLs
+                const tlsByName = supabase
+                    .from('users')
+                    .select('id')
+                    .ilike('full_name', `%${term}%`)
+                    .in('role', ['teamLeader', 'admin', 'manager']);
+
+                const [riderRes, tlRes] = await Promise.all([ridersByName, tlsByName]);
+
+                const riderIds = new Set((riderRes.data || []).map((r: any) => r.id));
+
+                // If TLs matched, get all riders under those TLs
+                if (tlRes.data && tlRes.data.length > 0) {
+                    const tlIds = tlRes.data.map((u: any) => u.id);
+                    const { data: ridersByTL } = await supabase
+                        .from('riders')
+                        .select('id')
+                        .in('team_leader_id', tlIds);
+                    (ridersByTL || []).forEach((r: any) => riderIds.add(r.id));
+                }
+
+                matchedRiderIds = Array.from(riderIds);
 
                 // If the search term looks like a number, also search by amount
                 // (handled separately below via description search)
