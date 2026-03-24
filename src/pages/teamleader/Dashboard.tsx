@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X } from 'lucide-react';
+import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X, Phone, MessageCircle } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
@@ -27,6 +27,8 @@ import LeadConversionFunnel from '@/components/dashboard/LeadConversionFunnel';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
 import { calculateAIScore } from '@/utils/performance';
 import { computeEarnedBadges } from '@/utils/badges';
+import { getCallLink } from '@/utils/validationUtils';
+import AIReminderModal from '@/components/AIReminderModal';
 
 interface DashboardStats {
     // Riders
@@ -58,6 +60,13 @@ const Dashboard: React.FC = () => {
     const [aiInsight, setAiInsight] = useState<string>('');
 
     const [selectedBracket, setSelectedBracket] = useState<string | null>(null);
+    const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
+    const [reminderType, setReminderType] = useState<'low_balance' | 'warning' | 'critical' | 'inactive' | 'zero_collection'>('low_balance');
+
+    const handleCall = (phoneNumber: string) => {
+        if (!phoneNumber) return;
+        window.open(getCallLink(phoneNumber), '_self');
+    };
 
     // Raw Data for Memo
     const [dailyCollectionsRaw, setDailyCollectionsRaw] = useState<any[]>([]);
@@ -1062,10 +1071,31 @@ const Dashboard: React.FC = () => {
                                                         <span className="text-[11px] text-muted-foreground mt-0.5 font-medium">{rider.mobileNumber}</span>
                                                     </div>
                                                 </div>
-                                                <div className="text-right shrink-0 ml-2">
-                                                    <span className="inline-block px-2.5 py-1 bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 rounded-lg font-black text-[13px]">
+                                                <div className="flex flex-col items-end gap-1.5 ml-2 shrink-0">
+                                                    <span className="inline-block px-2.5 py-1 bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 rounded-lg font-black text-[13px] self-end">
                                                         ₹{rider.walletAmount.toLocaleString('en-IN')}
                                                     </span>
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleCall(rider.mobileNumber); }} 
+                                                            className="p-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors" 
+                                                            title="Call"
+                                                        >
+                                                            <Phone size={13} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                setSelectedReminderRider(rider); 
+                                                                setReminderType(rider.walletAmount <= -1000 ? 'critical' : 'warning'); 
+                                                            }} 
+                                                            className="p-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors flex items-center gap-1" 
+                                                            title="AI WhatsApp message"
+                                                        >
+                                                            <MessageCircle size={13} />
+                                                            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline-block">AI Message</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1076,6 +1106,15 @@ const Dashboard: React.FC = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {selectedReminderRider && (
+                <AIReminderModal
+                    rider={selectedReminderRider}
+                    type={reminderType}
+                    isOpen={!!selectedReminderRider}
+                    onClose={() => setSelectedReminderRider(null)}
+                />
+            )}
         </div>
     );
 };
