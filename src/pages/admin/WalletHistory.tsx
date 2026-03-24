@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -71,6 +71,8 @@ const WalletHistory: React.FC = () => {
     const [totalCount, setTotalCount] = useState(0);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [filterType, setFilterType] = useState('all');
     const [filterMode, setFilterMode] = useState('all');
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -99,19 +101,70 @@ const WalletHistory: React.FC = () => {
         }
     }, [isAdmin]);
 
+    /* debounce search input → auto-triggers fetchTransactions after 500ms */
+    useEffect(() => {
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1); // Reset to page 1 on new search
+        }, 500);
+        return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+    }, [searchTerm]);
+
     /* fetch transactions */
-    const fetchTransactions = async () => {
+    const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
             if (userData?.role === 'teamLeader' && !userData?.permissions?.wallet?.viewHistory) {
                 setTransactions([]); setTotalCount(0); return;
             }
+
+            // ── SEARCH STRATEGY ──────────────────────────────────────────────
+            // Supabase .or() with `riders.rider_name.ilike` on an !inner join
+            // crashes when no rider matches. Instead, we pre-lookup matching
+            // rider IDs, then filter the ledger by those IDs.
+            let matchedRiderIds: string[] | null = null; // null = no search filter
+            const term = debouncedSearch.trim();
+
+            if (term) {
+                // Search riders by name AND their TL's full_name
+                const { data: matchedRiders } = await supabase
+                    .from('riders')
+                    .select('id, rider_name, users!riders_team_leader_id_fkey(full_name)')
+                    .or(`rider_name.ilike.%${term}%,users.full_name.ilike.%${term}%`);
+
+                matchedRiderIds = (matchedRiders || []).map((r: any) => r.id);
+
+                // If the search term looks like a number, also search by amount
+                // (handled separately below via description search)
+            }
+
             let q = supabase.from('wallet_ledger')
                 .select('*, riders!inner(rider_name, team_leader_id, users(full_name))', { count: 'exact' });
 
             if (filterType !== 'all') q = q.eq('transaction_type', filterType);
             if (filterMode !== 'all') q = q.eq('mode', filterMode);
-            if (searchTerm) q = q.or(`description.ilike.%${searchTerm}%,riders.rider_name.ilike.%${searchTerm}%`);
+
+            // Apply search: match rider IDs from pre-lookup OR description text OR amount
+            if (term && matchedRiderIds !== null) {
+                const numericTerm = Number(term);
+                if (matchedRiderIds.length > 0) {
+                    // Search in rider IDs + description
+                    if (!isNaN(numericTerm) && numericTerm > 0) {
+                        q = q.or(`rider_id.in.(${matchedRiderIds.join(',')}),description.ilike.%${term}%,amount.eq.${numericTerm}`);
+                    } else {
+                        q = q.or(`rider_id.in.(${matchedRiderIds.join(',')}),description.ilike.%${term}%`);
+                    }
+                } else {
+                    // No rider matched — only search description/amount
+                    if (!isNaN(numericTerm) && numericTerm > 0) {
+                        q = q.or(`description.ilike.%${term}%,amount.eq.${numericTerm}`);
+                    } else {
+                        q = q.ilike('description', `%${term}%`);
+                    }
+                }
+            }
+
             if (dateRange.start) q = q.gte('transaction_date', new Date(dateRange.start).toISOString());
             if (dateRange.end) { const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999); q = q.lte('transaction_date', e.toISOString()); }
             if (userData?.role === 'teamLeader') q = q.eq('riders.team_leader_id', userData.id);
@@ -122,11 +175,14 @@ const WalletHistory: React.FC = () => {
             if (error) throw error;
             setTransactions((data as LedgerEntry[]) || []);
             setTotalCount(count || 0);
-        } catch { toast.error('Failed to load ledger'); }
+        } catch (err: any) {
+            console.error('Ledger fetch error:', err);
+            toast.error(`Failed to load ledger: ${err?.message || 'Unknown error'}`);
+        }
         finally { setLoading(false); }
-    };
+    }, [debouncedSearch, currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData]);
 
-    useEffect(() => { fetchTransactions(); }, [currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData]);
+    useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
     /* export */
     const handleExport = async () => {
@@ -136,7 +192,7 @@ const WalletHistory: React.FC = () => {
             let q = supabase.from('wallet_ledger').select('*, riders!inner(rider_name, team_leader_id, users(full_name))');
             if (filterType !== 'all') q = q.eq('transaction_type', filterType);
             if (filterMode !== 'all') q = q.eq('mode', filterMode);
-            if (searchTerm) q = q.or(`description.ilike.%${searchTerm}%,riders.rider_name.ilike.%${searchTerm}%`);
+            if (debouncedSearch) q = q.ilike('description', `%${debouncedSearch}%`);
             if (dateRange.start) q = q.gte('transaction_date', new Date(dateRange.start).toISOString());
             if (dateRange.end) { const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999); q = q.lte('transaction_date', e.toISOString()); }
             if (userData?.role === 'teamLeader') q = q.eq('riders.team_leader_id', userData.id);
@@ -223,7 +279,7 @@ const WalletHistory: React.FC = () => {
         } catch { toast.error('Failed', { id: tid }); }
     };
 
-    const clearFilters = () => { setSearchTerm(''); setFilterType('all'); setFilterMode('all'); setFilterTL('all'); setDateRange({ start: '', end: '' }); setCurrentPage(1); };
+    const clearFilters = () => { setSearchTerm(''); setDebouncedSearch(''); setFilterType('all'); setFilterMode('all'); setFilterTL('all'); setDateRange({ start: '', end: '' }); setCurrentPage(1); };
     const hasFilters = searchTerm || filterType !== 'all' || filterMode !== 'all' || filterTL !== 'all' || dateRange.start || dateRange.end;
     const toggleAll = () => setSelectedIds(selectedIds.length === transactions.length ? [] : transactions.map(t => t.id));
     const toggleRow = (id: string) => setSelectedIds(p => p.includes(id) ? p.filter(i => i !== id) : [...p, id]);
@@ -288,10 +344,9 @@ const WalletHistory: React.FC = () => {
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={18} />
                         <input
                             type="text"
-                            placeholder="Search rider name or description…"
+                            placeholder="Search rider, TL name, amount, or description…"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && fetchTransactions()}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-input bg-background text-sm font-medium focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
                         />
                     </div>
