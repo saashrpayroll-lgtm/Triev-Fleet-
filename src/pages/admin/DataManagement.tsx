@@ -419,9 +419,9 @@ const DataManagement: React.FC = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={async () => {
-                            if (!confirm("This will permanently delete Wallet Ledger rows older than 21 days to save database space. Historical 'Daily Collection' totals for Team Leaders will NOT be affected. Proceed?")) return;
+                            if (!confirm("This will permanently delete Wallet Ledger rows older than 35 days (5 weeks) to save database space. Historical 'Daily Collection' totals for Team Leaders will NOT be affected. Proceed?")) return;
 
-                            const toastId = toast.loading("Pruning old wallet data (>21 days)...");
+                            const toastId = toast.loading("Pruning old wallet data (>35 days)...");
                             try {
                                 const { data, error } = await supabase.rpc('prune_old_wallet_ledger_data');
                                 if (error) throw error;
@@ -444,10 +444,10 @@ const DataManagement: React.FC = () => {
                             }
                         }}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800/50"
-                        title="Permanently delete Wallet entries older than 21 days (Saves DB space)"
+                        title="Permanently delete Wallet entries older than 35 days (Saves DB space)"
                     >
                         <Trash2 size={18} />
-                        <span>Clean Old Data (21+ Days)</span>
+                        <span>Clean Old Data (35+ Days)</span>
                     </button>
                     <button
                         onClick={handleEmergencyResync}

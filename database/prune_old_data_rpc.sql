@@ -1,8 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
--- AUTO-CLEANUP ROUTINE: PRUNE OLD WALLET LEDGER DATA (21+ DAYS)
+-- AUTO-CLEANUP ROUTINE: PRUNE OLD WALLET LEDGER DATA (35+ DAYS / 5 WEEKS)
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- This script securely deletes raw rows from wallet_ledger that are older than
--- 21 days to prevent heavy database bloat.
+-- 35 days (5 weeks) to prevent heavy database bloat.
 --
 -- CRITICAL SAFETY FEATURE: 
 -- It temporarily disables the `trg_sync_ledger_to_daily_metrics` trigger 
@@ -20,8 +20,8 @@ DECLARE
     v_deleted_count INTEGER := 0;
     v_cutoff_date DATE;
 BEGIN
-    -- Calculate the exact cutoff date (21 days ago in IST time)
-    v_cutoff_date := (NOW() AT TIME ZONE 'Asia/Kolkata')::DATE - INTERVAL '21 days';
+    -- Calculate the exact cutoff date (35 days / 5 weeks ago in IST time)
+    v_cutoff_date := (NOW() AT TIME ZONE 'Asia/Kolkata')::DATE - INTERVAL '35 days';
 
     -- 1. Disable the daily metrics sync trigger entirely for this transaction
     --    so our DELETES do not cause the daily_collections to sum to zero.
@@ -43,7 +43,7 @@ BEGIN
         'success', true,
         'deleted_count', v_deleted_count,
         'cutoff_date', v_cutoff_date,
-        'message', 'Successfully pruned ' || v_deleted_count || ' legacy ledger records older than 21 days.'
+        'message', 'Successfully pruned ' || v_deleted_count || ' legacy ledger records older than 35 days (5 weeks).'
     );
 
 EXCEPTION WHEN OTHERS THEN
@@ -57,3 +57,4 @@ EXCEPTION WHEN OTHERS THEN
     );
 END;
 $$;
+
