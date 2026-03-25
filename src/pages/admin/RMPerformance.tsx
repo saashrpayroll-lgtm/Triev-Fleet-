@@ -237,12 +237,21 @@ const RMPerformance: React.FC = () => {
                     return dDateStr >= startDateStr && dDateStr <= endDateStr;
                 }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
 
-            const collectionSnapshot = rawData.collections.find(item => {
-                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                return item.team_leader_id === tlId && dDateStr === targetEndDate;
-            });
-            const historicalFleet = (targetEndDate < nowISTStr && collectionSnapshot && Number(collectionSnapshot.active_riders_count) > 0)
-                ? Number(collectionSnapshot.active_riders_count) : undefined;
+            // Find best historical snapshot: closest date within [start..end] range (prefer latest)
+            const periodSnapshots = rawData.collections
+                .filter(item => {
+                    if (item.team_leader_id !== tlId) return false;
+                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                    return dDateStr >= startDateStr && dDateStr <= endDateStr;
+                })
+                .sort((a: any, b: any) => {
+                    const da = a.date && typeof a.date === 'string' ? a.date.split('T')[0].split(' ')[0] : a.date;
+                    const db = b.date && typeof b.date === 'string' ? b.date.split('T')[0].split(' ')[0] : b.date;
+                    return db.localeCompare(da); // latest first
+                });
+            const bestSnapshot = periodSnapshots[0];
+            const historicalFleet = (targetEndDate < nowISTStr && bestSnapshot && Number(bestSnapshot.active_riders_count) > 0)
+                ? Number(bestSnapshot.active_riders_count) : undefined;
 
             const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, tlCollection, period, historicalFleet);
 
@@ -260,6 +269,10 @@ const RMPerformance: React.FC = () => {
             if ((tl.reporting_manager || '').trim()) rmNamesSet.add((tl.reporting_manager || '').trim());
         });
         rawData.rms.forEach(rm => rmNamesSet.add((rm.fullName || '').trim()));
+
+        // Reference date for period-aware metrics (use period end, not "now")
+        const periodEndMs = new Date(endDateStr + 'T23:59:59').getTime();
+        const isHistorical = endDateStr < nowISTStr;
 
         return Array.from(rmNamesSet).filter(Boolean).map(rmName => {
             const assignedTLs = tlMetrics.filter(tl => (tl.reporting_manager || '').trim() === rmName);
@@ -284,13 +297,32 @@ const RMPerformance: React.FC = () => {
             const rangeCollection = assignedTLs.reduce((sum, tl) => sum + tl.collection, 0);
             const monthlyCollection = assignedTLs.reduce((sum, tl) => sum + tl.monthlyCollection, 0);
             
+            // ── AVG TENURE (period-aware) ──────────────────────────────────────
+            // Use period end date as reference, and consider riders active at that time
             let totalTenureDays = 0;
             let validTenureCount = 0;
-            const rmRiders = rawData.riders.filter(r => assignedTLs.some(tl => tl.id === r.team_leader_id || tl.id === r.teamLeaderId) && r.status === 'active');
+            const rmRiders = rawData.riders.filter(r => {
+                if (!assignedTLs.some(tl => tl.id === (r.team_leader_id || r.teamLeaderId))) return false;
+                if (isHistorical) {
+                    // For historical periods: a rider was "active" if allotted before period end
+                    // and not inactivated before period end
+                    const allotDate = r.allotment_date || r.allotmentDate || r.created_at || r.createdAt;
+                    if (!allotDate) return false;
+                    const allotStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(allotDate));
+                    if (allotStr > endDateStr) return false; // Not allotted yet
+                    const inactDate = r.inactivated_at || r.inactivatedAt;
+                    if (inactDate) {
+                        const inactStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(inactDate));
+                        if (inactStr <= endDateStr) return false; // Already inactivated
+                    }
+                    return true;
+                }
+                return String(r.status || '').toLowerCase() === 'active';
+            });
             rmRiders.forEach(r => {
                 const joinDate = r.allotmentDate || r.allotment_date || r.createdAt || r.created_at;
                 if (joinDate) {
-                    const days = Math.floor((nowMs - new Date(joinDate).getTime()) / (1000 * 60 * 60 * 24));
+                    const days = Math.floor((periodEndMs - new Date(joinDate).getTime()) / (1000 * 60 * 60 * 24));
                     if (days >= 0) { totalTenureDays += days; validTenureCount++; }
                 }
             });
