@@ -13,6 +13,43 @@ import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 
+/* ── Mini Sparkline (pure SVG) ──────────────────────────────────────────── */
+const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; color?: string }> = ({
+    data, width = 100, height = 28, color = '#6366f1'
+}) => {
+    if (!data.length || data.every(v => v === 0)) return <span className="text-[9px] text-muted-foreground italic">No data</span>;
+    const max = Math.max(...data, 1);
+    const min = Math.min(...data, 0);
+    const range = max - min || 1;
+    const pad = 2;
+    const pts = data.map((v, i) => ({
+        x: pad + (i / Math.max(data.length - 1, 1)) * (width - pad * 2),
+        y: pad + (1 - (v - min) / range) * (height - pad * 2)
+    }));
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${height} L${pts[0].x.toFixed(1)},${height} Z`;
+    const trend = data[data.length - 1] - data[0];
+    const gradId = `sp-${color.replace('#', '')}`;
+    return (
+        <div className="flex items-center gap-1.5">
+            <svg width={width} height={height} className="flex-shrink-0">
+                <defs>
+                    <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                        <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+                    </linearGradient>
+                </defs>
+                <path d={area} fill={`url(#${gradId})`} />
+                <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2" fill={color} />
+            </svg>
+            <span className={`text-[9px] font-black ${trend > 0 ? 'text-emerald-600' : trend < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
+                {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}
+            </span>
+        </div>
+    );
+};
+
 const RMPerformance: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [rawData, setRawData] = useState<{
@@ -279,6 +316,14 @@ const RMPerformance: React.FC = () => {
                 ...d, avgPerRider: d.activeRiders > 0 ? Math.round(d.collection / d.activeRiders) : 0
             }));
 
+            // Last 7 days trend (always relative to today, independent of dateFilter)
+            const last7Days: number[] = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(Date.UTC(year, month - 1, day - i));
+                const ds = d.toISOString().split('T')[0];
+                last7Days.push(historicalByDate[ds]?.collection || 0);
+            }
+
             const score = totalTLs > 0 ? Math.round(assignedTLs.reduce((sum, tl) => sum + tl.score, 0) / totalTLs) : 0;
             const aiGrade = score >= 90 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'F';
 
@@ -294,6 +339,7 @@ const RMPerformance: React.FC = () => {
                 avgTenure, periodDayAvg: daysInPeriod > 0 ? Math.round(rangeCollection / daysInPeriod) : 0,
                 periodPerRiderAvg: activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0,
                 score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod,
+                last7DaysTrend: last7Days,
                 assignedTLs: assignedTLs.map(tl => ({
                     ...tl,
                     walletPosPercent: tl.activeRiders > 0 ? Math.round((tl.positiveWalletCount / tl.activeRiders) * 100) : 0,
@@ -580,7 +626,7 @@ const RMPerformance: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1600px] text-sm text-left">
+                        <table className="w-full min-w-[1720px] text-sm text-left">
                             <thead className="text-[10px] text-muted-foreground uppercase bg-muted/10 font-black tracking-widest border-b border-border/40">
                                 <tr>
                                     <th className="px-5 py-4 w-10"></th>
@@ -593,6 +639,7 @@ const RMPerformance: React.FC = () => {
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('periodPerRiderAvg')}>Avg/Rider</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('walletHealth')}>Wallet Health</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('rangeCollection')}>Collection (Period/Total)</th>
+                                    <th className="px-4 py-4 text-center">7D Trend</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('netGrowth')}>Fleet Flow</th>
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('conversion')}>Leads</th>
                                     <th className="px-4 py-4 text-center cursor-pointer" onClick={() => handleSort('score')}>Score</th>
@@ -600,7 +647,7 @@ const RMPerformance: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-border/20">
                                 {filteredData.length === 0 && !loading ? (
-                                    <tr><td colSpan={11} className="px-6 py-24 text-center"><div className="flex flex-col items-center"><SearchX className="h-10 w-10 opacity-20 mb-4"/><p className="font-bold text-lg">No Results</p></div></td></tr>
+                                    <tr><td colSpan={12} className="px-6 py-24 text-center"><div className="flex flex-col items-center"><SearchX className="h-10 w-10 opacity-20 mb-4"/><p className="font-bold text-lg">No Results</p></div></td></tr>
                                 ) : filteredData.map((rm) => (
                                     <React.Fragment key={rm.id}>
                                         <motion.tr
@@ -657,6 +704,9 @@ const RMPerformance: React.FC = () => {
                                                     </div>
                                                 </div>
                                             </td>
+                                            <td className="px-4 py-4">
+                                                <Sparkline data={(rm as any).last7DaysTrend || []} />
+                                            </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <span className={`text-lg font-black ${rm.netGrowth > 0 ? 'text-emerald-600' : rm.netGrowth < 0 ? 'text-rose-600' : 'text-foreground'}`}>
@@ -680,7 +730,7 @@ const RMPerformance: React.FC = () => {
                                             <motion.tr
                                                 initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                                                 transition={{ duration: 0.25 }}>
-                                                <td colSpan={11} className="p-0 border-b-2 border-indigo-500/20">
+                                                <td colSpan={12} className="p-0 border-b-2 border-indigo-500/20">
                                                     <div className="bg-gradient-to-b from-indigo-500/5 to-transparent p-4 overflow-x-auto">
                                                         <div className="px-2 sm:px-6 py-2 pb-4">
                                                             <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-4 flex items-center gap-2">
@@ -782,8 +832,9 @@ const RMPerformance: React.FC = () => {
                                        <span className="text-emerald-600">₹{tPosAmt.toLocaleString()}</span> / <span className="text-rose-600">₹{tNegAmt.toLocaleString()}</span>
                                     </td>
                                     <td className="px-5 py-4 font-black">
-                                        <span className="text-emerald-600">₹{tRgCol.toLocaleString()}</span>
+                                         <span className="text-emerald-600">₹{tRgCol.toLocaleString()}</span>
                                     </td>
+                                    <td className="px-4 py-4"></td>
                                     <td className="px-5 py-4 font-black text-emerald-600">+{tNet} <span className="text-muted-foreground font-medium text-xs">({tAllots}/{tSubs})</span></td>
                                     <td className="px-5 py-4 text-center font-black text-indigo-600">{tCnvPct}%</td>
                                     <td className="px-5 py-4"></td>
