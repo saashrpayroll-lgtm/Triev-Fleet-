@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
 import {
     Download, Search, TrendingUp, Users, Activity,
-    Calendar, ChevronDown, ChevronRight, SearchX, Wallet, ArrowUpRight, History
+    Calendar, ChevronDown, ChevronRight, SearchX, Wallet, ArrowUpRight, History,
+    Check, X as XIcon, Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -26,7 +28,9 @@ const RMPerformance: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-    const [rmFilter, setRmFilter] = useState<string>('all');
+    const [selectedRMs, setSelectedRMs] = useState<string[]>([]);
+    const [rmDropdownOpen, setRmDropdownOpen] = useState(false);
+    const rmDropdownRef = useRef<HTMLDivElement>(null);
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'rangeCollection', direction: 'desc' });
     const [expandedRM, setExpandedRM] = useState<string | null>(null);
@@ -278,22 +282,42 @@ const RMPerformance: React.FC = () => {
             const score = totalTLs > 0 ? Math.round(assignedTLs.reduce((sum, tl) => sum + tl.score, 0) / totalTLs) : 0;
             const aiGrade = score >= 90 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'F';
 
+            // Wallet health percentages
+            const walletPosPercent = activeRiders > 0 ? Math.round((positiveWalletCount / activeRiders) * 100) : 0;
+            const walletNegPercent = activeRiders > 0 ? Math.round((negativeWalletCount / activeRiders) * 100) : 0;
+
             return {
                 id: rmName, name: rmName, totalTLs, activeTLs, totalRiders, activeRiders, inactiveRiders: totalRiders - activeRiders,
-                wallet: { total: positiveWallet + negativeWallet, positiveCount: positiveWalletCount, positiveAmount: positiveWallet, negativeCount: negativeWalletCount, negativeAmount: negativeWallet },
+                wallet: { total: positiveWallet + negativeWallet, positiveCount: positiveWalletCount, positiveAmount: positiveWallet, negativeCount: negativeWalletCount, negativeAmount: negativeWallet, posPercent: walletPosPercent, negPercent: walletNegPercent },
                 leads: { total: leadsTotal, converted: convertedLeads, conversionRate: leadsTotal > 0 ? Math.round((convertedLeads / leadsTotal) * 100) : 0 },
                 allotments, submissions, netGrowth, rangeCollection, monthlyCollection, totalCollection: rangeCollection,
                 avgTenure, periodDayAvg: daysInPeriod > 0 ? Math.round(rangeCollection / daysInPeriod) : 0,
                 periodPerRiderAvg: activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0,
-                score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod
+                score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod,
+                assignedTLs: assignedTLs.map(tl => ({
+                    ...tl,
+                    walletPosPercent: tl.activeRiders > 0 ? Math.round((tl.positiveWalletCount / tl.activeRiders) * 100) : 0,
+                    walletNegPercent: tl.activeRiders > 0 ? Math.round((tl.negativeWalletCount / tl.activeRiders) * 100) : 0
+                }))
             };
         });
     }, [rawData, dateFilter, customDateRange]);
 
+    // Close RM dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (rmDropdownRef.current && !rmDropdownRef.current.contains(e.target as Node)) setRmDropdownOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleRM = (name: string) => setSelectedRMs(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
+
     const filteredData = useMemo(() => {
         let data = performanceData.filter(rm => {
             const matchesSearch = rm.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesFilter = rmFilter === 'all' || rm.name === rmFilter;
+            const matchesFilter = selectedRMs.length === 0 || selectedRMs.includes(rm.name);
             return matchesSearch && matchesFilter;
         });
 
@@ -305,7 +329,7 @@ const RMPerformance: React.FC = () => {
             });
         }
         return data;
-    }, [performanceData, searchTerm, sortConfig, rmFilter]);
+    }, [performanceData, searchTerm, sortConfig, selectedRMs]);
 
     const handleSort = (key: string) => setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
 
@@ -323,8 +347,10 @@ const RMPerformance: React.FC = () => {
             'Negative Riders': rm.wallet.negativeCount,
             'Negative Amount': Math.abs(rm.wallet.negativeAmount),
             'Period Collection': rm.rangeCollection,
-            'Grand Total': tRgCol,
+            'Grand Total': rm.rangeCollection,
             'Fleet Flow (A/S/N)': `${rm.allotments}/${rm.submissions}/${rm.netGrowth}`,
+            'Wallet Health (Pos%)': rm.wallet.posPercent + '%',
+            'Wallet Health (Neg%)': rm.wallet.negPercent + '%',
             'Net Growth': rm.netGrowth,
             'Leads Sourced': rm.leads.total,
             'Leads Converted': rm.leads.converted,
@@ -376,6 +402,8 @@ const RMPerformance: React.FC = () => {
         toast.success('PDF report exported successfully');
         setIsExportOpen(false);
     };
+
+    const clearFilters = () => { setSearchTerm(''); setSelectedRMs([]); };
 
     const avgAIScore = useMemo(() => performanceData.length > 0 ? Math.round(performanceData.reduce((s, t) => s + t.score, 0) / performanceData.length) : 0, [performanceData]);
     const avgGrade = avgAIScore >= 90 ? 'S' : avgAIScore >= 70 ? 'A' : avgAIScore >= 50 ? 'B' : avgAIScore >= 30 ? 'C' : 'F';
@@ -450,7 +478,6 @@ const RMPerformance: React.FC = () => {
 
             <div className="px-6 space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {/* ... summary cards ... */}
                     {[
                         { label: `${dateFilter === 'today' ? "Today's" : dateFilter === 'yesterday' ? "Yesterday's" : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`, value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5' },
                         { label: 'Active Riders', value: tActRiders.toLocaleString(), icon: Users, color: 'text-blue-500', border: 'border-blue-500/20', bg: 'bg-blue-500/5' },
@@ -459,7 +486,10 @@ const RMPerformance: React.FC = () => {
                         { label: 'Avg AI Score', value: `${avgAIScore}`, icon: Activity, color: avgAIScore >= 50 ? 'text-emerald-500' : 'text-amber-500', border: avgAIScore >= 50 ? 'border-emerald-500/20' : 'border-amber-500/20', bg: avgAIScore >= 50 ? 'bg-emerald-500/5' : 'bg-amber-500/5', badge: avgGrade },
                         { label: 'Avg/Rider', value: `₹${tTotPerRiderAvg.toLocaleString()}`, icon: ArrowUpRight, color: 'text-violet-500', border: 'border-violet-500/20', bg: 'bg-violet-500/5' },
                     ].map((card, i) => (
-                    <div key={i} className={`p-3 sm:p-4 rounded-2xl border ${card.border} ${card.bg} shadow-sm space-y-1.5`}>
+                    <motion.div key={i}
+                        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, duration: 0.35 }}
+                        whileHover={{ scale: 1.03, y: -2 }}
+                        className={`p-3 sm:p-4 rounded-2xl border ${card.border} ${card.bg} shadow-sm space-y-1.5 cursor-default transition-shadow hover:shadow-md`}>
                             <div className="flex items-center justify-between gap-1">
                                 <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-muted-foreground truncate">{card.label}</span>
                                 <card.icon className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${card.color} flex-shrink-0`} />
@@ -467,7 +497,7 @@ const RMPerformance: React.FC = () => {
                             <div className="flex items-baseline gap-1.5 min-w-0">
                                 <span className="text-base sm:text-xl font-black truncate">{card.value}</span>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
 
@@ -483,15 +513,50 @@ const RMPerformance: React.FC = () => {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     <input placeholder="Search RM Name..." className="w-full md:w-48 pl-9 pr-4 py-2 bg-background border border-border/60 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                                 </div>
-                                <div className="relative">
-                                    <select value={rmFilter} onChange={(e) => setRmFilter(e.target.value)} className="w-full md:w-auto pl-3 pr-8 py-2 bg-background border border-border/60 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none shadow-sm font-medium">
-                                        <option value="all">All Managers</option>
-                                        {Array.from(new Set(performanceData.map(rm => rm.name))).map(name => (
-                                            <option key={name} value={name}>{name}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                {/* RM Multi-Select Filter */}
+                                <div className="relative" ref={rmDropdownRef}>
+                                    <button onClick={() => setRmDropdownOpen(v => !v)}
+                                        className={`flex items-center gap-2 px-3 py-2 bg-background border rounded-xl text-sm font-medium transition-all shadow-sm min-w-[150px] ${selectedRMs.length > 0 ? 'border-indigo-500/40 bg-indigo-500/5 text-indigo-700 dark:text-indigo-400' : 'border-border/60'}`}>
+                                        <Filter className="h-4 w-4 flex-shrink-0" />
+                                        <span className="truncate">{selectedRMs.length === 0 ? 'All Managers' : `${selectedRMs.length} Selected`}</span>
+                                        <ChevronDown className={`h-4 w-4 ml-auto transition-transform flex-shrink-0 ${rmDropdownOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    <AnimatePresence>
+                                        {rmDropdownOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                                transition={{ duration: 0.15 }}
+                                                className="absolute z-50 mt-2 w-60 bg-card border border-border rounded-xl shadow-2xl p-2 space-y-0.5 max-h-64 overflow-y-auto">
+                                                <button onClick={() => setSelectedRMs([])} className={`w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-colors ${selectedRMs.length === 0 ? 'bg-indigo-500/10 text-indigo-600' : 'hover:bg-muted'}`}>
+                                                    <Users className="h-3.5 w-3.5" /> All Managers
+                                                    {selectedRMs.length === 0 && <Check className="h-3.5 w-3.5 ml-auto text-indigo-600" />}
+                                                </button>
+                                                <div className="h-px bg-border/50 my-1" />
+                                                {Array.from(new Set(performanceData.map(rm => rm.name))).map(name => (
+                                                    <button key={name} onClick={() => toggleRM(name)}
+                                                        className={`w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-colors ${selectedRMs.includes(name) ? 'bg-indigo-500/10 text-indigo-600' : 'hover:bg-muted text-foreground'}`}>
+                                                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedRMs.includes(name) ? 'bg-indigo-600 border-indigo-600' : 'border-border'}`}>
+                                                            {selectedRMs.includes(name) && <Check className="h-3 w-3 text-white" />}
+                                                        </div>
+                                                        {name}
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
+                                {/* Selected RM chips */}
+                                {selectedRMs.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        {selectedRMs.map(name => (
+                                            <span key={name} className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black border border-indigo-500/20">
+                                                {name}
+                                                <button onClick={() => toggleRM(name)} className="hover:bg-indigo-500/20 rounded-full p-0.5"><XIcon className="h-3 w-3" /></button>
+                                            </span>
+                                        ))}
+                                        <button onClick={clearFilters} className="text-[10px] font-bold text-rose-600 hover:underline">Clear All</button>
+                                    </div>
+                                )}
                                 <div className="relative flex-1 md:flex-none">
                                     <select value={dateFilter} onChange={(e: any) => setDateFilter(e.target.value)} className="w-full md:w-auto pl-9 pr-8 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer appearance-none shadow-sm font-black tracking-wide">
                                         <option value="today">Today Metrics</option>
@@ -505,9 +570,9 @@ const RMPerformance: React.FC = () => {
                                 </div>
                                 {dateFilter === 'custom' && (
                                     <div className="flex items-center gap-2 bg-background border border-border/60 rounded-xl p-1 shadow-sm">
-                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded" value={customDateRange.start} onChange={(e) => setCustomDateRange({ ...customDateRange, start: e.target.value })} />
-                                        <span className="text-muted-foreground text-xs font-bold">-</span>
-                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded" value={customDateRange.end} onChange={(e) => setCustomDateRange({ ...customDateRange, end: e.target.value })} />
+                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded" style={{ colorScheme: 'light dark' }} value={customDateRange.start} onChange={(e) => setCustomDateRange({ ...customDateRange, start: e.target.value })} />
+                                        <span className="text-muted-foreground text-xs font-bold">—</span>
+                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded" style={{ colorScheme: 'light dark' }} value={customDateRange.end} onChange={(e) => setCustomDateRange({ ...customDateRange, end: e.target.value })} />
                                     </div>
                                 )}
                             </div>
@@ -538,7 +603,11 @@ const RMPerformance: React.FC = () => {
                                     <tr><td colSpan={11} className="px-6 py-24 text-center"><div className="flex flex-col items-center"><SearchX className="h-10 w-10 opacity-20 mb-4"/><p className="font-bold text-lg">No Results</p></div></td></tr>
                                 ) : filteredData.map((rm) => (
                                     <React.Fragment key={rm.id}>
-                                        <tr className={`group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors cursor-pointer ${expandedRM === rm.id ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`} onClick={() => setExpandedRM(expandedRM === rm.id ? null : rm.id)}>
+                                        <motion.tr
+                                            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                                            whileHover={{ backgroundColor: 'rgba(59,130,246,0.04)' }}
+                                            className={`group transition-colors cursor-pointer ${expandedRM === rm.id ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
+                                            onClick={() => setExpandedRM(expandedRM === rm.id ? null : rm.id)}>
                                             <td className="px-5 text-center text-muted-foreground">
                                                 {expandedRM === rm.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                             </td>
@@ -561,12 +630,19 @@ const RMPerformance: React.FC = () => {
                                                 <span className="text-sm font-bold text-indigo-600 bg-indigo-500/10 px-2 py-1 rounded-md">₹{rm.periodPerRiderAvg.toLocaleString()}</span>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <div className="space-y-1">
-                                                    <div className="flex gap-4 text-[11px] font-bold">
-                                                        <span className="text-emerald-600">POS: ₹{rm.wallet.positiveAmount.toLocaleString()}</span>
-                                                        <span className="text-rose-600">NEG: ₹{Math.abs(rm.wallet.negativeAmount).toLocaleString()}</span>
+                                                <div className="space-y-1.5">
+                                                    {/* Wallet health % bar */}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden flex">
+                                                            <div className="h-full bg-emerald-500 rounded-l-full transition-all" style={{ width: `${rm.wallet.posPercent}%` }} />
+                                                            <div className="h-full bg-rose-500 rounded-r-full transition-all" style={{ width: `${rm.wallet.negPercent}%` }} />
+                                                        </div>
                                                     </div>
-                                                    <div className="text-[10px] text-muted-foreground">{rm.wallet.positiveCount} (+), {rm.wallet.negativeCount} (-)</div>
+                                                    <div className="flex justify-between text-[10px] font-black">
+                                                        <span className="text-emerald-600">{rm.wallet.posPercent}% Pos</span>
+                                                        <span className="text-rose-600">{rm.wallet.negPercent}% Neg</span>
+                                                    </div>
+                                                    <div className="text-[9px] text-muted-foreground/60">{rm.wallet.positiveCount}(+₹{rm.wallet.positiveAmount.toLocaleString()}) · {rm.wallet.negativeCount}(-₹{Math.abs(rm.wallet.negativeAmount).toLocaleString()})</div>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4">
@@ -598,35 +674,89 @@ const RMPerformance: React.FC = () => {
                                                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${rm.aiGrade === 'A' || rm.aiGrade === 'S' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{rm.aiGrade}</span>
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
+                                        <AnimatePresence>
                                         {expandedRM === rm.id && (
-                                            <tr>
-                                                <td colSpan={11} className="p-0 border-b border-border/40">
-                                                    <div className="bg-muted/30 p-4 inset-x-0 shadow-inner overflow-x-auto">
-                                                        <div className="px-6 py-2 pb-4">
-                                                            <h4 className="text-xs font-bold uppercase text-muted-foreground mb-3 flex items-center gap-2">
-                                                                <History className="h-4 w-4"/> Historical Breakdown for {rm.name}
+                                            <motion.tr
+                                                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                                transition={{ duration: 0.25 }}>
+                                                <td colSpan={11} className="p-0 border-b-2 border-indigo-500/20">
+                                                    <div className="bg-gradient-to-b from-indigo-500/5 to-transparent p-4 overflow-x-auto">
+                                                        <div className="px-2 sm:px-6 py-2 pb-4">
+                                                            <h4 className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-4 flex items-center gap-2">
+                                                                <Users className="h-4 w-4"/> Team Leaders under {rm.name} ({(rm as any).assignedTLs?.length || 0})
                                                             </h4>
-                                                            {rm.historicalData.length === 0 ? (
-                                                                <p className="text-sm text-foreground/60 italic">No historical data available for selected range.</p>
+                                                            {!(rm as any).assignedTLs?.length ? (
+                                                                <p className="text-sm text-foreground/60 italic">No Team Leaders assigned.</p>
                                                             ) : (
-                                                                <table className="w-full text-xs text-left">
-                                                                    <thead className="bg-background/80 font-black tracking-wider text-muted-foreground shadow-sm">
-                                                                        <tr>
-                                                                            <th className="px-4 py-2 rounded-l-lg border border-border/50">Date</th>
-                                                                            <th className="px-4 py-2 border border-border/50">Collection</th>
-                                                                            <th className="px-4 py-2 border border-border/50">Active Riders</th>
-                                                                            <th className="px-4 py-2 rounded-r-lg border border-border/50">Avg/Rider</th>
+                                                                <table className="w-full text-xs text-left min-w-[900px]">
+                                                                    <thead className="bg-background/80 font-black tracking-wider text-muted-foreground">
+                                                                        <tr className="border-b border-border/40">
+                                                                            <th className="px-4 py-2.5">Team Leader</th>
+                                                                            <th className="px-4 py-2.5 text-center">Active Riders</th>
+                                                                            <th className="px-4 py-2.5 text-center">Collection</th>
+                                                                            <th className="px-4 py-2.5 text-center">Avg/Rider</th>
+                                                                            <th className="px-4 py-2.5">Wallet Health</th>
+                                                                            <th className="px-4 py-2.5 text-center">Fleet Flow</th>
+                                                                            <th className="px-4 py-2.5 text-center">Leads</th>
+                                                                            <th className="px-4 py-2.5 text-center">AI Score</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        {rm.historicalData.map((d: any, idx: number) => (
-                                                                            <tr key={idx} className="border-b border-border/20 last:border-0 hover:bg-background/50">
-                                                                                <td className="px-4 py-2 font-medium">{d.date}</td>
-                                                                                <td className="px-4 py-2 text-emerald-600 font-bold">₹{d.collection.toLocaleString()}</td>
-                                                                                <td className="px-4 py-2 text-indigo-600 font-bold">{d.activeRiders}</td>
-                                                                                <td className="px-4 py-2 text-violet-600 font-bold">₹{d.avgPerRider.toLocaleString()}</td>
-                                                                            </tr>
+                                                                        {(rm as any).assignedTLs.map((tl: any, idx: number) => (
+                                                                            <motion.tr key={tl.id || idx}
+                                                                                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                                                                                transition={{ delay: idx * 0.04 }}
+                                                                                className="border-b border-border/15 last:border-0 hover:bg-indigo-500/5 transition-colors">
+                                                                                <td className="px-4 py-3">
+                                                                                    <div className="flex items-center gap-2.5">
+                                                                                        <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-[10px] font-black text-indigo-600">{(tl.fullName || tl.full_name || 'T').charAt(0)}</div>
+                                                                                        <div>
+                                                                                            <p className="font-bold text-foreground text-xs">{tl.fullName || tl.full_name || 'Unknown'}</p>
+                                                                                            <p className="text-[9px] text-muted-foreground/60">{tl.status === 'active' ? '🟢 Active' : '⚪ Inactive'}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <span className="text-sm font-black">{tl.activeRiders}<span className="text-muted-foreground font-medium text-[10px]">/{tl.totalRiders}</span></span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <span className="text-sm font-black text-emerald-600">₹{(tl.collection || tl.totalCollection || 0).toLocaleString()}</span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-500/10 px-2 py-1 rounded-md">₹{(tl.collectionPerRider || 0).toLocaleString()}</span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3">
+                                                                                    <div className="space-y-1">
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <div className="flex-1 h-1.5 rounded-full bg-muted/30 overflow-hidden flex max-w-[80px]">
+                                                                                                <div className="h-full bg-emerald-500 rounded-l-full" style={{ width: `${tl.walletPosPercent}%` }} />
+                                                                                                <div className="h-full bg-rose-500 rounded-r-full" style={{ width: `${tl.walletNegPercent}%` }} />
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="flex gap-2 text-[9px] font-black">
+                                                                                            <span className="text-emerald-600">{tl.walletPosPercent}%</span>
+                                                                                            <span className="text-rose-600">{tl.walletNegPercent}%</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <span className={`text-xs font-black ${tl.netGrowth > 0 ? 'text-emerald-600' : tl.netGrowth < 0 ? 'text-rose-600' : 'text-foreground'}`}>
+                                                                                        {tl.netGrowth > 0 ? '+' : ''}{tl.netGrowth}
+                                                                                    </span>
+                                                                                    <span className="text-[9px] text-muted-foreground ml-1">({tl.allotments}/{tl.submissions})</span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <span className="text-xs font-bold">{tl.convertedLeads}/{tl.leadsTotal}</span>
+                                                                                    <span className="text-[9px] text-muted-foreground ml-1">({tl.conversionRate}%)</span>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <div className="flex flex-col items-center gap-0.5">
+                                                                                        <span className={`text-xs font-black ${tl.score >= 70 ? 'text-emerald-600' : tl.score >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{tl.score}</span>
+                                                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${tl.aiGrade === 'A' || tl.aiGrade === 'S' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>{tl.aiGrade}</span>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </motion.tr>
                                                                         ))}
                                                                     </tbody>
                                                                 </table>
@@ -634,8 +764,9 @@ const RMPerformance: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </td>
-                                            </tr>
+                                            </motion.tr>
                                         )}
+                                        </AnimatePresence>
                                     </React.Fragment>
                                 ))}
                             </tbody>
