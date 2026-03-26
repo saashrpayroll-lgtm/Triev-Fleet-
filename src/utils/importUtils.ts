@@ -581,7 +581,7 @@ export const processRentCollectionImport = async (
     adminId: string,
     adminName: string
 ): Promise<ImportSummary> => {
-    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], skipped: 0, skippedDetails: [] };
+    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], skipped: 0, skippedDetails: [], successfulDetails: [] };
 
     try {
         summary.total = fileData.length;
@@ -792,6 +792,18 @@ export const processRentCollectionImport = async (
                     transactionDate: tx.transactionDateStr
                 });
                 summary.success++;
+                if (summary.successfulDetails) {
+                    const riderName = tx.row?.['Rider Name'] || tx.row?.['rider_name'] || 'Unknown';
+                    const trievId = tx.row?.['Triev ID'] || tx.row?.['triev_id'] || '-';
+                    const mobile = tx.row?.['Mobile Number'] || tx.row?.['mobile_number'] || '-';
+                    summary.successfulDetails.push({
+                        row: tx.rowNum,
+                        identifier: `${riderName} (${trievId}) | Mob: ${mobile}`,
+                        amount: tx.amount,
+                        date: tx.transactionDateStr,
+                        data: tx.row
+                    });
+                }
             } catch (err: any) {
                 summary.failed++;
                 // ✅ Enhanced error: include rider name, Triev ID, mobile, and amount for debugging

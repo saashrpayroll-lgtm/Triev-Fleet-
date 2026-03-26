@@ -377,6 +377,7 @@ export interface ImportSummary {
     skipped?: number; // Added for duplicate checks
     errors: ImportError[];
     skippedDetails?: ImportError[]; // Reusing ImportError type since structure is identical
+    successfulDetails?: any[]; // Array to temporarily hold successful transaction info
 }
 
 // Request Management Types

@@ -309,7 +309,14 @@ const DataManagement: React.FC = () => {
         if (!userData) return;
         try {
             const summary = await processRentCollectionImport(data, userData.id, userData.fullName);
-            alert(`Rent Collection Import Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
+            
+            if (summary.success === 1 && summary.successfulDetails && summary.successfulDetails.length > 0) {
+                const sd = summary.successfulDetails[0];
+                alert(`Rent Collection Import Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}\n\n🚨 MISSING ROW FOUND 🚨\nRow: ${sd.row}\nRider: ${sd.identifier}\nAmount: ₹${sd.amount}\nDate: ${sd.date}\n\nPlease check if this Date is outside your current RM Performance Filter ("Today") or if the rider is unassigned!`);
+            } else {
+                alert(`Rent Collection Import Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
+            }
+            
             setActiveTab('history');
         } catch (error) {
             console.error(error);
