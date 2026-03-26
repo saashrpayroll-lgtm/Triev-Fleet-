@@ -686,30 +686,14 @@ export const processRentCollectionImport = async (
 
                 const transactionId = getValue(['Transaction ID', 'transaction_id', 'OrdertransactionId', 'OrderTransactionId']);
 
-                // ✅ FIX: Check DB duplicates
-                if (transactionId && existingTxns.has(transactionId)) {
-                    if (summary.skipped === undefined) summary.skipped = 0;
-                    summary.skipped++;
-                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID (already in DB)", data: row });
-                    continue;
-                }
-
-                // ✅ FIX: Check within-sheet duplicates
-                if (transactionId && seenInSheet.has(transactionId)) {
-                    if (summary.skipped === undefined) summary.skipped = 0;
-                    summary.skipped++;
-                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID (duplicate within this sheet)", data: row });
-                    continue;
-                }
-                if (transactionId) seenInSheet.add(transactionId);
-
-                // Default to Noon IST of today if no date provided
+                // ✅ FIX: Generate fallback dedup key for rows without Transaction ID
+                // Uses riderId + amount + date as a deterministic fingerprint
+                const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date', 'PaymentStamp', 'Payment Stamp']);
                 let transactionDateStr = ((): string => {
                     const now = new Date();
                     const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                     return `${istDateStr}T12:00:00.000+05:30`;
                 })();
-                const dateRaw = getValue(['Date', 'Transaction Date', 'Collection Date', 'PaymentStamp', 'Payment Stamp']);
                 if (dateRaw) {
                     const parsedDate = parseIndianDate(dateRaw);
                     if (parsedDate) {
@@ -717,10 +701,30 @@ export const processRentCollectionImport = async (
                     }
                 }
 
+                const dedupKey = transactionId || `FP:${riderId}|${amount}|${transactionDateStr.split('T')[0]}`;
+
+                // Check DB duplicates (by Transaction ID)
+                if (transactionId && existingTxns.has(transactionId)) {
+                    if (summary.skipped === undefined) summary.skipped = 0;
+                    summary.skipped++;
+                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID (already in DB)", data: row });
+                    continue;
+                }
+
+                // Check within-sheet duplicates (by Transaction ID or fingerprint)
+                if (seenInSheet.has(dedupKey)) {
+                    if (summary.skipped === undefined) summary.skipped = 0;
+                    summary.skipped++;
+                    summary.skippedDetails?.push({ row: rowNum, identifier: dedupKey, reason: "Duplicate entry (same rider+amount+date already in this sheet)", data: row });
+                    continue;
+                }
+                seenInSheet.add(dedupKey);
+
                 pendingTransactions.push({
                     riderId,
                     amount,
                     transactionId,
+                    dedupKey,
                     transactionDateStr,
                     rowNum,
                     row
@@ -734,6 +738,35 @@ export const processRentCollectionImport = async (
                     reason: err.message || "Unknown error",
                     data: row
                 });
+            }
+        }
+
+        // ✅ FIX: For rows WITHOUT a Transaction ID, check DB for existing rider+amount+date fingerprint
+        // This prevents re-import of the same transaction that has no TxnID
+        const noTxnPending = pendingTransactions.filter(tx => !tx.transactionId);
+        if (noTxnPending.length > 0) {
+            for (const tx of noTxnPending) {
+                try {
+                    const dateOnly = tx.transactionDateStr.split('T')[0];
+                    const { data: existing } = await supabase
+                        .from('wallet_ledger')
+                        .select('id')
+                        .eq('rider_id', tx.riderId)
+                        .eq('amount', tx.amount)
+                        .gte('created_at', `${dateOnly}T00:00:00`)
+                        .lte('created_at', `${dateOnly}T23:59:59`)
+                        .eq('type', 'DAILY_COLLECTION')
+                        .limit(1);
+                    if (existing && existing.length > 0) {
+                        // Already exists — remove from pending and mark as skipped
+                        const idx = pendingTransactions.indexOf(tx);
+                        if (idx > -1) pendingTransactions.splice(idx, 1);
+                        if (summary.skipped === undefined) summary.skipped = 0;
+                        summary.skipped++;
+                        const rName = tx.row?.['Rider Name'] || tx.row?.['rider_name'] || 'Unknown';
+                        summary.skippedDetails?.push({ row: tx.rowNum, identifier: `${rName} | ₹${tx.amount}`, reason: "Duplicate (same rider+amount+date already in DB, no TxnID)", data: tx.row });
+                    }
+                } catch { /* ignore lookup errors, let it try to insert */ }
             }
         }
 
