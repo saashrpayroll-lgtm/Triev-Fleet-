@@ -761,9 +761,13 @@ export const processRentCollectionImport = async (
                 summary.success++;
             } catch (err: any) {
                 summary.failed++;
+                // ✅ Enhanced error: include rider name, Triev ID, mobile, and amount for debugging
+                const riderName = tx.row?.['Rider Name'] || tx.row?.['rider_name'] || 'Unknown';
+                const trievId = tx.row?.['Triev ID'] || tx.row?.['triev_id'] || '-';
+                const mobile = tx.row?.['Mobile Number'] || tx.row?.['mobile_number'] || '-';
                 summary.errors.push({
                     row: tx.rowNum,
-                    identifier: tx.riderId,
+                    identifier: `${riderName} (${trievId}) | Mob: ${mobile} | ₹${tx.amount}`,
                     reason: err.message || "Failed to add transaction",
                     data: tx.row
                 });
