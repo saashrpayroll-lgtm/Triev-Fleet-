@@ -426,12 +426,16 @@ const DataManagement: React.FC = () => {
                                     if (singleSuccess) {
                                         toast.success(`Debug: Found re-import at ${new Date(singleSuccess.timestamp).toLocaleString()}`);
                                         
-                                        const { data: txns } = await supabase.from('wallet_ledger').select('*, riders(rider_name, triev_id, mobile_number)').eq('source', 'IMPORT').gte('created_at', singleSuccess.timestamp);
+                                        // Look 1 minute before the import completed, to catch the transaction inserted during the run
+                                        const t1 = new Date(new Date(singleSuccess.timestamp).getTime() - 60000).toISOString();
+                                        const t2 = new Date(new Date(singleSuccess.timestamp).getTime() + 60000).toISOString();
+                                        
+                                        const { data: txns } = await supabase.from('wallet_ledger').select('*, riders(rider_name, triev_id, mobile_number)').eq('source', 'IMPORT').gte('created_at', t1).lte('created_at', t2);
                                         
                                         if (txns && txns.length > 0) {
                                             const tx = txns[0]; // the 1 success
                                             // Show it as a persistent alert so user can copy it
-                                            alert(`MISSING ROW FOUND:\nRider: ${tx.riders?.rider_name}\nTriev ID: ${tx.riders?.triev_id}\nMobile: ${tx.riders?.mobile_number}\nAmount: ₹${tx.amount}\nDate: ${new Date(tx.created_at).toLocaleString()}`);
+                                            alert(`MISSING ROW FOUND:\nRider: ${tx.riders?.rider_name || 'Unknown'}\nTriev ID: ${tx.riders?.triev_id || 'Unknown'}\nMobile: ${tx.riders?.mobile_number || 'Unknown'}\nAmount: ₹${tx.amount}\nDate stored: ${new Date(tx.created_at).toLocaleString()}`);
                                         } else {
                                             toast.error("Found the import but couldn't fetch the transaction from wallet_ledger.");
                                         }
