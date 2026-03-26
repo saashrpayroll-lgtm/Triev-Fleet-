@@ -21,6 +21,7 @@ import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
+import { useDebounce } from '@/hooks/useDebounce';
 
 const TLPerformance: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -38,6 +39,7 @@ const TLPerformance: React.FC = () => {
     // const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
 
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [riskFilter, setRiskFilter] = useState<'all' | 'high_risk' | 'low_risk'>('all');
     const [perfFilter, setPerfFilter] = useState<'all' | 'top_performers' | 'low_conversion'>('all');
@@ -449,8 +451,8 @@ const TLPerformance: React.FC = () => {
 
     const filteredData = useMemo(() => {
         let data = performanceData.filter(tl => {
-            const matchesSearch = tl.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                tl.email.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = tl.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                tl.email.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
 
             const matchesStatus = filterStatus === 'all' || tl.status === filterStatus;
 
@@ -494,7 +496,7 @@ const TLPerformance: React.FC = () => {
         }
 
         return data;
-    }, [performanceData, searchTerm, filterStatus, riskFilter, perfFilter, selectedTLs, sortConfig, rmFilter]);
+    }, [performanceData, debouncedSearchTerm, filterStatus, riskFilter, perfFilter, selectedTLs, sortConfig, rmFilter]);
 
     const handleSort = (key: string) => {
         setSortConfig(prev => {
@@ -681,6 +683,35 @@ const TLPerformance: React.FC = () => {
     const avgGrade = avgAIScore >= 90 ? 'S' : avgAIScore >= 70 ? 'A' : avgAIScore >= 50 ? 'B' : avgAIScore >= 30 ? 'C' : 'F';
     const activeTLCount = useMemo(() => performanceData.filter(t => t.status === 'active').length, [performanceData]);
     const totalMonthlyCollection = useMemo(() => performanceData.reduce((s, t) => s + t.monthlyCollection, 0), [performanceData]);
+
+    if (loading) {
+        return (
+            <div className="space-y-5 pb-10 animate-in fade-in duration-500 pt-6 px-4 md:px-8">
+                <div className="bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5">
+                    <div className="flex items-center gap-4">
+                        <div className="hidden sm:block w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700 animate-pulse" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-7 w-64 rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+                            <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-4 rounded-2xl border border-border/40 bg-card/50 space-y-3" style={{ animationDelay: `${i * 100}ms` }}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                                <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            </div>
+                            <div className="h-7 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+                <div className="h-96 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 bg-background min-h-screen pb-20">

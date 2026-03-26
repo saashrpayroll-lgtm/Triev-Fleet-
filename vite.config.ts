@@ -80,4 +80,9 @@ export default defineConfig({
       }
     }
   },
+  esbuild: {
+    // SECURITY HARDENING: Drop all console.log and debugger statements in production builds
+    // Prevents accidental leakage of user data, API responses, or system architecture to the public browser console.
+    drop: ['console', 'debugger'],
+  },
 })

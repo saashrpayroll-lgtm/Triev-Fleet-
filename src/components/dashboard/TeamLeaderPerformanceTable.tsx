@@ -6,6 +6,7 @@ import {
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '../ui/dropdown-menu';
+import { useDebounce } from '@/hooks/useDebounce';
 
 import CollectionHistoryModal from './CollectionHistoryModal';
 
@@ -55,6 +56,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
     const navigate = useNavigate();
     const [sortConfig, setSortConfig] = useState<{ key: keyof TLSnapshot | 'walletDiff', direction: 'asc' | 'desc' } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
     const [filterRM, setFilterRM] = useState<string>('all');
     const [historyModalData, setHistoryModalData] = useState<{ id: string, name: string } | null>(null);
@@ -68,8 +70,8 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
         }
 
         // 2. Filter by Search Term
-        if (searchTerm) {
-            const lowerTerm = searchTerm.toLowerCase();
+        if (debouncedSearchTerm) {
+            const lowerTerm = debouncedSearchTerm.toLowerCase();
             processed = processed.filter(tl =>
                 tl.name.toLowerCase().includes(lowerTerm) ||
                 tl.email.toLowerCase().includes(lowerTerm)
@@ -82,7 +84,7 @@ const TeamLeaderPerformanceTable: React.FC<TeamLeaderPerformanceTableProps> = ({
         }
 
         return processed;
-    }, [data, filterStatus, searchTerm, filterRM]);
+    }, [data, filterStatus, debouncedSearchTerm, filterRM]);
 
     const sortedData = React.useMemo(() => {
         let sortable = [...filteredData];
