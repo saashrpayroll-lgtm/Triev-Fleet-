@@ -820,6 +820,7 @@ const RMPerformance: React.FC = () => {
                                                                                             <span className="text-emerald-600">{tl.walletPosPercent}%</span>
                                                                                             <span className="text-rose-600">{tl.walletNegPercent}%</span>
                                                                                         </div>
+                                                                                        <div className="text-[9px] text-foreground/70 font-bold">{tl.positiveWalletCount}(+₹{(tl.positiveWallet || 0).toLocaleString()}) · {tl.negativeWalletCount}(-₹{Math.abs(tl.negativeWallet || 0).toLocaleString()})</div>
                                                                                     </div>
                                                                                 </td>
                                                                                 <td className="px-4 py-3 text-center">
