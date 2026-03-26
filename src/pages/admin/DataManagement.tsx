@@ -419,6 +419,38 @@ const DataManagement: React.FC = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={async () => {
+                            try {
+                                const { data } = await supabase.from('import_history').select('*').eq('import_type', 'googleSheet').order('timestamp', { ascending: false }).limit(5);
+                                if (data) {
+                                    const singleSuccess = data.find(d => d.success_count === 1);
+                                    if (singleSuccess) {
+                                        toast.success(`Debug: Found re-import at ${new Date(singleSuccess.timestamp).toLocaleString()}`);
+                                        
+                                        const { data: txns } = await supabase.from('wallet_ledger').select('*, riders(rider_name, triev_id, mobile_number)').eq('source', 'IMPORT').gte('created_at', singleSuccess.timestamp);
+                                        
+                                        if (txns && txns.length > 0) {
+                                            const tx = txns[0]; // the 1 success
+                                            // Show it as a persistent alert so user can copy it
+                                            alert(`MISSING ROW FOUND:\nRider: ${tx.riders?.rider_name}\nTriev ID: ${tx.riders?.triev_id}\nMobile: ${tx.riders?.mobile_number}\nAmount: ₹${tx.amount}\nDate: ${new Date(tx.created_at).toLocaleString()}`);
+                                        } else {
+                                            toast.error("Found the import but couldn't fetch the transaction from wallet_ledger.");
+                                        }
+                                    } else {
+                                        toast.info("No single-success re-import found in the last 5 imports.");
+                                    }
+                                }
+                            } catch (e: any) {
+                                toast.error(e.message);
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800/50"
+                        title="Find the 1 missing rent transaction"
+                    >
+                        <Search size={18} />
+                        <span>Find Missing Rent</span>
+                    </button>
+                    <button
+                        onClick={async () => {
                             if (!confirm("This will permanently delete Wallet Ledger rows older than 35 days (5 weeks) to save database space. Historical 'Daily Collection' totals for Team Leaders will NOT be affected. Proceed?")) return;
 
                             const toastId = toast.loading("Pruning old wallet data (>35 days)...");
