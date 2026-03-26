@@ -609,7 +609,13 @@ export const processRentCollectionImport = async (
         });
 
         // 2. Pre-fetch existing Transaction IDs to prevent duplicates
-        const sheetTxnIds = fileData.map(r => r['Transaction ID'] || r['transaction_id']).filter(Boolean);
+        // Use normalizeKey for robust column matching
+        const sheetTxnIds = fileData.map(r => {
+            const nRow: any = {};
+            Object.keys(r).forEach(k => nRow[normalizeKey(k)] = r[k]);
+            return nRow[normalizeKey('Transaction ID')] || nRow[normalizeKey('transaction_id')] || nRow[normalizeKey('OrdertransactionId')] || '';
+        }).filter(Boolean).map(String);
+
         const existingTxns = new Set<string>();
         if (sheetTxnIds.length > 0) {
             const txnChunks = chunkArray(sheetTxnIds, 100);
@@ -617,13 +623,13 @@ export const processRentCollectionImport = async (
                 const { data: txns } = await supabase
                     .from('wallet_ledger')
                     .select('metadata')
-                    // Note: To be safe across versions, we just check metadata->>transaction_id via filter
-                    // Better yet, just fetch all transactions in current month/sheet if needed.
-                    // A safer way if in query is not supported perfectly on JSONB is to query explicitly:
                     .in('metadata->>transaction_id', chunk);
-                txns?.forEach((t: any) => existingTxns.add(t.metadata?.transaction_id));
+                txns?.forEach((t: any) => existingTxns.add(String(t.metadata?.transaction_id)));
             }
         }
+
+        // Track within-sheet duplicates (same TxnID appearing multiple times in one file)
+        const seenInSheet = new Set<string>();
 
         const pendingTransactions: any[] = [];
 
@@ -654,6 +660,11 @@ export const processRentCollectionImport = async (
                 let amount = parseCurrency(amountRaw);
                 if (amount < 0) amount = Math.abs(amount);
 
+                // ✅ FIX: Validate amount > 0 — skip zero-value entries
+                if (amount === 0 || isNaN(amount)) {
+                    throw new Error(`Row skipped: Invalid or zero amount (raw: "${amountRaw}", parsed: ${amount})`);
+                }
+
                 let riderId = null;
 
                 if (trievIdRaw) {
@@ -673,13 +684,24 @@ export const processRentCollectionImport = async (
 
                 if (!riderId) throw new Error(`Rider not found (Triev ID: ${trievIdRaw}, Mobile: ${mobileRaw})`);
 
-                const transactionId = row['Transaction ID'] || row['transaction_id'] || row['OrdertransactionId'] || row['OrderTransactionId'] || '';
+                const transactionId = getValue(['Transaction ID', 'transaction_id', 'OrdertransactionId', 'OrderTransactionId']);
+
+                // ✅ FIX: Check DB duplicates
                 if (transactionId && existingTxns.has(transactionId)) {
                     if (summary.skipped === undefined) summary.skipped = 0;
                     summary.skipped++;
-                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID", data: row });
+                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID (already in DB)", data: row });
                     continue;
                 }
+
+                // ✅ FIX: Check within-sheet duplicates
+                if (transactionId && seenInSheet.has(transactionId)) {
+                    if (summary.skipped === undefined) summary.skipped = 0;
+                    summary.skipped++;
+                    summary.skippedDetails?.push({ row: rowNum, identifier: transactionId, reason: "Duplicate Transaction ID (duplicate within this sheet)", data: row });
+                    continue;
+                }
+                if (transactionId) seenInSheet.add(transactionId);
 
                 // Default to Noon IST of today if no date provided
                 let transactionDateStr = ((): string => {
