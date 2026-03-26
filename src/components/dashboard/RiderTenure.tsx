@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Users, CalendarCheck } from 'lucide-react';
 import { Rider } from '@/types';
-
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 interface RiderTenureProps {
     riders: Rider[];
     className?: string;
@@ -25,7 +25,8 @@ const RiderTenure: React.FC<RiderTenureProps> = ({ riders, className = '' }) => 
         const active = riders.filter(r => r.status === 'active' && r.allotmentDate);
 
         const tenureDays = active.map(r => {
-            const allotment = new Date(r.allotmentDate!);
+            const validDateStr = getValidHistoricalDate(r.allotmentDate!);
+            const allotment = new Date(validDateStr || r.allotmentDate!);
             return Math.floor((now - allotment.getTime()) / (1000 * 60 * 60 * 24));
         });
 

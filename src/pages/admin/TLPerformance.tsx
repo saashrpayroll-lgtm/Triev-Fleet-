@@ -20,7 +20,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
-
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 
 const TLPerformance: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -366,7 +366,9 @@ const TLPerformance: React.FC = () => {
             const activeTlRiders = tlRiders.filter(r => r.status === 'active' && (r.allotment_date || r.allotmentDate));
             const avgTenureDays = activeTlRiders.length > 0
                 ? Math.round(activeTlRiders.reduce((sum, r) => {
-                    const allotDate = new Date(r.allotment_date || r.allotmentDate);
+                    const allotDateStr = r.allotment_date || r.allotmentDate;
+                    const validAllotDateStr = getValidHistoricalDate(allotDateStr);
+                    const allotDate = new Date(validAllotDateStr || allotDateStr);
                     return sum + Math.max(0, Math.floor((Date.now() - allotDate.getTime()) / (1000 * 60 * 60 * 24)));
                 }, 0) / activeTlRiders.length)
                 : 0;

@@ -180,7 +180,9 @@ export const calculateAIScore = (
     const riderAges = tlRiders
         .filter(r => getRiderStatus(r) === 'active' && getRiderAllotment(r))
         .map(r => {
-            const rDateStr = istDateFormatter.format(new Date(getRiderAllotment(r)!));
+            // ✅ FIX: Use getValidHistoricalDate to prevent DD-MM-YYYY corruption
+            const validDateStr = getValidHistoricalDate(getRiderAllotment(r));
+            const rDateStr = validDateStr ? istDateFormatter.format(new Date(validDateStr)) : istDateFormatter.format(new Date());
             const rDateIST = new Date(rDateStr).getTime();
             return Math.max(0, Math.floor((todayIST - rDateIST) / 86400000));
         });

@@ -1,5 +1,6 @@
 import { Rider, User, Request } from '@/types';
 import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 
 // Data Mappers (DB snake_case -> App camelCase)
 export const mapRiderFromDB = (data: any): Rider => ({
@@ -950,7 +951,7 @@ export const generateDefaulterReport = (riders: Rider[], threshold: number = -10
             'Status': r.status,
             'Team Leader': r.teamLeaderName || 'Unassigned',
             'Days Since Allotment': r.allotmentDate
-                ? Math.max(0, Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
+                ? Math.max(0, Math.floor((new Date().getTime() - new Date(getValidHistoricalDate(r.allotmentDate) || r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
                 : '-'
         }));
 };
@@ -997,13 +998,13 @@ export const generateRiderTenureReport = (riders: Rider[]): any[] => {
     return riders
         .filter(r => r.status === 'active')
         .sort((a, b) => {
-            const dateA = a.allotmentDate ? new Date(a.allotmentDate).getTime() : 0;
-            const dateB = b.allotmentDate ? new Date(b.allotmentDate).getTime() : 0;
+            const dateA = a.allotmentDate ? new Date(getValidHistoricalDate(a.allotmentDate) || a.allotmentDate).getTime() : 0;
+            const dateB = b.allotmentDate ? new Date(getValidHistoricalDate(b.allotmentDate) || b.allotmentDate).getTime() : 0;
             return dateA - dateB; // Oldest first
         })
         .map(r => {
             const days = r.allotmentDate
-                ? Math.max(0, Math.floor((new Date().getTime() - new Date(r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
+                ? Math.max(0, Math.floor((new Date().getTime() - new Date(getValidHistoricalDate(r.allotmentDate) || r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
                 : 0;
             return {
                 'Triev ID': r.trievId,

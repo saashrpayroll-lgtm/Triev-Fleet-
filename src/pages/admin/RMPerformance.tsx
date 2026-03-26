@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 
 /* ── Mini Sparkline (pure SVG) ──────────────────────────────────────────── */
 const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; color?: string }> = ({
@@ -308,11 +309,15 @@ const RMPerformance: React.FC = () => {
                     // and not inactivated before period end
                     const allotDate = r.allotment_date || r.allotmentDate || r.created_at || r.createdAt;
                     if (!allotDate) return false;
-                    const allotStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(allotDate));
+                    const validAllotDate = getValidHistoricalDate(allotDate);
+                    const finalAllotDateStr = validAllotDate || allotDate;
+                    const allotStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(finalAllotDateStr));
                     if (allotStr > endDateStr) return false; // Not allotted yet
                     const inactDate = r.inactivated_at || r.inactivatedAt;
                     if (inactDate) {
-                        const inactStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(inactDate));
+                        const validInactDate = getValidHistoricalDate(inactDate);
+                        const finalInactDateStr = validInactDate || inactDate;
+                        const inactStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(finalInactDateStr));
                         if (inactStr <= endDateStr) return false; // Already inactivated
                     }
                     return true;
@@ -322,7 +327,9 @@ const RMPerformance: React.FC = () => {
             rmRiders.forEach(r => {
                 const joinDate = r.allotmentDate || r.allotment_date || r.createdAt || r.created_at;
                 if (joinDate) {
-                    const days = Math.floor((periodEndMs - new Date(joinDate).getTime()) / (1000 * 60 * 60 * 24));
+                    const validJoinDate = getValidHistoricalDate(joinDate);
+                    const finalJoinDateStr = validJoinDate || joinDate;
+                    const days = Math.floor((periodEndMs - new Date(finalJoinDateStr).getTime()) / (1000 * 60 * 60 * 24));
                     if (days >= 0) { totalTenureDays += days; validTenureCount++; }
                 }
             });
