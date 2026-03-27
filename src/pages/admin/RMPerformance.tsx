@@ -765,7 +765,7 @@ const RMPerformance: React.FC = () => {
                                                 <span className="text-sm font-bold text-indigo-600 bg-indigo-500/10 px-2 py-1 rounded-md">₹{rm.periodPerRiderAvg.toLocaleString()}</span>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <div className="space-y-1.5">
+                                                <div className="space-y-1.5 min-w-[140px]">
                                                     {/* Wallet health % bar */}
                                                     <div className="flex items-center gap-1.5">
                                                         <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden flex">
@@ -777,18 +777,27 @@ const RMPerformance: React.FC = () => {
                                                         <span className="text-emerald-600">{rm.wallet.posPercent}% Pos</span>
                                                         <span className="text-rose-600">{rm.wallet.negPercent}% Neg</span>
                                                     </div>
-                                                    <div className="text-[11px] text-foreground/80 font-bold">{rm.wallet.positiveCount}(+₹{rm.wallet.positiveAmount.toLocaleString()}) · {rm.wallet.negativeCount}(-₹{Math.abs(rm.wallet.negativeAmount).toLocaleString()})</div>
+                                                    <div className="text-[10px] text-foreground/80 font-bold flex flex-col gap-0.5 mt-1">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-emerald-600/80">{rm.wallet.positiveCount} Riders</span>
+                                                            <span className="text-emerald-600">+₹{rm.wallet.positiveAmount.toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-rose-600/80">{rm.wallet.negativeCount} Riders</span>
+                                                            <span className="text-rose-600">-₹{Math.abs(rm.wallet.negativeAmount).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[9px] text-emerald-600 font-black uppercase">Period</span>
-                                                        <span className="text-base font-black text-emerald-600">₹{rm.rangeCollection.toLocaleString()}</span>
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Period</span>
+                                                        <span className="text-sm font-black text-emerald-600">₹{rm.rangeCollection.toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex flex-col pl-4 border-l border-border/40">
-                                                        <span className="text-[9px] text-violet-400 font-black uppercase">Total</span>
-                                                        <span className="text-base font-black text-violet-600">₹{(rm as any).totalCollection.toLocaleString()}</span>
+                                                    <div className="flex items-center gap-2 border-t border-border/40 pt-1 w-full">
+                                                        <span className="text-[10px] text-violet-400/70 font-black uppercase w-12">Total</span>
+                                                        <span className="text-sm font-black text-violet-600">₹{(rm as any).totalCollection.toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -833,9 +842,9 @@ const RMPerformance: React.FC = () => {
                                                                         <tr className="border-b border-border/40">
                                                                             <th className="px-4 py-2.5">Team Leader</th>
                                                                             <th className="px-4 py-2.5 text-center">Active Riders</th>
-                                                                            <th className="px-4 py-2.5 text-center">Collection</th>
                                                                             <th className="px-4 py-2.5 text-center">Avg/Rider</th>
                                                                             <th className="px-4 py-2.5">Wallet Health</th>
+                                                                            <th className="px-4 py-2.5 text-center">Collection</th>
                                                                             <th className="px-4 py-2.5 text-center">Trend</th>
                                                                             <th className="px-4 py-2.5 text-center">Fleet Flow</th>
                                                                             <th className="px-4 py-2.5 text-center">Leads</th>
@@ -861,9 +870,6 @@ const RMPerformance: React.FC = () => {
                                                                                     <span className="text-sm font-black">{tl.activeRiders}<span className="text-muted-foreground font-medium text-[10px]">/{tl.totalRiders}</span></span>
                                                                                 </td>
                                                                                 <td className="px-4 py-3 text-center">
-                                                                                    <span className="text-sm font-black text-emerald-600">₹{(tl.collection || tl.totalCollection || 0).toLocaleString()}</span>
-                                                                                </td>
-                                                                                <td className="px-4 py-3 text-center">
                                                                                     <span className="text-xs font-bold text-indigo-600 bg-indigo-500/10 px-2 py-1 rounded-md">₹{(tl.collectionPerRider || 0).toLocaleString()}</span>
                                                                                 </td>
                                                                                 <td className="px-4 py-3">
@@ -878,8 +884,11 @@ const RMPerformance: React.FC = () => {
                                                                                             <span className="text-emerald-600">{tl.walletPosPercent}%</span>
                                                                                             <span className="text-rose-600">{tl.walletNegPercent}%</span>
                                                                                         </div>
-                                                                                        <div className="text-[9px] text-foreground/70 font-bold">{tl.positiveWalletCount}(+₹{(tl.positiveWallet || 0).toLocaleString()}) · {tl.negativeWalletCount}(-₹{Math.abs(tl.negativeWallet || 0).toLocaleString()})</div>
+                                                                                        <div className="text-[9px] text-foreground/70 font-bold">{tl.positiveWalletCount} (+₹{(tl.positiveWallet || 0).toLocaleString()}) · {tl.negativeWalletCount} (-₹{Math.abs(tl.negativeWallet || 0).toLocaleString()})</div>
                                                                                     </div>
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-center">
+                                                                                    <span className="text-sm font-black text-emerald-600">₹{(tl.collection || tl.totalCollection || 0).toLocaleString()}</span>
                                                                                 </td>
                                                                                 <td className="px-4 py-3">
                                                                                     <div className="w-24 mx-auto">
@@ -925,10 +934,14 @@ const RMPerformance: React.FC = () => {
                                     <td className="px-5 py-4 text-center font-black text-orange-600">{Math.round(tAvgTenure)} d</td>
                                     <td className="px-5 py-4 text-center font-black text-indigo-600">₹{tTotPerRiderAvg.toLocaleString()}</td>
                                     <td className="px-5 py-4 font-black">
-                                       <span className="text-emerald-600">₹{tPosAmt.toLocaleString()}</span> / <span className="text-rose-600">₹{tNegAmt.toLocaleString()}</span>
+                                       <div className="flex gap-1.5 text-xs">
+                                          <span className="text-emerald-600">+₹{tPosAmt.toLocaleString()}</span>
+                                          <span className="text-muted-foreground">/</span>
+                                          <span className="text-rose-600">-₹{tNegAmt.toLocaleString()}</span>
+                                       </div>
                                     </td>
                                     <td className="px-5 py-4 font-black">
-                                         <span className="text-emerald-600">₹{tRgCol.toLocaleString()}</span>
+                                         <span className="text-emerald-600 text-base">₹{tRgCol.toLocaleString()}</span>
                                     </td>
                                     <td className="px-4 py-4"></td>
                                     <td className="px-5 py-4">
@@ -943,7 +956,12 @@ const RMPerformance: React.FC = () => {
                                         <span className="font-black text-indigo-600">{tCnv} / {tLds}</span>
                                         <div className="text-[10px] text-muted-foreground font-black">({tCnvPct}%)</div>
                                     </td>
-                                    <td className="px-5 py-4"></td>
+                                    <td className="px-4 py-4 text-center">
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className={`text-sm font-black ${avgAIScore >= 70 ? 'text-emerald-600' : avgAIScore >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{avgAIScore}</span>
+                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${avgGrade === 'A' || avgGrade === 'S' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{avgGrade}</span>
+                                        </div>
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
