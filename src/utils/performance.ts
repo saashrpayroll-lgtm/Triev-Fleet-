@@ -123,23 +123,28 @@ export const calculateAIScore = (
                 const isCurrentlyInactive = status === 'inactive';
                 const isCurrentlyDeleted = status === 'deleted';
 
-                if (isCurrentlyActive && (!inactiveDateStr || inactiveDateStr > period.end)) {
-                    // Currently active and not inactivated before period end
-                    activeRiders++;
-                } else if (inactiveDateStr && inactiveDateStr <= period.end) {
-                    // Inactivated ON or BEFORE period.end
-                    if (isCurrentlyDeleted) churnRiders++;
-                    else inactiveRiders++;
-                } else if (isCurrentlyActive) {
-                    // Safety fallback for active riders without inactivation date
-                    activeRiders++;
+                if (isCurrentlyActive) {
+                    if (inactiveDateStr && inactiveDateStr <= period.end) {
+                        const lsc = (r as any).last_status_change_at || r.lastStatusChangeAt || getRiderUpdated(r);
+                        const reactivDate = lsc ? getValidHistoricalDate(lsc) : null;
+                        if (reactivDate && reactivDate > inactiveDateStr) {
+                            if (reactivDate <= period.end) activeRiders++;
+                            else inactiveRiders++;
+                        } else {
+                            // Stale inactivated_at data without a proper re-activation timestamp => Assume active
+                            activeRiders++;
+                        }
+                    } else {
+                        // Normal active rider (no past inactivation)
+                        activeRiders++;
+                    }
                 } else if (isCurrentlyInactive || isCurrentlyDeleted) {
-                    // If currently inactive/deleted, but were they active during the period?
-                    // If they were inactivated AFTER period.end, they WERE active during the period.
+                    // Currently inactive/deleted
                     if (inactiveDateStr && inactiveDateStr > period.end) {
+                        // They were inactivated AFTER period end, meaning they were ACTIVE during the period
                         activeRiders++;
                     } else {
-                        // Inactivated before or during
+                        // Inactivated ON or BEFORE period.end
                         if (isCurrentlyDeleted) churnRiders++;
                         else inactiveRiders++;
                     }
