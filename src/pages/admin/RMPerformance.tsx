@@ -381,11 +381,29 @@ const RMPerformance: React.FC = () => {
                 periodPerRiderAvg: activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0,
                 score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod,
                 last7DaysTrend: last7Days,
-                assignedTLs: assignedTLs.map(tl => ({
-                    ...tl,
-                    walletPosPercent: tl.activeRiders > 0 ? Math.round((tl.positiveWalletCount / tl.activeRiders) * 100) : 0,
-                    walletNegPercent: tl.activeRiders > 0 ? Math.round((tl.negativeWalletCount / tl.activeRiders) * 100) : 0
-                }))
+                assignedTLs: assignedTLs.map(tl => {
+                    const tlHistory: Record<string, number> = {};
+                    rawData.collections.forEach(item => {
+                        if (item.team_leader_id === tl.id) {
+                            const rawDate = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                            tlHistory[rawDate] = (tlHistory[rawDate] || 0) + (Number(item.total_collection) || 0);
+                        }
+                    });
+                    
+                    const tlTrend: number[] = [];
+                    for (let i = 6; i >= 0; i--) {
+                        const d = new Date(Date.UTC(year, month - 1, day - i));
+                        const ds = d.toISOString().split('T')[0];
+                        tlTrend.push(tlHistory[ds] || 0);
+                    }
+
+                    return {
+                        ...tl,
+                        walletPosPercent: tl.activeRiders > 0 ? Math.round((tl.positiveWalletCount / tl.activeRiders) * 100) : 0,
+                        walletNegPercent: tl.activeRiders > 0 ? Math.round((tl.negativeWalletCount / tl.activeRiders) * 100) : 0,
+                        last7DaysTrend: tlTrend
+                    };
+                })
             };
         });
     }, [rawData, dateFilter, customDateRange]);
@@ -818,6 +836,7 @@ const RMPerformance: React.FC = () => {
                                                                             <th className="px-4 py-2.5 text-center">Collection</th>
                                                                             <th className="px-4 py-2.5 text-center">Avg/Rider</th>
                                                                             <th className="px-4 py-2.5">Wallet Health</th>
+                                                                            <th className="px-4 py-2.5 text-center">Trend</th>
                                                                             <th className="px-4 py-2.5 text-center">Fleet Flow</th>
                                                                             <th className="px-4 py-2.5 text-center">Leads</th>
                                                                             <th className="px-4 py-2.5 text-center">AI Score</th>
@@ -860,6 +879,11 @@ const RMPerformance: React.FC = () => {
                                                                                             <span className="text-rose-600">{tl.walletNegPercent}%</span>
                                                                                         </div>
                                                                                         <div className="text-[9px] text-foreground/70 font-bold">{tl.positiveWalletCount}(+₹{(tl.positiveWallet || 0).toLocaleString()}) · {tl.negativeWalletCount}(-₹{Math.abs(tl.negativeWallet || 0).toLocaleString()})</div>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="px-4 py-3">
+                                                                                    <div className="w-24 mx-auto">
+                                                                                        <Sparkline data={tl.last7DaysTrend || []} />
                                                                                     </div>
                                                                                 </td>
                                                                                 <td className="px-4 py-3 text-center">
