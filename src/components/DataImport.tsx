@@ -115,6 +115,46 @@ const DataImport: React.FC<DataImportProps> = ({ onImport, mode = 'rider' }) => 
         });
     };
 
+    const handleNextPreview = () => {
+        // Validation Gate
+        const dataToValidate = rawData.slice(0, 50).filter(row => {
+            return Object.values(row).some(val => val !== '' && val !== null && val !== undefined);
+        });
+
+        if (dataToValidate.length > 0) {
+            // 1. Mobile Number Validation
+            if (columnMapping['Mobile Number']) {
+                const mobileHeader = columnMapping['Mobile Number'];
+                const mobileValues = dataToValidate.map(r => String(r[mobileHeader] || '').trim()).filter(v => v);
+                if (mobileValues.length > 0) {
+                    // Expecting strictly 10 digits
+                    const validMobiles = mobileValues.filter(v => /^\d{10}$/.test(v));
+                    if (validMobiles.length / mobileValues.length < 0.5) {
+                        setError('Validation Failed: The mapped "Mobile Number" column does not seem to contain valid 10-digit mobile numbers. Check if you swapped it with another column.');
+                        return;
+                    }
+                }
+            }
+
+            // 2. Triev ID Validation
+            if (columnMapping['Triev ID']) {
+                const trievHeader = columnMapping['Triev ID'];
+                const trievValues = dataToValidate.map(r => String(r[trievHeader] || '').trim()).filter(v => v);
+                if (trievValues.length > 0) {
+                    // Expecting strictly numeric values
+                    const validTrievIds = trievValues.filter(v => /^\d+$/.test(v));
+                    if (validTrievIds.length / trievValues.length < 0.5) {
+                        setError('Validation Failed: The mapped "Triev ID" column contains letters or symbols. Triev IDs must be strictly numeric (e.g. 2123, 123456). Check if you mapped the wrong column.');
+                        return;
+                    }
+                }
+            }
+        }
+
+        setError(null);
+        setStep('preview');
+    };
+
     const handleImport = async () => {
         setStep('importing');
         try {
@@ -203,7 +243,7 @@ const DataImport: React.FC<DataImportProps> = ({ onImport, mode = 'rider' }) => 
                             Cancel
                         </button>
                         <button
-                            onClick={() => setStep('preview')}
+                            onClick={handleNextPreview}
                             disabled={!requiredColumns.every(col => columnMapping[col])}
                             className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                         >
