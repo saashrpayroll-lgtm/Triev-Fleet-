@@ -786,7 +786,8 @@ const RMPerformance: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4 text-center">
-                                                <span className="font-black text-indigo-600">{rm.leads.conversionRate}%</span>
+                                                <span className="font-black text-indigo-600">{rm.leads.converted} / {rm.leads.total}</span>
+                                                <div className="text-[10px] text-muted-foreground font-black">({rm.leads.conversionRate}%)</div>
                                             </td>
                                             <td className="px-4 py-4 text-center">
                                                 <div className="flex flex-col items-center gap-0.5">
@@ -906,8 +907,18 @@ const RMPerformance: React.FC = () => {
                                          <span className="text-emerald-600">₹{tRgCol.toLocaleString()}</span>
                                     </td>
                                     <td className="px-4 py-4"></td>
-                                    <td className="px-5 py-4 font-black text-emerald-600">+{tNet} <span className="text-muted-foreground font-medium text-xs">({tAllots}/{tSubs})</span></td>
-                                    <td className="px-5 py-4 text-center font-black text-indigo-600">{tCnvPct}%</td>
+                                    <td className="px-5 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-lg font-black ${tNet > 0 ? 'text-emerald-600' : tNet < 0 ? 'text-rose-600' : 'text-foreground'}`}>
+                                                {tNet > 0 ? '+' : ''}{tNet}
+                                            </span>
+                                            <div className="text-[10px] text-muted-foreground font-black">({tAllots} / {tSubs})</div>
+                                        </div>
+                                    </td>
+                                    <td className="px-5 py-4 text-center">
+                                        <span className="font-black text-indigo-600">{tCnv} / {tLds}</span>
+                                        <div className="text-[10px] text-muted-foreground font-black">({tCnvPct}%)</div>
+                                    </td>
                                     <td className="px-5 py-4"></td>
                                 </tr>
                             </tfoot>
