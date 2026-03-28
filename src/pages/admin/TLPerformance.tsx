@@ -206,10 +206,10 @@ const TLPerformance: React.FC = () => {
         };
 
         const channels = [
-            supabase.channel('tl-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData).subscribe(),
-            supabase.channel('tl-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData).subscribe(),
-            supabase.channel('tl-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData).subscribe(),
-            supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData).subscribe(),
+            supabase.channel('tl-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced).subscribe(),
+            supabase.channel('tl-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced).subscribe(),
+            supabase.channel('tl-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced).subscribe(),
+            supabase.channel('tl-perf-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced).subscribe(),
             // ✅ FIX: wallet_ledger realtime — keeps today/weekly maps live
             supabase.channel('tl-perf-ledger').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced).subscribe(),
         ];

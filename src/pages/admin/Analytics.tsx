@@ -75,21 +75,28 @@ const Analytics: React.FC = () => {
 
     useEffect(() => {
         fetchData();
+        
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchData(), 1000);
+        };
 
         // ✅ Real-time subscriptions — auto-refresh when riders/leads change
         const ridersChannel = supabase
             .channel('analytics-riders')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
             .subscribe();
 
         const leadsChannel = supabase
             .channel('analytics-leads')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
             .subscribe();
 
         return () => {
             supabase.removeChannel(ridersChannel);
             supabase.removeChannel(leadsChannel);
+            if (debounceTimer) clearTimeout(debounceTimer);
         };
     }, []);
 

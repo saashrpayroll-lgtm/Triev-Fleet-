@@ -182,9 +182,9 @@ const RMPerformance: React.FC = () => {
         };
 
         const channels = [
-            supabase.channel('rm-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData).subscribe(),
-            supabase.channel('rm-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData).subscribe(),
-            supabase.channel('rm-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData).subscribe(),
+            supabase.channel('rm-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced).subscribe(),
+            supabase.channel('rm-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced).subscribe(),
+            supabase.channel('rm-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced).subscribe(),
             supabase.channel('rm-perf-ledger').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced).subscribe(),
         ];
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -40,7 +40,6 @@ const RiderManagement: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('all');
     const [riders, setRiders] = useState<Rider[]>([]);
     const [teamLeaders, setTeamLeaders] = useState<User[]>([]);
-    const [filteredRiders, setFilteredRiders] = useState<Rider[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
@@ -121,25 +120,92 @@ const RiderManagement: React.FC = () => {
     useEffect(() => {
         fetchData();
 
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchData(), 1000);
+        };
+
         const channel = supabase
             .channel('admin-riders-list')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'riders' },
-                () => {
-                    fetchData(); // Refetch to keep list fresh
-                }
+                fetchDebounced
             )
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
+            if (debounceTimer) clearTimeout(debounceTimer);
         };
     }, []);
 
-    useEffect(() => {
-        filterRiders();
-    }, [riders, activeTab, debouncedSearchTerm, advancedFilters, sortBy, sortOrder]);
+    // Removed filterRiders wrapper and its useEffect
+
+
+    const filteredRiders = useMemo(() => {
+        let filtered = [...riders];
+
+        if (activeTab !== 'all') {
+            filtered = filtered.filter(r => r.status === activeTab);
+        }
+
+        if (debouncedSearchTerm) {
+            const searchLower = debouncedSearchTerm.toLowerCase();
+            filtered = filtered.filter(r =>
+                r.riderName.toLowerCase().includes(searchLower) ||
+                r.trievId.toLowerCase().includes(searchLower) ||
+                r.mobileNumber.includes(debouncedSearchTerm) ||
+                r.chassisNumber.toLowerCase().includes(searchLower) ||
+                r.teamLeaderName.toLowerCase().includes(searchLower)
+            );
+        }
+
+        if (advancedFilters.teamLeader !== 'all') {
+            if (advancedFilters.teamLeader === 'unassigned') {
+                filtered = filtered.filter(r => !r.teamLeaderId);
+            } else {
+                filtered = filtered.filter(r => r.teamLeaderId === advancedFilters.teamLeader);
+            }
+        }
+
+        if (advancedFilters.client !== 'all') {
+            filtered = filtered.filter(r => r.clientName === advancedFilters.client);
+        }
+
+        if (advancedFilters.walletRange !== 'all') {
+            filtered = filtered.filter(r => {
+                if (advancedFilters.walletRange === 'positive') return r.walletAmount > 0;
+                if (advancedFilters.walletRange === 'negative') return r.walletAmount < 0;
+                if (advancedFilters.walletRange === 'zero') return r.walletAmount === 0;
+                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250;
+                if (advancedFilters.walletRange === 'high_debt') return r.walletAmount < -3000;
+                return true;
+            });
+        }
+
+        if (advancedFilters.reportingManager !== 'all') {
+            const tlIdsForRM = teamLeaders
+                .filter(tl => (tl.reportingManager || '') === advancedFilters.reportingManager)
+                .map(tl => tl.id);
+            filtered = filtered.filter(r => tlIdsForRM.includes(r.teamLeaderId));
+        }
+
+        filtered.sort((a, b) => {
+            const aValue = a[sortBy];
+            const bValue = b[sortBy];
+            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+            }
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+            }
+            return 0;
+        });
+
+        return filtered;
+    }, [riders, activeTab, debouncedSearchTerm, advancedFilters, sortBy, sortOrder, teamLeaders]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -262,69 +328,6 @@ const RiderManagement: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const filterRiders = () => {
-        let filtered = [...riders];
-
-        if (activeTab !== 'all') {
-            filtered = filtered.filter(r => r.status === activeTab);
-        }
-
-        if (debouncedSearchTerm) {
-            const searchLower = debouncedSearchTerm.toLowerCase();
-            filtered = filtered.filter(r =>
-                r.riderName.toLowerCase().includes(searchLower) ||
-                r.trievId.toLowerCase().includes(searchLower) ||
-                r.mobileNumber.includes(debouncedSearchTerm) ||
-                r.chassisNumber.toLowerCase().includes(searchLower) ||
-                r.teamLeaderName.toLowerCase().includes(searchLower)
-            );
-        }
-
-        if (advancedFilters.teamLeader !== 'all') {
-            if (advancedFilters.teamLeader === 'unassigned') {
-                filtered = filtered.filter(r => !r.teamLeaderId);
-            } else {
-                filtered = filtered.filter(r => r.teamLeaderId === advancedFilters.teamLeader);
-            }
-        }
-
-        if (advancedFilters.client !== 'all') {
-            filtered = filtered.filter(r => r.clientName === advancedFilters.client);
-        }
-
-        if (advancedFilters.walletRange !== 'all') {
-            filtered = filtered.filter(r => {
-                if (advancedFilters.walletRange === 'positive') return r.walletAmount > 0;
-                if (advancedFilters.walletRange === 'negative') return r.walletAmount < 0;
-                if (advancedFilters.walletRange === 'zero') return r.walletAmount === 0;
-                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250;
-                if (advancedFilters.walletRange === 'high_debt') return r.walletAmount < -3000;
-                return true;
-            });
-        }
-
-        if (advancedFilters.reportingManager !== 'all') {
-            const tlIdsForRM = teamLeaders
-                .filter(tl => (tl.reportingManager || '') === advancedFilters.reportingManager)
-                .map(tl => tl.id);
-            filtered = filtered.filter(r => tlIdsForRM.includes(r.teamLeaderId));
-        }
-
-        filtered.sort((a, b) => {
-            const aValue = a[sortBy];
-            const bValue = b[sortBy];
-            if (typeof aValue === 'number' && typeof bValue === 'number') {
-                return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-            }
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-                return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-            }
-            return 0;
-        });
-
-        setFilteredRiders(filtered);
     };
 
     const handleTabChange = (tab: TabType) => {

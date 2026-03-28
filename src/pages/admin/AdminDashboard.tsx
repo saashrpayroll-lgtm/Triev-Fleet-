@@ -286,21 +286,11 @@ const Dashboard: React.FC = () => {
 
         const channel = supabase
             .channel('dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
-                fetchDashboardData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-                fetchDashboardData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => {
-                fetchDashboardData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-                fetchDashboardData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => {
-                fetchDashboardData();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
             // ✅ FIX: wallet_ledger realtime — keeps today/weekly collection maps live
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
