@@ -264,7 +264,7 @@ const RMPerformance: React.FC = () => {
                 return dDateStr >= monthStartStr && dDateStr <= monthEndStr;
             }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0);
             
-            return { ...tl, ...metrics, monthlyCollection, totalCollection: tlCollection };
+            return { ...tl, ...metrics, monthlyCollection, totalCollection: tlCollection, weeklyCollection: (rawData as any).weeklyCollectionsMap?.[tlId] || 0 };
         });
 
         const rmNamesSet = new Set<string>();
