@@ -376,7 +376,7 @@ const RMPerformance: React.FC = () => {
                 id: rmName, name: rmName, totalTLs, activeTLs, totalRiders, activeRiders, inactiveRiders: totalRiders - activeRiders,
                 wallet: { total: positiveWallet + negativeWallet, positiveCount: positiveWalletCount, positiveAmount: positiveWallet, negativeCount: negativeWalletCount, negativeAmount: negativeWallet, posPercent: walletPosPercent, negPercent: walletNegPercent },
                 leads: { total: leadsTotal, converted: convertedLeads, conversionRate: leadsTotal > 0 ? Math.round((convertedLeads / leadsTotal) * 100) : 0 },
-                allotments, submissions, netGrowth, rangeCollection, monthlyCollection, totalCollection: rangeCollection,
+                allotments, submissions, netGrowth, rangeCollection, monthlyCollection, totalCollection: assignedTLs.reduce((sum, tl) => sum + ((tl as any).weeklyCollection || 0), 0),
                 avgTenure, periodDayAvg: daysInPeriod > 0 ? Math.round(rangeCollection / daysInPeriod) : 0,
                 periodPerRiderAvg: activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0,
                 score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod,
@@ -522,13 +522,26 @@ const RMPerformance: React.FC = () => {
     const tAvgTenure = filteredData.reduce((s, t) => s + t.avgTenure, 0) / (filteredData.length || 1);
     const tPosAmt = filteredData.reduce((s, t) => s + t.wallet.positiveAmount, 0);
     const tNegAmt = filteredData.reduce((s, t) => s + Math.abs(t.wallet.negativeAmount), 0);
+    const tPosCount = filteredData.reduce((s, t) => s + t.wallet.positiveCount, 0);
+    const tNegCount = filteredData.reduce((s, t) => s + t.wallet.negativeCount, 0);
+    const tPosPct = tActRiders > 0 ? Math.round((tPosCount / tActRiders) * 100) : 0;
+    const tNegPct = tActRiders > 0 ? Math.round((tNegCount / tActRiders) * 100) : 0;
+    
     const tRgCol = filteredData.reduce((s, t) => s + t.rangeCollection, 0);
+    const tTotCol = filteredData.reduce((s, t) => s + (t as any).totalCollection, 0);
     const tAllots = filteredData.reduce((s, t) => s + t.allotments, 0);
     const tSubs = filteredData.reduce((s, t) => s + t.submissions, 0);
     const tNet = filteredData.reduce((s, t) => s + t.netGrowth, 0);
     const tLds = filteredData.reduce((s, t) => s + t.leads.total, 0);
     const tCnv = filteredData.reduce((s, t) => s + t.leads.converted, 0);
     const tCnvPct = tLds > 0 ? Math.round((tCnv / tLds) * 100) : 0;
+
+    const t7DTrend = [0,0,0,0,0,0,0];
+    filteredData.forEach(rm => {
+        (rm.last7DaysTrend || []).forEach((val: number, i: number) => {
+            if (i < 7) t7DTrend[i] += val;
+        });
+    });
 
     if (loading) {
         return (
@@ -934,16 +947,44 @@ const RMPerformance: React.FC = () => {
                                     <td className="px-5 py-4 text-center font-black text-orange-600">{Math.round(tAvgTenure)} d</td>
                                     <td className="px-5 py-4 text-center font-black text-indigo-600">₹{tTotPerRiderAvg.toLocaleString()}</td>
                                     <td className="px-5 py-4 font-black">
-                                       <div className="flex gap-1.5 text-xs">
-                                          <span className="text-emerald-600">+₹{tPosAmt.toLocaleString()}</span>
-                                          <span className="text-muted-foreground">/</span>
-                                          <span className="text-rose-600">-₹{tNegAmt.toLocaleString()}</span>
-                                       </div>
+                                        <div className="space-y-1.5 min-w-[140px]">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden flex">
+                                                    <div className="h-full bg-emerald-500 rounded-l-full transition-all" style={{ width: `${tPosPct}%` }} />
+                                                    <div className="h-full bg-rose-500 rounded-r-full transition-all" style={{ width: `${tNegPct}%` }} />
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] font-black">
+                                                <span className="text-emerald-600">{tPosPct}% Pos</span>
+                                                <span className="text-rose-600">{tNegPct}% Neg</span>
+                                            </div>
+                                            <div className="text-[10px] text-foreground/80 font-bold flex flex-col gap-0.5 mt-1">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-emerald-600/80">{tPosCount} Riders</span>
+                                                    <span className="text-emerald-600">+₹{tPosAmt.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-rose-600/80">{tNegCount} Riders</span>
+                                                    <span className="text-rose-600">-₹{tNegAmt.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td className="px-5 py-4 font-black">
-                                         <span className="text-emerald-600 text-base">₹{tRgCol.toLocaleString()}</span>
+                                        <div className="flex flex-col items-start gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Period</span>
+                                                <span className="text-sm font-black text-emerald-600">₹{tRgCol.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 border-t border-border/40 pt-1 w-full">
+                                                <span className="text-[10px] text-violet-400/70 font-black uppercase w-12">Total</span>
+                                                <span className="text-sm font-black text-violet-600">₹{tTotCol.toLocaleString()}</span>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td className="px-4 py-4"></td>
+                                    <td className="px-4 py-4">
+                                        <Sparkline data={t7DTrend} />
+                                    </td>
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
                                             <span className={`text-lg font-black ${tNet > 0 ? 'text-emerald-600' : tNet < 0 ? 'text-rose-600' : 'text-foreground'}`}>
