@@ -264,7 +264,8 @@ const RMPerformance: React.FC = () => {
                 return dDateStr >= monthStartStr && dDateStr <= monthEndStr;
             }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0);
             
-            return { ...tl, ...metrics, monthlyCollection, totalCollection: tlCollection, weeklyCollection: (rawData as any).weeklyCollectionsMap?.[tlId] || 0 };
+            const todayCollectionTemp = (rawData as any).dailyCollectionsMap?.[tlId] || 0;
+            return { ...tl, ...metrics, monthlyCollection, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
         });
 
         const rmNamesSet = new Set<string>();
@@ -376,7 +377,9 @@ const RMPerformance: React.FC = () => {
                 id: rmName, name: rmName, totalTLs, activeTLs, totalRiders, activeRiders, inactiveRiders: totalRiders - activeRiders,
                 wallet: { total: positiveWallet + negativeWallet, positiveCount: positiveWalletCount, positiveAmount: positiveWallet, negativeCount: negativeWalletCount, negativeAmount: negativeWallet, posPercent: walletPosPercent, negPercent: walletNegPercent },
                 leads: { total: leadsTotal, converted: convertedLeads, conversionRate: leadsTotal > 0 ? Math.round((convertedLeads / leadsTotal) * 100) : 0 },
-                allotments, submissions, netGrowth, rangeCollection, monthlyCollection, totalCollection: assignedTLs.reduce((sum, tl) => sum + ((tl as any).weeklyCollection || 0), 0),
+                allotments, submissions, netGrowth, rangeCollection, monthlyCollection, 
+                totalCollection: rangeCollection, 
+                todayCollection: assignedTLs.reduce((sum, tl) => sum + ((tl as any).todayCollection || 0), 0),
                 avgTenure, periodDayAvg: daysInPeriod > 0 ? Math.round(rangeCollection / daysInPeriod) : 0,
                 periodPerRiderAvg: activeRiders > 0 ? Math.round(rangeCollection / activeRiders) : 0,
                 score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod,
@@ -528,7 +531,7 @@ const RMPerformance: React.FC = () => {
     const tNegPct = tActRiders > 0 ? Math.round((tNegCount / tActRiders) * 100) : 0;
     
     const tRgCol = filteredData.reduce((s, t) => s + t.rangeCollection, 0);
-    const tTotCol = filteredData.reduce((s, t) => s + (t as any).totalCollection, 0);
+    const tTodayCol = filteredData.reduce((s, t) => s + (t as any).todayCollection, 0);
     const tAllots = filteredData.reduce((s, t) => s + t.allotments, 0);
     const tSubs = filteredData.reduce((s, t) => s + t.submissions, 0);
     const tNet = filteredData.reduce((s, t) => s + t.netGrowth, 0);
@@ -717,9 +720,9 @@ const RMPerformance: React.FC = () => {
                                 </div>
                                 {dateFilter === 'custom' && (
                                     <div className="flex items-center gap-2 bg-background border border-border/60 rounded-xl p-1 shadow-sm">
-                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded" style={{ colorScheme: 'light dark' }} value={customDateRange.start} onChange={(e) => setCustomDateRange({ ...customDateRange, start: e.target.value })} />
+                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer" style={{ colorScheme: 'light dark' }} value={customDateRange.start} onChange={(e) => setCustomDateRange({ ...customDateRange, start: e.target.value })} />
                                         <span className="text-muted-foreground text-xs font-bold">—</span>
-                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded" style={{ colorScheme: 'light dark' }} value={customDateRange.end} onChange={(e) => setCustomDateRange({ ...customDateRange, end: e.target.value })} />
+                                        <input type="date" className="text-xs py-1 px-2 focus:outline-none bg-transparent rounded [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer" style={{ colorScheme: 'light dark' }} value={customDateRange.end} onChange={(e) => setCustomDateRange({ ...customDateRange, end: e.target.value })} />
                                     </div>
                                 )}
                             </div>
@@ -739,7 +742,7 @@ const RMPerformance: React.FC = () => {
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('avgTenure')}>Avg Tenure</th>
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('periodPerRiderAvg')}>Avg/Rider</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('walletHealth')}>Wallet Health</th>
-                                    <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('rangeCollection')}>Collection (Period/Total)</th>
+                                    <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('rangeCollection')}>Collection (Today/Total)</th>
                                     <th className="px-4 py-4 text-center">7D Trend</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('netGrowth')}>Fleet Flow</th>
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('conversion')}>Leads</th>
@@ -805,12 +808,12 @@ const RMPerformance: React.FC = () => {
                                             <td className="px-5 py-4">
                                                 <div className="flex flex-col items-start gap-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Period</span>
-                                                        <span className="text-sm font-black text-emerald-600">₹{rm.rangeCollection.toLocaleString()}</span>
+                                                        <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Today</span>
+                                                        <span className="text-sm font-black text-emerald-600">₹{(rm as any).todayCollection.toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2 border-t border-border/40 pt-1 w-full">
                                                         <span className="text-[10px] text-violet-400/70 font-black uppercase w-12">Total</span>
-                                                        <span className="text-sm font-black text-violet-600">₹{(rm as any).totalCollection.toLocaleString()}</span>
+                                                        <span className="text-sm font-black text-violet-600">₹{rm.rangeCollection.toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -973,12 +976,12 @@ const RMPerformance: React.FC = () => {
                                     <td className="px-5 py-4 font-black">
                                         <div className="flex flex-col items-start gap-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Period</span>
-                                                <span className="text-sm font-black text-emerald-600">₹{tRgCol.toLocaleString()}</span>
+                                                <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Today</span>
+                                                <span className="text-sm font-black text-emerald-600">₹{tTodayCol.toLocaleString()}</span>
                                             </div>
                                             <div className="flex items-center gap-2 border-t border-border/40 pt-1 w-full">
                                                 <span className="text-[10px] text-violet-400/70 font-black uppercase w-12">Total</span>
-                                                <span className="text-sm font-black text-violet-600">₹{tTotCol.toLocaleString()}</span>
+                                                <span className="text-sm font-black text-violet-600">₹{tRgCol.toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </td>
