@@ -209,7 +209,7 @@ const Dashboard: React.FC = () => {
         const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length;
 
         // Zomato specific calculations
-        const zomatoRiders = myRiders.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB'));
+        const zomatoRiders = myRiders.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')));
 
         return {
             totalRiders: computedLeaderStats.totalRiders,
@@ -551,7 +551,7 @@ const Dashboard: React.FC = () => {
             <ZomatoNegativeAlertModal
                 isOpen={showZomatoAlert}
                 onClose={() => setShowZomatoAlert(false)}
-                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.walletAmount < 0 && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')))}
+                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')))}
             />
 
             {/* ─── HEADER ─── */}
@@ -629,7 +629,7 @@ const Dashboard: React.FC = () => {
                         color="orange"
                         trend={{ value: stats.zomatoTotal > 0 ? Math.round((stats.zomatoPosCount / stats.zomatoTotal) * 100) : 0, label: 'Pos. Wallet', direction: 'up' }}
                         subtitle={`${stats.zomatoNegCount} Negative Wallets`}
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'all', search: 'P6DSVFMSPBB' })}
+                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'zomato' })}
                         isCurrency={false}
                     />
                     {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (

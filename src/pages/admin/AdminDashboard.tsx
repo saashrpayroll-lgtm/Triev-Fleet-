@@ -431,9 +431,9 @@ const Dashboard: React.FC = () => {
             activeTLs: teamLeaders.filter(u => u.status === 'active').length,
             
             // Zomato VIP Stats
-            zomatoTotal: activeRidersList.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')).length,
-            zomatoPosCount: activeRidersList.filter(r => (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')) && r.walletAmount >= 0).length,
-            zomatoNegCount: activeRidersList.filter(r => (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')) && r.walletAmount < 0).length
+            zomatoTotal: activeRidersList.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')).length,
+            zomatoPosCount: activeRidersList.filter(r => (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')) && r.walletAmount >= 0).length,
+            zomatoNegCount: activeRidersList.filter(r => (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')) && r.walletAmount < 0).length
         };
     }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter, fleetSnapshots]);
 
