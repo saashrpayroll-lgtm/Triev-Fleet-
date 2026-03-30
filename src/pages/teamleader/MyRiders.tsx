@@ -162,7 +162,7 @@ const MyRiders: React.FC = () => {
     const filterRiders = React.useCallback(() => {
         let filtered = [...riders];
         if (activeTab === 'zomato') {
-            filtered = filtered.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')));
+            filtered = filtered.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
         } else if (activeTab && activeTab !== 'all') {
             filtered = filtered.filter(r => r.status === activeTab);
         }
@@ -486,7 +486,7 @@ const MyRiders: React.FC = () => {
             <div className="flex gap-1 p-1 bg-muted/60 backdrop-blur-sm rounded-2xl border border-border/50 w-fit overflow-x-auto">
                 {(['active', 'zomato', 'inactive', ...(canDelete ? ['deleted'] : [])] as TabType[]).map((tab) => {
                     const cnt = tab === 'zomato' 
-                        ? riders.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP'))).length
+                        ? riders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'))).length
                         : riders.filter(r => r.status === tab).length;
                     const tabColors: Record<string, string> = {
                         active: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/40 dark:text-emerald-400',
@@ -715,12 +715,12 @@ const MyRiders: React.FC = () => {
                                                             />
                                                         );
                                                     })()}
-                                                    {rider.status === 'active' && ((rider.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')) ? rider.walletAmount <= 300 : rider.walletAmount < 0) && (
+                                                    {rider.status === 'active' && ((rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) ? rider.walletAmount <= 300 : rider.walletAmount < 0) && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Reminder">
                                                             <AlertTriangle size={16} /> Remind
                                                         </button>
                                                     )}
-                                                    {rider.status === 'active' && !(rider.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                    {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Low Balance WhatsApp Reminder">
                                                             <MessageCircle size={16} /> Low Bal.
                                                         </button>
@@ -832,12 +832,12 @@ const MyRiders: React.FC = () => {
                                                             <MessageCircle size={13} /> WA
                                                         </button>
                                                     )}
-                                                    {rider.status === 'active' && ((rider.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')) ? rider.walletAmount <= 300 : rider.walletAmount < 0) && (
+                                                    {rider.status === 'active' && ((rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) ? rider.walletAmount <= 300 : rider.walletAmount < 0) && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('warning'); }} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 rounded-xl text-base font-bold border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition-colors active:scale-95">
                                                             <AlertTriangle size={18} /> Remind
                                                         </button>
                                                     )}
-                                                    {rider.status === 'active' && !(rider.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                    {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-xl text-base font-bold border border-orange-200 dark:border-orange-800 hover:bg-orange-100 transition-colors active:scale-95">
                                                             <MessageCircle size={18} /> Low Bal.
                                                         </button>

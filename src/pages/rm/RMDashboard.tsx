@@ -159,7 +159,7 @@ const RMDashboard: React.FC = () => {
         const criticalDebt = activeRidersList.filter(r => r.walletAmount < -3000).length;
         const fleetHealth = activeRiders > 0 ? Math.round((positiveCount / activeRiders) * 100) : 0;
 
-        const zomatoRiders = riders.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')));
+        const zomatoRiders = riders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
         const zomatoTotal = zomatoRiders.length;
         const zomatoPosCount = zomatoRiders.filter(r => r.walletAmount >= 0).length;
         const zomatoNegCount = zomatoRiders.filter(r => r.walletAmount < 0).length;
@@ -238,7 +238,7 @@ const RMDashboard: React.FC = () => {
             <ZomatoNegativeAlertModal
                 isOpen={showZomatoAlert}
                 onClose={() => setShowZomatoAlert(false)}
-                negativeRiders={riders.filter(r => r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')))}
+                negativeRiders={riders.filter(r => r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')))}
             />
 
             {/* ── HEAVY DEFAULTERS MODAL ── */}

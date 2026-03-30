@@ -65,7 +65,7 @@ const RMRiderOverview: React.FC = () => {
     const filteredRiders = useMemo(() => {
         return riders.filter(r => {
             if (filterStatus === 'zomato') {
-                if (!(r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP'))) return false;
+                if (!(r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'))) return false;
                 if (r.status !== 'active') return false;
             } else if (filterStatus !== 'all' && r.status !== filterStatus) {
                 return false;

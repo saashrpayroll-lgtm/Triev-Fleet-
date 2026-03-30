@@ -148,7 +148,7 @@ const RiderManagement: React.FC = () => {
         let filtered = [...riders];
 
         if (activeTab === 'zomato') {
-            filtered = filtered.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')));
+            filtered = filtered.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
         } else if (activeTab !== 'all') {
             filtered = filtered.filter(r => r.status === activeTab);
         }
@@ -339,7 +339,7 @@ const RiderManagement: React.FC = () => {
 
     const getTabCount = (tab: TabType) => {
         if (tab === 'all') return riders.length;
-        if (tab === 'zomato') return riders.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP'))).length;
+        if (tab === 'zomato') return riders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'))).length;
         return riders.filter(r => r.status === tab).length;
     };
 

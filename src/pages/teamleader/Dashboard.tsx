@@ -209,7 +209,7 @@ const Dashboard: React.FC = () => {
         const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length;
 
         // Zomato specific calculations
-        const zomatoRiders = myRiders.filter(r => r.status === 'active' && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')));
+        const zomatoRiders = myRiders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
 
         return {
             totalRiders: computedLeaderStats.totalRiders,
@@ -551,7 +551,7 @@ const Dashboard: React.FC = () => {
             <ZomatoNegativeAlertModal
                 isOpen={showZomatoAlert}
                 onClose={() => setShowZomatoAlert(false)}
-                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSP')))}
+                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')))}
             />
 
             {/* ─── HEADER ─── */}
