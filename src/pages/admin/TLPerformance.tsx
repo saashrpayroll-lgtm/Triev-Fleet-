@@ -311,13 +311,22 @@ const TLPerformance: React.FC = () => {
 
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
-            const tlCollection = (dateFilter === 'today' ? (rawData as any).dailyCollectionsMap?.[tlId] : undefined) ??
-                rawData.collections.filter(item => {
+            const todayCollectionTemp = (rawData as any).dailyCollectionsMap?.[tlId] || 0;
+
+            let tlCollection = 0;
+            if (dateFilter === 'today') {
+                tlCollection = (rawData as any).weeklyCollectionsMap?.[tlId] || 0;
+            } else {
+                const pastSum = rawData.collections.filter(item => {
                     const isTL = item.team_leader_id === tlId;
                     if (!isTL) return false;
                     const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                    return dDateStr >= startDateStr && dDateStr <= endDateStr;
+                    return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
                 }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+                
+                const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
+                tlCollection = pastSum + todayLive;
+            }
 
             const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
             const collectionSnapshot = rawData.collections.find(item => {
