@@ -227,8 +227,8 @@ const Dashboard: React.FC = () => {
             convertedLeads: computedLeaderStats.convertedLeads,
             notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads,
             zomatoTotal: zomatoRiders.length,
-            zomatoPosCount: zomatoRiders.filter(r => r.walletAmount >= 0).length,
-            zomatoNegCount: zomatoRiders.filter(r => r.walletAmount < 0).length
+            zomatoPosCount: zomatoRiders.filter(r => r.walletAmount > 0).length,
+            zomatoNegCount: zomatoRiders.filter(r => r.walletAmount <= 0).length
         }
     }, [computedLeaderStats, leaderboardData.riders, userData?.id]);
 
@@ -306,7 +306,7 @@ const Dashboard: React.FC = () => {
             })) as User[];
 
             const { data: allRidersData } = await fetchAllRidersPaginated(
-                'id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date, inactivated_at, created_at, updated_at'
+                'id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date, inactivated_at, created_at, updated_at, chassis_number'
             );
             const allRiders = (allRidersData || []).map((r: any) => ({
                 id: r.id,
@@ -318,7 +318,8 @@ const Dashboard: React.FC = () => {
                 allotmentDate: r.allotment_date,
                 inactivatedAt: r.inactivated_at,
                 createdAt: r.created_at,
-                updatedAt: r.updated_at
+                updatedAt: r.updated_at,
+                chassisNumber: r.chassis_number
             })) as Rider[];
 
             const { data: allLeadsData } = await supabase.from('leads').select('*');
@@ -551,7 +552,7 @@ const Dashboard: React.FC = () => {
             <ZomatoNegativeAlertModal
                 isOpen={showZomatoAlert}
                 onClose={() => setShowZomatoAlert(false)}
-                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')))}
+                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active' && r.walletAmount <= 0 && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')))}
             />
 
             {/* ─── HEADER ─── */}

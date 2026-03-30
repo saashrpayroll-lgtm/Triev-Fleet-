@@ -20,7 +20,7 @@ const ZomatoNegativeAlertModal: React.FC<Props> = ({ isOpen, onClose, negativeRi
 
     const handleWhatsApp = (phoneNumber: string, riderName: string, amount: number) => {
         if (!phoneNumber) return;
-        const msg = `Hi ${riderName}, your Zomato VIP Wallet is negative (₹${Math.abs(amount).toLocaleString('en-IN')}). Please recharge immediately to avoid ID deactivation.`;
+        const msg = `Hi ${riderName}, your Zomato VIP Wallet balance is critically low or negative (₹${Math.abs(amount).toLocaleString('en-IN')}). Please recharge immediately to avoid ID deactivation.`;
         window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(msg)}`, '_blank');
     };
 
@@ -51,7 +51,7 @@ const ZomatoNegativeAlertModal: React.FC<Props> = ({ isOpen, onClose, negativeRi
                             <div>
                                 <h2 className="text-xl font-black text-red-50 uppercase tracking-wide">Critical Alert</h2>
                                 <p className="text-red-300 text-sm font-medium mt-1">
-                                    {negativeRiders.length} Zomato VIP {negativeRiders.length === 1 ? 'Rider has' : 'Riders have'} negative wallet balances.
+                                    {negativeRiders.length} Zomato VIP {negativeRiders.length === 1 ? 'Rider has' : 'Riders have'} 0 or negative wallet balances.
                                 </p>
                             </div>
                         </div>
