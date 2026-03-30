@@ -445,7 +445,7 @@ const RMDashboard: React.FC = () => {
                         trend={{ value: 100, label: 'Active', direction: 'up' }}
                         subtitle={`${metrics.zomatoPosCount} healthy • ${metrics.zomatoNegCount} neg`}
                         isCurrency={false}
-                        onClick={() => navigate('/rm-panel/rider-overview', { state: { filter: 'zomato' } })}
+                        onClick={() => navigate('/rm-panel/riders', { state: { filter: 'zomato' } })}
                     />
                     <SmartMetricCard
                         title="Team Leaders"
@@ -530,7 +530,7 @@ const RMDashboard: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                         {[
-                            { to: '/rm-panel/rider-overview', label: 'Rider Overview', icon: Users },
+                            { to: '/rm-panel/riders', label: 'Rider Overview', icon: Users },
                             { to: '/rm-panel/tl-performance', label: 'TL Performance', icon: BarChart3 },
                             { to: '/rm-panel/leaderboard', label: 'Leaderboard', icon: Trophy },
                             { to: '/rm-panel/reports', label: 'Reports', icon: Shield },

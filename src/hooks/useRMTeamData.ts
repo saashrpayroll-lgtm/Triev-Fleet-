@@ -75,7 +75,7 @@ export function useRMTeamData(): RMTeamData {
                         clientName:client_name, status, walletAmount:wallet_amount,
                         createdAt:created_at, updatedAt:updated_at,
                         inactivatedAt:inactivated_at, lastStatusChangeAt:last_status_change_at,
-                        allotmentDate:allotment_date
+                        allotmentDate:allotment_date, chassisNumber:chassis_number
                     `, { column: 'team_leader_id', value: tlIds, type: 'in' });
 
                 if (riderError) throw riderError;
