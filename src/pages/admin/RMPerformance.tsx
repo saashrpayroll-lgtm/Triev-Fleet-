@@ -235,19 +235,18 @@ const RMPerformance: React.FC = () => {
             const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
             const todayCollectionTemp = (rawData as any).dailyCollectionsMap?.[tlId] || 0;
 
-            let tlCollection = 0;
-            if (dateFilter === 'today') {
-                tlCollection = (rawData as any).weeklyCollectionsMap?.[tlId] || 0;
-            } else {
-                const pastSum = rawData.collections.filter(item => {
-                    if (item.team_leader_id !== tlId) return false;
-                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                    return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
-                }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
-                
-                const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
-                tlCollection = pastSum + todayLive;
-            }
+            // Pure mathematical sum of the selected date frame for perfectly accurate UI display
+            const pastSum = rawData.collections.filter(item => {
+                if (item.team_leader_id !== tlId) return false;
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
+            }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+            
+            const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
+            const tlCollection = pastSum + todayLive;
+
+            // AI Evaluating Collection (prevents 0% score grades on daily resets)
+            const aiEvaluatingCollection = dateFilter === 'today' ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : tlCollection;
 
             // Find best historical snapshot: closest date within [start..end] range (prefer latest)
             const periodSnapshots = rawData.collections
@@ -265,7 +264,7 @@ const RMPerformance: React.FC = () => {
             const historicalFleet = (targetEndDate < nowISTStr && bestSnapshot && Number(bestSnapshot.active_riders_count) > 0)
                 ? Number(bestSnapshot.active_riders_count) : undefined;
 
-            const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, tlCollection, period, historicalFleet);
+            const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, aiEvaluatingCollection, period, historicalFleet);
 
             const monthlyCollection = rawData.collections.filter((item: any) => {
                 if (item.team_leader_id !== tlId) return false;
@@ -273,7 +272,7 @@ const RMPerformance: React.FC = () => {
                 return dDateStr >= monthStartStr && dDateStr <= monthEndStr;
             }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0);
             
-            return { ...tl, ...metrics, monthlyCollection, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
+            return { ...tl, ...metrics, collection: tlCollection, monthlyCollection, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
         });
 
         const rmNamesSet = new Set<string>();

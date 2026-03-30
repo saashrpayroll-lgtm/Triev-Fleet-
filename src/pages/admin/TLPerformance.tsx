@@ -313,20 +313,19 @@ const TLPerformance: React.FC = () => {
             const tlId = tl.id;
             const todayCollectionTemp = (rawData as any).dailyCollectionsMap?.[tlId] || 0;
 
-            let tlCollection = 0;
-            if (dateFilter === 'today') {
-                tlCollection = (rawData as any).weeklyCollectionsMap?.[tlId] || 0;
-            } else {
-                const pastSum = rawData.collections.filter(item => {
-                    const isTL = item.team_leader_id === tlId;
-                    if (!isTL) return false;
-                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                    return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
-                }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
-                
-                const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
-                tlCollection = pastSum + todayLive;
-            }
+            // Pure mathematical sum of exactly the filtered dates for correct UI amount
+            const pastSum = rawData.collections.filter(item => {
+                const isTL = item.team_leader_id === tlId;
+                if (!isTL) return false;
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
+            }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+            
+            const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
+            const tlCollection = pastSum + todayLive;
+
+            // AI Evaluating Collection (uses representative weekly volume when 'today' to prevent 0% grade drop)
+            const aiEvaluatingCollection = dateFilter === 'today' ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : tlCollection;
 
             const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
             const collectionSnapshot = rawData.collections.find(item => {
@@ -351,7 +350,7 @@ const TLPerformance: React.FC = () => {
                 tl,
                 rawData.riders,
                 rawData.leads,
-                tlCollection,
+                aiEvaluatingCollection,
                 period,
                 historicalFleet
             );
@@ -387,12 +386,12 @@ const TLPerformance: React.FC = () => {
             // ── PER RIDER PER DAY AVG ──
             const daysInPeriod = dateFilter === 'today' ? 1 : dateFilter === 'week' ? weekDayIST : dateFilter === 'month' ? day : Math.max(1, Math.ceil((new Date(endDateStr).getTime() - new Date(startDateStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
             const perRiderPerDayAvg = (metrics.activeRiders > 0 && daysInPeriod > 0)
-                ? Math.round(metrics.collection / metrics.activeRiders / daysInPeriod)
+                ? Math.round(tlCollection / metrics.activeRiders / daysInPeriod)
                 : 0;
             
             // ── DYNAMIC PERIOD METRICS ──
             // Instead of hardcoded "This Week", we use the exact selected date filter bounds
-            const periodCollection = metrics.collection; // Already bounded by startDateStr and endDateStr
+            const periodCollection = tlCollection; // Already bounded by startDateStr and endDateStr
             const periodDayAvg = daysInPeriod > 0 ? Math.round(periodCollection / daysInPeriod) : 0;
             const periodPerRiderAvg = metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0;
 
@@ -419,7 +418,7 @@ const TLPerformance: React.FC = () => {
                 },
                 status: tl.status,
                 totalCollection: grandTotal,
-                rangeCollection: metrics.collection,
+                rangeCollection: tlCollection,
                 monthlyCollection,
                 
                 // Dynamic Period Metrics
@@ -430,7 +429,7 @@ const TLPerformance: React.FC = () => {
 
                 perDayAverageCollection: periodDayAvg, // Legacy prop mapping
                 perRiderPerDayAvg,
-                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(metrics.collection / metrics.activeRiders) : 0,
+                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(tlCollection / metrics.activeRiders) : 0,
                 avgTenureDays,
                 leadsToday: metrics.leadsTotal,
                 churnLeads: metrics.leadsTotal - metrics.convertedLeads,
