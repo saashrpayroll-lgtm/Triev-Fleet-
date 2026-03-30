@@ -48,7 +48,7 @@ const TLPerformance: React.FC = () => {
     const [isExportOpen, setIsExportOpen] = useState(false);
 
     // New Date Filter States
-    const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'custom'>('today'); // Default to today
+    const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 
     // Reporting Manager Filter
@@ -277,7 +277,11 @@ const TLPerformance: React.FC = () => {
         let startDateStr = nowISTStr;
         let endDateStr = nowISTStr;
 
-        if (dateFilter === 'week') {
+        if (dateFilter === 'yesterday') {
+            const yUTC = new Date(Date.UTC(year, month - 1, day - 1));
+            startDateStr = yUTC.toISOString().split('T')[0];
+            endDateStr = startDateStr;
+        } else if (dateFilter === 'week') {
             const weekDay = workingDateUTC.getUTCDay();
             const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
             const weekStartUTC = new Date(workingDateUTC);
@@ -291,12 +295,18 @@ const TLPerformance: React.FC = () => {
             endDateStr = customDateRange.end;
         }
 
-
         const period: PerformancePeriod = { start: startDateStr, end: endDateStr };
 
         // Month boundaries for monthly collection
         const monthStartStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
         const monthEndStr = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
+
+        // ── ALWAYS-COMPUTED week/month boundaries (independent of filter) ──
+        const weekDayUTC = workingDateUTC.getUTCDay();
+        const wDiff = workingDateUTC.getUTCDate() - weekDayUTC + (weekDayUTC === 0 ? -6 : 1);
+        const alwaysWeekStartUTC = new Date(workingDateUTC);
+        alwaysWeekStartUTC.setUTCDate(wDiff);
+        const alwaysWeekStartStr = alwaysWeekStartUTC.toISOString().split('T')[0];
 
         // Days in current week elapsed (Mon=1 … Sun=7)
         // FIX: use getUTCDay() on IST date anchor — avoids Intl locale short-name inconsistency
@@ -366,14 +376,20 @@ const TLPerformance: React.FC = () => {
                 historicalFleet
             );
 
-            // ── MONTHLY COLLECTION: sum from daily_collections for this calendar month ──
-            const monthlyCollection = rawData.collections
-                .filter((item: any) => {
-                    if (item.team_leader_id !== tlId) return false;
-                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                    return dDateStr >= monthStartStr && dDateStr <= monthEndStr;
-                })
-                .reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0);
+            // ── ALWAYS-INDEPENDENT 3-TIER COLLECTIONS (not affected by filter) ──
+            // Weekly: Mon→Sun of current week
+            const weeklyCollTL = rawData.collections.filter((item: any) => {
+                if (item.team_leader_id !== tlId) return false;
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                return dDateStr >= alwaysWeekStartStr && dDateStr <= nowISTStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
+
+            // Monthly: 1st→last of current month
+            const monthlyCollTL = rawData.collections.filter((item: any) => {
+                if (item.team_leader_id !== tlId) return false;
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                return dDateStr >= monthStartStr && dDateStr <= monthEndStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
 
             // ── GRAND TOTAL: all-time collection ──
             const grandTotal = rawData.collections
@@ -395,7 +411,7 @@ const TLPerformance: React.FC = () => {
                 : 0;
 
             // ── PER RIDER PER DAY AVG ──
-            const daysInPeriod = dateFilter === 'today' ? 1 : dateFilter === 'week' ? weekDayIST : dateFilter === 'month' ? day : Math.max(1, Math.ceil((new Date(endDateStr).getTime() - new Date(startDateStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
+            const daysInPeriod = dateFilter === 'today' || dateFilter === 'yesterday' ? 1 : dateFilter === 'week' ? weekDayIST : dateFilter === 'month' ? day : Math.max(1, Math.ceil((new Date(endDateStr).getTime() - new Date(startDateStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
             const perRiderPerDayAvg = (metrics.activeRiders > 0 && daysInPeriod > 0)
                 ? Math.round(tlCollection / metrics.activeRiders / daysInPeriod)
                 : 0;
@@ -430,7 +446,9 @@ const TLPerformance: React.FC = () => {
                 status: tl.status,
                 totalCollection: grandTotal,
                 rangeCollection: tlCollection,
-                monthlyCollection,
+                weeklyCollection: weeklyCollTL,
+                monthlyCollection: monthlyCollTL,
+                todayCollection: todayCollectionTemp,
                 
                 // Dynamic Period Metrics
                 periodCollection,
@@ -527,126 +545,73 @@ const TLPerformance: React.FC = () => {
     };
 
     const exportToExcel = () => {
+        const filterLabel = dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : `${customDateRange.start} to ${customDateRange.end}`;
         const data = filteredData.map(tl => ({
             'Name': tl.name,
             'Email': tl.email,
             'Reporting Manager': tl.reportingManager || 'N/A',
             'Active Riders': tl.activeRiders,
-            'Inactive Riders': tl.inactiveRiders,
             'Total Riders': tl.totalRiders,
             'Positive Riders': tl.wallet.positiveCount,
-            'Positive Amount': tl.wallet.positiveAmount,
+            'Positive Amt': tl.wallet.positiveAmount,
             'Negative Riders': tl.wallet.negativeCount,
-            'Negative Amount': Math.abs(tl.wallet.negativeAmount),
-            'Period Collection': tl.periodCollection,
-            'Period Day Avg': tl.periodDayAvg,
-            'Period Rider Avg': tl.periodPerRiderAvg,
-            'Grand Total': tl.totalCollection,
+            'Negative Amt': Math.abs(tl.wallet.negativeAmount),
+            'Today Collection': (tl as any).todayCollection || 0,
+            'Weekly Collection': (tl as any).weeklyCollection || 0,
+            'Monthly Collection': (tl as any).monthlyCollection || 0,
+            [`Period Collection (${filterLabel})`]: tl.periodCollection,
+            'Avg/Rider': tl.periodPerRiderAvg,
             'Fleet Flow (A/S/N)': `${tl.allotments}/${tl.submissions}/${tl.netGrowth}`,
             'Net Growth': tl.netGrowth,
-            'Leads Total': tl.leadsToday,
             'Leads Converted': tl.leads.converted,
-            'Churn Leads': tl.churnLeads,
+            'Leads Total': tl.leadsToday,
             'Conversion Rate': tl.leads.conversionRate + '%',
             'Avg Tenure (Days)': tl.avgTenureDays,
             'AI Score': tl.score,
             'AI Grade': tl.aiGrade,
-            'Status': tl.status,
         }));
-
-        // Add totals row
-        data.push({
-            'Name': 'TOTALS',
-            'Email': '',
-            'Reporting Manager': '',
-            'Active Riders': filteredData.reduce((s, t) => s + t.activeRiders, 0),
-            'Inactive Riders': filteredData.reduce((s, t) => s + t.inactiveRiders, 0),
-            'Total Riders': filteredData.reduce((s, t) => s + t.totalRiders, 0),
-            'Positive Riders': filteredData.reduce((s, t) => s + t.wallet.positiveCount, 0),
-            'Positive Amount': filteredData.reduce((s, t) => s + t.wallet.positiveAmount, 0),
-            'Negative Riders': filteredData.reduce((s, t) => s + t.wallet.negativeCount, 0),
-            'Negative Amount': filteredData.reduce((s, t) => s + Math.abs(t.wallet.negativeAmount), 0),
-            'Period Collection': filteredData.reduce((s, t) => s + t.periodCollection, 0),
-            'Period Day Avg': 0,
-            'Period Rider Avg': 0,
-            'Grand Total': filteredData.reduce((s, t) => s + t.totalCollection, 0),
-            'Fleet Flow (A/S/N)': '',
-            'Net Growth': filteredData.reduce((s, t) => s + t.netGrowth, 0),
-            'Leads Total': filteredData.reduce((s, t) => s + t.leadsToday, 0),
-            'Leads Converted': filteredData.reduce((s, t) => s + t.leads.converted, 0),
-            'Churn Leads': filteredData.reduce((s, t) => s + t.churnLeads, 0),
-            'Conversion Rate': '',
-            'Avg Tenure (Days)': 0 as any,
-            'AI Score': 0 as any,
-            'AI Grade': '' as any,
-            'Status': '' as any,
-        });
 
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Performance");
-        XLSX.writeFile(wb, `tl_performance_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, 'TL Performance');
+        XLSX.writeFile(wb, `tl_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
         toast.success('Excel report exported successfully');
         setIsExportOpen(false);
     };
 
     const exportToPDF = () => {
+        const filterLabel = dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : `${customDateRange.start} to ${customDateRange.end}`;
         const doc = new jsPDF('l', 'mm', 'a4');
-
-        // Branded Header
         doc.setFontSize(20);
-        doc.setTextColor(79, 70, 229); // Indigo-600
+        doc.setTextColor(79, 70, 229);
         doc.text('Team Leader Performance Report', 14, 20);
-
         doc.setFontSize(10);
         doc.setTextColor(100);
-        doc.text(`Generated on: ${new Date().toLocaleString()} `, 14, 28);
-
+        doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${filterLabel}`, 14, 28);
         const tableColumn = [
-            "TL Name",
-            "Reporting Mgr",
-            "Active/Total",
-            "Period Coll.",
-            "Day Avg",
-            "Rider Avg",
-            "Grand Total",
-            "Pos/Neg",
-            "Risk Amt",
-            "A/S/N",
-            "Leads",
-            "Conv %",
-            "Tenure",
-            "Score"
+            'TL Name', 'RM', 'Riders', 'Today Coll.', 'Weekly Coll.', 'Monthly Coll.',
+            'Avg/Rider', 'Pos/Neg', 'A/S/N', 'Leads', 'Tenure', 'Score'
         ];
-
         const tableRows = filteredData.map(tl => [
             tl.name,
             tl.reportingManager || 'N/A',
             `${tl.activeRiders}/${tl.totalRiders}`,
-            `INR ${tl.periodCollection.toLocaleString()}`,
-            `INR ${tl.periodDayAvg.toLocaleString()}`,
+            `INR ${((tl as any).todayCollection || 0).toLocaleString()}`,
+            `INR ${((tl as any).weeklyCollection || 0).toLocaleString()}`,
+            `INR ${((tl as any).monthlyCollection || 0).toLocaleString()}`,
             `INR ${tl.periodPerRiderAvg.toLocaleString()}`,
-            `INR ${tl.totalCollection.toLocaleString()}`,
             `${tl.wallet.positiveCount}/${tl.wallet.negativeCount}`,
-            `INR ${Math.abs(tl.wallet.negativeAmount).toLocaleString()}`,
             `${tl.allotments}/${tl.submissions}/${tl.netGrowth}`,
             `${tl.leads.converted}/${tl.leadsToday}`,
-            `${tl.leads.conversionRate}%`,
             `${tl.avgTenureDays}d`,
             `${tl.score} (${tl.aiGrade})`
         ]);
-
         autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 35,
-            theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229] },
-            styles: { fontSize: 8, cellPadding: 3 },
+            head: [tableColumn], body: tableRows, startY: 35, theme: 'striped',
+            headStyles: { fillColor: [79, 70, 229] }, styles: { fontSize: 7, cellPadding: 2.5 },
             alternateRowStyles: { fillColor: [249, 250, 251] }
         });
-
-        doc.save(`tl_performance_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`tl_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
         toast.success('PDF report exported successfully');
         setIsExportOpen(false);
     };
@@ -806,7 +771,7 @@ const TLPerformance: React.FC = () => {
             {/* ── 6 SUMMARY CARDS ── */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                    { label: `${dateFilter === 'today' ? "Today's" : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`, value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5' },
+                    { label: `${dateFilter === 'today' ? "Today's" : dateFilter === 'yesterday' ? "Yesterday's" : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`, value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5' },
                     { label: 'Active Riders', value: performanceData.reduce((a, b) => a + b.activeRiders, 0).toLocaleString(), icon: Users, color: 'text-blue-500', border: 'border-blue-500/20', bg: 'bg-blue-500/5' },
                     { label: 'Leads Today', value: `+${performanceData.reduce((a, b) => a + b.leadsToday, 0)}`, icon: ArrowUpRight, color: 'text-indigo-500', border: 'border-indigo-500/20', bg: 'bg-indigo-500/5' },
                     { label: 'Market Risk', value: `₹${Math.abs(performanceData.reduce((a, b) => a + b.wallet.negativeAmount, 0)).toLocaleString()}`, icon: Wallet, color: 'text-rose-500', border: 'border-rose-500/20', bg: 'bg-rose-500/5' },
@@ -859,6 +824,7 @@ const TLPerformance: React.FC = () => {
                                             className="w-full md:w-auto pl-9 pr-8 py-2 bg-background border border-border/60 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none shadow-sm font-medium text-primary"
                                         >
                                             <option value="today">Today Metrics</option>
+                                            <option value="yesterday">Yesterday Metrics</option>
                                             <option value="week">Weekly Metrics</option>
                                             <option value="month">Monthly Metrics</option>
                                             <option value="custom">Custom Date Range</option>
@@ -1053,7 +1019,7 @@ const TLPerformance: React.FC = () => {
                                     <div className="flex flex-col gap-0.5">
                                         <div className="flex items-center gap-1 text-xs font-black uppercase tracking-wider text-violet-600">
                                             <Calendar className="h-3 w-3" />
-                                            {dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : 'Filtered Period'}
+                                            {dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : 'Filtered Period'}
                                             {sortConfig?.key === 'periodCollection' && <ChevronDown className={`h-3 w-3 transition-transform ${sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />}
                                         </div>
                                         <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground mt-0.5">
@@ -1173,22 +1139,20 @@ const TLPerformance: React.FC = () => {
                                             </div>
                                         </td>
 
-                                        {/* 4. Collection Analytics */}
+                                        {/* 4. Collection Breakdown */}
                                         <td className="px-5 py-4 min-w-[220px]">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex flex-col border-r pr-4 border-border/40">
-                                                    <span className="text-[9px] text-muted-foreground font-black uppercase">Period Vol.</span>
-                                                    <span className="text-base font-black text-emerald-600">₹{tl.periodCollection.toLocaleString()}</span>
+                                            <div className="flex flex-col gap-0.5 min-w-[150px]">
+                                                <div className="flex items-center gap-2 pl-2 border-l-2 border-emerald-500">
+                                                    <span className="text-[9px] text-emerald-600/70 font-black uppercase w-14">Today</span>
+                                                    <span className="text-sm font-black text-emerald-600">₹{((tl as any).todayCollection || 0).toLocaleString()}</span>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Avg/Rider</span>
-                                                        <span className="text-xs font-black text-blue-600">₹{tl.periodPerRiderAvg.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <span className="text-[9px] text-muted-foreground font-black uppercase">Grand Total</span>
-                                                        <span className="text-xs font-bold text-muted-foreground">₹{tl.totalCollection.toLocaleString()}</span>
-                                                    </div>
+                                                <div className="flex items-center gap-2 pl-2 border-l-2 border-blue-500">
+                                                    <span className="text-[9px] text-blue-600/70 font-black uppercase w-14">Weekly</span>
+                                                    <span className="text-sm font-black text-blue-600">₹{((tl as any).weeklyCollection || 0).toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 pl-2 border-l-2 border-violet-500">
+                                                    <span className="text-[9px] text-violet-600/70 font-black uppercase w-14">Monthly</span>
+                                                    <span className="text-sm font-black text-violet-600">₹{((tl as any).monthlyCollection || 0).toLocaleString()}</span>
                                                 </div>
                                             </div>
                                         </td>

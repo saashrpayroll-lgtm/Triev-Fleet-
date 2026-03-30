@@ -271,6 +271,13 @@ const RMPerformance: React.FC = () => {
         const monthStartStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
         const monthEndStr = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
 
+        // ── ALWAYS-COMPUTED week/month boundaries (independent of filter) ──
+        const weekDayUTC = workingDateUTC.getUTCDay();
+        const wDiff = workingDateUTC.getUTCDate() - weekDayUTC + (weekDayUTC === 0 ? -6 : 1);
+        const alwaysWeekStartUTC = new Date(workingDateUTC);
+        alwaysWeekStartUTC.setUTCDate(wDiff);
+        const alwaysWeekStartStr = alwaysWeekStartUTC.toISOString().split('T')[0];
+
         const daysInPeriod = dateFilter === 'today' || dateFilter === 'yesterday' ? 1 
             : dateFilter === 'week' ? (() => { const d = workingDateUTC.getUTCDay(); return d === 0 ? 7 : d; })()
             : dateFilter === 'month' ? day 
@@ -322,13 +329,22 @@ const RMPerformance: React.FC = () => {
 
             const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, aiEvaluatingCollection, period, historicalFleet);
 
-            const monthlyCollection = rawData.collections.filter((item: any) => {
+            // ── ALWAYS-INDEPENDENT 3-TIER COLLECTIONS (not affected by filter) ──
+            // Weekly: Mon→Sun of current week
+            const weeklyCollTL = rawData.collections.filter((item: any) => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                return dDateStr >= monthStartStr && dDateStr <= monthEndStr;
-            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0);
+                return dDateStr >= alwaysWeekStartStr && dDateStr <= nowISTStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
+
+            // Monthly: 1st→last of current month
+            const monthlyCollTL = rawData.collections.filter((item: any) => {
+                if (item.team_leader_id !== tlId) return false;
+                const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                return dDateStr >= monthStartStr && dDateStr <= monthEndStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
             
-            return { ...tl, ...metrics, collection: tlCollection, monthlyCollection, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
+            return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
         });
 
         const rmNamesSet = new Set<string>();
@@ -362,7 +378,6 @@ const RMPerformance: React.FC = () => {
             const netGrowth = assignedTLs.reduce((sum, tl) => sum + tl.netGrowth, 0);
 
             const rangeCollection = assignedTLs.reduce((sum, tl) => sum + tl.collection, 0);
-            const monthlyCollection = assignedTLs.reduce((sum, tl) => sum + tl.monthlyCollection, 0);
             
             // ── AVG TENURE (period-aware) ──────────────────────────────────────
             // Use period end date as reference, and consider riders active at that time
@@ -440,7 +455,9 @@ const RMPerformance: React.FC = () => {
                 id: rmName, name: rmName, totalTLs, activeTLs, totalRiders, activeRiders, inactiveRiders: totalRiders - activeRiders,
                 wallet: { total: positiveWallet + negativeWallet, positiveCount: positiveWalletCount, positiveAmount: positiveWallet, negativeCount: negativeWalletCount, negativeAmount: negativeWallet, posPercent: walletPosPercent, negPercent: walletNegPercent },
                 leads: { total: leadsTotal, converted: convertedLeads, conversionRate: leadsTotal > 0 ? Math.round((convertedLeads / leadsTotal) * 100) : 0 },
-                allotments, submissions, netGrowth, rangeCollection, monthlyCollection, 
+                allotments, submissions, netGrowth, rangeCollection, 
+                weeklyCollection: assignedTLs.reduce((sum, tl) => sum + ((tl as any).weeklyCollection || 0), 0),
+                monthlyCollection: assignedTLs.reduce((sum, tl) => sum + ((tl as any).monthlyCollection || 0), 0),
                 totalCollection: rangeCollection, 
                 todayCollection: assignedTLs.reduce((sum, tl) => sum + ((tl as any).todayCollection || 0), 0),
                 avgTenure, periodDayAvg: daysInPeriod > 0 ? Math.round(rangeCollection / daysInPeriod) : 0,
@@ -505,6 +522,7 @@ const RMPerformance: React.FC = () => {
     const handleSort = (key: string) => setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
 
         const exportToExcel = () => {
+        const filterLabel = dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : `${customDateRange.start} to ${customDateRange.end}`;
         const data = filteredData.map(rm => ({
             'Reporting Manager': rm.name,
             'Total TLs': rm.totalTLs,
@@ -514,62 +532,62 @@ const RMPerformance: React.FC = () => {
             'Avg Fleet Tenure': Math.round(rm.avgTenure) + ' d',
             'Avg/Rider': rm.periodPerRiderAvg,
             'Positive Riders': rm.wallet.positiveCount,
-            'Positive Amount': rm.wallet.positiveAmount,
+            'Positive Amt': rm.wallet.positiveAmount,
             'Negative Riders': rm.wallet.negativeCount,
-            'Negative Amount': Math.abs(rm.wallet.negativeAmount),
-            'Period Collection': rm.rangeCollection,
-            'Grand Total': rm.rangeCollection,
+            'Negative Amt': Math.abs(rm.wallet.negativeAmount),
+            'Today Collection': (rm as any).todayCollection || 0,
+            'Weekly Collection': (rm as any).weeklyCollection || 0,
+            'Monthly Collection': (rm as any).monthlyCollection || 0,
+            [`Period Collection (${filterLabel})`]: rm.rangeCollection,
             'Fleet Flow (A/S/N)': `${rm.allotments}/${rm.submissions}/${rm.netGrowth}`,
-            'Wallet Health (Pos%)': rm.wallet.posPercent + '%',
-            'Wallet Health (Neg%)': rm.wallet.negPercent + '%',
             'Net Growth': rm.netGrowth,
             'Leads Sourced': rm.leads.total,
             'Leads Converted': rm.leads.converted,
             'Conversion Rate': rm.leads.conversionRate + '%',
             'Avg AI Score': rm.score,
             'AI Grade': rm.aiGrade,
-            'Status': rm.status,
         }));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "RM Performance");
-        XLSX.writeFile(wb, `rm_performance_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, 'RM Performance');
+        XLSX.writeFile(wb, `rm_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
         toast.success('Excel report exported successfully');
         setIsExportOpen(false);
     };
 
     const exportToPDF = () => {
+        const filterLabel = dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : `${customDateRange.start} to ${customDateRange.end}`;
         const doc = new jsPDF('l', 'mm', 'a4');
         doc.setFontSize(20);
         doc.setTextColor(79, 70, 229); 
         doc.text('Reporting Manager Performance Report', 14, 20);
         doc.setFontSize(10);
         doc.setTextColor(100);
-        doc.text(`Generated on: ${new Date().toLocaleString()} `, 14, 28);
+        doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${filterLabel}`, 14, 28);
         const tableColumn = [
-            "Reporting Mgr", "TLs", "Riders", "Avg Ten.", "Period Coll.", "Avg/Rider",
-            "Pos/Neg", "Risk Amt", "A/S/N", "Leads", "Conv %", "Score"
+            'RM Name', 'TLs', 'Riders', 'Tenure', 'Today Coll.', 'Weekly Coll.', 'Monthly Coll.',
+            'Avg/Rider', 'Pos/Neg', 'A/S/N', 'Leads', 'Score'
         ];
         const tableRows = filteredData.map(rm => [
             rm.name,
             rm.totalTLs,
             `${rm.activeRiders}/${rm.totalRiders}`,
-            `${Math.round(rm.avgTenure)} d`,
-            `INR ${rm.rangeCollection.toLocaleString()}`,
+            `${Math.round(rm.avgTenure)}d`,
+            `INR ${((rm as any).todayCollection || 0).toLocaleString()}`,
+            `INR ${((rm as any).weeklyCollection || 0).toLocaleString()}`,
+            `INR ${((rm as any).monthlyCollection || 0).toLocaleString()}`,
             `INR ${rm.periodPerRiderAvg.toLocaleString()}`,
             `${rm.wallet.positiveCount}/${rm.wallet.negativeCount}`,
-            `INR ${Math.abs(rm.wallet.negativeAmount).toLocaleString()}`,
             `${rm.allotments}/${rm.submissions}/${rm.netGrowth}`,
             `${rm.leads.converted}/${rm.leads.total}`,
-            `${rm.leads.conversionRate}%`,
             `${rm.score} (${rm.aiGrade})`
         ]);
         autoTable(doc, {
             head: [tableColumn], body: tableRows, startY: 35, theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229] }, styles: { fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [79, 70, 229] }, styles: { fontSize: 7, cellPadding: 2.5 },
             alternateRowStyles: { fillColor: [249, 250, 251] }
         });
-        doc.save(`rm_performance_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`rm_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
         toast.success('PDF report exported successfully');
         setIsExportOpen(false);
     };
@@ -593,8 +611,10 @@ const RMPerformance: React.FC = () => {
     const tPosPct = tActRiders > 0 ? Math.round((tPosCount / tActRiders) * 100) : 0;
     const tNegPct = tActRiders > 0 ? Math.round((tNegCount / tActRiders) * 100) : 0;
     
-    const tRgCol = filteredData.reduce((s, t) => s + t.rangeCollection, 0);
+    
     const tTodayCol = filteredData.reduce((s, t) => s + (t as any).todayCollection, 0);
+    const tWeeklyCol = filteredData.reduce((s, t) => s + ((t as any).weeklyCollection || 0), 0);
+    const tMonthlyCol = filteredData.reduce((s, t) => s + ((t as any).monthlyCollection || 0), 0);
     const tAllots = filteredData.reduce((s, t) => s + t.allotments, 0);
     const tSubs = filteredData.reduce((s, t) => s + t.submissions, 0);
     const tNet = filteredData.reduce((s, t) => s + t.netGrowth, 0);
@@ -805,7 +825,7 @@ const RMPerformance: React.FC = () => {
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('avgTenure')}>Avg Tenure</th>
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('periodPerRiderAvg')}>Avg/Rider</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('walletHealth')}>Wallet Health</th>
-                                    <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('rangeCollection')}>Collection (Today/Total)</th>
+                                    <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('rangeCollection')}>Collection</th>
                                     <th className="px-4 py-4 text-center">7D Trend</th>
                                     <th className="px-5 py-4 cursor-pointer" onClick={() => handleSort('netGrowth')}>Fleet Flow</th>
                                     <th className="px-5 py-4 text-center cursor-pointer" onClick={() => handleSort('conversion')}>Leads</th>
@@ -869,14 +889,18 @@ const RMPerformance: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <div className="flex flex-col items-start gap-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Today</span>
+                                                <div className="flex flex-col gap-0.5 min-w-[150px]">
+                                                    <div className="flex items-center gap-2 pl-2 border-l-2 border-emerald-500">
+                                                        <span className="text-[9px] text-emerald-600/70 font-black uppercase w-14">Today</span>
                                                         <span className="text-sm font-black text-emerald-600">₹{(rm as any).todayCollection.toLocaleString()}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 border-t border-border/40 pt-1 w-full">
-                                                        <span className="text-[10px] text-violet-400/70 font-black uppercase w-12">Total</span>
-                                                        <span className="text-sm font-black text-violet-600">₹{rm.rangeCollection.toLocaleString()}</span>
+                                                    <div className="flex items-center gap-2 pl-2 border-l-2 border-blue-500">
+                                                        <span className="text-[9px] text-blue-600/70 font-black uppercase w-14">Weekly</span>
+                                                        <span className="text-sm font-black text-blue-600">₹{((rm as any).weeklyCollection || 0).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 pl-2 border-l-2 border-violet-500">
+                                                        <span className="text-[9px] text-violet-600/70 font-black uppercase w-14">Monthly</span>
+                                                        <span className="text-sm font-black text-violet-600">₹{((rm as any).monthlyCollection || 0).toLocaleString()}</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -966,8 +990,21 @@ const RMPerformance: React.FC = () => {
                                                                                         <div className="text-[9px] text-foreground/70 font-bold">{tl.positiveWalletCount} (+₹{(tl.positiveWallet || 0).toLocaleString()}) · {tl.negativeWalletCount} (-₹{Math.abs(tl.negativeWallet || 0).toLocaleString()})</div>
                                                                                     </div>
                                                                                 </td>
-                                                                                <td className="px-4 py-3 text-center">
-                                                                                    <span className="text-sm font-black text-emerald-600">₹{(tl.collection || tl.totalCollection || 0).toLocaleString()}</span>
+                                                                                <td className="px-4 py-3">
+                                                                                    <div className="flex flex-col gap-0.5 min-w-[120px]">
+                                                                                        <div className="flex items-center gap-1.5 pl-1.5 border-l-2 border-emerald-500">
+                                                                                            <span className="text-[8px] text-emerald-600/70 font-black uppercase w-11">Today</span>
+                                                                                            <span className="text-xs font-black text-emerald-600">₹{((tl as any).todayCollection || 0).toLocaleString()}</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1.5 pl-1.5 border-l-2 border-blue-500">
+                                                                                            <span className="text-[8px] text-blue-600/70 font-black uppercase w-11">Weekly</span>
+                                                                                            <span className="text-xs font-black text-blue-600">₹{((tl as any).weeklyCollection || 0).toLocaleString()}</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1.5 pl-1.5 border-l-2 border-violet-500">
+                                                                                            <span className="text-[8px] text-violet-600/70 font-black uppercase w-11">Monthly</span>
+                                                                                            <span className="text-xs font-black text-violet-600">₹{((tl as any).monthlyCollection || 0).toLocaleString()}</span>
+                                                                                        </div>
+                                                                                    </div>
                                                                                 </td>
                                                                                 <td className="px-4 py-3">
                                                                                     <div className="w-24 mx-auto">
@@ -1037,14 +1074,18 @@ const RMPerformance: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-5 py-4 font-black">
-                                        <div className="flex flex-col items-start gap-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-emerald-600/70 font-black uppercase w-12">Today</span>
+                                        <div className="flex flex-col gap-0.5 min-w-[150px]">
+                                            <div className="flex items-center gap-2 pl-2 border-l-2 border-emerald-500">
+                                                <span className="text-[9px] text-emerald-600/70 font-black uppercase w-14">Today</span>
                                                 <span className="text-sm font-black text-emerald-600">₹{tTodayCol.toLocaleString()}</span>
                                             </div>
-                                            <div className="flex items-center gap-2 border-t border-border/40 pt-1 w-full">
-                                                <span className="text-[10px] text-violet-400/70 font-black uppercase w-12">Total</span>
-                                                <span className="text-sm font-black text-violet-600">₹{tRgCol.toLocaleString()}</span>
+                                            <div className="flex items-center gap-2 pl-2 border-l-2 border-blue-500">
+                                                <span className="text-[9px] text-blue-600/70 font-black uppercase w-14">Weekly</span>
+                                                <span className="text-sm font-black text-blue-600">₹{tWeeklyCol.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 pl-2 border-l-2 border-violet-500">
+                                                <span className="text-[9px] text-violet-600/70 font-black uppercase w-14">Monthly</span>
+                                                <span className="text-sm font-black text-violet-600">₹{tMonthlyCol.toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </td>
