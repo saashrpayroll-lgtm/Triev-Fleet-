@@ -29,6 +29,7 @@ import { calculateAIScore } from '@/utils/performance';
 import { computeEarnedBadges } from '@/utils/badges';
 import { getCallLink } from '@/utils/validationUtils';
 import AIReminderModal from '@/components/AIReminderModal';
+import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
 
 interface DashboardStats {
     // Riders
@@ -48,6 +49,10 @@ interface DashboardStats {
     newLeads: number;
     convertedLeads: number;
     notConvertedLeads: number;
+    // Zomato
+    zomatoTotal: number;
+    zomatoPosCount: number;
+    zomatoNegCount: number;
 }
 
 const Dashboard: React.FC = () => {
@@ -62,6 +67,10 @@ const Dashboard: React.FC = () => {
     const [selectedBracket, setSelectedBracket] = useState<string | null>(null);
     const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
     const [reminderType, setReminderType] = useState<'low_balance' | 'warning' | 'critical' | 'inactive' | 'zero_collection'>('low_balance');
+
+    // Zomato Alert State
+    const [showZomatoAlert, setShowZomatoAlert] = useState(false);
+    const [hasShownZomatoAlert, setHasShownZomatoAlert] = useState(false);
 
     const handleCall = (phoneNumber: string) => {
         if (!phoneNumber) return;
@@ -192,11 +201,15 @@ const Dashboard: React.FC = () => {
         if (!computedLeaderStats) return {
             totalRiders: 0, activeRiders: 0, inactiveRiders: 0, deletedRiders: 0, lowBalanceCount: 0,
             positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
-            totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0
+            totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0,
+            zomatoTotal: 0, zomatoPosCount: 0, zomatoNegCount: 0
         };
         // Some fallback counts still need the myRiders data 
         const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData?.id);
         const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length;
+
+        // Zomato specific calculations
+        const zomatoRiders = myRiders.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB'));
 
         return {
             totalRiders: computedLeaderStats.totalRiders,
@@ -212,7 +225,10 @@ const Dashboard: React.FC = () => {
             totalLeads: computedLeaderStats.leadsTotal,
             newLeads: 0,
             convertedLeads: computedLeaderStats.convertedLeads,
-            notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads
+            notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads,
+            zomatoTotal: zomatoRiders.length,
+            zomatoPosCount: zomatoRiders.filter(r => r.walletAmount >= 0).length,
+            zomatoNegCount: zomatoRiders.filter(r => r.walletAmount < 0).length
         }
     }, [computedLeaderStats, leaderboardData.riders, userData?.id]);
 
@@ -438,6 +454,14 @@ const Dashboard: React.FC = () => {
         }
     }, [loading, stats]);
 
+    // Zomato Pop-up Effect
+    useEffect(() => {
+        if (!loading && stats.zomatoNegCount > 0 && !hasShownZomatoAlert) {
+            setShowZomatoAlert(true);
+            setHasShownZomatoAlert(true);
+        }
+    }, [loading, stats.zomatoNegCount, hasShownZomatoAlert]);
+
     const handleNavigate = (path: string, state?: any) => {
         navigate(path, { state });
     };
@@ -524,6 +548,12 @@ const Dashboard: React.FC = () => {
     return (
         <div className="space-y-5 pb-10">
 
+            <ZomatoNegativeAlertModal
+                isOpen={showZomatoAlert}
+                onClose={() => setShowZomatoAlert(false)}
+                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.walletAmount < 0 && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')))}
+            />
+
             {/* ─── HEADER ─── */}
             <motion.div
                 initial={{ opacity: 0, y: -8 }}
@@ -591,7 +621,17 @@ const Dashboard: React.FC = () => {
                     <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                    <SmartMetricCard
+                        title="Zomato VIP"
+                        value={String(stats.zomatoTotal)}
+                        icon={Sparkles}
+                        color="orange"
+                        trend={{ value: stats.zomatoTotal > 0 ? Math.round((stats.zomatoPosCount / stats.zomatoTotal) * 100) : 0, label: 'Pos. Wallet', direction: 'up' }}
+                        subtitle={`${stats.zomatoNegCount} Negative Wallets`}
+                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'all', search: 'P6DSVFMSPBB' })}
+                        isCurrency={false}
+                    />
                     {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
                         <SmartMetricCard
                             title="Fleet Strength"

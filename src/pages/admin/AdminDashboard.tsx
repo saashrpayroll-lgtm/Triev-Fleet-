@@ -428,7 +428,12 @@ const Dashboard: React.FC = () => {
 
             // TL Stats (Admin Only)
             totalTLs: teamLeaders.length,
-            activeTLs: teamLeaders.filter(u => u.status === 'active').length
+            activeTLs: teamLeaders.filter(u => u.status === 'active').length,
+            
+            // Zomato VIP Stats
+            zomatoTotal: activeRidersList.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')).length,
+            zomatoPosCount: activeRidersList.filter(r => (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')) && r.walletAmount >= 0).length,
+            zomatoNegCount: activeRidersList.filter(r => (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')) && r.walletAmount < 0).length
         };
     }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter, fleetSnapshots]);
 
@@ -670,7 +675,17 @@ const Dashboard: React.FC = () => {
                     <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                    <SmartMetricCard
+                        title="Zomato VIP"
+                        value={stats.zomatoTotal.toLocaleString()}
+                        icon={Sparkles}
+                        color="orange"
+                        trend={{ value: stats.zomatoTotal > 0 ? Math.round((stats.zomatoPosCount / stats.zomatoTotal) * 100) : 0, label: 'Pos. Wallet', direction: 'up' }}
+                        subtitle={`${stats.zomatoNegCount} Negative Wallets`}
+                        onClick={() => navigate('/portal/riders?filter=zomato')}
+                        isCurrency={false}
+                    />
                     <SmartMetricCard
                         title="System Health"
                         value={`${stats.activeRiders}/${stats.totalRiders}`}

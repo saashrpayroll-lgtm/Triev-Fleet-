@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Rider, User, RiderStatus, ClientName } from '@/types';
-import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal, CheckCircle, XCircle, Send } from 'lucide-react';
+import { Plus, Search, Filter, Download, Phone, MessageCircle, Trash2, ChevronLeft, ChevronRight, RefreshCw, Users, SlidersHorizontal, CheckCircle, XCircle, Send, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AddRiderForm from '@/components/AddRiderForm';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
@@ -25,7 +25,7 @@ import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 
-type TabType = 'all' | 'active' | 'inactive' | 'deleted';
+type TabType = 'all' | 'active' | 'inactive' | 'deleted' | 'zomato';
 
 interface AdvancedFilters {
     teamLeader: string;
@@ -83,7 +83,7 @@ const RiderManagement: React.FC = () => {
         const filterParam = params.get('filter');
         const highlightMobile = params.get('highlight');
 
-        if (filterParam && ['all', 'active', 'inactive', 'deleted'].includes(filterParam)) {
+        if (filterParam && ['all', 'active', 'inactive', 'deleted', 'zomato'].includes(filterParam)) {
             setActiveTab(filterParam as TabType);
         }
 
@@ -147,7 +147,9 @@ const RiderManagement: React.FC = () => {
     const filteredRiders = useMemo(() => {
         let filtered = [...riders];
 
-        if (activeTab !== 'all') {
+        if (activeTab === 'zomato') {
+            filtered = filtered.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB'));
+        } else if (activeTab !== 'all') {
             filtered = filtered.filter(r => r.status === activeTab);
         }
 
@@ -337,12 +339,14 @@ const RiderManagement: React.FC = () => {
 
     const getTabCount = (tab: TabType) => {
         if (tab === 'all') return riders.length;
+        if (tab === 'zomato') return riders.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')).length;
         return riders.filter(r => r.status === tab).length;
     };
 
     const tabConfig = [
         { id: 'all', label: 'All Riders', icon: Users },
         { id: 'active', label: 'Active', icon: CheckCircle },
+        { id: 'zomato', label: 'Zomato VIP', icon: Sparkles },
         { id: 'inactive', label: 'Inactive', icon: XCircle },
         { id: 'deleted', label: 'Trash', icon: Trash2 },
     ] as const;

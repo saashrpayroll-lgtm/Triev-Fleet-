@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, TrendingUp, Target, BarChart3,
     Trophy, ArrowRight, Activity, Shield, AlertTriangle,
-    Zap, Calendar, X, ExternalLink, UserCheck
+    Zap, Calendar, X, ExternalLink, UserCheck, Sparkles
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
+import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
 
 const RMDashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -28,6 +29,12 @@ const RMDashboard: React.FC = () => {
     // Fleet Bifurcation Clickable State
     const [selectedBracket, setSelectedBracket] = React.useState<string | null>(null);
     const [bifurcationTlFilter, setBifurcationTlFilter] = React.useState<string>('all');
+
+    const navigate = useNavigate();
+
+    // Zomato Alert State
+    const [showZomatoAlert, setShowZomatoAlert] = React.useState(false);
+    const [hasShownZomatoAlert, setHasShownZomatoAlert] = React.useState(false);
 
     React.useEffect(() => {
         const fetchHRForm = async () => {
@@ -152,13 +159,27 @@ const RMDashboard: React.FC = () => {
         const criticalDebt = activeRidersList.filter(r => r.walletAmount < -3000).length;
         const fleetHealth = activeRiders > 0 ? Math.round((positiveCount / activeRiders) * 100) : 0;
 
+        const zomatoRiders = riders.filter(r => r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB'));
+        const zomatoTotal = zomatoRiders.length;
+        const zomatoPosCount = zomatoRiders.filter(r => r.walletAmount >= 0).length;
+        const zomatoNegCount = zomatoRiders.filter(r => r.walletAmount < 0).length;
+
         return {
             activeTLs, totalRiders, activeRiders, inactiveRiders,
             positiveWallet, negativeWallet,
             todayCollection, todayLeads, convertedLeads, conversionRate, criticalDebt,
-            fleetHealth
+            fleetHealth,
+            zomatoTotal, zomatoPosCount, zomatoNegCount
         };
     }, [teamLeaders, riders, leads, dailyCollections]);
+
+    // Zomato Auto Pop-up Effect
+    React.useEffect(() => {
+        if (!loading && metrics.zomatoNegCount > 0 && !hasShownZomatoAlert) {
+            setShowZomatoAlert(true);
+            setHasShownZomatoAlert(true);
+        }
+    }, [loading, metrics.zomatoNegCount, hasShownZomatoAlert]);
 
     // Top 5 TL performance
     const topTLs = useMemo(() => {
@@ -213,6 +234,13 @@ const RMDashboard: React.FC = () => {
 
     return (
         <div className="space-y-4 animate-in fade-in duration-500">
+            {/* ── ZOMATO VIP NEGATIVE WALLET POP-UP ── */}
+            <ZomatoNegativeAlertModal
+                isOpen={showZomatoAlert}
+                onClose={() => setShowZomatoAlert(false)}
+                negativeRiders={riders.filter(r => r.walletAmount < 0 && (r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB')))}
+            />
+
             {/* ── HEAVY DEFAULTERS MODAL ── */}
             <AnimatePresence>
                 {showRecoveryPopup && heavyDefaulters.length > 0 && (
@@ -408,7 +436,17 @@ const RMDashboard: React.FC = () => {
                     <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent dark:from-teal-400 dark:to-teal-200">Fleet Overview</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-teal-500/40 via-teal-500/10 to-transparent" />
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                    <SmartMetricCard
+                        title="Zomato VIP"
+                        value={String(metrics.zomatoTotal)}
+                        icon={Sparkles}
+                        color="orange"
+                        trend={{ value: 100, label: 'Active', direction: 'up' }}
+                        subtitle={`${metrics.zomatoPosCount} healthy • ${metrics.zomatoNegCount} neg`}
+                        isCurrency={false}
+                        onClick={() => navigate('/rm-panel/rider-overview', { state: { filter: 'zomato' } })}
+                    />
                     <SmartMetricCard
                         title="Team Leaders"
                         value={String(metrics.activeTLs)}

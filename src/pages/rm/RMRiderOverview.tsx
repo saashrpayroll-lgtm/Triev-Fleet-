@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useRMTeamData } from '@/hooks/useRMTeamData';
-import { Users, Search, Download, Filter, Activity, Wallet, AlertTriangle, Eye, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Users, Search, Download, Filter, Activity, Wallet, AlertTriangle, Eye, ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import { Rider } from '@/types';
 
@@ -8,7 +9,8 @@ const RMRiderOverview: React.FC = () => {
     const { teamLeaders, riders, loading, refresh } = useRMTeamData();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTL, setFilterTL] = useState('all');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+    const location = useLocation();
+    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'zomato'>('all');
     const [filterWallet, setFilterWallet] = useState<'all' | 'positive' | 'negative' | 'zero'>('all');
     const [filterClient, setFilterClient] = useState('all');
     const [sortBy, setSortBy] = useState<'name' | 'trievId' | 'wallet' | 'allotmentDate'>('name');
@@ -23,6 +25,17 @@ const RMRiderOverview: React.FC = () => {
         const clients = [...new Set(riders.map(r => (r.clientName || '').trim()).filter(c => c.length > 0))].sort();
         return clients;
     }, [riders]);
+
+    React.useEffect(() => {
+        const state = location.state as { filter?: string };
+        if (state?.filter && ['all', 'active', 'inactive', 'zomato'].includes(state.filter)) {
+            setFilterStatus(state.filter as 'all' | 'active' | 'inactive' | 'zomato');
+            // Clean up history state so it doesn't persist forever
+            const newHistoryState = { ...window.history.state };
+            if (newHistoryState && newHistoryState.usr) delete newHistoryState.usr.filter;
+            window.history.replaceState(newHistoryState, '');
+        }
+    }, [location.state]);
 
     // Summary metrics
     const metrics = useMemo(() => {
@@ -51,7 +64,11 @@ const RMRiderOverview: React.FC = () => {
 
     const filteredRiders = useMemo(() => {
         return riders.filter(r => {
-            if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+            if (filterStatus === 'zomato') {
+                if (!(r.chassisNumber?.toUpperCase().startsWith('P6DSVFMSPBB') || (r as any).chassis_number?.toUpperCase().startsWith('P6DSVFMSPBB'))) return false;
+            } else if (filterStatus !== 'all' && r.status !== filterStatus) {
+                return false;
+            }
             if (filterTL !== 'all' && r.teamLeaderId !== filterTL) return false;
             
             // For wallet filtering: inactive riders have 0 wallet
@@ -248,13 +265,13 @@ const RMRiderOverview: React.FC = () => {
             <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden">
                 {/* ── STATUS TABS ── */}
                 <div className="flex bg-muted/40 p-2 sm:p-3 border-b border-border/40 gap-2 overflow-x-auto hide-scrollbar">
-                    {(['all', 'active', 'inactive'] as const).map(s => (
+                    {(['all', 'active', 'zomato', 'inactive'] as const).map(s => (
                         <button
                             key={s}
                             onClick={() => { setFilterStatus(s); setCurrentPage(1); }}
-                            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-black capitalize transition-all whitespace-nowrap flex items-center gap-2 ${filterStatus === s ? (s === 'active' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : s === 'inactive' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'bg-card border-border/60 shadow-sm text-foreground') : 'hover:bg-accent/50 text-muted-foreground bg-transparent'}`}
+                            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-black capitalize transition-all whitespace-nowrap flex items-center gap-2 ${filterStatus === s ? (s === 'active' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : s === 'zomato' ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : s === 'inactive' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'bg-card border-border/60 shadow-sm text-foreground') : 'hover:bg-accent/50 text-muted-foreground bg-transparent'}`}
                         >
-                            {s === 'all' ? <Users size={16} /> : <Activity size={16} />}
+                            {s === 'all' ? <Users size={16} /> : s === 'zomato' ? <Sparkles size={16} /> : <Activity size={16} />}
                             {s} Riders
                         </button>
                     ))}
