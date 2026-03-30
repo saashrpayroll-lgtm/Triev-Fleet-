@@ -62,6 +62,7 @@ const RMPerformance: React.FC = () => {
         collections: any[];
         dailyCollectionsMap?: Record<string, number>;
         weeklyCollectionsMap?: Record<string, number>;
+        fetchedTodayStr?: string; // The IST date string when fetchData ran — used to detect stale data across day boundaries
     }>({ riders: [], leads: [], teamLeaders: [], rms: [], collections: [] });
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -164,7 +165,8 @@ const RMPerformance: React.FC = () => {
                 })),
                 collections: dailyRes.data || [],
                 dailyCollectionsMap: daily,
-                weeklyCollectionsMap: weekly
+                weeklyCollectionsMap: weekly,
+                fetchedTodayStr: todayStr // stamp the IST date this data was fetched for
             });
         } catch (error: any) {
             toast.error('Failed to load performance data: ' + error.message);
@@ -188,8 +190,52 @@ const RMPerformance: React.FC = () => {
             supabase.channel('rm-perf-ledger').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced).subscribe(),
         ];
 
+        // ── Auto-reset at IST midnight — forces fresh data so "Today" zeroes out ─
+        const scheduleMidnightReset = () => {
+            const now = new Date();
+            const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const [y, m, d] = istStr.split('-').map(Number);
+            const nextMidnightUTC = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+            const msUntilMidnight = nextMidnightUTC.getTime() - now.getTime();
+            return window.setTimeout(() => {
+                fetchData();
+                scheduleMidnightReset();
+            }, msUntilMidnight + 500);
+        };
+        const midnightTimer = scheduleMidnightReset();
+
+        // ── Auto-reset at IST Monday midnight (weekly reset) ─────────────────
+        const scheduleWeeklyReset = () => {
+            const now = new Date();
+            const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const [y, m, d] = istStr.split('-').map(Number);
+            const istDate = new Date(Date.UTC(y, m - 1, d));
+            const dayOfWeek = istDate.getUTCDay();
+            const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+            const nextMondayUTC = new Date(Date.UTC(y, m - 1, d + daysUntilMonday, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+            const msUntilMonday = nextMondayUTC.getTime() - now.getTime();
+            return window.setTimeout(() => {
+                fetchData();
+                scheduleWeeklyReset();
+            }, msUntilMonday + 500);
+        };
+        const weeklyTimer = scheduleWeeklyReset();
+
+        // ── PWA/Background: Auto-refresh on tab visibility restore ───────────
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') fetchData();
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        // ── Fallback: Poll every 2 minutes for stale-data protection ─────────
+        const pollInterval = setInterval(() => fetchData(), 2 * 60 * 1000);
+
         return () => {
             channels.forEach(ch => supabase.removeChannel(ch));
+            window.clearTimeout(midnightTimer);
+            window.clearTimeout(weeklyTimer);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            clearInterval(pollInterval);
         };
     }, []);
 
@@ -233,20 +279,30 @@ const RMPerformance: React.FC = () => {
         const tlMetrics = rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
             const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
-            const todayCollectionTemp = (rawData as any).dailyCollectionsMap?.[tlId] || 0;
+            // ── STALE DATA GUARD ──────────────────────────────────────────────
+            // dailyCollectionsMap was built when fetchData ran (fetchedTodayStr).
+            // If the IST day has since changed (user kept tab open past midnight),
+            // the live maps are stale — they contain YESTERDAY's live amounts.
+            // Force todayLive = 0 until fetchData runs again with fresh data.
+            const fetchedDay = (rawData as any).fetchedTodayStr || '';
+            const isDataFresh = fetchedDay === nowISTStr;
+            const todayCollectionTemp = isDataFresh ? ((rawData as any).dailyCollectionsMap?.[tlId] || 0) : 0;
 
-            // Pure mathematical sum of the selected date frame for perfectly accurate UI display
+            // Pure mathematical sum of daily_collections rows in the selected date range
+            // EXCLUDES today's date from daily_collections (handled by todayLive from ledger/map)
             const pastSum = rawData.collections.filter(item => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
                 return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
             }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
             
+            // Only include today's live amount if today falls within the selected period
             const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
             const tlCollection = pastSum + todayLive;
 
-            // AI Evaluating Collection (prevents 0% score grades on daily resets)
-            const aiEvaluatingCollection = dateFilter === 'today' ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : tlCollection;
+            // AI Evaluating Collection (uses week-level sample when 'today' to prevent 0% grades)
+            const weeklyMapValue = isDataFresh ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : 0;
+            const aiEvaluatingCollection = dateFilter === 'today' ? weeklyMapValue : tlCollection;
 
             // Find best historical snapshot: closest date within [start..end] range (prefer latest)
             const periodSnapshots = rawData.collections

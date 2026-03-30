@@ -32,6 +32,7 @@ const TLPerformance: React.FC = () => {
         collections: any[];
         dailyCollectionsMap?: Record<string, number>;
         weeklyCollectionsMap?: Record<string, number>;
+        fetchedTodayStr?: string; // The IST date string when fetchData ran — detects stale data across day boundaries
     }>({ riders: [], leads: [], teamLeaders: [], collections: [] });
 
     // const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
@@ -171,8 +172,6 @@ const TLPerformance: React.FC = () => {
             setRawData({
                 riders: (ridersRes.data || []).map((r: any) => ({
                     ...r,
-                    // Robust mapping for internal usage if needed, 
-                    // though calculateAIScore now does this itself.
                     walletAmount: Number(r.wallet_amount ?? r.walletAmount ?? 0),
                     teamLeaderId: r.team_leader_id ?? r.teamLeaderId,
                     allotmentDate: r.allotment_date ?? r.allotmentDate,
@@ -186,7 +185,8 @@ const TLPerformance: React.FC = () => {
                 })),
                 collections: dailyRes.data || [],
                 dailyCollectionsMap: daily,
-                weeklyCollectionsMap: weekly
+                weeklyCollectionsMap: weekly,
+                fetchedTodayStr: todayStr // stamp the IST date this data was fetched for
             });
         } catch (error: any) {
             toast.error('Failed to load performance data: ' + error.message);
@@ -311,9 +311,18 @@ const TLPerformance: React.FC = () => {
 
         return rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
-            const todayCollectionTemp = (rawData as any).dailyCollectionsMap?.[tlId] || 0;
 
-            // Pure mathematical sum of exactly the filtered dates for correct UI amount
+            // ── STALE DATA GUARD ──────────────────────────────────────────────
+            // dailyCollectionsMap was built when fetchData ran (fetchedTodayStr).
+            // If the IST day has since changed (user kept tab open past midnight),
+            // the live maps are stale — they contain YESTERDAY's live amounts.
+            // Force todayLive = 0 until fetchData runs again with fresh data.
+            const fetchedDay = (rawData as any).fetchedTodayStr || '';
+            const isDataFresh = fetchedDay === nowISTStr;
+            const todayCollectionTemp = isDataFresh ? ((rawData as any).dailyCollectionsMap?.[tlId] || 0) : 0;
+
+            // Pure mathematical sum of daily_collections rows in the selected date range
+            // EXCLUDES today's date (handled by todayLive from ledger/map)
             const pastSum = rawData.collections.filter(item => {
                 const isTL = item.team_leader_id === tlId;
                 if (!isTL) return false;
@@ -321,11 +330,13 @@ const TLPerformance: React.FC = () => {
                 return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
             }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
             
+            // Only include today's live amount if today falls within the selected period
             const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
             const tlCollection = pastSum + todayLive;
 
-            // AI Evaluating Collection (uses representative weekly volume when 'today' to prevent 0% grade drop)
-            const aiEvaluatingCollection = dateFilter === 'today' ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : tlCollection;
+            // AI Evaluating Collection (uses week-level sample when 'today' to prevent 0% grade drop)
+            const weeklyMapValue = isDataFresh ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : 0;
+            const aiEvaluatingCollection = dateFilter === 'today' ? weeklyMapValue : tlCollection;
 
             const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
             const collectionSnapshot = rawData.collections.find(item => {
