@@ -15,6 +15,8 @@ import { safeRender } from '@/utils/safeRender';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
+import TLZomatoVIPSection from '@/components/dashboard/TLZomatoVIPSection';
+import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
 import CollectionTargetCard from '@/components/dashboard/CollectionTargetCard';
 import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
 import BadgeGallery from '@/components/BadgeGallery';
@@ -53,6 +55,12 @@ interface DashboardStats {
     zomatoTotal: number;
     zomatoPosCount: number;
     zomatoNegCount: number;
+    zomatoLowBalance: number;
+    zomatoHighDebt: number;
+    zomatoWalletTotal: number;
+    zomatoAvgWallet: number;
+    zomatoPosAmt: number;
+    zomatoNegAmt: number;
 }
 
 const Dashboard: React.FC = () => {
@@ -202,14 +210,18 @@ const Dashboard: React.FC = () => {
             totalRiders: 0, activeRiders: 0, inactiveRiders: 0, deletedRiders: 0, lowBalanceCount: 0,
             positiveWallet: 0, negativeWallet: 0, zeroWallet: 0, totalPositiveAmount: 0, totalNegativeAmount: 0,
             totalLeads: 0, newLeads: 0, convertedLeads: 0, notConvertedLeads: 0,
-            zomatoTotal: 0, zomatoPosCount: 0, zomatoNegCount: 0
+            zomatoTotal: 0, zomatoPosCount: 0, zomatoNegCount: 0,
+            zomatoLowBalance: 0, zomatoHighDebt: 0, zomatoWalletTotal: 0, zomatoAvgWallet: 0, zomatoPosAmt: 0, zomatoNegAmt: 0
         };
         // Some fallback counts still need the myRiders data 
         const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData?.id);
         const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length;
 
-        // Zomato specific calculations
+        // Zomato specific calculations — pre-filter once for efficiency
         const zomatoRiders = myRiders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
+        const vipPos = zomatoRiders.filter(r => r.walletAmount > 0);
+        const vipNeg = zomatoRiders.filter(r => r.walletAmount <= 0);
+        const vipWalletTotal = zomatoRiders.reduce((s, r) => s + r.walletAmount, 0);
 
         return {
             totalRiders: computedLeaderStats.totalRiders,
@@ -227,8 +239,14 @@ const Dashboard: React.FC = () => {
             convertedLeads: computedLeaderStats.convertedLeads,
             notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads,
             zomatoTotal: zomatoRiders.length,
-            zomatoPosCount: zomatoRiders.filter(r => r.walletAmount > 0).length,
-            zomatoNegCount: zomatoRiders.filter(r => r.walletAmount <= 0).length
+            zomatoPosCount: vipPos.length,
+            zomatoNegCount: vipNeg.length,
+            zomatoLowBalance: zomatoRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+            zomatoHighDebt: zomatoRiders.filter(r => r.walletAmount < -3000).length,
+            zomatoWalletTotal: vipWalletTotal,
+            zomatoAvgWallet: zomatoRiders.length > 0 ? Math.round(vipWalletTotal / zomatoRiders.length) : 0,
+            zomatoPosAmt: vipPos.reduce((s, r) => s + r.walletAmount, 0),
+            zomatoNegAmt: vipNeg.reduce((s, r) => s + r.walletAmount, 0),
         }
     }, [computedLeaderStats, leaderboardData.riders, userData?.id]);
 
@@ -622,25 +640,17 @@ const Dashboard: React.FC = () => {
                     <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
-                    <SmartMetricCard
-                        title="Zomato VIP"
-                        value={String(stats.zomatoTotal)}
-                        icon={Sparkles}
-                        color="orange"
-                        trend={{ value: stats.zomatoTotal > 0 ? Math.round((stats.zomatoPosCount / stats.zomatoTotal) * 100) : 0, label: 'Pos. Wallet', direction: 'up' }}
-                        subtitle={`${stats.zomatoNegCount} Negative Wallets`}
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'zomato' })}
-                        isCurrency={false}
-                    />
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                    {/* BLACK: Fleet Strength — premium dark card */}
                     {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
                         <SmartMetricCard
                             title="Fleet Strength"
                             value={String(stats.activeRiders)}
                             icon={UserCheck}
                             color="emerald"
-                            trend={{ value: 98, label: 'health', direction: 'up' }}
+                            trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'health', direction: 'up' }}
                             subtitle={`${stats.totalRiders} Total Assigned`}
+                            className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
                             progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                             onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
                             isCurrency={false}
@@ -663,7 +673,7 @@ const Dashboard: React.FC = () => {
                             value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}% `}
                             icon={Sparkles}
                             color="fuchsia"
-                            trend={{ value: 12, label: 'velocity', direction: 'up' }}
+                            trend={{ value: stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0, label: 'conversion', direction: 'up' }}
                             subtitle={`${stats.convertedLeads} Successful Converts`}
                             progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
                             onClick={() => handleNavigate('/team-leader/leads?status=New')}
@@ -676,7 +686,7 @@ const Dashboard: React.FC = () => {
                             value={stats.totalPositiveAmount}
                             icon={Wallet}
                             color="indigo"
-                            trend={{ value: 24, label: 'growth', direction: 'up' }}
+                            trend={{ value: stats.totalRiders > 0 ? Math.round((stats.positiveWallet / stats.totalRiders) * 100) : 0, label: 'of fleet', direction: 'up' }}
                             subtitle={`${stats.positiveWallet} Riders in Positive`}
                             progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
                             onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
@@ -684,6 +694,9 @@ const Dashboard: React.FC = () => {
                     )}
                 </div>
             </motion.div>
+
+            {/* --- Zomato VIP Intelligence --- */}
+            <TLZomatoVIPSection stats={stats} onNavigate={handleNavigate} />
 
             {/* --- Wallet Health --- */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
@@ -739,6 +752,7 @@ const Dashboard: React.FC = () => {
                             color="rose"
                             aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}
                             subtitle={`${stats.negativeWallet} Riders in Debt`}
+                            className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
                             progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
                             onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
                         />
@@ -794,6 +808,9 @@ const Dashboard: React.FC = () => {
                     </div>
                 )}
             </motion.div>
+
+            {/* --- Wallet Watchlist --- */}
+            <WalletWatchlist riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
 
 
             {/* --- Debt Recovery Tasks --- */}
