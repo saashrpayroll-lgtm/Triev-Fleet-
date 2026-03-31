@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
@@ -18,6 +18,8 @@ import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerform
 import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
 import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
+import ZomatoVIPSection from '@/components/dashboard/ZomatoVIPSection';
+import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
 import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
 import RiderTenure from '@/components/dashboard/RiderTenure';
 import RevenueForecast from '@/components/dashboard/RevenueForecast';
@@ -430,10 +432,24 @@ const Dashboard: React.FC = () => {
             totalTLs: teamLeaders.length,
             activeTLs: teamLeaders.filter(u => u.status === 'active').length,
             
-            // Zomato VIP Stats
-            zomatoTotal: activeRidersList.filter(r => r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')).length,
-            zomatoPosCount: activeRidersList.filter(r => (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && r.walletAmount >= 0).length,
-            zomatoNegCount: activeRidersList.filter(r => (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && r.walletAmount < 0).length
+            // Zomato VIP Stats — pre-filter once for efficiency
+            ...(() => {
+                const vipRiders = activeRidersList.filter(r => r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'));
+                const vipPos = vipRiders.filter(r => r.walletAmount >= 0);
+                const vipNeg = vipRiders.filter(r => r.walletAmount < 0);
+                const vipWalletTotal = vipRiders.reduce((s, r) => s + r.walletAmount, 0);
+                return {
+                    zomatoTotal: vipRiders.length,
+                    zomatoPosCount: vipPos.length,
+                    zomatoNegCount: vipNeg.length,
+                    zomatoLowBalance: vipRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+                    zomatoHighDebt: vipRiders.filter(r => r.walletAmount < -3000).length,
+                    zomatoWalletTotal: vipWalletTotal,
+                    zomatoAvgWallet: vipRiders.length > 0 ? Math.round(vipWalletTotal / vipRiders.length) : 0,
+                    zomatoPosAmt: vipPos.reduce((s, r) => s + r.walletAmount, 0),
+                    zomatoNegAmt: vipNeg.reduce((s, r) => s + r.walletAmount, 0),
+                };
+            })()
         };
     }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter, fleetSnapshots]);
 
@@ -675,25 +691,16 @@ const Dashboard: React.FC = () => {
                     <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
-                    <SmartMetricCard
-                        title="Zomato VIP"
-                        value={stats.zomatoTotal.toLocaleString()}
-                        icon={Sparkles}
-                        color="orange"
-                        trend={{ value: stats.zomatoTotal > 0 ? Math.round((stats.zomatoPosCount / stats.zomatoTotal) * 100) : 0, label: 'Pos. Wallet', direction: 'up' }}
-                        subtitle={`${stats.zomatoNegCount} Negative Wallets`}
-                        onClick={() => navigate('/portal/riders?filter=zomato')}
-                        isCurrency={false}
-                    />
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                    {/* BLACK: System Health — premium dark card */}
                     <SmartMetricCard
                         title="System Health"
                         value={`${stats.activeRiders}/${stats.totalRiders}`}
                         icon={Activity}
                         color="emerald"
-                        trend={{ value: 94, label: 'uptime', direction: 'up' }}
+                        trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'uptime', direction: 'up' }}
                         subtitle="Active Riders Ratio"
-                        className="shadow-emerald-500/10"
+                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
                         progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                         onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
                         isCurrency={false}
@@ -703,7 +710,7 @@ const Dashboard: React.FC = () => {
                         title="Team Strength"
                         value={stats.totalTLs.toString()}
                         icon={Users}
-                        color="orange"
+                        color="violet"
                         subtitle={`${stats.activeTLs} Active Leaders`}
                         onClick={() => navigate('/portal/users?role=teamLeader')}
                         isCurrency={false}
@@ -733,6 +740,9 @@ const Dashboard: React.FC = () => {
                     />
                 </div>
             </motion.div>
+
+            {/* --- Zomato VIP Intelligence --- */}
+            <ZomatoVIPSection stats={stats} />
 
             {/* --- Financial Performance --- */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
@@ -887,7 +897,7 @@ const Dashboard: React.FC = () => {
                         isCurrency={false}
                     />
 
-                    {/* --- ROW 4: SYSTEM RISK & CHURN --- */}
+                    {/* BLACK: Outstanding Risk — premium dark card */}
                     <SmartMetricCard
                         title="Outstanding Risk"
                         value={stats.outstandingDues}
@@ -895,16 +905,34 @@ const Dashboard: React.FC = () => {
                         color="rose"
                         aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
                         subtitle={`${stats.negativeWalletCount} Negative Wallets`}
+                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
                         onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
                         isCurrency={true}
                     />
+                </div>
+            </motion.div>
 
+            {/* --- Growth & Retention --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-lime-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-lime-500/30 border border-white/20">
+                            <Zap size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-lime-600 to-emerald-500 bg-clip-text text-transparent dark:from-lime-400 dark:to-emerald-300">Growth & Retention</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-lime-500/40 via-lime-500/10 to-transparent" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-2 font-jakarta">
                     <SmartMetricCard
-                        title="Conversion"
+                        title="Lead Conversion"
                         value={stats.convertedLeads}
                         icon={Sparkles}
                         color="lime"
-                        subtitle="Last 30 Days"
+                        trend={{ value: stats.conversionRate, label: 'rate', direction: 'up' }}
+                        subtitle={`${stats.totalLeads} Total Leads`}
+                        progress={stats.conversionRate}
                         onClick={() => navigate('/portal/leads?status=Convert')}
                         isCurrency={false}
                     />
@@ -914,12 +942,16 @@ const Dashboard: React.FC = () => {
                         value={stats.inactiveRiders}
                         icon={UserCheck}
                         color="slate"
+                        trend={{ value: stats.totalRiders > 0 ? Math.round((stats.inactiveRiders / stats.totalRiders) * 100) : 0, label: 'churn rate', direction: 'down' }}
                         subtitle={`${stats.deletedRiders} Permanently Deleted`}
                         onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
                         isCurrency={false}
                     />
                 </div>
             </motion.div>
+
+            {/* --- Wallet Watchlist --- */}
+            <WalletWatchlist riders={rawData.riders} />
 
             {/* ── Charts & Activity ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
