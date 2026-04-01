@@ -1002,6 +1002,7 @@ const Dashboard: React.FC = () => {
                         <RevenueForecast
                             riders={rawData.riders}
                             currentMonthCollection={periodRentTotal}
+                            dailyCollectionsRaw={rawData.dailyCollectionsRaw}
                         />
                     </div>
 
