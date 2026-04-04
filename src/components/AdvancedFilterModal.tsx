@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Filter, Calendar, User, MapPin, Tag, FileText, CheckCircle } from 'lucide-react';
 import { LeadStatus, LeadCategory, LeadSource, LicenseType } from '@/types';
 
@@ -32,12 +32,14 @@ const AdvancedFilterModal: React.FC<AdvancedFilterModalProps> = ({
     availableCities
 }) => {
     const [filters, setFilters] = useState<FilterConfig>(initialFilters);
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-    useEffect(() => {
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
         if (isOpen) {
             setFilters(initialFilters);
         }
-    }, [isOpen, initialFilters]);
+    }
 
     if (!isOpen) return null;
 

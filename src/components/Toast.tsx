@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -29,6 +29,11 @@ const ToastItem: React.FC<ToastProps> = ({ toast, onClose }) => {
         return () => clearTimeout(timer);
     }, []);
 
+    const handleClose = useCallback(() => {
+        setIsVisible(false);
+        setTimeout(() => onClose(toast.id), 300); // Wait for exit animation
+    }, [onClose, toast.id]);
+
     useEffect(() => {
         const startTime = Date.now();
         const endTime = startTime + duration;
@@ -47,12 +52,7 @@ const ToastItem: React.FC<ToastProps> = ({ toast, onClose }) => {
         }, updateInterval);
 
         return () => clearInterval(timer);
-    }, [toast.id, duration]);
-
-    const handleClose = () => {
-        setIsVisible(false);
-        setTimeout(() => onClose(toast.id), 300); // Wait for exit animation
-    };
+    }, [duration, handleClose]);
 
     const getColors = () => {
         switch (toast.type) {

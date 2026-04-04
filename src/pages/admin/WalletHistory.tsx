@@ -21,7 +21,7 @@ interface LedgerEntry {
     transaction_type: string;
     mode: 'ADD' | 'SUBTRACT' | 'SET' | 'RESET';
     description: string;
-    metadata: any;
+    metadata: Record<string, unknown>;
     created_at: string;
     transaction_date?: string;
     riders?: { rider_name: string; team_leader_id?: string; users?: { full_name: string } };
@@ -45,7 +45,7 @@ const TYPE_COLOURS: Record<string, string> = {
     SYSTEM_IMPORT: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
 };
 
-const StatCard = ({ label, value, Icon, color }: { label: string; value: string; Icon: any; color: string }) => (
+const StatCard = ({ label, value, Icon, color }: { label: string; value: string; Icon: React.ElementType; color: string }) => (
     <motion.div
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-4 bg-card rounded-2xl border border-border/60 px-5 py-4 shadow-sm"
@@ -96,7 +96,7 @@ const WalletHistory: React.FC = () => {
     useEffect(() => {
         if (isAdmin) {
             supabase.from('users').select('*').eq('role', 'teamLeader').then(({ data }) => {
-                if (data) setTeamLeaders(data.map((u: any) => ({ ...u, fullName: u.full_name || u.fullName })) as UserType[]);
+                if (data) setTeamLeaders(data.map((u: UserType & { full_name?: string; fullName?: string }) => ({ ...u, fullName: u.full_name || u.fullName })) as UserType[]);
             });
         }
     }, [isAdmin]);
@@ -145,16 +145,16 @@ const WalletHistory: React.FC = () => {
 
                 const [riderRes, tlRes] = await Promise.all([ridersByName, tlsByName]);
 
-                const riderIds = new Set((riderRes.data || []).map((r: any) => r.id));
+                const riderIds = new Set((riderRes.data || []).map((r: { id: string }) => r.id));
 
                 // If TLs matched, get all riders under those TLs
                 if (tlRes.data && tlRes.data.length > 0) {
-                    const tlIds = tlRes.data.map((u: any) => u.id);
+                    const tlIds = tlRes.data.map((u: { id: string }) => u.id);
                     const { data: ridersByTL } = await supabase
                         .from('riders')
                         .select('id')
                         .in('team_leader_id', tlIds);
-                    (ridersByTL || []).forEach((r: any) => riderIds.add(r.id));
+                    (ridersByTL || []).forEach((r: { id: string }) => riderIds.add(r.id));
                 }
 
                 matchedRiderIds = Array.from(riderIds);
@@ -199,9 +199,9 @@ const WalletHistory: React.FC = () => {
             if (error) throw error;
             setTransactions((data as LedgerEntry[]) || []);
             setTotalCount(count || 0);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Ledger fetch error:', err);
-            toast.error(`Failed to load ledger: ${err?.message || 'Unknown error'}`);
+            toast.error(`Failed to load ledger: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
         finally { setLoading(false); }
     }, [debouncedSearch, currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData]);
@@ -224,7 +224,7 @@ const WalletHistory: React.FC = () => {
             const { data, error } = await q.order('transaction_date', { ascending: false }).order('created_at', { ascending: false });
             if (error) throw error;
             if (!data?.length) { toast.dismiss(tid); toast.info('No data to export'); return; }
-            exportToCSV(data.map((item: any) => ({
+            exportToCSV(data.map((item: LedgerEntry) => ({
                 Date: format(parseISO(item.transaction_date || item.created_at), 'yyyy-MM-dd HH:mm:ss'),
                 Rider: item.riders?.rider_name || 'N/A',
                 'Team Leader': item.riders?.users?.full_name || 'N/A',
@@ -250,7 +250,7 @@ const WalletHistory: React.FC = () => {
             const { error } = await supabase.rpc('update_wallet_transaction_date', { p_transaction_id: editingTxn.id, p_new_date: selectedDate.toISOString() });
             if (error) throw error;
             toast.success('Date updated'); setEditingTxn(null); fetchTransactions();
-        } catch (e: any) { toast.error(e.message || 'Failed'); } finally { setIsUpdating(false); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setIsUpdating(false); }
     };
 
     const handleDelete = async (id: string) => {
@@ -271,7 +271,7 @@ const WalletHistory: React.FC = () => {
             if (error) throw error;
             toast.success(`Done: ${data?.deleted_count ?? 0} entries removed.`, { id: tid });
             fetchTransactions();
-        } catch (e: any) { toast.error('Cleanup failed: ' + e.message, { id: tid }); } finally { setIsCleaning(false); }
+        } catch (e) { toast.error('Cleanup failed: ' + (e instanceof Error ? e.message : String(e)), { id: tid }); } finally { setIsCleaning(false); }
     };
 
     const handleBulkUpdateDate = async () => {
@@ -289,7 +289,7 @@ const WalletHistory: React.FC = () => {
             if (error) throw error;
             toast.success(`Updated ${selectedIds.length} transactions`);
             setBulkModal(false); setSelectedIds([]); fetchTransactions();
-        } catch (e: any) { toast.error(e.message || 'Failed'); } finally { setIsBulkUpdating(false); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setIsBulkUpdating(false); }
     };
 
     const handleBulkDelete = async () => {

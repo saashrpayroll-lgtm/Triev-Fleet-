@@ -169,7 +169,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
                     ].map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
+                            onClick={() => setActiveTab(tab.id as 'details' | 'smart_view' | 'follow_up' | 'activity')}
                             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'

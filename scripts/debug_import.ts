@@ -26,12 +26,12 @@ async function debugRider(trievIdInput: string, mobileInput: string) {
     const numericId = trievIdInput.replace(/[^0-9]/g, '');
     console.log(`[TrievID] Numeric: "${numericId}"`);
 
-    const { data: byExactId, error: err1 } = await supabase.from('riders').select('id, triev_id, mobile_number, wallet_balance').eq('triev_id', numericId);
+    const { data: byExactId } = await supabase.from('riders').select('id, triev_id, mobile_number, wallet_balance').eq('triev_id', numericId);
     console.log(`[TrievID] Search "${numericId}": found ${byExactId?.length} records`);
     if (byExactId?.length) console.table(byExactId);
 
     const trievPrefix = `TRIEV${numericId}`;
-    const { data: byPrefixId, error: err2 } = await supabase.from('riders').select('id, triev_id, mobile_number, wallet_balance').eq('triev_id', trievPrefix);
+    const { data: byPrefixId } = await supabase.from('riders').select('id, triev_id, mobile_number, wallet_balance').eq('triev_id', trievPrefix);
     console.log(`[TrievID] Search "${trievPrefix}": found ${byPrefixId?.length} records`);
     if (byPrefixId?.length) console.table(byPrefixId);
 
@@ -48,7 +48,7 @@ async function debugRider(trievIdInput: string, mobileInput: string) {
     ];
 
     for (const fmt of formats) {
-        const { data: byMobile, error: errMobile } = await supabase.from('riders').select('id, triev_id, mobile_number, wallet_balance').eq('mobile_number', fmt);
+        const { data: byMobile } = await supabase.from('riders').select('id, triev_id, mobile_number, wallet_balance').eq('mobile_number', fmt);
         console.log(`[Mobile] Search "${fmt}": found ${byMobile?.length} records`);
         if (byMobile?.length) console.table(byMobile);
     }

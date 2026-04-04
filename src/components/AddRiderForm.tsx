@@ -21,9 +21,11 @@ const riderSchema = z.object({
     remarks: z.string().optional(),
 });
 
+type RiderFormValues = z.infer<typeof riderSchema>;
+
 interface AddRiderFormProps {
     onClose: () => void;
-    onSubmit: (data: any) => Promise<void>;
+    onSubmit: (data: RiderFormData) => Promise<void>;
     initialData?: Partial<RiderFormData>;
     isEdit?: boolean;
     teamLeaders?: User[];
@@ -35,9 +37,9 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
     const [aiLoading, setAiLoading] = useState(false);
 
     // Helper to format Timestamp/Date to YYYY-MM-DD for input
-    const formatDateForInput = (date?: any) => {
+    const formatDateForInput = (date?: string | Date | { seconds: number } | null | unknown) => {
         if (!date) return new Date().toISOString().split('T')[0];
-        if (date.seconds) return new Date(date.seconds * 1000).toISOString().split('T')[0];
+        if (typeof date === 'object' && 'seconds' in date && typeof (date as { seconds: number }).seconds === 'number') return new Date((date as { seconds: number }).seconds * 1000).toISOString().split('T')[0];
         if (date instanceof Date) return date.toISOString().split('T')[0];
         return String(date).split('T')[0];
     };
@@ -48,12 +50,12 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
         watch,
         setValue,
         formState: { errors },
-    } = useForm<any>({
+    } = useForm<RiderFormValues>({
         resolver: zodResolver(riderSchema),
         defaultValues: initialData ? {
             ...initialData,
-            allotmentDate: formatDateForInput(initialData?.['allotmentDate' as keyof RiderFormData]),
-            teamLeaderId: initialData?.['teamLeaderId' as keyof RiderFormData] || '',
+            allotmentDate: formatDateForInput(initialData.allotmentDate),
+            teamLeaderId: initialData.teamLeaderId || '',
         } : {
             trievId: '',
             riderName: '',
@@ -72,7 +74,7 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
 
     const selectedClient = watch('clientName');
 
-    const handleFormSubmit = async (data: any) => {
+    const handleFormSubmit = async (data: RiderFormValues) => {
         try {
             setIsSubmitting(true);
             // Pass data in camelCase (application model)
@@ -85,8 +87,8 @@ const AddRiderForm: React.FC<AddRiderFormProps> = ({ onClose, onSubmit, initialD
                 clientName: data.clientName,
                 clientId: data.clientId,
                 walletAmount: data.walletAmount,
-                allotmentDate: data.allotmentDate ? new Date(data.allotmentDate).toISOString() : null,
-                teamLeaderId: data.teamLeaderId || null,
+                allotmentDate: data.allotmentDate ? new Date(data.allotmentDate).toISOString() : undefined,
+                teamLeaderId: data.teamLeaderId || undefined,
                 status: data.status,
                 remarks: data.remarks || data.comments,
                 comments: data.comments

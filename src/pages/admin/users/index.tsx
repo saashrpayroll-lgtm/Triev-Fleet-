@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Plus, Search, RefreshCw, ArchiveRestore, Download, Users, KeyRound, X } from 'lucide-react';
 import { useUsers } from './hooks/useUsers';
@@ -41,8 +41,10 @@ const UserManagementPage: React.FC = () => {
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
 
-    // Effect to parse URL params
-    useEffect(() => {
+    const [prevSearch, setPrevSearch] = useState(location.search);
+
+    if (location.search !== prevSearch) {
+        setPrevSearch(location.search);
         const params = new URLSearchParams(location.search);
         const roleParam = params.get('role');
         const statusParam = params.get('status');
@@ -59,7 +61,7 @@ const UserManagementPage: React.FC = () => {
                 setShowDeleted(false);
             }
         }
-    }, [location.search]);
+    }
 
     // Visibility change: re-fetch when tab regains focus
     useEffect(() => {
@@ -243,44 +245,42 @@ const UserManagementPage: React.FC = () => {
     };
 
     // Derived Logic
-    const filteredUsers = useMemo(() => {
-        return users.filter(user => {
-            if (!user) return false;
+    const filteredUsers = users.filter(user => {
+        if (!user) return false;
 
-            if (showDeleted) {
-                if (user.status !== 'deleted') return false;
-            } else {
-                if (user.status === 'deleted') return false;
-            }
+        if (showDeleted) {
+            if (user.status !== 'deleted') return false;
+        } else {
+            if (user.status === 'deleted') return false;
+        }
 
-            const matchesSearch =
-                (user.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.userId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.jobLocation || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.reportingManager || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (user.mobile || '').includes(searchTerm);
+        const matchesSearch =
+            (user.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.userId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.jobLocation || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.reportingManager || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.mobile || '').includes(searchTerm);
 
-            const matchesRole = filterRole === 'all' || user.role === filterRole;
-            const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+        const matchesRole = filterRole === 'all' || user.role === filterRole;
+        const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
 
-            return matchesSearch && matchesRole && matchesStatus;
-        });
-    }, [users, searchTerm, filterRole, showDeleted, filterStatus]);
+        return matchesSearch && matchesRole && matchesStatus;
+    });
 
     // Stats Logic
-    const stats = useMemo(() => {
-        const nonDeleted = users.filter(u => u.status !== 'deleted');
-        const active = nonDeleted.filter(u => u.status === 'active').length;
-        const inactive = nonDeleted.filter(u => u.status === 'inactive').length;
-        const suspended = nonDeleted.filter(u => u.status === 'suspended').length;
-        const admins = nonDeleted.filter(u => u.role === 'admin').length;
-        const teamLeaders = nonDeleted.filter(u => u.role === 'teamLeader').length;
-        const reportingManagers = nonDeleted.filter(u => u.role === 'reportingManager').length;
-        const pendingResets = passwordResetRequests.length;
-        const forceChange = nonDeleted.filter(u => u.force_password_change).length;
-        return { active, inactive, suspended, admins, teamLeaders, reportingManagers, pendingResets, forceChange, total: nonDeleted.length };
-    }, [users, passwordResetRequests]);
+    const nonDeleted = users.filter(u => u.status !== 'deleted');
+    const stats = {
+        active: nonDeleted.filter(u => u.status === 'active').length,
+        inactive: nonDeleted.filter(u => u.status === 'inactive').length,
+        suspended: nonDeleted.filter(u => u.status === 'suspended').length,
+        admins: nonDeleted.filter(u => u.role === 'admin').length,
+        teamLeaders: nonDeleted.filter(u => u.role === 'teamLeader').length,
+        reportingManagers: nonDeleted.filter(u => u.role === 'reportingManager').length,
+        pendingResets: passwordResetRequests.length,
+        total: nonDeleted.length,
+        forceChange: nonDeleted.filter(u => u.force_password_change).length
+    };
 
     const activeFilterCount = [filterRole !== 'all', filterStatus !== 'all', searchTerm.length > 0].filter(Boolean).length;
 

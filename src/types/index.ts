@@ -309,6 +309,8 @@ export interface RiderFormData {
     clientName: string;
     clientId?: string;
     walletAmount: number;
+    teamLeaderId?: string;
+    allotmentDate?: string;
     status: RiderStatus;
     comments?: string;
     remarks?: string;
@@ -365,7 +367,7 @@ export interface ImportError {
     row: number;
     identifier: string; // e.g., name or mobile
     reason: string;
-    data?: any;
+    data?: Record<string, unknown>;
 }
 
 
@@ -377,7 +379,7 @@ export interface ImportSummary {
     skipped?: number; // Added for duplicate checks
     errors: ImportError[];
     skippedDetails?: ImportError[]; // Reusing ImportError type since structure is identical
-    successfulDetails?: any[]; // Array to temporarily hold successful transaction info
+    successfulDetails?: unknown[]; // Array to temporarily hold successful transaction info
 }
 
 // Request Management Types

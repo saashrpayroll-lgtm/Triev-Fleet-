@@ -4,11 +4,11 @@ import { createPortal } from 'react-dom';
 const TooltipContext = createContext<{
     open: boolean;
     setOpen: (open: boolean) => void;
-    triggerRef: React.RefObject<HTMLElement>;
+    triggerRef: React.RefObject<HTMLElement | null>;
 }>({
     open: false,
     setOpen: () => { },
-    triggerRef: { current: null } as any
+    triggerRef: { current: null }
 });
 
 export const TooltipProvider = ({ children }: { children: React.ReactNode; delayDuration?: number }) => {
@@ -17,10 +17,10 @@ export const TooltipProvider = ({ children }: { children: React.ReactNode; delay
 
 export const Tooltip = ({ children }: { children: React.ReactNode }) => {
     const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLElement>(null);
+    const triggerRef = useRef<HTMLElement | null>(null);
 
     return (
-        <TooltipContext.Provider value={{ open, setOpen, triggerRef: triggerRef as any }}>
+        <TooltipContext.Provider value={{ open, setOpen, triggerRef }}>
             {children}
         </TooltipContext.Provider>
     );
@@ -31,7 +31,7 @@ export const TooltipTrigger = ({ children, className }: { children: React.ReactN
 
     return (
         <div
-            ref={triggerRef as any}
+            ref={triggerRef as React.RefObject<HTMLDivElement>}
             className={className}
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
@@ -52,7 +52,7 @@ export const TooltipContent = ({ children, className, side = 'top' }: { children
             const scrollX = window.scrollX;
 
             let top = rect.top + scrollY;
-            let left = rect.left + scrollX + rect.width / 2;
+            const left = rect.left + scrollX + rect.width / 2;
 
             if (side === 'top') {
                 top -= 10;

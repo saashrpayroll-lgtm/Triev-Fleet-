@@ -59,9 +59,9 @@ const UserLeads: React.FC = () => {
                 .from('rider_master')
                 .select('mobile_number, id');
 
-            if (myLeadsData) setLeads(myLeadsData as Lead[]);
-            if (allLeadsData) setAllLeads(allLeadsData.map((l: any) => ({ ...l, mobileNumber: l.mobile_number })) as Lead[]);
-            if (allRidersData) setAllRiders(allRidersData.map((r: any) => ({ ...r, mobileNumber: r.mobile_number })) as Rider[]);
+            if (myLeadsData) setLeads(myLeadsData as unknown as Lead[]);
+            if (allLeadsData) setAllLeads(allLeadsData.map((l: { mobile_number: string; id: string }) => ({ ...l, mobileNumber: l.mobile_number })) as unknown as Lead[]);
+            if (allRidersData) setAllRiders(allRidersData.map((r: { mobile_number: string; id: string }) => ({ ...r, mobileNumber: r.mobile_number })) as unknown as Rider[]);
 
             if (myLeadsError) console.error("Error fetching leads:", myLeadsError);
             setLoading(false);
@@ -148,7 +148,7 @@ const UserLeads: React.FC = () => {
                 details: `Changed lead status to ${newStatus}`,
                 performedBy: userData?.email
             });
-        } catch (e: any) {
+        } catch (e) {
             console.error(e);
             toast.error("Failed to update status");
         }
@@ -174,7 +174,7 @@ const UserLeads: React.FC = () => {
                 variant: 'destructive'
             });
         }
-        return actions as any[];
+        return actions as { label: string; onClick: () => void | Promise<void>; variant?: 'default' | 'destructive' }[];
     };
 
     const handleBulkStatusUpdate = async (status: string) => {

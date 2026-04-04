@@ -318,7 +318,7 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                                                 <td className="px-3 py-4" onClick={e => e.stopPropagation()}>
                                                     <AiBadge
                                                         category={category}
-                                                        onClick={onAIStatusClick ? () => onAIStatusClick(lead, category as any) : undefined}
+                                                        onClick={onAIStatusClick ? () => onAIStatusClick(lead, category as 'Genuine' | 'Duplicate' | 'Match') : undefined}
                                                     />
                                                 </td>
                                                 <td className="px-3 py-4 text-center"><ScoreBadge score={lead.score} /></td>
@@ -427,7 +427,7 @@ const AdminLeadTable: React.FC<AdminLeadTableProps> = ({
                                 <div className="flex flex-wrap items-center gap-2 mb-4">
                                     <AiBadge
                                         category={category}
-                                        onClick={onAIStatusClick ? () => onAIStatusClick(lead, category as any) : undefined}
+                                        onClick={onAIStatusClick ? () => onAIStatusClick(lead, category as 'Genuine' | 'Duplicate' | 'Match') : undefined}
                                     />
                                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100/50 dark:border-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500">
                                         <MapPin size={10} className="text-primary" /> {lead.city || 'N/A'}
