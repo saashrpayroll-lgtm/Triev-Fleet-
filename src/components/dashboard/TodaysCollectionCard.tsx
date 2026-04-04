@@ -1,7 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/config/supabase';
 import { Wallet, TrendingUp, History, RefreshCw, ShieldCheck } from 'lucide-react';
+
+interface LedgerRow {
+    amount: number | string;
+    created_at: string;
+    transaction_date: string | null;
+    transaction_type: string;
+    mode: string;
+    rider: { team_leader_id: string }[];
+}
+
+interface RealtimePayload {
+    transaction_type: string;
+    transaction_date: string | null;
+    created_at: string;
+    amount: number | string;
+    rider_id: string;
+}
 
 interface TodaysCollectionCardProps {
     teamLeaderId?: string;
@@ -13,7 +30,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
     const [velocity, setVelocity] = useState<number>(0); // transactions in last 2 hours
     const [isSyncing, setIsSyncing] = useState(false);
 
-    const fetchTodaysCollection = async () => {
+    const fetchTodaysCollection = useCallback(async () => {
         setIsSyncing(true);
         try {
             const now = new Date();
@@ -55,7 +72,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             let total = 0;
             let count = 0;
             let vCount = 0;
-            (data as any[]).forEach((txn) => {
+            (data as LedgerRow[]).forEach((txn) => {
                 const amt = Number(txn.amount);
                 if (!isNaN(amt)) {
                     total += amt;
@@ -72,7 +89,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
         } finally {
             setTimeout(() => setIsSyncing(false), 800);
         }
-    };
+    }, [teamLeaderId]);
 
     useEffect(() => {
         fetchTodaysCollection();
@@ -82,7 +99,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             .on('postgres_changes', {
                 event: 'INSERT', schema: 'public', table: 'wallet_ledger', filter: 'mode=eq.ADD'
             }, async (payload) => {
-                const newLog = payload.new as any;
+                const newLog = payload.new as RealtimePayload;
                 if (!['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'].includes(newLog.transaction_type)) return;
 
                 const logIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(newLog.transaction_date || newLog.created_at));
@@ -107,7 +124,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [teamLeaderId]);
+    }, [teamLeaderId, fetchTodaysCollection]);
 
     return (
         <motion.div

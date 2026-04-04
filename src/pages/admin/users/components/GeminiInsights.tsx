@@ -17,8 +17,8 @@ const GeminiInsights: React.FC<GeminiInsightsProps> = ({ users }) => {
         const stats = {
             total: users.length,
             active: users.filter(u => u.status === 'active').length,
-            roles: users.reduce((acc: any, u) => { acc[u.role] = (acc[u.role] || 0) + 1; return acc; }, {}),
-            locations: users.reduce((acc: any, u) => {
+            roles: users.reduce((acc: Record<string, number>, u) => { acc[u.role] = (acc[u.role] || 0) + 1; return acc; }, {}),
+            locations: users.reduce((acc: Record<string, number>, u) => {
                 const loc = u.jobLocation || 'Unknown';
                 acc[loc] = (acc[loc] || 0) + 1;
                 return acc;

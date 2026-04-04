@@ -8,8 +8,39 @@ import {
 import { format, subDays } from 'date-fns';
 import { BarChart2, TrendingUp } from 'lucide-react';
 
+interface DailyCollectionRow {
+    date: string;
+    total_collection: number | string;
+}
+
+interface ChartDataPoint {
+    name: string;
+    fullDate: string;
+    amount: number;
+    isToday: boolean;
+}
+
+interface TooltipProps {
+    active?: boolean;
+    payload?: { value: number; payload: ChartDataPoint }[];
+}
+
+const CustomTooltip = ({ active, payload }: TooltipProps): React.ReactElement | null => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-popover/95 backdrop-blur-md border border-border/60 rounded-2xl shadow-2xl p-3">
+                <p className="text-xs font-black text-foreground mb-0.5">{payload[0].payload.fullDate}</p>
+                <p className="text-indigo-500 dark:text-indigo-400 font-black text-sm tabular-nums">
+                    ₹{payload[0].value.toLocaleString('en-IN')}
+                </p>
+            </div>
+        );
+    }
+    return null;
+};
+
 const WeeklyCollectionChart: React.FC = () => {
-    const [data, setData] = useState<any[]>([]);
+    const [data, setData] = useState<ChartDataPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [totalWeekly, setTotalWeekly] = useState(0);
 
@@ -34,8 +65,8 @@ const WeeklyCollectionChart: React.FC = () => {
                 const d = subDays(new Date(), i);
                 const dayStr = format(d, 'EEE');
                 const dateStr = format(d, 'yyyy-MM-dd');
-                const dayEntries = (dailyData || []).filter((row: any) => row.date === dateStr);
-                const total = dayEntries.reduce((acc: number, curr: any) => acc + (Number(curr.total_collection) || 0), 0);
+                const dayEntries = (dailyData || []).filter((row: DailyCollectionRow) => row.date === dateStr);
+                const total = dayEntries.reduce((acc: number, curr: DailyCollectionRow) => acc + (Number(curr.total_collection) || 0), 0);
                 weeklySum += total;
                 chartData.push({ name: dayStr, fullDate: format(d, 'MMM dd'), amount: total, isToday: dateStr === today });
             }
@@ -59,20 +90,6 @@ const WeeklyCollectionChart: React.FC = () => {
     }, []);
 
     const maxAmount = Math.max(...data.map(d => d.amount), 1);
-
-    const CustomTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-popover/95 backdrop-blur-md border border-border/60 rounded-2xl shadow-2xl p-3">
-                    <p className="text-xs font-black text-foreground mb-0.5">{payload[0].payload.fullDate}</p>
-                    <p className="text-indigo-500 dark:text-indigo-400 font-black text-sm tabular-nums">
-                        ₹{payload[0].value.toLocaleString('en-IN')}
-                    </p>
-                </div>
-            );
-        }
-        return null;
-    };
 
     return (
         <motion.div

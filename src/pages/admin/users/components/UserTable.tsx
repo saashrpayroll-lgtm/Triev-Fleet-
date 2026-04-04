@@ -194,7 +194,7 @@ const UserTable: React.FC<UserTableProps> = ({
                                                 />
                                             )}
                                             {/* Force password change badge */}
-                                            {(user as any).force_password_change && (
+                                            {user.force_password_change && (
                                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Pending password change on next login">
                                                     <KeyRound size={8} /> PW
                                                 </span>

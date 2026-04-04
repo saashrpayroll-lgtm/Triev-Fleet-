@@ -8,7 +8,7 @@ import BulkActionsBar from './components/BulkActionsBar';
 import PermissionsEditor from '@/components/PermissionsEditor';
 import SuspendUserModal from '@/components/SuspendUserModal';
 import UserDetailModal from './components/UserDetailModal';
-import { User, PasswordResetRequest } from '@/types';
+import { User, PasswordResetRequest, UserFormData, UserPermissions } from '@/types';
 import { exportToExcel } from '@/utils/exportUtils';
 import { useToast } from '@/contexts/ToastContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -173,14 +173,14 @@ const UserManagementPage: React.FC = () => {
         else toast.error("Failed to export user list");
     };
 
-    const handleCreateUser = async (data: any) => {
+    const handleCreateUser = async (data: UserFormData) => {
         setIsSubmitting(true);
         const success = await createUser(data, data.password);
         setIsSubmitting(false);
         if (success) setShowCreateModal(false);
     };
 
-    const handleUpdateUser = async (data: any) => {
+    const handleUpdateUser = async (data: UserFormData) => {
         if (!editingUser) return;
         setIsSubmitting(true);
         const success = await updateUser(editingUser.id, data);
@@ -278,7 +278,7 @@ const UserManagementPage: React.FC = () => {
         const teamLeaders = nonDeleted.filter(u => u.role === 'teamLeader').length;
         const reportingManagers = nonDeleted.filter(u => u.role === 'reportingManager').length;
         const pendingResets = passwordResetRequests.length;
-        const forceChange = nonDeleted.filter(u => (u as any).force_password_change).length;
+        const forceChange = nonDeleted.filter(u => u.force_password_change).length;
         return { active, inactive, suspended, admins, teamLeaders, reportingManagers, pendingResets, forceChange, total: nonDeleted.length };
     }, [users, passwordResetRequests]);
 
@@ -538,7 +538,7 @@ const UserManagementPage: React.FC = () => {
                     onClose={() => setEditingPermissions(null)}
                     currentPermissions={editingPermissions.permissions}
                     userName={editingPermissions.fullName}
-                    onSave={async (perms: any) => {
+                    onSave={async (perms: UserPermissions) => {
                         if (editingPermissions) {
                             await updateUser(editingPermissions.id, { permissions: perms });
                         }
