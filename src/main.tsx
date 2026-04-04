@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 // console.log('Main.tsx executing');
 
@@ -14,6 +15,7 @@ try {
     <StrictMode>
       <GlobalErrorBoundary>
         <App />
+        <SpeedInsights />
       </GlobalErrorBoundary>
     </StrictMode>,
   )
