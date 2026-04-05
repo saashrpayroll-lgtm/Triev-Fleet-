@@ -40,11 +40,11 @@ export const AnalyticsService = {
             // Build filter queries for riders
             // Logic: Filter by city_ops_id if available, otherwise filter by TLIds.
             let ridersQuery = supabase.from('riders').select('id, created_at, client_name, wallet_amount, status, team_leader_id');
-            if (scopedCityOpsId) {
-                ridersQuery = ridersQuery.or(`city_ops_id.eq.${scopedCityOpsId},team_leader_id.in.(${scopedTlIds?.join(',') || ''})`);
-            } else if (scopedTlIds && scopedTlIds.length > 0) {
+            // Safe scoping: prefer TL-based filtering (team_leader_id) as city_ops_id column may not exist yet
+            if (scopedTlIds && scopedTlIds.length > 0) {
                 ridersQuery = ridersQuery.in('team_leader_id', scopedTlIds);
             }
+            // Note: scopedCityOpsId is kept in config for future use once SQL migration is run
 
             // Build filter queries for leads
             let leadsQuery = supabase.from('leads').select('id, status, created_at');
@@ -139,8 +139,13 @@ export const AnalyticsService = {
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             const thirtyDaysAgoStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(thirtyDaysAgo);
 
+            let tlsQuery = supabase.from('users').select('id, full_name').eq('role', 'teamLeader');
+            if (scopedTlIds && scopedTlIds.length > 0) {
+                tlsQuery = tlsQuery.in('id', scopedTlIds);
+            }
+
             const [tlsRes, collectionsRes] = await Promise.all([
-                supabase.from('users').select('id, full_name').eq('role', 'teamLeader'),
+                tlsQuery,
                 supabase.from('daily_collections')
                     .select('team_leader_id, total_collection, date')
                     .gte('date', thirtyDaysAgoStr)

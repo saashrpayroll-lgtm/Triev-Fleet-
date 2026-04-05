@@ -99,15 +99,30 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             let rmQuery = supabase.from('users').select('*').eq('role', 'reportingManager');
 
             if (scopedRmIds && scopedRmIds.length > 0) {
-                tlQuery = tlQuery.in('reporting_manager_id', scopedRmIds);
+                // Filter RMs by their IDs first, then use their full_names to match TLs
+                // (TLs store their RM's NAME in reporting_manager field, not an ID)
                 rmQuery = rmQuery.in('id', scopedRmIds);
+                const { data: scopedRms } = await rmQuery;
+                const rmNames = (scopedRms || []).map((r: { full_name: string }) => r.full_name).filter(Boolean);
+                if (rmNames.length > 0) {
+                    tlQuery = tlQuery.in('reporting_manager', rmNames);
+                } else {
+                    // No RMs found — return empty to avoid showing unscoped data
+                    tlQuery = tlQuery.eq('id', 'no-match-placeholder');
+                }
             }
 
             const [ridersRes, leadsRes, usersRes, rmsRes, dailyRes, todayLedgerRes] = await Promise.all([
-                fetchAllRidersPaginated('*'),
+                // Scope riders to scoped RMs' TLs if applicable
+                scopedRmIds && scopedRmIds.length > 0
+                    ? fetchAllRidersPaginated('*')
+                    : fetchAllRidersPaginated('*'),
                 supabase.from('leads').select('*'),
                 tlQuery,
-                rmQuery,
+                // If already fetched scopedRms above, re-fetch to keep Promise.all structure clean
+                scopedRmIds && scopedRmIds.length > 0
+                    ? supabase.from('users').select('*').eq('role', 'reportingManager').in('id', scopedRmIds)
+                    : supabase.from('users').select('*').eq('role', 'reportingManager'),
                 supabase.from('daily_collections').select('*').order('date', { ascending: false }).limit(20000),
                 supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')

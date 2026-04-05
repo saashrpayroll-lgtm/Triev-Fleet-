@@ -263,29 +263,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
-            const filter = scopedCityOpsId ? { column: 'city_ops_id', value: scopedCityOpsId, type: 'eq' as const } : undefined;
-            const { data: ridersData, error: ridersError } = await fetchAllRidersPaginated(`
-                id,
-                trievId:triev_id,
-                riderName:rider_name,
-                mobileNumber:mobile_number,
-                chassisNumber:chassis_number,
-                clientName:client_name,
-                clientId:client_id,
-                walletAmount:wallet_amount,
-                allotmentDate:allotment_date,
-                remarks,
-                status,
-                teamLeaderId:team_leader_id,
-                teamLeaderName:team_leader_name,
-                createdAt:created_at,
-                updatedAt:updated_at,
-                inactivatedAt:inactivated_at,
-                lastStatusChangeAt:last_status_change_at,
-                deletedAt:deleted_at
-            `, filter);
-            if (ridersError) throw ridersError;
-
+            // Step 1: Fetch scoped TLs first (for both rider scoping and dropdown)
             let tlQuery = supabase.from('users').select(`
                 id,
                 fullName:full_name,
@@ -313,6 +291,36 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
 
             const { data: teamLeadersData, error: usersError } = await tlQuery;
             if (usersError) throw usersError;
+
+            // Step 2: Scope riders by TL IDs (safe — team_leader_id always exists)
+            const scopedTlIds = scopedCityOpsId && teamLeadersData && teamLeadersData.length > 0
+                ? (teamLeadersData as { id: string }[]).map(tl => tl.id)
+                : undefined;
+            const riderFilter = scopedTlIds && scopedTlIds.length > 0
+                ? { column: 'team_leader_id', value: scopedTlIds, type: 'in' as const }
+                : undefined;
+
+            const { data: ridersData, error: ridersError } = await fetchAllRidersPaginated(`
+                id,
+                trievId:triev_id,
+                riderName:rider_name,
+                mobileNumber:mobile_number,
+                chassisNumber:chassis_number,
+                clientName:client_name,
+                clientId:client_id,
+                walletAmount:wallet_amount,
+                allotmentDate:allotment_date,
+                remarks,
+                status,
+                teamLeaderId:team_leader_id,
+                teamLeaderName:team_leader_name,
+                createdAt:created_at,
+                updatedAt:updated_at,
+                inactivatedAt:inactivated_at,
+                lastStatusChangeAt:last_status_change_at,
+                deletedAt:deleted_at
+            `, riderFilter);
+            if (ridersError) throw ridersError;
 
             const mappedRiders = ((ridersData as Rider[]) || []).map(r => ({ ...r, walletAmount: r.status === 'active' ? r.walletAmount : 0 }));
             setRiders(mappedRiders);

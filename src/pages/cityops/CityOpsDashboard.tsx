@@ -336,7 +336,7 @@ const CityOpsDashboard: React.FC = () => {
                     icon={Users}
                     gradient="bg-gradient-to-br from-blue-600 to-indigo-700"
                     live
-                    onClick={() => navigate('/cityops/riders?filter=active')}
+                    onClick={() => navigate('/city-ops/riders?filter=active')}
                 />
                 <HeroCard
                     label="Today's Collection"
@@ -346,7 +346,7 @@ const CityOpsDashboard: React.FC = () => {
                     icon={IndianRupee}
                     gradient="bg-gradient-to-br from-emerald-600 to-teal-700"
                     live
-                    onClick={() => navigate('/cityops/wallet')}
+                    onClick={() => navigate('/city-ops/wallet-history')}
                 />
             </div>
 
@@ -378,22 +378,22 @@ const CityOpsDashboard: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     <StatCard label="Total Riders" value={stats.totalRiders} icon={Users} color="text-blue-600" bgColor="bg-blue-500/10" delay={0.0}
-                        onClick={() => navigate('/cityops/riders')} />
+                        onClick={() => navigate('/city-ops/riders')} />
                     <StatCard label="Active" value={stats.activeRiders} icon={UserCheck} color="text-emerald-600" bgColor="bg-emerald-500/10" delay={0.05}
-                        onClick={() => navigate('/cityops/riders?filter=active')} />
+                        onClick={() => navigate('/city-ops/riders?filter=active')} />
                     <StatCard label="Inactive" value={stats.inactiveRiders} icon={UserX} color="text-orange-600" bgColor="bg-orange-500/10" delay={0.10}
-                        onClick={() => navigate('/cityops/riders?filter=inactive')} />
+                        onClick={() => navigate('/city-ops/riders?filter=inactive')} />
                     <StatCard label="Deleted" value={stats.deletedRiders} icon={Trash2} color="text-red-600" bgColor="bg-red-500/10" delay={0.15}
-                        onClick={() => navigate('/cityops/riders?filter=deleted')} />
+                        onClick={() => navigate('/city-ops/riders?filter=deleted')} />
                     <StatCard label="Zomato VIP" value={stats.zomatoRiders} icon={Star} color="text-amber-600" bgColor="bg-amber-500/10" delay={0.20}
                         badge="VIP"
-                        onClick={() => navigate('/cityops/riders?filter=zomato')} />
+                        onClick={() => navigate('/city-ops/riders?filter=zomato')} />
                     <StatCard label="My RMs" value={stats.totalRMs} icon={TrendingUp} color="text-violet-600" bgColor="bg-violet-500/10" delay={0.25}
-                        onClick={() => navigate('/cityops/staff?role=reportingManager')} />
+                        onClick={() => navigate('/city-ops/users?role=reportingManager')} />
                     <StatCard label="My TLs" value={stats.totalTLs} icon={Activity} color="text-indigo-600" bgColor="bg-indigo-500/10" delay={0.30}
-                        onClick={() => navigate('/cityops/staff?role=teamLeader')} />
+                        onClick={() => navigate('/city-ops/users?role=teamLeader')} />
                     <StatCard label="Total Leads" value={stats.totalLeads} icon={Target} color="text-cyan-600" bgColor="bg-cyan-500/10" delay={0.35}
-                        onClick={() => navigate('/cityops/leads')} />
+                        onClick={() => navigate('/city-ops/leads')} />
                 </div>
             </div>
 
@@ -414,7 +414,7 @@ const CityOpsDashboard: React.FC = () => {
                     </h3>
                     <div className="space-y-3">
                         <motion.div whileHover={{ x: 4 }} className="flex items-center justify-between p-3 bg-emerald-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/riders?wallet=positive')}>
+                            onClick={() => navigate('/city-ops/riders?wallet=positive')}>
                             <div>
                                 <span className="text-sm font-semibold">Positive Balance</span>
                                 <p className="text-xs text-muted-foreground mt-0.5">₹{stats.walletPositiveAmt.toLocaleString('en-IN')} total</p>
@@ -425,7 +425,7 @@ const CityOpsDashboard: React.FC = () => {
                             </div>
                         </motion.div>
                         <motion.div whileHover={{ x: 4 }} className="flex items-center justify-between p-3 bg-red-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/riders?wallet=negative')}>
+                            onClick={() => navigate('/city-ops/riders?wallet=negative')}>
                             <div>
                                 <span className="text-sm font-semibold">Negative Balance</span>
                                 <p className="text-xs text-muted-foreground mt-0.5">₹{stats.walletNegativeAmt.toLocaleString('en-IN')} total debt</p>
@@ -436,7 +436,7 @@ const CityOpsDashboard: React.FC = () => {
                             </div>
                         </motion.div>
                         <motion.div whileHover={{ x: 4 }} className="flex items-center justify-between p-3 bg-amber-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/riders?wallet=zero')}>
+                            onClick={() => navigate('/city-ops/riders?wallet=zero')}>
                             <span className="text-sm font-semibold">Zero Balance</span>
                             <div className="text-right">
                                 <span className="text-xl font-black text-amber-600">{stats.walletZero}</span>
@@ -459,17 +459,17 @@ const CityOpsDashboard: React.FC = () => {
                     </h3>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-cyan-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/leads')}>
+                            onClick={() => navigate('/city-ops/leads')}>
                             <span className="text-sm font-semibold">New Leads</span>
                             <span className="text-xl font-black text-cyan-600">{stats.newLeads}</span>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/leads?status=converted')}>
+                            onClick={() => navigate('/city-ops/leads?status=converted')}>
                             <span className="text-sm font-semibold">Converted</span>
                             <span className="text-xl font-black text-green-600">{stats.convertedLeads}</span>
                         </div>
                         <div className="flex items-center gap-3 p-3 bg-violet-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/rm-performance')}>
+                            onClick={() => navigate('/city-ops/rm-performance')}>
                             <TrendingUp size={14} className="text-violet-600 shrink-0" />
                             <span className="text-sm font-semibold">RM Performance</span>
                             <div className="ml-auto flex items-center gap-1 text-violet-600">
@@ -478,7 +478,7 @@ const CityOpsDashboard: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-3 p-3 bg-indigo-500/10 rounded-xl cursor-pointer"
-                            onClick={() => navigate('/cityops/tl-performance')}>
+                            onClick={() => navigate('/city-ops/tl-performance')}>
                             <Activity size={14} className="text-indigo-600 shrink-0" />
                             <span className="text-sm font-semibold">TL Performance</span>
                             <div className="ml-auto flex items-center gap-1 text-indigo-600">
