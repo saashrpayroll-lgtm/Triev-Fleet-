@@ -94,6 +94,7 @@ const GlassCard: React.FC<{
 
 // ── Types ──
 interface RiderRaw { id: string; status: string; wallet_amount: number; client_name: string; team_leader_id: string; allotment_date: string; inactivated_at?: string; rider_name: string; mobile_number: string; }
+
 interface CollRow { team_leader_id: string; total_collection: number; date: string; }
 interface LeadRow { id: string; status: string; created_by: string; }
 
