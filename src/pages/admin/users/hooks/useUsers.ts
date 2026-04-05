@@ -243,7 +243,8 @@ export const useUsers = (config?: UseUsersConfig) => {
         return () => {
             subscription.unsubscribe();
         };
-    }, [fetchUsers, scopedCityOpsId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scopedCityOpsId]);
 
     // Create User
     const createUser = useCallback(async (userData: Partial<User>, password: string): Promise<boolean> => {
