@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 import ReloadPrompt from '@/components/ReloadPrompt';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import '@/index.css';
 
 // ─── Eagerly loaded (critical path – must be instant) ────────────────────────
@@ -409,6 +410,7 @@ function App() {
               <AppRoutes />
               <ReloadPrompt />
               <Toaster position="top-right" richColors />
+              <SpeedInsights />
             </BrowserRouter>
           </ToastProvider>
         </ThemeProvider>
