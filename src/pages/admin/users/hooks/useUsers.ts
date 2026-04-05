@@ -22,9 +22,11 @@ export const useUsers = (config?: UseUsersConfig) => {
     // Hardcoded list of immune users (Super Admins)
     const IMMUNE_USERS = ['admin@example.com', 'saunvir1130', 'saunvir.singh@triev.in'];
 
-    const isImmune = (user: User) => {
+    const isImmune = useCallback((user: User) => {
         return IMMUNE_USERS.includes(user.email) || IMMUNE_USERS.includes(user.username || '');
-    };
+    // IMMUNE_USERS is a static constant — intentionally omitted from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [error, setError] = useState<string | null>(null);
     const toast = useToast();
     const { userData: currentUser, refreshUserData } = useSupabaseAuth();
@@ -152,7 +154,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             });
         }
         setLoading(false);
-    }, [page]);
+    }, [page, scopedCityOpsId, scopedRmIds, scopedTlIds, toast]);
 
     const loadMore = useCallback(() => {
         if (!loading && hasMore) {
@@ -160,7 +162,7 @@ export const useUsers = (config?: UseUsersConfig) => {
         }
     }, [loading, hasMore, fetchUsers]);
 
-    // Initial Load
+    // Initial Load + re-fetch when scope changes (City Ops panel)
     useEffect(() => {
         fetchUsers(true);
 
@@ -238,7 +240,7 @@ export const useUsers = (config?: UseUsersConfig) => {
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
+    }, [fetchUsers, scopedCityOpsId]);
 
     // Create User
     const createUser = useCallback(async (userData: any, password: string): Promise<boolean> => {
@@ -335,7 +337,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             toast.error('Failed to create user: ' + (err.message || "Unknown error"));
             return false;
         }
-    }, [currentUser, fetchUsers]);
+    }, [currentUser, fetchUsers, scopedCityOpsId, toast]);
 
     // Update User
     const updateUser = useCallback(async (userId: string, data: Partial<User>) => {
@@ -388,7 +390,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             toast.error('Failed to update user');
             return false;
         }
-    }, [currentUser, users, fetchUsers]);
+    }, [currentUser, users, fetchUsers, isImmune, refreshUserData, toast]);
 
     // Toggle User Status
     const toggleUserStatus = useCallback(async (user: User) => {
@@ -480,10 +482,10 @@ export const useUsers = (config?: UseUsersConfig) => {
             if (currentUser && currentUser.id === user.id) {
                 await refreshUserData();
             }
-        } catch (err) {
+        } catch {
             toast.error('Failed to suspend user');
         }
-    }, [currentUser, fetchUsers]);
+    }, [currentUser, fetchUsers, refreshUserData, toast]);
 
     // Send Password Reset - Currently not used, kept for future reference
     // const sendResetEmail = useCallback(async (email: string) => {
@@ -526,7 +528,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             console.error(err);
             toast.error('Failed to delete user');
         }
-    }, [currentUser, fetchUsers]);
+    }, [currentUser, fetchUsers, toast]);
 
     // Restore User
     const restoreUser = useCallback(async (user: User) => {
@@ -552,7 +554,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             console.error(err);
             toast.error('Failed to restore user');
         }
-    }, [currentUser, fetchUsers]);
+    }, [currentUser, fetchUsers, toast]);
 
     // Permanent Delete User (Hard Delete)
     const permanentDeleteUser = useCallback(async (user: User) => {
@@ -593,13 +595,13 @@ export const useUsers = (config?: UseUsersConfig) => {
             console.error('Permanent Delete Error:', err);
             toast.error(err.message || 'Failed to permanently delete user');
         }
-    }, [currentUser, fetchUsers]);
+    }, [currentUser, fetchUsers, isImmune, toast]);
 
     // Sync Usernames
     const syncUsernames = useCallback(async () => {
         if (!currentUser) return;
         toast.info('Username sync not required for Supabase DB.', 2000);
-    }, [currentUser]);
+    }, [currentUser, toast]);
 
     // Unified Bulk Action Handler
     const runBulkAction = useCallback(async (selectedUsers: User[], action: (u: User) => Promise<boolean>, actionLabel: string) => {

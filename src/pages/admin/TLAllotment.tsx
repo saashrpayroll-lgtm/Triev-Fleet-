@@ -105,13 +105,19 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
             const endOfDayIST = new Date(Date.UTC(yr, mo - 1, dy, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             // Fetch all data in parallel
+            // Build the TL query server-side so scopedTlIds is applied at DB level
+            let tlBaseQuery = supabase
+                .from('users')
+                .select('id, full_name, email, reporting_manager')
+                .eq('role', 'teamLeader')
+                .eq('status', 'active');
+            if (scopedTlIds && scopedTlIds.length > 0) {
+                tlBaseQuery = tlBaseQuery.in('id', scopedTlIds);
+            }
+
             const [tlsRes, ridersRes, dailyColRes, todayLedgerRes] = await Promise.all([
-                // Step 1: Active TLs (include reporting_manager for RM filtering)
-                supabase
-                    .from('users')
-                    .select('id, full_name, email, reporting_manager')
-                    .eq('role', 'teamLeader')
-                    .eq('status', 'active'),
+                // Step 1: Active TLs — server-side scoped to City Ops if applicable
+                tlBaseQuery,
 
                 // Step 2: All riders (including deleted) to ensure historical allotments/submissions are included
                 fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at'),
@@ -139,7 +145,8 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
             if (ridersRes.error) throw ridersRes.error;
             if (dailyColRes.error) throw dailyColRes.error;
 
-            const tls = (tlsRes.data || []).filter(u => !scopedTlIds || scopedTlIds.includes(u.id));
+            // TLs are already pre-filtered server-side via the .in() scope in the query above
+            const tls = tlsRes.data || [];
             const riders = ridersRes.data || [];
 
             // Build unique RM names list for dropdown from TLs' reporting_manager field
@@ -223,7 +230,7 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
                 const negRiders = tlRiders.filter(r => r.status === 'active' && (r.wallet_amount || 0) < 0);
 
                 let activeRiderCount = 0;
-                let inactiveRiderCount = tlRiders.filter(r => r.status === 'inactive').length; // Keep live inactive for consistency
+                const inactiveRiderCount = tlRiders.filter(r => r.status === 'inactive').length; // Keep live inactive for consistency
 
                 if (todayStr >= pStart && todayStr <= pEnd) {
                     // Includes today, use live active count
@@ -273,7 +280,7 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [startDate, endDate]);
+    }, [startDate, endDate, scopedTlIds]);
 
     useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
 
@@ -325,7 +332,7 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
             return 0;
         });
         return result;
-    }, [data, searchTerm, filterRisk, filterPerformers, filterRM, rmList, sortConfig]);
+    }, [data, searchTerm, filterRisk, filterPerformers, filterRM, sortConfig]);
 
     const handleSort = (key: keyof TLMetric | 'net_growth') => {
         setSortConfig(prev => ({

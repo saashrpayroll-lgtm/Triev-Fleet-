@@ -96,14 +96,20 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
 
     const isAdmin = userData?.role === 'admin';
 
-    /* fetch TLs */
+    /* fetch TLs — works for both admin (all TLs) and City Ops (scoped TLs) */
     useEffect(() => {
-        if (isAdmin) {
-            supabase.from('users').select('*').eq('role', 'teamLeader').then(({ data }) => {
-                if (data) setTeamLeaders(data.map((u: UserType & { full_name?: string; fullName?: string }) => ({ ...u, fullName: u.full_name || u.fullName })) as UserType[]);
-            });
+        const shouldFetchTLs = isAdmin || !!scopedCityOpsId;
+        if (!shouldFetchTLs) return;
+
+        let q = supabase.from('users').select('*').eq('role', 'teamLeader');
+        if (scopedCityOpsId && !isAdmin) {
+            // City Ops: only fetch TLs that belong to this scope
+            q = q.eq('city_ops_id', scopedCityOpsId);
         }
-    }, [isAdmin]);
+        q.then(({ data }) => {
+            if (data) setTeamLeaders(data.map((u: UserType & { full_name?: string; fullName?: string }) => ({ ...u, fullName: u.full_name || u.fullName })) as UserType[]);
+        });
+    }, [isAdmin, scopedCityOpsId]);
 
     /* debounce search input → auto-triggers fetchTransactions after 500ms */
     useEffect(() => {

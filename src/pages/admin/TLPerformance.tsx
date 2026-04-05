@@ -125,7 +125,10 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             }
 
             const [ridersRes, leadsRes, usersRes, dailyCollectionsRes, todayLedgerRes, weekLedgerRes] = await Promise.all([
-                fetchAllRidersPaginated('*'),
+                // ✅ Scope riders to this City Ops' TLs only — prevents data leakage
+                scopedTlIds && scopedTlIds.length > 0
+                    ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
+                    : fetchAllRidersPaginated('*'),
                 supabase.from('leads').select('*'),
                 tlQuery,
                 supabase.from('daily_collections').select('*').order('date', { ascending: false }).limit(5000),

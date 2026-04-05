@@ -35,30 +35,36 @@ export const useCityOpsScope = (): CityOpsScope => {
         setError(null);
 
         try {
+            const cityOpsName = userData.fullName || '';
+
             // Step 1: Fetch all RMs reporting to this City Ops
-            // Logic: An RM is under this City Ops if their reporting_manager is the City Ops ID (UUID)
-            // OR if their city_ops_id is explicitly set.
+            // reporting_manager stores a NAME string, not a UUID.
+            // Match by city_ops_id (UUID) OR reporting_manager (name of the City Ops user).
             const { data: rms, error: rmError } = await supabase
                 .from('users')
-                .select('id')
+                .select('id, full_name')
                 .eq('role', 'reportingManager')
-                .or(`city_ops_id.eq.${userData.id},reporting_manager.eq.${userData.id}`)
-                .in('status', ['active', 'inactive']);
+                .or(`city_ops_id.eq.${userData.id},reporting_manager.eq.${cityOpsName}`)
+                .in('status', ['active', 'inactive', 'suspended']);
 
             if (rmError) throw rmError;
 
             const fetchedRmIds = rms?.map(r => r.id) || [];
+            const fetchedRmNames = rms?.map(r => r.full_name).filter(Boolean) || [];
             setRmIds(fetchedRmIds);
 
-            // Step 2: Fetch all TLs reporting to this City Ops
-            // Logic: A TL is under this City Ops if their city_ops_id is set
-            // OR if they report to one of the RMs we just found.
+            // Step 2: Fetch all TLs under this City Ops
+            // A TL's reporting_manager stores the NAME of their RM (or City Ops directly).
+            // Match by: city_ops_id (UUID) OR reporting_manager matches an RM name OR City Ops name.
+            const allManagerNames = [...new Set([cityOpsName, ...fetchedRmNames])].filter(Boolean);
+            const nameFilter = allManagerNames.map(n => `reporting_manager.eq.${n}`).join(',');
+
             const { data: tls, error: tlError } = await supabase
                 .from('users')
-                .select('id')
+                .select('id, full_name')
                 .eq('role', 'teamLeader')
-                .or(`city_ops_id.eq.${userData.id}${fetchedRmIds.length > 0 ? `,reporting_manager.in.(${fetchedRmIds.join(',')})` : ''}`)
-                .in('status', ['active', 'inactive']);
+                .or(`city_ops_id.eq.${userData.id}${nameFilter ? `,${nameFilter}` : ''}`)
+                .in('status', ['active', 'inactive', 'suspended']);
 
             if (tlError) throw tlError;
 
@@ -71,7 +77,7 @@ export const useCityOpsScope = (): CityOpsScope => {
         } finally {
             setIsLoading(false);
         }
-    }, [userData?.id, userData?.role]);
+    }, [userData?.id, userData?.role, userData?.fullName]);
 
     useEffect(() => {
         fetchScope();

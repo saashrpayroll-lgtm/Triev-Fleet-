@@ -121,29 +121,8 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
 
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-    useEffect(() => {
-        fetchData();
-
-        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchData(), 1000);
-        };
-
-        const channel = supabase
-            .channel('admin-riders-list')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'riders' },
-                fetchDebounced
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-            if (debounceTimer) clearTimeout(debounceTimer);
-        };
-    }, []);
+    // fetchData is defined below (after state declarations) and passed here via useCallback.
+    // useEffect is placed AFTER fetchData definition to avoid "used before declaration" TS error.
 
     // Removed filterRiders wrapper and its useEffect
 
@@ -281,7 +260,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
         }
     }, [location.search, riders, location.state]);
 
-    const fetchData = async () => {
+    const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
             const filter = scopedCityOpsId ? { column: 'city_ops_id', value: scopedCityOpsId, type: 'eq' as const } : undefined;
@@ -329,7 +308,6 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
             `).eq('role', 'teamLeader');
 
             if (scopedCityOpsId) {
-                // Fetch TLs whose city_ops_id matches OR whose RM's manager is this City Ops (via city_ops_id)
                 tlQuery = tlQuery.eq('city_ops_id', scopedCityOpsId);
             }
 
@@ -344,7 +322,32 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
         } finally {
             setLoading(false);
         }
-    };
+    }, [scopedCityOpsId]);
+
+    // Real-time subscription + initial fetch — placed AFTER fetchData to avoid hoisting issues
+    useEffect(() => {
+        fetchData();
+
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchData(), 1000);
+        };
+
+        const channel = supabase
+            .channel('admin-riders-list')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'riders' },
+                fetchDebounced
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+            if (debounceTimer) clearTimeout(debounceTimer);
+        };
+    }, [fetchData]);
 
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab);
@@ -395,7 +398,9 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
             const assignedTeamLeaderName = slctd?.fullName || '';
 
             // Construct Strict DB Payload
-            const dbPayload = {
+            // When operating in City Ops scope, always stamp city_ops_id so the new rider
+            // is immediately visible in this City Ops panel and correctly isolated.
+            const dbPayload: Record<string, unknown> = {
                 triev_id: formData.triev_id || formData.trievId || `TR${Date.now()}`,
                 rider_name: formData.rider_name || formData.riderName,
                 mobile_number: formData.mobile_number || formData.mobileNumber,
@@ -407,9 +412,10 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 remarks: formData.remarks,
                 status: formData.status || 'active',
                 team_leader_id: assignedTeamLeaderId || null,
-                team_leader_name: assignedTeamLeaderName, // Redundant if normalized, but requested
+                team_leader_name: assignedTeamLeaderName,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
+                ...(scopedCityOpsId ? { city_ops_id: scopedCityOpsId } : {}),
             };
 
             const { data, error } = await supabase.from('riders').insert(dbPayload).select().single();
@@ -445,7 +451,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
             }
 
             // Notify System & TL
-            await notifyTeamLeader(dbPayload.team_leader_id, 'create', dbPayload.rider_name, newItemId);
+            await notifyTeamLeader(dbPayload.team_leader_id as string, 'create', dbPayload.rider_name as string, newItemId);
 
             toast.success('Rider added successfully');
             await fetchData();
