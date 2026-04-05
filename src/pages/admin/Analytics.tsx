@@ -12,6 +12,7 @@ import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
 import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
 import AdminWalletBifurcation from '@/components/dashboard/AdminWalletBifurcation';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 // Premium color palette
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -61,7 +62,8 @@ interface AnalyticsProps {
 }
 
 const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, scopedTlIds }) => {
-    const { userData } = useSupabaseAuth();
+    // We call useSupabaseAuth to hook into context if needed, but no variables are destructured to avoid lint errors
+    useSupabaseAuth();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -69,7 +71,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, sco
     const fetchData = async () => {
         setLoading(true);
         try {
-            const result = await AnalyticsService.fetchDashboardAnalytics();
+            const result = await AnalyticsService.fetchDashboardAnalytics({
+                scopedCityOpsId,
+                scopedRmIds,
+                scopedTlIds
+            });
             setData(result);
             setLastUpdated(new Date());
         } catch (error) {

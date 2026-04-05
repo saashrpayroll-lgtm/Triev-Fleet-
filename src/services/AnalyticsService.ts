@@ -24,8 +24,18 @@ export interface AnalyticsData {
     };
 }
 
+export interface AnalyticsConfig {
+    scopedCityOpsId?: string;
+    scopedRmIds?: string[];
+    scopedTlIds?: string[];
+}
+
 export const AnalyticsService = {
-    fetchDashboardAnalytics: async (): Promise<AnalyticsData> => {
+    fetchDashboardAnalytics: async (_config?: AnalyticsConfig): Promise<AnalyticsData> => {
+        if (_config) {
+            console.debug('Analytics Scope Config:', _config);
+        }
+        
         const today = new Date();
         const sixMonthsAgo = subMonths(today, 5);
 
