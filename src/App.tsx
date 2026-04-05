@@ -66,6 +66,26 @@ const RMReports = React.lazy(() => import('@/pages/rm/RMReports'));
 const RMCollectionHistory = React.lazy(() => import('@/pages/rm/RMCollectionHistory'));
 const RMProfile = React.lazy(() => import('@/pages/rm/RMProfile'));
 
+// City Ops Pages
+const CityOpsLayout = React.lazy(() => import('@/layouts/CityOpsLayout'));
+const CityOpsDashboard = React.lazy(() => import('@/pages/cityops/CityOpsDashboard'));
+// Named exports from CityOpsPages
+const CityOpsRiderManagement = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsRiderManagement })));
+const CityOpsLeads = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsLeads })));
+const CityOpsDataManagement = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsDataManagement })));
+const CityOpsWalletHistory = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsWalletHistory })));
+const CityOpsRMPerformance = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsRMPerformance })));
+const CityOpsTLPerformance = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsTLPerformance })));
+const CityOpsTLAllotment = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsTLAllotment })));
+const CityOpsLeaderboard = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsLeaderboard })));
+const CityOpsReports = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsReports })));
+const CityOpsActivityLog = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsActivityLog })));
+const CityOpsAnalytics = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsAnalytics })));
+const CityOpsForms = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsForms })));
+const CityOpsStaffRoles = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsStaffRoles })));
+const CityOpsNotifications = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsNotifications })));
+const CityOpsProfile = React.lazy(() => import('@/pages/cityops/CityOpsPages').then(m => ({ default: m.CityOpsProfile })));
+
 // ─── Loading fallback used by Suspense boundaries ─────────────────────────────
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -125,7 +145,7 @@ const LoadingScreen = () => {
 // ─── Protected Route ──────────────────────────────────────────────────────────
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'teamLeader' | 'reportingManager')[];
+  allowedRoles?: ('admin' | 'teamLeader' | 'reportingManager' | 'cityOps')[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
@@ -202,7 +222,8 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 
   if (user && userData) {
-    const redirectPath = userData.role === 'admin' ? '/portal' 
+    const redirectPath = userData.role === 'admin' ? '/portal'
+                       : userData.role === 'cityOps' ? '/city-ops'
                        : userData.role === 'reportingManager' ? '/rm-panel'
                        : '/team-leader';
     return <Navigate to={redirectPath} replace />;
@@ -303,15 +324,40 @@ function AppRoutes() {
             <Route path="company-forms" element={<RMForms />} />
           </Route>
 
+          {/* City Ops Panel Routes */}
+          <Route
+            path="/city-ops"
+            element={<ProtectedRoute allowedRoles={['cityOps']}><CityOpsLayout /></ProtectedRoute>}
+          >
+            <Route index element={<CityOpsDashboard />} />
+            <Route path="riders" element={<CityOpsRiderManagement />} />
+            <Route path="leads" element={<CityOpsLeads />} />
+            <Route path="leaderboard" element={<CityOpsLeaderboard />} />
+            <Route path="data" element={<CityOpsDataManagement />} />
+            <Route path="wallet-history" element={<CityOpsWalletHistory />} />
+            <Route path="rm-performance" element={<CityOpsRMPerformance />} />
+            <Route path="tl-performance" element={<CityOpsTLPerformance />} />
+            <Route path="tl-allotment" element={<CityOpsTLAllotment />} />
+            <Route path="reports" element={<CityOpsReports />} />
+            <Route path="activity-log" element={<CityOpsActivityLog />} />
+            <Route path="analytics" element={<CityOpsAnalytics />} />
+            <Route path="forms" element={<CityOpsForms />} />
+            <Route path="users" element={<CityOpsStaffRoles />} />
+            <Route path="notifications" element={<CityOpsNotifications />} />
+            <Route path="profile" element={<CityOpsProfile />} />
+          </Route>
+
           {/* Default root redirect */}
           <Route
             path="/"
             element={
               userData?.role === 'admin'
                 ? <Navigate to="/portal" replace />
-                : userData?.role === 'reportingManager'
-                  ? <Navigate to="/rm-panel" replace />
-                  : <Navigate to="/team-leader" replace />
+                : userData?.role === 'cityOps'
+                  ? <Navigate to="/city-ops" replace />
+                  : userData?.role === 'reportingManager'
+                    ? <Navigate to="/rm-panel" replace />
+                    : <Navigate to="/team-leader" replace />
             }
           />
 

@@ -209,6 +209,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                                 >
                                     <option value="teamLeader">Team Leader</option>
                                     <option value="reportingManager">Reporting Manager</option>
+                                    <option value="cityOps">City Ops</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </div>

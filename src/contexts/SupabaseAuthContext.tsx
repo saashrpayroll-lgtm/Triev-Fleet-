@@ -98,6 +98,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             username: data.username,
             force_password_change: data.force_password_change ?? data.forcePasswordChange ?? false,
             last_password_change: data.last_password_change || data.lastPasswordChange,
+            cityOpsId: data.city_ops_id || data.cityOpsId,
             createdAt: typeof (data.created_at || data.createdAt) === 'object' ? new Date(data.created_at || data.createdAt).toISOString() : (data.created_at || data.createdAt),
             updatedAt: typeof (data.updated_at || data.updatedAt) === 'object' ? new Date(data.updated_at || data.updatedAt).toISOString() : (data.updated_at || data.updatedAt),
             remarks: typeof data.remarks === 'object' ? JSON.stringify(data.remarks) : data.remarks,

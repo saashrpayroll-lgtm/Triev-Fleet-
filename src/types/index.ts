@@ -1,5 +1,5 @@
 // User Types
-export type UserRole = 'admin' | 'teamLeader' | 'reportingManager';
+export type UserRole = 'admin' | 'teamLeader' | 'reportingManager' | 'cityOps';
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deleted';
 export type WalletAccessLevel = 'full' | 'readOnly' | 'none';
 
@@ -132,6 +132,33 @@ export interface UserPermissions {
         collectionHistory: boolean;
         export: boolean; // Can export data from any allowed page
     };
+    // City Ops Panel permissions (controlled by Admin via Permission Manager)
+    cityOpsPanel?: {
+        dashboard: boolean;
+        riderManagement: boolean;
+        leadManagement: boolean;
+        leaderboard: boolean;
+        dataManagement: {
+            bulkRiderImport: boolean;
+            bulkWalletUpdate: boolean;
+            rentCollectionImport: boolean;
+            auditSync: boolean;
+            importHistory: boolean;
+            googleSheets: boolean;
+        };
+        walletLedger: boolean;
+        reports: boolean;
+        activityLog: boolean;
+        notifications: boolean;
+        analytics: boolean;
+        walletBifurcation: boolean;
+        companyForms: boolean;
+        staffRoles: boolean; // City Ops can create RM/TL under themselves
+        rmPerformance: boolean;
+        tlPerformance: boolean;
+        allotmentSystem: boolean;
+        profile: boolean;
+    };
 }
 
 export interface User {
@@ -156,6 +183,7 @@ export interface User {
     awardedBadges?: string[]; // E.g., ['top_collector', 'zero_churn']
     force_password_change?: boolean; // Force user to change password on next login
     last_password_change?: string; // Timestamp of last password change
+    cityOpsId?: string; // Links RM/TL to their City Ops head for hierarchy scoping
     currentLocation?: {
         lat: number;
         lng: number;

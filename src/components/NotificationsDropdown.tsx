@@ -12,7 +12,7 @@ import { safeRender } from '@/utils/safeRender';
 
 interface NotificationsDropdownProps {
     userId: string;
-    userRole: 'admin' | 'teamLeader' | 'reportingManager';
+    userRole: 'admin' | 'teamLeader' | 'reportingManager' | 'cityOps';
 }
 
 const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, userRole }) => {
@@ -330,7 +330,7 @@ const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ userId, u
                         <button
                             onClick={() => {
                                 setIsOpen(false);
-                                navigate(userRole === 'admin' ? '/portal/notifications' : '/team-leader/notifications');
+                                navigate(userRole === 'admin' ? '/portal/notifications' : userRole === 'cityOps' ? '/city-ops/notifications' : '/team-leader/notifications');
                             }}
                             className="w-full flex items-center justify-center gap-2 py-2 text-[12px] font-semibold text-primary hover:text-white hover:bg-primary rounded-lg transition-all duration-200 group"
                         >

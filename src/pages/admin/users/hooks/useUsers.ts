@@ -27,6 +27,7 @@ export const useUsers = () => {
         let prefix = 'TRIEV_TL'; // Default
         if (role === 'admin') prefix = 'TRIEV_ADM';
         else if (role === 'reportingManager') prefix = 'Trive_RM';
+        else if (role === 'cityOps') prefix = 'Triev_City';
 
         try {
             const { data: lastUser, error } = await supabase

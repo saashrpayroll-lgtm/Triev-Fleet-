@@ -654,6 +654,20 @@ export const processRentCollectionImport = async (
                 const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell']);
                 let amountRaw = getValue(['Amount', 'Amt', 'Collection']);
 
+                // ── TYPE COLUMN FILTER: Only accept "Wallet Recharge" transactions ──
+                // Skip "Onboarding and Security" and any other non-recharge types
+                const typeValue = getValue(['Type', 'TYPE', 'Transaction Type', 'Txn Type']);
+                if (typeValue && typeValue.toLowerCase() !== 'wallet recharge') {
+                    summary.skipped = (summary.skipped || 0) + 1;
+                    summary.skippedDetails?.push({
+                        row: rowNum,
+                        identifier: trievIdRaw || mobileRaw || `Row ${rowNum}`,
+                        reason: `Skipped: TYPE="${typeValue}" (Only "Wallet Recharge" accepted)`,
+                        data: row
+                    });
+                    continue;
+                }
+
                 if (!trievIdRaw && !mobileRaw) throw new Error("Row skipped: Missing Triev ID or Mobile Number");
                 if (!amountRaw) throw new Error("Row skipped: Missing Amount");
 
