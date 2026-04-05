@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, PasswordResetRequest } from '@/types';
 import ActionMenu from './ActionMenu';
-import { UserX, Clock, ShieldAlert, Users, Briefcase, KeyRound } from 'lucide-react';
+import { UserX, Clock, ShieldAlert, Users, Briefcase, KeyRound, Globe } from 'lucide-react';
 import PasswordResetIndicator from '@/components/PasswordResetIndicator';
 
 interface UserTableProps {
@@ -72,6 +72,7 @@ const UserTable: React.FC<UserTableProps> = ({
     const getRoleIcon = (role: string) => {
         switch (role) {
             case 'admin': return <ShieldAlert size={13} className="text-purple-500" />;
+            case 'cityOps': return <Globe size={13} className="text-orange-500" />;
             case 'teamLeader': return <Users size={13} className="text-blue-500" />;
             case 'reportingManager': return <Briefcase size={13} className="text-teal-500" />;
             default: return null;
@@ -81,6 +82,7 @@ const UserTable: React.FC<UserTableProps> = ({
     const getRoleLabel = (role: string) => {
         switch (role) {
             case 'admin': return 'Admin';
+            case 'cityOps': return 'City Ops';
             case 'teamLeader': return 'Team Leader';
             case 'reportingManager': return 'RM';
             default: return role;
@@ -172,6 +174,7 @@ const UserTable: React.FC<UserTableProps> = ({
                                         onClick={() => onView(user)}
                                         className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm cursor-pointer hover:shadow-md transition-all uppercase border ${
                                             user.role === 'admin' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                                            : user.role === 'cityOps' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
                                             : user.role === 'teamLeader' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
                                             : 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
                                         }`}

@@ -518,19 +518,26 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
 
             {/* Pagination / Load More */}
             {hasMore && !loading && (
-                <div className="flex justify-center pt-2">
+                <div className="flex justify-center pt-4 pb-2">
                     <button
                         onClick={loadMore}
-                        className="px-6 py-2.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded-2xl text-sm font-bold transition-colors shadow-sm"
+                        className="group relative px-8 py-3 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 hover:from-primary/20 hover:via-primary/10 hover:to-primary/20 border border-primary/20 hover:border-primary/40 text-foreground rounded-2xl text-sm font-bold transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-primary/5 active:scale-[0.98]"
                     >
-                        Load More Users
+                        <span className="flex items-center gap-2.5">
+                            <RefreshCw size={15} className="group-hover:rotate-180 transition-transform duration-500" />
+                            Load More Users
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-black">
+                                +{Math.min(20, stats.total - users.filter(u => u.status !== 'deleted').length)}
+                            </span>
+                        </span>
                     </button>
                 </div>
             )}
 
             {loading && users.length > 0 && (
-                <div className="flex justify-center pt-4">
-                    <span className="text-sm text-muted-foreground animate-pulse">Loading more...</span>
+                <div className="flex justify-center items-center gap-3 pt-4">
+                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <span className="text-sm text-muted-foreground font-medium">Loading more users...</span>
                 </div>
             )}
 
