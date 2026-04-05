@@ -22,9 +22,10 @@ interface RealtimePayload {
 
 interface TodaysCollectionCardProps {
     teamLeaderId?: string;
+    tlIds?: string[];
 }
 
-const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderId }) => {
+const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderId, tlIds }) => {
     const [amount, setAmount] = useState<number>(0);
     const [transactionCount, setTransactionCount] = useState<number>(0);
     const [velocity, setVelocity] = useState<number>(0); // transactions in last 2 hours
@@ -64,6 +65,8 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
             if (teamLeaderId) {
                 query = query.eq('rider.team_leader_id', teamLeaderId);
+            } else if (tlIds && tlIds.length > 0) {
+                query = query.in('rider.team_leader_id', tlIds);
             }
 
             const { data, error } = await query;
@@ -89,7 +92,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
         } finally {
             setTimeout(() => setIsSyncing(false), 800);
         }
-    }, [teamLeaderId]);
+    }, [teamLeaderId, tlIds]);
 
     useEffect(() => {
         fetchTodaysCollection();
@@ -116,6 +119,13 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                         setAmount(prev => prev + amt);
                         setTransactionCount(prev => prev + 1);
                     }
+                } else if (tlIds && tlIds.length > 0) {
+                    const { data: riderData } = await supabase
+                        .from('riders').select('team_leader_id').eq('id', newLog.rider_id).single();
+                    if (riderData && tlIds.includes(riderData.team_leader_id || '')) {
+                        setAmount(prev => prev + amt);
+                        setTransactionCount(prev => prev + 1);
+                    }
                 } else {
                     setAmount(prev => prev + amt);
                     setTransactionCount(prev => prev + 1);
@@ -124,7 +134,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [teamLeaderId, fetchTodaysCollection]);
+    }, [teamLeaderId, tlIds, fetchTodaysCollection]);
 
     return (
         <motion.div
@@ -169,7 +179,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 {/* Value */}
                 <div>
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-muted-foreground/70 mb-0.5">
-                        Collection Intelligence ({teamLeaderId ? "Team" : "System"})
+                        Collection Intelligence ({teamLeaderId ? "Team" : (tlIds ? "City Ops" : "System")})
                     </p>
                     <motion.p
                         key={amount}

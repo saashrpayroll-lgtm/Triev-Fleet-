@@ -1,569 +1,992 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 import { supabase } from '@/config/supabase';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
-import {
-    Users, AlertTriangle, Wallet, Zap, Activity, IndianRupee, BarChart3, Shield,
-    ChevronUp, ChevronDown, TrendingUp, TrendingDown, Flame, Crown, Search, Phone, MessageCircle, HandCoins, History, ArrowUpRight, Table
-} from 'lucide-react';
+import { Rider, User, Lead, Request } from '@/types';
+import Leaderboard from '@/components/Leaderboard';
+
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
+import DashboardCharts from '@/components/dashboard/DashboardCharts';
+import RecentActivity from '@/components/dashboard/RecentActivity';
+import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
+import { WalletSyncWidget } from '@/components/WalletSyncWidget';
+import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
+import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
+import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
+import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
+import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
+import ZomatoVIPSection from '@/components/dashboard/ZomatoVIPSection';
+import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
+import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
+import RiderTenure from '@/components/dashboard/RiderTenure';
+import RevenueForecast from '@/components/dashboard/RevenueForecast';
+import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
+import TLComparisonCard from '@/components/dashboard/TLComparisonCard';
+import FleetGrowthIndicator from '@/components/dashboard/FleetGrowthIndicator';
+import { startOfWeek, startOfMonth } from 'date-fns';
+import { sanitizeArray } from '@/utils/sanitizeData';
+import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
+import TLPerformance from '@/pages/admin/TLPerformance';
+import { useCityOpsScope } from '@/hooks/useCityOpsScope';
+import { calculateAIScore } from '@/utils/performance';
 
-// ── Helpers ──
-const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
-const fmtS = (n: number) => {
-    if (Math.abs(n) >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-    if (Math.abs(n) >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-    return fmt(n);
-};
-const pct = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0;
-
-// ── Icons ──
-const TrophyIcon = ({ className }: { className?: string }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-6 h-6 ${className}`}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>;
-const LineChartIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></svg>;
-
-// ── Section Header Component ──
-const SectionHeader: React.FC<{ label: string; icon: React.ElementType; colorClass: string; badge?: string; live?: boolean }> = ({ label, icon: Icon, colorClass, badge, live }) => (
-    <div className={`flex items-center gap-3 w-full py-1 mb-6 mt-10 border-b border-white/5`}>
-        <div className={`p-1.5 rounded bg-${colorClass}-500/10`}>
-            <Icon size={14} className={`text-${colorClass}-500`} />
-        </div>
-        <span className={`text-[12px] font-black uppercase tracking-[0.2em] text-${colorClass}-400`}>{label}</span>
-        {badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full bg-${colorClass}-500/20 text-${colorClass}-300`}>{badge}</span>}
-        <div className="flex-1" />
-        {live && <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            <span className="text-[8px] font-black uppercase tracking-widest text-rose-500">LIVE</span>
-        </div>}
-    </div>
-);
-
-// ── Types ──
-interface RiderRaw { id: string; status: string; wallet_amount: number; client_name: string; team_leader_id: string; allotment_date: string; inactivated_at?: string; rider_name: string; mobile_number: string; }
-interface CollRow { team_leader_id: string; total_collection: number; date: string; }
-interface LeadRow { id: string; status: string; created_by: string; }
-
-// ── Main Dashboard ──
 const CityOpsDashboard: React.FC = () => {
     const { cityOpsId, tlIds, isLoading: scopeLoading } = useCityOpsScope();
+    const { userData } = useSupabaseAuth();
     const navigate = useNavigate();
-
-    const [riders, setRiders] = useState<RiderRaw[]>([]);
-    const [leads, setLeads] = useState<LeadRow[]>([]);
-    const [collToday, setCollToday] = useState<CollRow[]>([]);
-    const [collWeek, setCollWeek] = useState<CollRow[]>([]);
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [loading, setLoading] = useState(true);
-    const [leaderboard, setLeaderboard] = useState<{ name: string; active: number; coll: number; health: number; isMe?: boolean; tlid: string }[]>([]);
-    const [lbLoading, setLbLoading] = useState(false);
-    const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string }[]>([]);
-    const [debtSearch, setDebtSearch] = useState('');
 
-    const fetchAll = useCallback(async () => {
-        if (!cityOpsId || tlIds.length === 0) { setLoading(false); return; }
-        setLoading(true);
+
+    // Raw Data State
+    const [rawData, setRawData] = useState({
+        riders: [] as Rider[],
+        leads: [] as Lead[],
+        requests: [] as Request[],
+        teamLeaders: [] as User[],
+        dailyCollectionsRaw: [] as any[]
+    });
+    const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
+    const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
+    const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
+    // ✅ FIX: Separate period-aware rent collection total from wallet data
+    const [periodRentTotal, setPeriodRentTotal] = useState<number>(0);
+    // ✅ FIX: Period-aware fleet snapshots from daily_collections.active_riders_count
+    const [fleetSnapshots, setFleetSnapshots] = useState<{
+        today: number;    // sum of today's active_riders_count across all TLs
+        week: number;     // sum of latest snapshot per TL within this week
+        month: number;    // sum of latest snapshot per TL within this month
+        allTime: number;  // live rider count (fallback)
+    }>({ today: 0, week: 0, month: 0, allTime: 0 });
+
+    // --- Data Fetching ---
+    // --- Data Fetching & Real-time ---
+    const fetchDashboardData = React.useCallback(async (isInitial = false) => {
+        if (scopeLoading) return;
+        if (tlIds.length === 0) { setLoading(false); return; }
+        if (!userData) return;
+        if (isInitial) setLoading(true);
+
         try {
-            const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-            const [y, m, d] = todayIST.split('-').map(Number);
-            const workingDate = new Date(Date.UTC(y, m - 1, d));
-            const dow = workingDate.getUTCDay();
-            const diffMon = dow === 0 ? 6 : dow - 1;
-            const weekStart = new Date(workingDate);
-            weekStart.setUTCDate(workingDate.getUTCDate() - diffMon);
-            const weekStartStr = weekStart.toISOString().split('T')[0];
-
-            const [ridersRes, leadsRes, collTodayRes, collWeekRes, tlRes] = await Promise.all([
-                fetchAllRidersPaginated('id, status, wallet_amount, client_name, team_leader_id, allotment_date, inactivated_at, rider_name, mobile_number', { column: 'team_leader_id', value: tlIds, type: 'in' }),
-                supabase.from('leads').select('id, status, created_by').in('created_by', tlIds),
-                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [{ column: 'date', operator: 'eq', value: todayIST }, { column: 'team_leader_id', operator: 'in', value: tlIds }]),
-                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [{ column: 'date', operator: 'gte', value: weekStartStr }, { column: 'team_leader_id', operator: 'in', value: tlIds }]),
-                supabase.from('users').select('id, full_name').in('id', tlIds)
+            const [ridersRes, leadsRes, requestsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
+                fetchAllRidersPaginated(`
+                    id,
+                    trievId:triev_id,
+                    riderName:rider_name,
+                    mobileNumber:mobile_number,
+                    chassisNumber:chassis_number,
+                    clientName:client_name,
+                    walletAmount:wallet_amount,
+                    allotmentDate:allotment_date,
+                    status,
+                    teamLeaderId:team_leader_id,
+                    inactivatedAt:inactivated_at,
+                    updatedAt:updated_at,
+                    createdAt:created_at
+                `, { column: 'team_leader_id', type: 'in', value: tlIds }),
+                supabase.from('leads').select(`
+                    id,
+                    leadId:lead_id,
+                    riderName:rider_name,
+                    status,
+                    createdBy:created_by,
+                    createdAt:created_at
+                `).in('created_by', tlIds),
+                supabase.from('requests').select(`
+                    id,
+                    status,
+                    createdAt:created_at
+                `).in('team_leader_id', tlIds),
+                supabase.from('users').select(`
+                    id,
+                    fullName:full_name,
+                    email,
+                    status,
+                    role,
+                    profilePicUrl:profile_pic_url
+                `).in('id', tlIds),
+                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date, active_riders_count', [
+                    { column: 'date', operator: 'gte', value: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)) },
+                    { column: 'team_leader_id', operator: 'in', value: tlIds }
+                ]),
+                fetchTablePaginated('wallet_ledger', `
+                    amount,
+                    transaction_type,
+                    transaction_date,
+                    created_at,
+                    rider:riders!inner (
+                        team_leader_id
+                    )
+                `, [
+                    { column: 'mode', operator: 'eq', value: 'ADD' },
+                    { column: 'rider.team_leader_id', operator: 'in', value: tlIds },
+                    { column: 'transaction_type', operator: 'in', value: [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION',
+                        'RENT_COLLECTION', 'RENT COLLECTION',
+                        'FTD_COLLECTION', 'FTD COLLECTION',
+                        'COLLECTION', 'RENT'
+                    ]},
+                    { operator: 'or', value: (() => {
+                        const now = new Date();
+                        const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+                        const [y, m, d] = todayIST.split('-').map(Number);
+                        const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+                        return `and(transaction_date.gte.${midnight},transaction_date.lte.${new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString()}),and(transaction_date.is.null,created_at.gte.${midnight})`;
+                    })() }
+                ])
             ]);
 
-            setRiders((ridersRes.data || []) as RiderRaw[]);
-            setLeads((leadsRes.data || []) as LeadRow[]);
-            setCollToday((collTodayRes.data || []) as CollRow[]);
-            setCollWeek((collWeekRes.data || []) as CollRow[]);
-            setTeamLeaders((tlRes.data || []).map((t: { id: string; full_name: string }) => ({ id: t.id, name: t.full_name })));
-        } catch (err) { console.error('[CityOps] fetchAll error:', err); }
-        finally { setLoading(false); }
-    }, [cityOpsId, tlIds]);
+            // Note: Removed wallet_transactions fetch to avoid double counting. 
+            // daily_collections now authoritative source.
 
-    useEffect(() => { if (!scopeLoading && cityOpsId && tlIds.length > 0) fetchAll(); }, [scopeLoading, cityOpsId, tlIds.length, fetchAll]);
+            if (ridersRes.error) throw ridersRes.error;
 
-    // Leaderboard Fetch
-    const fetchLeaderboard = useCallback(async () => {
-        setLbLoading(true);
-        try {
-            const { data: tlUsers } = await supabase.from('users').select('id, full_name, city_ops_id').eq('role', 'teamLeader').eq('status', 'active');
-            if (!tlUsers || tlUsers.length === 0) { setLbLoading(false); return; }
+            // ── AUTHORITATIVE DATE-BASED COLLECTION MAPS ─────────────────────────
+            // daily_collections.date = single source of truth for period calcs.
+            // wallet_ledger.created_at = ONLY used for live today amounts for TLs
+            //   that do NOT yet have a daily_collections snapshot for today.
+            // Changing wallet_ledger.created_at does NOT affect weekly/total figures.
 
-            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+            const collections: Record<string, number> = {};
+            const dayMap: Record<string, number> = {};
+            const weekMap: Record<string, number> = {};
 
-            const lb = await Promise.all(tlUsers.map(async (tl: { id: string; full_name: string; city_ops_id: string }) => {
-                const { data: r } = await fetchAllRidersPaginated('id, status', { column: 'team_leader_id', value: tl.id });
-                const riderList = r || [];
-                const active = riderList.filter((x: { status: string }) => x.status === 'active').length;
+            const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+            const now = new Date();
+            const todayStr = istFormatter.format(now);
+            const [year, month, day] = todayStr.split('-').map(Number);
+            const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
 
-                const { data: coll } = await supabase.from('daily_collections').select('total_collection').eq('date', todayStr).eq('team_leader_id', tl.id);
-                const todayColl = (coll || []).reduce((s: number, c: { total_collection: number }) => s + (Number(c.total_collection) || 0), 0);
+            // Week logic (Monday start in IST)
+            const weekDay = workingDateUTC.getUTCDay();
+            const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
+            const weekStartUTC = new Date(workingDateUTC);
+            weekStartUTC.setUTCDate(diff);
+            const weekStart = weekStartUTC.toISOString().split('T')[0];
 
-                return {
-                    name: tl.full_name, tlid: tl.id,
-                    active, coll: todayColl,
-                    health: riderList.length > 0 ? pct(active, riderList.length) : 0,
-                    isMe: tl.city_ops_id === cityOpsId // Highlight City Ops's own network
-                };
-            }));
-            setLeaderboard(lb.sort((a, b) => b.active - a.active));
-        } catch (err) { console.error('[Leaderboard]', err); }
-        finally { setLbLoading(false); }
-    }, [cityOpsId]);
+            const dailyData = dailyRes.data || [];
+            // Track TLs that already have a today snapshot in daily_collections
+            const tlsWithTodaySnapshot = new Set<string>();
 
-    useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
+            // ✅ FIX: Fleet snapshot maps — track latest active_riders_count per TL per period
+            // We use the MOST RECENT snapshot within each window (last ordered row since we order desc)
+            const tlTodayFleet: Record<string, number> = {};      // TL → fleet on today
+            const tlLatestFleetInWeek: Record<string, number> = {};  // TL → latest snapshot in week
+            const tlLatestFleetInMonth: Record<string, number> = {}; // TL → latest snapshot in month
 
-    // Derived Stats
+            const now2 = new Date();
+            const ist2 = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+            const nowStr2 = ist2.format(now2);
+            const [yr2, mo2] = nowStr2.split('-').map(Number);
+            const monthStart2 = `${yr2}-${String(mo2).padStart(2, '0')}-01`;
+
+            dailyData.forEach((d: any) => {
+                const tlId = d.team_leader_id;
+                const amt = Number(d.total_collection) || 0;
+                const fleetCount = Number(d.active_riders_count) || 0;
+                const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+
+                // All-time total
+                collections[tlId] = (collections[tlId] || 0) + amt;
+
+                // Today snapshot
+                if (dDateStr === todayStr) {
+                    tlsWithTodaySnapshot.add(tlId);
+                    dayMap[tlId] = (dayMap[tlId] || 0) + amt;
+                    // Fleet: take today's snapshot
+                    if (fleetCount > 0) tlTodayFleet[tlId] = fleetCount;
+                }
+
+                // Weekly: use date string (authoritative) — includes today if snapshot exists
+                if (dDateStr >= weekStart) {
+                    weekMap[tlId] = (weekMap[tlId] || 0) + amt;
+                    // Fleet: keep the most recent (dailyData is ordered desc, first encounter = latest)
+                    if (fleetCount > 0 && !tlLatestFleetInWeek[tlId]) tlLatestFleetInWeek[tlId] = fleetCount;
+                }
+
+                // Monthly fleet snapshot
+                if (dDateStr >= monthStart2 && dDateStr <= nowStr2) {
+                    if (fleetCount > 0 && !tlLatestFleetInMonth[tlId]) tlLatestFleetInMonth[tlId] = fleetCount;
+                }
+            });
+
+            // Live today from wallet_ledger — ONLY for TLs without a today snapshot
+            const liveTodayByTL: Record<string, number> = {};
+            const todayLedger = (todayLedgerRes?.data as any[]) || [];
+            todayLedger.forEach(txn => {
+                if (txn.rider && txn.rider.team_leader_id) {
+                    const tlId = txn.rider.team_leader_id;
+                    if (!tlsWithTodaySnapshot.has(tlId)) {
+                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
+                    }
+                    // If snapshot exists: daily_collections is authoritative, skip ledger
+                }
+            });
+
+            // Merge live today into dayMap and weekMap (only for no-snapshot TLs)
+            Object.keys(liveTodayByTL).forEach(tlId => {
+                dayMap[tlId] = liveTodayByTL[tlId]; // replace (live data is fresh total)
+                weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
+            });
+
+
+            setTlCollections(collections);
+            setDailyCollections(dayMap);
+            setWeeklyCollections(weekMap);
+
+            // ✅ FIX: Per-TL fleet fleet snapshot with LIVE FALLBACK
+            // Key problem: simple sum of snapshots misses TLs who don't have a daily_collections
+            // entry yet for today (only TLs with today's import have one).
+            // Solution: for each TL, use their snapshot if it exists, else count live active riders.
+            const allRiderData = ridersRes.data || [];
+            const liveFleetByTL: Record<string, number> = {};
+            allRiderData.forEach((r: any) => {
+                if (r.status === 'active' && r.team_leader_id) {
+                    liveFleetByTL[r.team_leader_id] = (liveFleetByTL[r.team_leader_id] || 0) + 1;
+                }
+            });
+            const allTlIds = Object.keys(liveFleetByTL);
+
+            const computeFleetTotal = (snapshotMap: Record<string, number>): number =>
+                allTlIds.reduce((sum, tlId) =>
+                    sum + (snapshotMap[tlId] && snapshotMap[tlId] > 0 ? snapshotMap[tlId] : (liveFleetByTL[tlId] || 0)),
+                    0);
+
+            const liveActiveCount = allRiderData.filter((r: any) => r.status === 'active').length;
+            setFleetSnapshots({
+                today: computeFleetTotal(tlTodayFleet),
+                week: computeFleetTotal(tlLatestFleetInWeek),
+                month: computeFleetTotal(tlLatestFleetInMonth),
+                allTime: liveActiveCount,  // live is always correct for all-time
+            });
+
+            // ✅ FIX: Compute total rent collected from daily_collections (authoritative source)
+            // This is used for the Admin Dashboard "Total Collections" card
+            const totalFromDailyCollections = Object.values(collections).reduce((a, b) => a + b, 0)
+                + Object.values(liveTodayByTL).reduce((a, b) => a + b, 0);
+            setPeriodRentTotal(totalFromDailyCollections);
+
+            setRawData({
+                riders: (ridersRes.data as Rider[] || []).map(r => ({ ...r, walletAmount: r.status === 'active' ? r.walletAmount : 0 })),
+                leads: leadsRes.data as Lead[] || [],
+                requests: requestsRes.data as Request[] || [],
+                teamLeaders: sanitizeArray(usersRes.data as User[] || []),
+                dailyCollectionsRaw: dailyRes.data || []
+            });
+        } catch (error) {
+            console.error('Data Load Error:', error);
+        } finally {
+            if (isInitial) setLoading(false);
+        }
+    }, [userData]);
+
+    useEffect(() => {
+        fetchDashboardData(true);
+
+        // Debounce: avoid hammering fetchDashboardData on rapid ledger inserts
+        let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (ledgerDebounce) clearTimeout(ledgerDebounce);
+            ledgerDebounce = setTimeout(() => fetchDashboardData(), 1200);
+        };
+
+        const channel = supabase
+            .channel('dashboard-updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
+            // ✅ FIX: wallet_ledger realtime — keeps today/weekly collection maps live
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
+            .subscribe();
+
+        // ✅ FIX: Re-fetch data when app comes back from background
+        // Mobile browsers kill WebSocket connections when the app is backgrounded.
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchDashboardData();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            supabase.removeChannel(channel);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchDashboardData, tlIds.length, scopeLoading]);
+
+
+    // --- Filtering Logic (Date & Role) ---
+    const filteredData = useMemo(() => {
+        let { riders, leads, requests, teamLeaders } = rawData;
+        const now = new Date();
+        const filterDate = dateFilter === 'week' ? startOfWeek(now) :
+            dateFilter === 'month' ? startOfMonth(now) : null;
+
+        // 1. Role-Based Filtering
+        if (userData?.role === 'teamLeader') {
+            // const tlId = userData.id;
+            // Filter riders assigned to this TL
+            // Note: Assuming 'team_leader_id' or similar exists, otherwise showing all for now or empty
+            // In a real scenario, we'd filter by riders where team_leader_id == tlId
+            // riders = riders.filter(r => r.team_leader_id === tlId);
+        }
+
+        // 2. Date Filtering (Applied to CreatedAt fields)
+        if (filterDate) {
+            // riders = riders.filter(r => new Date(r.created_at) >= filterDate);
+            leads = leads.filter(l => new Date(l.createdAt) >= filterDate);
+            requests = requests.filter(r => new Date(r.createdAt) >= filterDate);
+        }
+
+        return { riders, leads, requests, teamLeaders };
+    }, [rawData, dateFilter, userData]);
+
+
+    // --- Derived Statistics ---
     const stats = useMemo(() => {
-        const active = riders.filter(r => r.status === 'active');
-        const posW = active.filter(r => r.wallet_amount > 0);
-        const negW = active.filter(r => r.wallet_amount < 0);
-        const posAmt = posW.reduce((sum, r) => sum + r.wallet_amount, 0);
-        const negAmt = negW.reduce((sum, r) => sum + Math.abs(r.wallet_amount), 0);
+        const { riders, leads, requests, teamLeaders } = filteredData;
 
-        const vpi = active.filter(r => r.client_name?.toUpperCase() === 'ZOMATO - VPI');
+        // Wallet Calcs — only for ACTIVE riders (wallet_amount for inactive is already 0 in rawData)
+        const activeRidersList = riders.filter(r => r.status === 'active');
+        const totalWallet = activeRidersList.reduce((sum, r) => sum + r.walletAmount, 0);
+        const positiveWalletData = activeRidersList.filter(r => r.walletAmount > 0);
+        const negativeWalletData = activeRidersList.filter(r => r.walletAmount < 0);
+        // ✅ FIX: zeroWallet should only count ACTIVE riders with 0 balance, not inactive (all show 0)
+        const zeroWalletData = activeRidersList.filter(r => r.walletAmount === 0);
+
+        const negativeSum = negativeWalletData.reduce((sum, r) => sum + r.walletAmount, 0);
+        const avgWallet = activeRidersList.length > 0 ? Math.round(totalWallet / activeRidersList.length) : 0;
+
+        // Critical Monitors
+        const highDebtRiders = negativeWalletData.filter(r => r.walletAmount < -3000);
+        const criticalRequests = requests.filter(r => r.priority === 'high');
+
+        // ✅ FIX: Compute period-specific rent total from daily_collections
+        const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+        const nowStr = istFormatter.format(new Date());
+        const dailyColRaw = (rawData as any).dailyCollectionsRaw || [];
+        let periodRent = 0;
+        if (dateFilter === 'all') {
+            periodRent = periodRentTotal;
+        } else if (dateFilter === 'day') {
+            // Sum all TLs' today collection from dayMap
+            periodRent = Object.values(dailyCollections).reduce((a, b) => a + b, 0);
+        } else if (dateFilter === 'week') {
+            periodRent = Object.values(weeklyCollections).reduce((a, b) => a + b, 0);
+        } else if (dateFilter === 'month') {
+            const yr = new Date().getUTCFullYear();
+            const mo = new Date().getUTCMonth() + 1;
+            const monthStart = `${yr}-${String(mo).padStart(2, '0')}-01`;
+            periodRent = dailyColRaw
+                .filter((d: any) => {
+                    const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                    return dDate >= monthStart && dDate <= nowStr;
+                })
+                .reduce((s: number, d: any) => s + (Number(d.total_collection) || 0), 0);
+        }
 
         return {
-            total: riders.length,
-            active: active.length,
-            inactive: riders.filter(r => r.status === 'inactive').length,
-            vpiCount: vpi.length,
-            vpiAmt: vpi.reduce((sum, r) => sum + r.wallet_amount, 0),
-            walletPos: posW.length,
-            walletNeg: negW.length,
-            posAmt, negAmt,
-            cToday: collToday.reduce((sum, c) => sum + c.total_collection, 0),
-            cWeek: collWeek.reduce((sum, c) => sum + c.total_collection, 0),
-            leads: leads.length,
-            leadConv: leads.filter(l => l.status === 'converted').length,
-            avgWallet: active.length ? Math.round(active.reduce((s, r) => s + r.wallet_amount, 0) / active.length) : 0,
-            highDebt: negW.filter(r => r.wallet_amount <= -3000).sort((a, b) => a.wallet_amount - b.wallet_amount),
-            tlData: teamLeaders.map(tl => {
-                const tRiders = active.filter(r => r.team_leader_id === tl.id);
-                const tLeads = leads.filter(l => l.created_by === tl.id);
-                return {
-                    ...tl,
-                    name: tl.name,
-                    active: tRiders.length,
-                    debtAmt: tRiders.filter(r => r.wallet_amount < 0).reduce((s, r) => s + Math.abs(r.wallet_amount), 0),
-                    leads: tLeads.length,
-                    coll: collToday.filter(c => c.team_leader_id === tl.id).reduce((s, c) => s + c.total_collection, 0)
-                };
-            }).sort((a, b) => b.active - a.active)
-        };
-    }, [riders, leads, collToday, collWeek, teamLeaders]);
+            // Riders — active fleet is period-aware via daily_collections snapshots
+            totalRiders: riders.length,
+            // ✅ FIX: Live count for today and all-time, snapshots for past periods
+            activeRiders: dateFilter === 'day'
+                ? activeRidersList.length
+                : dateFilter === 'week'
+                    ? (fleetSnapshots.week || activeRidersList.length)
+                    : dateFilter === 'month'
+                        ? (fleetSnapshots.month || activeRidersList.length)
+                        : activeRidersList.length,  // 'all' = live count
+            inactiveRiders: riders.filter(r => r.status === 'inactive').length,
+            deletedRiders: riders.filter(r => r.status === 'deleted').length,
 
-    if (loading || scopeLoading) {
-        return <div className="p-8 text-center bg-[#0B0D14] min-h-screen text-white/50 animate-pulse"><Zap className="inline animate-bounce mb-4 text-emerald-500" /> &nbsp;Initializing Advanced Neural Fleet Command...</div>;
+            // Wallet Counts (active riders only)
+            positiveWalletCount: positiveWalletData.length,
+            negativeWalletCount: negativeWalletData.length,
+            zeroWalletCount: zeroWalletData.length,
+            highDebtCount: highDebtRiders.length,
+            lowBalanceCount: activeRidersList.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+
+            // Finance Amounts
+            // ✅ FIX: totalCollection = actual rent from daily_collections for selected period
+            //         NOT wallet positive balances (which change daily)
+            totalCollection: periodRent,
+            outstandingDues: Math.abs(negativeSum),
+            netBalance: totalWallet,
+            avgBalance: avgWallet,
+
+            // Leads
+            totalLeads: leads.length,
+            convertedLeads: leads.filter(l => l.status === 'Convert').length,
+            newLeadsToday: leads.filter(l => {
+                const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                const leadDate = istFormatter.format(new Date(l.createdAt));
+                const todayDate = istFormatter.format(new Date());
+                return leadDate === todayDate;
+            }).length,
+            conversionRate: leads.length > 0 ? Math.round((leads.filter(l => l.status === 'Convert').length / leads.length) * 100) : 0,
+
+            // Requests
+            pendingRequests: requests.filter(r => r.status === 'pending').length,
+            resolvedRequests: requests.filter(r => r.status === 'resolved').length,
+            criticalRequests: criticalRequests.length,
+
+            // TL Stats (Admin Only)
+            totalTLs: teamLeaders.length,
+            activeTLs: teamLeaders.filter(u => u.status === 'active').length,
+            
+            // Zomato VIP Stats — pre-filter once for efficiency
+            ...(() => {
+                const vipRiders = activeRidersList.filter(r => r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'));
+                const vipPos = vipRiders.filter(r => r.walletAmount >= 0);
+                const vipNeg = vipRiders.filter(r => r.walletAmount < 0);
+                const vipWalletTotal = vipRiders.reduce((s, r) => s + r.walletAmount, 0);
+                return {
+                    zomatoTotal: vipRiders.length,
+                    zomatoPosCount: vipPos.length,
+                    zomatoNegCount: vipNeg.length,
+                    zomatoLowBalance: vipRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+                    zomatoHighDebt: vipRiders.filter(r => r.walletAmount < -3000).length,
+                    zomatoWalletTotal: vipWalletTotal,
+                    zomatoAvgWallet: vipRiders.length > 0 ? Math.round(vipWalletTotal / vipRiders.length) : 0,
+                    zomatoPosAmt: vipPos.reduce((s, r) => s + r.walletAmount, 0),
+                    zomatoNegAmt: vipNeg.reduce((s, r) => s + r.walletAmount, 0),
+                };
+            })()
+        };
+    }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter, fleetSnapshots]);
+
+    // --- Chart Data ---
+    const chartData = useMemo(() => {
+
+        return {
+            riders: [
+                { name: 'Active', value: stats.activeRiders, color: '#10b981' },
+                { name: 'Inactive', value: stats.inactiveRiders, color: '#f59e0b' },
+                { name: 'Deleted', value: stats.deletedRiders, color: '#f43f5e' }
+            ],
+            wallet: [
+                { name: 'Collections', value: stats.totalCollection },
+                { name: 'Risk / Dues', value: stats.outstandingDues }
+            ],
+            leads: [
+                { name: 'Converted', value: stats.convertedLeads, color: '#84cc16' },
+                { name: 'Pipeline', value: stats.totalLeads - stats.convertedLeads, color: '#94a3b8' }
+            ]
+        };
+    }, [filteredData, stats]);
+
+    // --- TL Performance Stats ---
+    const period = useMemo(() => resolvePerformancePeriod(dateFilter), [dateFilter]);
+
+    const tlStats = useMemo(() => {
+        const { teamLeaders, riders, leads } = rawData;
+
+        return teamLeaders.map(tl => {
+            const tlCollectionAllTime = tlCollections[tl.id] || 0;
+
+            // Period-specific collection for accurate Avg calculation
+            let periodCollection = tlCollectionAllTime;
+            let activeDays = 1;
+            let perDayAverageCollection = 0;
+
+            if (dateFilter === 'day') {
+                // When viewing Today, "Per Day Avg" should act as a benchmark (Month-To-Date Average)
+                periodCollection = dailyCollections[tl.id] || 0; // Today's actual
+
+                const now = new Date();
+                const year = now.getUTCFullYear();
+                const month = now.getUTCMonth() + 1; // 1-12
+                const monthStartUTC_local = new Date(Date.UTC(year, month - 1, 1));
+                const monthStartStr_local = monthStartUTC_local.toISOString().split('T')[0];
+
+                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                const nowISTStr = formatter.format(now);
+
+                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                const mtdData = tlDailyData.filter((d: any) => {
+                    if (d.team_leader_id !== tl.id) return false;
+                    const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                    // Include up to yesterday, today's data is in periodCollection
+                    return dDateStr >= monthStartStr_local && dDateStr < nowISTStr;
+                });
+
+                const mtdHistoricalTotal = mtdData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                const mtdActiveDays = new Set(mtdData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size;
+
+                // Total MTD = historical + today's live
+                const totalMTD = mtdHistoricalTotal + periodCollection;
+                const totalMTDDays = mtdActiveDays + (periodCollection > 0 ? 1 : 0);
+
+                perDayAverageCollection = Math.round(totalMTDDays > 0 ? (totalMTD / totalMTDDays) : 0);
+                activeDays = 1; // Unused for today's 'periodCollection', purely for local block return
+            } else if (period) {
+                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                const filteredData = tlDailyData.filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end);
+                periodCollection = filteredData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                activeDays = Math.max(1, new Set(filteredData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size);
+                perDayAverageCollection = Math.round(periodCollection / activeDays);
+            }
+
+            const metrics = calculateAIScore(tl, riders, leads, periodCollection, period);
+
+            // Activity Pulse Detection
+            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
+            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
+            const lastLeadTime = tlLeads.length > 0 ? Math.max(...tlLeads.map(l => new Date(l.createdAt).getTime())) : 0;
+            const lastRiderUpdate = tlRiders.length > 0 ? Math.max(...tlRiders.map(r => new Date(r.updatedAt || r.createdAt).getTime())) : 0;
+            const lastActivity = new Date(Math.max(lastLeadTime, lastRiderUpdate)).toISOString();
+
+            return {
+                id: tl.id,
+                name: tl.fullName || 'Unknown',
+                email: tl.email,
+                totalRiders: metrics.totalRiders,
+                activeRiders: metrics.activeRiders,
+                wallet: {
+                    total: metrics.positiveWallet + metrics.negativeWallet,
+                    positiveCount: tlRiders.filter(r => r.walletAmount > 0).length,
+                    positiveAmount: metrics.positiveWallet,
+                    negativeCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length,
+                    negativeAmount: metrics.negativeWallet
+                },
+                leads: {
+                    total: metrics.leadsTotal,
+                    converted: metrics.convertedLeads,
+                    conversionRate: metrics.conversionRate
+                },
+                status: tl.status,
+                totalCollection: metrics.collection,
+                dailyCollection: dailyCollections[tl.id] || 0,
+                weeklyCollection: weeklyCollections[tl.id] || 0,
+                monthlyCollection: (() => {
+                    const now = new Date();
+                    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const nowISTStr = formatter.format(now);
+                    const [y, m] = nowISTStr.split('-').map(Number);
+                    const monthStartStr = new Date(Date.UTC(y, m - 1, 1)).toISOString().split('T')[0];
+                    const monthEndStr = new Date(Date.UTC(y, m, 0)).toISOString().split('T')[0];
+                    const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                    return tlDailyData
+                        .filter((d: any) => d.team_leader_id === tl.id && d.date >= monthStartStr && d.date <= monthEndStr)
+                        .reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                })(),
+                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
+                perDayAverageCollection: perDayAverageCollection || 0,
+                activeDays, // Added activeDays here
+                leadsToday: tlLeads.filter(l => {
+                    const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const leadDate = istFormatter.format(new Date(l.createdAt));
+                    const todayDate = istFormatter.format(new Date());
+                    return leadDate === todayDate;
+                }).length,
+                churnLeads: tlLeads.filter(l => l.status === 'Not Convert').length,
+                criticalDebtCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length,
+                lastActivity,
+                allotments: metrics.allotments,
+                submissions: metrics.submissions,
+                netGrowth: metrics.netGrowth,
+                reportingManager: tl.reportingManager || '',
+                score: metrics.score,
+                aiGrade: metrics.aiGrade
+            };
+        });
+    }, [rawData, tlCollections, dailyCollections, weeklyCollections, period]);
+
+    // --- Render Loading ---
+    if (loading) {
+        return (
+            <div className="space-y-5 pb-10 animate-in fade-in duration-500">
+                {/* Skeleton Header */}
+                <div className="bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5">
+                    <div className="flex items-center gap-4">
+                        <div className="hidden sm:block w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700 animate-pulse" />
+                        <div className="space-y-2 flex-1">
+                            <div className="h-7 w-64 rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 animate-pulse" />
+                            <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+                {/* Skeleton Stat Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="p-4 rounded-2xl border border-border/40 bg-card/50 space-y-3" style={{ animationDelay: `${i * 100}ms` }}>
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                                <div className="h-3 w-20 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            </div>
+                            <div className="h-7 w-24 rounded-lg bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                            <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+                {/* Skeleton Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="lg:col-span-2 h-64 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                    <div className="h-64 rounded-2xl bg-card/50 border border-border/40 animate-pulse" />
+                </div>
+                <p className="text-center text-muted-foreground text-xs font-medium animate-pulse">Initializing Premium Command Center...</p>
+            </div>
+        );
     }
 
+    const isTL = userData?.role === 'teamLeader';
+
     return (
-        <div className="bg-[#0B0D14] min-h-screen text-white p-4 sm:p-6 lg:p-8 pb-32 space-y-10 selection:bg-teal-500/30 overflow-x-hidden relative">
-            {/* Ambient Background */}
-            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 blur-[150px] rounded-full mix-blend-screen" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-emerald-900/10 blur-[150px] rounded-full mix-blend-screen" />
-                <div className="absolute top-[40%] left-[20%] w-[30%] h-[30%] bg-orange-900/5 blur-[120px] rounded-full mix-blend-screen" />
-            </div>
+        <div className="space-y-4 pb-10">
 
-            <div className="relative z-10 max-w-7xl mx-auto space-y-12">
-
-                {/* ══════ FLEET & OPERATIONS ══════ */}
-                <div className="animate-in slide-in-from-bottom-4 duration-500 fade-in">
-                    <SectionHeader label="Fleet & Operations" icon={Activity} colorClass="emerald" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <SmartMetricCard
-                            title="Total Active Fleet"
-                            value={stats.active}
-                            icon={Users}
-                            subtitle={`${stats.inactive} inactive riders`}
-                            color="emerald"
-                            onClick={() => navigate('/city-ops/riders')}
-                        />
-                        <SmartMetricCard
-                            title="Active Leaders"
-                            value={tlIds.length}
-                            icon={Shield}
-                            subtitle="Total Managed Network"
-                            color="indigo"
-                        />
-                        <SmartMetricCard
-                            title="Network Growth"
-                            value={stats.leads}
-                            icon={TrendingUp}
-                            trend={{ value: 2.4, label: 'Trend', direction: 'up' }}
-                            subtitle={`${stats.leadConv} converted leads`}
-                            color="fuchsia"
-                            onClick={() => navigate('/city-ops/leads')}
-                        />
-                        <SmartMetricCard
-                            title="High Priority Debtors"
-                            value={stats.highDebt.length}
-                            icon={AlertTriangle}
-                            subtitle="Immediate Action Required"
-                            color="rose"
-                            onClick={() => navigate('/city-ops/riders')}
-                        />
-                    </div>
-                </div>
-
-                {/* ══════ ZOMATO VIP INTELLIGENCE ══════ */}
-                <div className="relative animate-in slide-in-from-bottom-6 duration-700 fade-in">
-                    <SectionHeader label="Zomato VIP Intelligence" icon={Crown} colorClass="orange" live />
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* Huge Zomato Core Stat */}
-                        <motion.div className="lg:col-span-8 bg-[#1B1512]/90 backdrop-blur-md border border-orange-500/20 rounded-2xl p-6 shadow-[0_0_30px_rgba(249,115,22,0.05)] border-t-orange-500/30 relative overflow-hidden group">
-                            <div className="absolute -top-10 -right-10 w-48 h-48 bg-orange-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-orange-500/20 transition-all duration-700" />
-                            <div className="relative z-10 flex flex-col h-full justify-between">
-                                <div className="flex items-center gap-2 mb-6">
-                                    <div className="p-1.5 bg-orange-500/20 rounded text-orange-500 shadow-[0_0_10px_currentColor]"><Flame size={14} /></div>
-                                    <div className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-400">VIP Core Fleet <span className="text-orange-400/50">Active State</span></div>
-                                </div>
-                                <div className="text-6xl font-black tracking-tighter text-white drop-shadow-md mb-8">{stats.vpiCount} <span className="text-xl text-orange-400/80 font-bold tracking-normal">Elite Riders</span></div>
-                                
-                                <div className="grid grid-cols-2 gap-4 border-t border-orange-500/10 pt-6">
-                                    <div>
-                                        <div className="text-[10px] font-bold text-orange-500/60 uppercase flex items-center gap-1.5 mb-1"><Wallet size={12} /> Net System Value</div>
-                                        <div className="text-3xl font-black text-white">{fmt(stats.vpiAmt)}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] font-bold text-orange-500/60 uppercase flex items-center gap-1.5 mb-1"><BarChart3 size={12} /> Avg VIP Balance</div>
-                                        <div className="text-3xl font-black text-orange-400">{fmt(stats.vpiCount > 0 ? stats.vpiAmt / stats.vpiCount : 0)}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                        
-                        {/* Zomato Side Stats */}
-                        <div className="lg:col-span-4 flex flex-col gap-4">
-                            <SmartMetricCard
-                                title="Outstanding Dues"
-                                value={fmt(-stats.highDebt.reduce((s,r) => s+r.wallet_amount, 0))}
-                                icon={Activity}
-                                subtitle="Total Critical Debt Value"
-                                color="rose"
-                            />
-                            <div className="flex-1 bg-[#1A1814]/80 backdrop-blur-md border border-amber-500/20 rounded-2xl p-5 hover:bg-[#1A1814] transition-colors cursor-pointer flex flex-col justify-center" onClick={() => navigate('/city-ops/riders')}>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase mb-2"><AlertTriangle size={12} /> Urgent Action</div>
-                                        <span className="text-4xl font-black text-amber-500 tracking-tight">{stats.vpiCount > 0 ? Math.round(stats.vpiCount * 0.15) : 0}</span>
-                                        <span className="text-[10px] text-amber-500/50 block font-semibold mt-1">Low Balance Risk</span>
-                                    </div>
-                                    <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg"><TrendingDown className="text-amber-500" size={16} /></div>
-                                </div>
-                            </div>
+            {/* --- HEADER --- */}
+            <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/60 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/20 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-slate-900/30"
+            >
+                <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="hidden sm:flex p-3 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-2xl border border-indigo-500/20">
+                        <div className="relative flex items-center justify-center">
+                            <div className="absolute inset-0 bg-indigo-500 blur-xl opacity-40 rounded-full" />
+                            <Sparkles className="relative text-indigo-500" size={24} />
                         </div>
                     </div>
-                </div>
-
-                {/* ══════ FINANCIAL PERFORMANCE ══════ */}
-                <div className="animate-in slide-in-from-bottom-8 duration-700 fade-in">
-                    <SectionHeader label="Financial & Wallet Intelligence" icon={IndianRupee} colorClass="blue" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <SmartMetricCard
-                            title="Total Network Collections"
-                            value={fmt(stats.cToday)}
-                            icon={HandCoins}
-                            trend={{ value: 5.2, label: 'Trend', direction: 'up' }}
-                            subtitle="Today's Total Receipts"
-                            color="emerald"
-                        />
-                        <SmartMetricCard
-                            title="Weekly Velocity"
-                            value={fmt(stats.cWeek)}
-                            icon={BarChart3}
-                            subtitle="Rolling 7-Day Performance"
-                            color="indigo"
-                        />
-                        <div className="sm:col-span-2 bg-[#10141D]/90 backdrop-blur-md border border-white/5 rounded-2xl p-6 relative overflow-hidden flex flex-col justify-center text-left">
-                            <div className="absolute top-0 right-0 w-64 h-full bg-blue-500/5 pointer-events-none skew-x-[-20deg] translate-x-10" />
-                            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-500/20 blur-[50px] rounded-full pointer-events-none" />
-                            <div className="flex items-center justify-between relative z-10 w-full">
-                                <div>
-                                    <h4 className="flex items-center gap-1.5 text-[10px] font-black uppercase text-blue-400 tracking-[0.1em] mb-1"><LineChartIcon /> Net Liquidity State</h4>
-                                    <div className="text-4xl font-black text-white">{fmt(stats.posAmt - stats.negAmt)}</div>
-                                    <div className="text-xs font-semibold text-white/40 mt-1">Global Wallet Accumulation</div>
-                                </div>
-                                <div className="text-right border-l border-white/10 pl-6 h-full flex flex-col justify-center">
-                                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-wider mb-1 block flex items-center justify-end gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"/> Receivables (Neg)</span>
-                                    <span className="text-2xl font-black text-white tracking-tight">-{fmtS(stats.negAmt)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ══════ HIERARCHICAL DEBT LIABILITY ══════ */}
-                <div className="animate-in slide-in-from-bottom-10 duration-700 fade-in">
-                    <SectionHeader label="Hierarchical Debt Liability Analyzer" icon={Search} colorClass="rose" />
-                    <div className="bg-[#15131A]/90 backdrop-blur-md border border-rose-500/10 rounded-2xl p-6 relative overflow-hidden">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                            <h3 className="text-lg font-black text-white flex items-center gap-2">
-                                <AlertTriangle className="text-rose-500" size={20} /> Deep Debt Inspection
-                            </h3>
-                            <div className="relative w-full sm:w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={14} />
-                                <input
-                                    type="text"
-                                    placeholder="Search Rider or TL..."
-                                    value={debtSearch}
-                                    onChange={(e) => setDebtSearch(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs font-semibold text-white focus:outline-none focus:border-rose-500/50 transition-colors"
-                                />
-                            </div>
-                        </div>
-                        
-                        <div className="overflow-x-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse min-w-[600px]">
-                                <thead>
-                                    <tr className="border-b border-white/5 uppercase text-[9px] font-black text-white/40 tracking-[0.1em]">
-                                        <th className="pb-3 px-3">Primary Offender (Rider)</th>
-                                        <th className="pb-3 px-3">Liable Team Leader</th>
-                                        <th className="pb-3 px-3">Deficit Amount</th>
-                                        <th className="pb-3 px-3 text-right">Quick Contact Task</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {stats.highDebt
-                                        .filter(r => r.rider_name.toLowerCase().includes(debtSearch.toLowerCase()) || teamLeaders.find(t => t.id === r.team_leader_id)?.name.toLowerCase().includes(debtSearch.toLowerCase()))
-                                        .slice(0, 10).map((r) => (
-                                        <tr key={r.id} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors group">
-                                            <td className="py-3 px-3">
-                                                <div className="font-bold text-sm text-white group-hover:text-rose-400 transition-colors">{r.rider_name}</div>
-                                                <div className="text-[9px] text-white/40 font-mono mt-0.5">{r.mobile_number}</div>
-                                            </td>
-                                            <td className="py-3 px-3">
-                                                <div className="text-xs font-semibold text-white/80">{teamLeaders.find(t => t.id === r.team_leader_id)?.name || 'Unknown TL'}</div>
-                                            </td>
-                                            <td className="py-3 px-3">
-                                                <span className="text-sm font-black text-rose-500 bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20">{fmt(r.wallet_amount)}</span>
-                                            </td>
-                                            <td className="py-3 px-3 text-right space-x-2">
-                                                <button className="p-1.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black transition-colors" title="WhatsApp Alert">
-                                                    <MessageCircle size={14} />
-                                                </button>
-                                                <button className="p-1.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 hover:bg-blue-500 hover:text-black transition-colors" title="Direct Call">
-                                                    <Phone size={14} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {stats.highDebt.length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="py-8 text-center text-white/30 text-sm font-bold">No high debt riders found.</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        {stats.highDebt.length > 10 && <div className="text-center mt-4"><button className="text-[10px] font-black uppercase text-white/30 hover:text-white/60 transition-colors tracking-widest" onClick={() => navigate('/city-ops/riders')}>View All {stats.highDebt.length} Debtors →</button></div>}
-                    </div>
-                </div>
-
-                {/* ══════ TEAM LEADER PERFORMANCE MATRIX ══════ */}
-                <div className="animate-in slide-in-from-bottom-12 duration-700 fade-in">
-                    <SectionHeader label="Team Leader Performance Matrix" icon={Table} colorClass="fuchsia" />
-                    <div className="bg-[#12121A]/90 backdrop-blur-md border border-fuchsia-500/10 rounded-2xl overflow-hidden shadow-2xl">
-                        <div className="px-6 py-4 border-b border-white/5 bg-gradient-to-r from-fuchsia-500/10 to-transparent flex justify-between items-center">
-                            <span className="text-[11px] font-black tracking-[0.2em] text-fuchsia-400 uppercase">⚡ TL Execution Grid</span>
-                        </div>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse min-w-[700px]">
-                                <thead className="sticky top-0 bg-[#12121A] z-10 border-b border-white/5 shadow-md">
-                                    <tr className="uppercase text-[9px] font-black text-white/40 tracking-[0.1em]">
-                                        <th className="py-4 px-6">Ident</th>
-                                        <th className="py-4 px-4 text-center">Net Fleet</th>
-                                        <th className="py-4 px-4 text-center">Live Debt</th>
-                                        <th className="py-4 px-4 text-center">Lead Flow</th>
-                                        <th className="py-4 px-4 text-center">Coll Today</th>
-                                        <th className="py-4 px-6 text-right">Ops Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {stats.tlData.map((tl) => (
-                                        <tr key={tl.id} className="hover:bg-white/[0.02] transition-colors group">
-                                            <td className="py-4 px-6 flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full flex-shrink-0 bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xs font-black border border-fuchsia-500/30">
-                                                    {(tl.name || 'U').charAt(0)}
-                                                </div>
-                                                <span className="text-sm font-bold text-white group-hover:text-fuchsia-300 transition-colors truncate max-w-[150px]">{tl.name}</span>
-                                            </td>
-                                            <td className="py-4 px-4 text-center text-sm font-black text-emerald-400">{tl.active}</td>
-                                            <td className="py-4 px-4 text-center text-sm font-bold text-rose-500">{fmtS(-tl.debtAmt)}</td>
-                                            <td className="py-4 px-4 text-center text-xs font-bold text-indigo-300">{tl.leads}</td>
-                                            <td className="py-4 px-4 text-center text-sm font-black text-white">{fmtS(tl.coll)}</td>
-                                            <td className="py-4 px-6 text-right space-x-2 whitespace-nowrap">
-                                                <button onClick={() => navigate(`/city-ops/riders?tl=${tl.id}`)} className="p-1.5 rounded bg-white/5 text-white/70 hover:bg-white/20 hover:text-white transition-all ring-1 ring-white/10" title="View Riders">
-                                                    <Users size={12} />
-                                                </button>
-                                                <button onClick={() => navigate(`/city-ops/leads?tl=${tl.id}`)} className="p-1.5 rounded bg-white/5 text-white/70 hover:bg-white/20 hover:text-white transition-all ring-1 ring-white/10" title="View Leads">
-                                                    <Zap size={12} />
-                                                </button>
-                                                <button onClick={() => alert('Detailed Collection Card Trigger: Route to reports...')} className="p-1.5 rounded bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black transition-all ring-1 ring-emerald-500/20" title="Collection Intel">
-                                                    <History size={12} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {stats.tlData.length === 0 && (
-                                        <tr>
-                                            <td colSpan={6} className="py-8 text-center text-white/30 text-sm font-bold">No TL data found in your scope.</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ══════ THE FLEET CHAMPIONS PODIUM (PRESERVED AT BOTTOM) ══════ */}
-                <div className="pt-10 w-full animate-in slide-in-from-bottom-16 duration-700 fade-in">
-                    <div className="flex flex-col items-center justify-center text-center mb-10">
-                        <h2 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
-                            <TrophyIcon className="text-amber-500" /> The Grid Champions
-                        </h2>
-                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] mt-1 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b] animate-pulse" /> Supreme Network Rankings
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-1 drop-shadow-sm">
+                            City Ops Interface
+                        </h1>
+                        <p className="text-muted-foreground text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            </span>
+                            Live System Sync &mdash; {new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium' }).format(new Date())}
                         </p>
                     </div>
+                </div>
+                <div className="flex w-full sm:w-auto p-1.5 bg-slate-100/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar">
+                    {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
+                        <button
+                            key={filter}
+                            onClick={() => setDateFilter(filter)}
+                            className={`
+                                flex-1 sm:flex-none px-4 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap
+                                ${dateFilter === filter
+                                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md scale-100 ring-1 ring-black/5 dark:ring-white/5'
+                                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 scale-95 hover:scale-100'
+                                }
+                            `}
+                        >
+                            {filter === 'all' ? 'All Time' : filter === 'day' ? 'Today' : filter === 'month' ? 'Month' : 'Week'}
+                        </button>
+                    ))}
+                </div>
+            </motion.div>
 
-                    {lbLoading ? (
-                        <div className="h-64 flex items-center justify-center text-white/30 animate-pulse">Computing Standings...</div>
-                    ) : (
-                        <div className="flex flex-col items-center w-full overflow-x-auto pb-6 custom-scrollbar">
-                            {/* Podium Top 3 */}
-                            <div className="flex items-end justify-center gap-4 sm:gap-6 lg:gap-10 mb-8 min-w-[800px] sm:min-w-0 max-w-5xl w-full px-4">
-                                {leaderboard[1] && <PodiumCard rank={2} color="slate" data={leaderboard[1]} />}
-                                {leaderboard[0] && <PodiumCard rank={1} color="amber" data={leaderboard[0]} tall />}
-                                {leaderboard[2] && <PodiumCard rank={3} color="orange" data={leaderboard[2]} />}
-                            </div>
-
-                            {/* Other Rankings Glass Panel */}
-                            {leaderboard.length > 3 && (
-                                <div className="w-full max-w-5xl bg-[#13151F]/80 backdrop-blur-md border border-white/5 rounded-3xl overflow-hidden mt-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] outline outline-1 outline-white/[0.02]">
-                                    <div className="px-6 py-4 border-b border-white/5 flex items-center justify-center bg-white/[0.02] shadow-inner">
-                                        <span className="text-[10px] font-black tracking-[0.3em] text-white/40 uppercase items-center flex gap-2">
-                                            <ArrowUpRight size={14} className="text-indigo-400" /> Rest of Fleet Command
-                                        </span>
-                                    </div>
-                                    <div className="divide-y divide-white/5 max-h-[350px] overflow-y-auto custom-scrollbar">
-                                        {leaderboard.slice(3, 10).map((lb, i) => (
-                                            <motion.div key={i} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: i * 0.05 }} viewport={{ once: true }}
-                                                className={`grid grid-cols-12 gap-4 items-center px-6 py-5 hover:bg-white/5 transition-all ${lb.isMe ? 'bg-indigo-500/10 border-l-4 border-indigo-500' : 'border-l-4 border-transparent'}`}>
-                                                <div className="col-span-1 text-sm font-black text-white/20 w-8 text-center">#{i + 4}</div>
-                                                <div className="col-span-4 flex items-center gap-4">
-                                                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black border ${lb.isMe ? 'bg-indigo-500 border-indigo-400 text-black shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-[#1C1F2D] border-white/10 text-white/70'}`}>
-                                                        {lb.name.charAt(0)}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="text-sm font-bold text-white truncate flex items-center gap-2">
-                                                            {lb.name} {lb.isMe && <span className="text-[9px] bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full uppercase">Your Network</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="col-span-2 text-center">
-                                                    <div className="text-[9px] font-bold text-white/30 uppercase mb-1">Fleet</div>
-                                                    <div className="text-sm font-black text-emerald-400">{lb.active}</div>
-                                                </div>
-                                                <div className="col-span-2 text-center">
-                                                    <div className="text-[9px] font-bold text-white/30 uppercase mb-1">Collected</div>
-                                                    <div className="text-sm font-black text-white">{fmtS(lb.coll)}</div>
-                                                </div>
-                                                <div className="col-span-3 flex justify-end">
-                                                    <button onClick={() => navigate(`/city-ops/riders?tl=${lb.tlid}`)} className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg transition-all">Inspect</button>
-                                                </div>
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+            {/* Wallet Sync Widget */}
+            <WalletSyncWidget />
+            {/* --- Fleet & Operations --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
+                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
                         </div>
-                    )}
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
+                    {/* BLACK: System Health — premium dark card */}
+                    <SmartMetricCard
+                        title="System Health"
+                        value={`${stats.activeRiders}/${stats.totalRiders}`}
+                        icon={Activity}
+                        color="emerald"
+                        trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'uptime', direction: 'up' }}
+                        subtitle="Active Riders Ratio"
+                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
+                        progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Team Strength"
+                        value={stats.totalTLs.toString()}
+                        icon={Users}
+                        color="violet"
+                        subtitle={`${stats.activeTLs} Active Leaders`}
+                        onClick={() => navigate('/portal/users?role=teamLeader')}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Pending Ops"
+                        value={stats.pendingRequests}
+                        icon={Inbox}
+                        color="blue"
+                        aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
+                        subtitle={`${stats.criticalRequests} High Priority`}
+                        onClick={() => navigate('/portal/requests?status=pending')}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Growth Engine"
+                        value={`${stats.conversionRate}%`}
+                        icon={UserPlus}
+                        color="fuchsia"
+                        trend={{ value: 5, label: 'velocity', direction: 'up' }}
+                        subtitle={`${stats.newLeadsToday} New Leads Today`}
+                        progress={stats.conversionRate}
+                        onClick={() => navigate('/portal/leads?status=New')}
+                        isCurrency={false}
+                    />
+                </div>
+            </motion.div>
+
+            {/* --- Zomato VIP Intelligence --- */}
+            <ZomatoVIPSection stats={stats} />
+
+            {/* --- Financial Performance --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-indigo-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30 border border-white/20">
+                            <TrendingUp size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-indigo-200">Financial Performance</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/40 via-indigo-500/10 to-transparent" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                    {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
+                    <SmartMetricCard
+                        title="Total Collections"
+                        value={stats.totalCollection}
+                        icon={Wallet}
+                        color="indigo"
+                        trend={{ value: 12, label: 'revenue', direction: 'up' }}
+                        subtitle={`${stats.positiveWalletCount} Positive Wallets`}
+                        progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
+                    />
+
+                    <TodaysCollectionCard tlIds={tlIds} />
+
+                    {/* NEW Projected vs Actual Revenue Card */}
+                    <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-500/20 rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg transition-all shadow-sm">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="text-xs font-black uppercase text-indigo-600/80 dark:text-indigo-400 tracking-wider">Revenue Projection (Daily)</h3>
+                                <p className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1 drop-shadow-sm">
+                                    ₹{stats.totalCollection.toLocaleString('en-IN')}
+                                </p>
+                            </div>
+                            <div className="p-2 sm:p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400">
+                                <TrendingUp size={16} className="sm:w-5 sm:h-5" />
+                            </div>
+                        </div>
+                        <div className="mt-auto">
+                            <div className="flex justify-between items-end mb-1">
+                                <span className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center gap-1">
+                                    Target: ₹{(stats.activeRiders * 500).toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400">
+                                    {stats.activeRiders > 0 ? Math.min(100, Math.round((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}% Formed
+                                </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-border rounded-full overflow-hidden flex">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${stats.activeRiders > 0 ? Math.min(100, ((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}%` }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                />
+                            </div>
+                            <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
+                                <Activity size={10} /> Based on approx. ₹500/day per active rider
+                            </p>
+                        </div>
+                    </div>
+
+                    <SmartMetricCard
+                        title="Net Liquidity"
+                        value={stats.netBalance}
+                        icon={Smartphone}
+                        color="violet"
+                        subtitle="Total System Value"
+                        onClick={() => navigate('/portal/riders')}
+                    />
+
+                    <SmartMetricCard
+                        title="Avg Wallet"
+                        value={stats.avgBalance}
+                        icon={TrendingUp}
+                        color="cyan"
+                        subtitle="Mean Fleet Balance"
+                        onClick={() => navigate('/portal/riders')}
+                    />
+                </div>
+            </motion.div>
+
+            {/* --- Wallet Health & Risk --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-amber-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30 border border-white/20">
+                            <ShieldCheck size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent dark:from-amber-400 dark:to-amber-200">Wallet Health & Risk</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/40 via-amber-500/10 to-transparent" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                    {/* --- ROW 3: RIDER WALLET HEALTH --- */}
+                    <SmartMetricCard
+                        title="Positive Riders"
+                        value={stats.positiveWalletCount}
+                        icon={TrendingUp}
+                        color="emerald"
+                        subtitle="Wallet > 0"
+                        trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
+                        progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Negative Riders"
+                        value={stats.negativeWalletCount}
+                        icon={TrendingDown}
+                        color="rose"
+                        subtitle="Wallet < 0"
+                        trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
+                        progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Zero Balance"
+                        value={stats.zeroWalletCount}
+                        icon={Coins}
+                        color="amber"
+                        subtitle="Dormant Wallets"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Low Balance (0-250)"
+                        value={stats.lowBalanceCount}
+                        icon={AlertTriangle}
+                        color="orange"
+                        className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
+                        subtitle="At-Risk of Rejection"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Highly Indebted"
+                        value={stats.highDebtCount}
+                        icon={TrendingDown}
+                        color="red"
+                        className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
+                        subtitle="Debt > ₹3000"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
+                        isCurrency={false}
+                    />
+
+                    {/* BLACK: Outstanding Risk — premium dark card */}
+                    <SmartMetricCard
+                        title="Outstanding Risk"
+                        value={stats.outstandingDues}
+                        icon={AlertTriangle}
+                        color="rose"
+                        aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
+                        subtitle={`${stats.negativeWalletCount} Negative Wallets`}
+                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                        isCurrency={true}
+                    />
+                </div>
+            </motion.div>
+
+            {/* --- Growth & Retention --- */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="space-y-3 sm:space-y-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-lime-500 blur-md opacity-40 rounded-full" />
+                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-lime-500/30 border border-white/20">
+                            <Zap size={12} className="text-white sm:w-4 sm:h-4" />
+                        </div>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-lime-600 to-emerald-500 bg-clip-text text-transparent dark:from-lime-400 dark:to-emerald-300">Growth & Retention</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-lime-500/40 via-lime-500/10 to-transparent" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-2 font-jakarta">
+                    <SmartMetricCard
+                        title="Lead Conversion"
+                        value={stats.convertedLeads}
+                        icon={Sparkles}
+                        color="lime"
+                        trend={{ value: stats.conversionRate, label: 'rate', direction: 'up' }}
+                        subtitle={`${stats.totalLeads} Total Leads`}
+                        progress={stats.conversionRate}
+                        onClick={() => navigate('/portal/leads?status=Convert')}
+                        isCurrency={false}
+                    />
+
+                    <SmartMetricCard
+                        title="Churn Monitor"
+                        value={stats.inactiveRiders}
+                        icon={UserCheck}
+                        color="slate"
+                        trend={{ value: stats.totalRiders > 0 ? Math.round((stats.inactiveRiders / stats.totalRiders) * 100) : 0, label: 'churn rate', direction: 'down' }}
+                        subtitle={`${stats.deletedRiders} Permanently Deleted`}
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                        isCurrency={false}
+                    />
+                </div>
+            </motion.div>
+
+            {/* --- Wallet Watchlist --- */}
+            <WalletWatchlist riders={rawData.riders} />
+
+            {/* ── Charts & Activity ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
+                {/* Charts Area (2/3 width) */}
+                <div className="lg:col-span-2">
+                    <DashboardCharts
+                        riderData={chartData.riders}
+                        walletData={chartData.wallet.filter(d => d.value !== 0)}
+                        leadData={chartData.leads}
+                    />
                 </div>
 
+                {/* Activity Feed (1/3 width) */}
+                <div className="lg:col-span-1 flex flex-col gap-3">
+                    <div>
+                        <WeeklyCollectionChart />
+                    </div>
+                    <div className="flex-grow">
+                        <RecentActivity />
+                    </div>
+                </div>
             </div>
+
+            
+            {/* TL Performance Podium (Native Injection) */}
+            <TLPerformance scopedTlIds={tlIds} />
+
         </div>
     );
 };
-
-// ── Shared Podium Card (Exactly as requested) ──
-const PodiumCard: React.FC<{ rank: number; color: 'amber' | 'slate' | 'orange'; data: { name: string; active: number; coll: number; health: number }; tall?: boolean }> = ({ rank, color, data, tall }) => {
-    const isGold = rank === 1;
-    const bgMap = {
-        amber: 'bg-[#18150D]/90 border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-amber-500/20',
-        slate: 'bg-[#1A1C23]/90 border-slate-400/30 shadow-[0_0_20px_rgba(148,163,184,0.1)] ring-slate-400/10',
-        orange: 'bg-[#18110D]/90 border-orange-600/30 shadow-[0_0_20px_rgba(234,88,12,0.1)] ring-orange-600/10'
-    };
-    const accentMap = { amber: 'text-amber-400', slate: 'text-slate-300', orange: 'text-orange-500' };
-
-    return (
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: rank * 0.1, duration: 0.7 }}
-            className={`flex flex-col items-center px-1 sm:px-2 w-[280px] sm:w-[320px] relative`}>
-            
-            <motion.div animate={isGold ? { y: [-2, 2, -2] } : {}} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-                className={`mb-4 z-20 ${accentMap[color]} drop-shadow-[0_0_15px_currentColor]`}>
-                {isGold ? <Crown size={48} strokeWidth={2.5} /> : <TrophyIcon className="!w-10 !h-10 opacity-90" />}
-            </motion.div>
-
-            <div className={`w-full rounded-[28px] border ring-1 flex flex-col items-center pt-8 pb-6 px-5 relative overflow-hidden backdrop-blur-xl ${bgMap[color]} ${tall ? 'min-h-[380px]' : 'min-h-[340px] mt-8'}`}>
-                <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-${color}-500/20 blur-[40px] rounded-full`} />
-
-                <div className="absolute top-4 left-4 flex gap-1.5">
-                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm bg-${color}-500/10 border border-${color}-500/20 ${accentMap[color]}`}>Tier {rank}</span>
-                </div>
-                <div className="absolute top-4 right-4 flex items-center gap-1 text-[8px] font-black uppercase bg-black/40 border border-white/10 px-2 py-0.5 rounded-full text-white/70 mt-1 sm:mt-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> AI Realtime
-                </div>
-
-                <div className="relative mt-2 mb-4">
-                    <div className={`w-16 h-16 rounded-full border-2 border-${color}-500/50 bg-[#0B0D14] flex items-center justify-center text-xl font-black ${accentMap[color]} shadow-[0_0_15px_currentColor] ring-4 ring-black`}>
-                        {data.name.charAt(0)}
-                    </div>
-                    {isGold && <div className="absolute -bottom-2 -left-3 bg-amber-500/20 border border-amber-500 text-amber-400 text-[8px] font-black px-1.5 rounded uppercase backdrop-blur-md whitespace-nowrap">Top Operator</div>}
-                </div>
-
-                <div className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-${color}-500 text-black mb-2 shadow-[0_0_10px_currentColor] mt-2`}>RANK #{rank}</div>
-
-                <div className="text-base font-black text-white text-center truncate w-full mb-1 px-2">{data.name}</div>
-                <div className="text-[10px] text-white/40 font-bold mb-4">FLEET COMMAND</div>
-
-                <div className={`bg-black/50 border border-white/5 rounded-xl px-6 py-2 flex items-center gap-2 mb-6 shadow-inner w-full justify-center`}>
-                    <TrendingUp size={12} className={accentMap[color]} />
-                    <span className="text-2xl font-black text-white">{data.coll > 0 ? (data.coll / 10).toFixed(0) : 5693}</span>
-                    <span className="text-[8px] text-white/30 uppercase font-black mt-1">PTS</span>
-                </div>
-
-                <div className="w-full grid grid-cols-4 gap-1 sm:gap-2 border-t border-white/5 pt-4">
-                    <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-white">{data.active}</span>
-                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Fleet</span>
-                    </div>
-                    <div className="flex flex-col items-center border-l border-white/5">
-                        <span className="text-[10px] font-black text-emerald-400 flex items-center"><ChevronUp size={10} />{(data.health * 1.5).toFixed(1)}%</span>
-                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Growth</span>
-                    </div>
-                    <div className="flex flex-col items-center border-l border-white/5">
-                        <span className="text-[10px] font-black text-rose-400 flex items-center"><ChevronDown size={10} />12.1%</span>
-                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Churn</span>
-                    </div>
-                    <div className="flex flex-col items-center border-l border-white/5">
-                        <span className="text-[10px] font-black text-indigo-300">{(data.active * 1.2).toFixed(0)}d</span>
-                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Age</span>
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
-};
-
 export default CityOpsDashboard;
