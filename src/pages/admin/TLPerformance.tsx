@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '@/config/supabase';
 import {
     Download, Search, TrendingUp, Users, Activity, ArrowUpRight,
-    Filter, Wallet, Calendar, ChevronDown, UserCheck, RefreshCw,
+    Filter, Calendar, ChevronDown, UserCheck, RefreshCw,
     ChevronUp, AlertTriangle, Star, Target, Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -185,17 +185,19 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             const teamLeaders: User[] = (tlRes.data || []).map((u: Record<string, unknown>) => ({
                 ...u,
                 id: u.id as string,
+                userId: (u.user_id as string) || '',
                 fullName: (u.full_name as string) || (u.fullName as string) || 'Unknown TL',
                 email: u.email as string,
-                mobile: u.mobile as string,
+                mobile: (u.mobile as string) || '',
+                username: (u.username as string) || '',
                 role: u.role as string,
+                jobLocation: (u.job_location as string) || '',
                 status: u.status as UserStatus,
                 reportingManager: (u.reporting_manager as string) || '',
-                city_ops_id: u.city_ops_id as string,
                 permissions: u.permissions as Record<string, unknown>,
-                createdAt: u.created_at as string,
-                updatedAt: u.updated_at as string,
-            } as User));
+                createdAt: (u.created_at as string) || '',
+                updatedAt: (u.updated_at as string) || '',
+            } as unknown as User));
 
             setRawData({
                 riders: ridersRes.data || [],
