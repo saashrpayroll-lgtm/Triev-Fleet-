@@ -145,7 +145,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             const now = new Date();
             mappedUsers.forEach(async (userData) => {
                 if (userData.status === 'suspended' && userData.suspendedUntil) {
-                    const suspendedUntilDate = new Date(userData.suspendedUntil as any);
+                    const suspendedUntilDate = new Date(userData.suspendedUntil as string);
                     if (now > suspendedUntilDate) {
                         await supabase.from('users').update({
                             status: 'active',
@@ -171,7 +171,7 @@ export const useUsers = (config?: UseUsersConfig) => {
 
         const subscription = supabase
             .channel('users-list-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload: any) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
                 // console.log('Real-time sync payload:', payload); // Removed for security
                 const { eventType, new: next, old } = payload;
 
@@ -246,7 +246,7 @@ export const useUsers = (config?: UseUsersConfig) => {
     }, [fetchUsers, scopedCityOpsId]);
 
     // Create User
-    const createUser = useCallback(async (userData: any, password: string): Promise<boolean> => {
+    const createUser = useCallback(async (userData: Partial<User>, password: string): Promise<boolean> => {
         try {
             // 1. Create in Supabase Auth (using secondary client)
             const tempSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -257,9 +257,8 @@ export const useUsers = (config?: UseUsersConfig) => {
                 }
             });
 
-            // Pass metadata so the DB Trigger can populate the profile
             const { data: authData, error: authError } = await tempSupabase.auth.signUp({
-                email: userData.email,
+                email: userData.email || '',
                 password: password,
                 options: {
                     data: {
@@ -295,7 +294,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             // 3. Update Full Profile Details
             // The trigger only sets: id, email, role, full_name, mobile, created_at
             // We need to save: user_id (custom), job_location, reporting_manager, remarks, username, position
-            const updatePayload: any = {
+            const updatePayload: Record<string, unknown> = {
                 user_id: userData.userId,
                 username: userData.username,
                 job_location: userData.jobLocation,
@@ -335,9 +334,10 @@ export const useUsers = (config?: UseUsersConfig) => {
                 await fetchUsers(); // Auto-refresh
             }, 1000);
             return true;
-        } catch (err: any) {
-            console.error('Create User Error (Full):', err);
-            toast.error('Failed to create user: ' + (err.message || "Unknown error"));
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error('Create User Error (Full):', error);
+            toast.error('Failed to create user: ' + (error.message || "Unknown error"));
             return false;
         }
     }, [currentUser, fetchUsers, scopedCityOpsId, toast]);
@@ -352,7 +352,7 @@ export const useUsers = (config?: UseUsersConfig) => {
         }
 
         try {
-            const updatePayload: any = {
+            const updatePayload: Record<string, unknown> = {
                 updated_at: new Date().toISOString()
             };
 
@@ -388,7 +388,7 @@ export const useUsers = (config?: UseUsersConfig) => {
                 await refreshUserData();
             }
             return true;
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Update User Error:', err);
             toast.error('Failed to update user');
             return false;
@@ -409,7 +409,7 @@ export const useUsers = (config?: UseUsersConfig) => {
             // Logic: active -> inactive, anything else -> active
             const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
 
-            const updateData: any = {
+            const updateData: Record<string, unknown> = {
                 status: newStatus,
                 updated_at: new Date().toISOString()
             };
@@ -444,9 +444,10 @@ export const useUsers = (config?: UseUsersConfig) => {
             if (currentUser && currentUser.id === userId) {
                 await refreshUserData();
             }
-        } catch (error: any) {
+        } catch (err: unknown) {
+            const error = err as Error;
             console.error("Error toggling status:", error);
-            const msg = error?.message || "Failed to update status";
+            const msg = error.message || "Failed to update status";
             toast.error(msg);
         }
     }, [currentUser, isImmune, fetchUsers, refreshUserData, toast]);
@@ -594,9 +595,10 @@ export const useUsers = (config?: UseUsersConfig) => {
 
             toast.success('User permanently deleted from database');
             await fetchUsers();
-        } catch (err: any) {
-            console.error('Permanent Delete Error:', err);
-            toast.error(err.message || 'Failed to permanently delete user');
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error('Permanent Delete Error:', error);
+            toast.error(error.message || 'Failed to permanently delete user');
         }
     }, [currentUser, fetchUsers, isImmune, toast]);
 
@@ -691,7 +693,7 @@ export const useUsers = (config?: UseUsersConfig) => {
 
         await runBulkAction(selectedUsers, async (u) => {
             const newStatus = u.status === 'active' ? 'inactive' : 'active';
-            const updateData: any = {
+            const updateData: Record<string, unknown> = {
                 status: newStatus,
                 updated_at: new Date().toISOString()
             };
