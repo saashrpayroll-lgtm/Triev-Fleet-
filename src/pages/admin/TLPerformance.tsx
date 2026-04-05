@@ -276,9 +276,11 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
     const processRows = useMemo<TLRow[]>(() => {
         const { fetchedTodayStr } = rawData;
+        const { start, end } = getDateRangeStr(dateFilter, customRange);
+        const period = { start, end };
 
         return rawData.teamLeaders.map(tl => {
-            const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, rawData.todayMap[tl.id] || 0);
+            const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, rawData.todayMap[tl.id] || 0, period);
 
             // Period collection
             const periodCol = (() => {
@@ -337,7 +339,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 churnCount: churnedRiders,
             };
         });
-    }, [rawData, dateFilter, daysInPeriod]);
+    }, [rawData, dateFilter, daysInPeriod, customRange, getDateRangeStr]);
 
     const uniqueRMs = useMemo(() => {
         const rms = [...new Set(processRows.map(t => t.reportingManager).filter(r => r && r !== 'N/A'))];
@@ -739,13 +741,18 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
                                         {/* Wallet Health: POS / NEG counts + amounts + % */}
                                         <td className="px-2 py-3">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="px-1.5 py-0.5 rounded font-black text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">{tl.positiveCount} POS</span>
-                                                <span className="px-1.5 py-0.5 rounded font-black text-[10px] bg-rose-500/10 text-rose-600 border border-rose-500/20">{tl.negativeCount} NEG</span>
-                                            </div>
-                                            <div className="mt-1 space-y-0.5">
-                                                <div className="text-[9px] text-emerald-600 font-semibold">{fmtShort(tl.positiveAmount)} <span className="text-muted-foreground">({tl.walletPositivePct}%)</span></div>
-                                                <div className="text-[9px] text-rose-600 font-semibold">-{fmtShort(Math.abs(tl.negativeAmount))}</div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                    <span className="px-1 py-0.5 rounded font-black text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 w-12 text-center">{tl.positiveCount} POS</span>
+                                                    <span className="text-[10px] text-emerald-600 font-bold">{fmtShort(tl.positiveAmount)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                    <span className="px-1 py-0.5 rounded font-black text-[9px] bg-rose-500/10 text-rose-600 border border-rose-500/20 w-12 text-center">{tl.negativeCount} NEG</span>
+                                                    <span className="text-[10px] text-rose-600 font-bold">-{fmtShort(Math.abs(tl.negativeAmount))}</span>
+                                                </div>
+                                                <div className="text-[8px] text-muted-foreground mt-0.5 font-semibold">
+                                                    POS: {tl.walletPositivePct}% &nbsp;|&nbsp; NEG: {100 - (tl.walletPositivePct || 100)}%
+                                                </div>
                                             </div>
                                         </td>
 
@@ -831,9 +838,15 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                         </td>
                                         {/* Wallet totals */}
                                         <td className="px-2 py-3">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="font-black text-emerald-600">{totals.positiveCount} POS</span>
-                                                <span className="font-black text-rose-600">{totals.negativeCount} NEG</span>
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-black text-[10px] text-emerald-600 w-10">{totals.positiveCount} POS</span>
+                                                    <span className="text-[10px] text-emerald-600">{fmtShort(totals.positiveAmount)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-black text-[10px] text-rose-600 w-10">{totals.negativeCount} NEG</span>
+                                                    <span className="text-[10px] text-rose-600">-{fmtShort(Math.abs(totals.negativeAmount))}</span>
+                                                </div>
                                             </div>
                                         </td>
                                         {/* Flow totals */}

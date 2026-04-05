@@ -75,10 +75,31 @@ const SC: React.FC<{
 );
 
 // ── Action buttons ──
-const ActionBtns: React.FC<{ mobile?: string; name?: string; toast: ReturnType<typeof useToast> }> = ({ mobile, name, toast: t }) => {
+const ActionBtns: React.FC<{ mobile?: string; name?: string; tlId?: string; toast: ReturnType<typeof useToast> }> = ({ mobile, name, tlId, toast: t }) => {
     if (!mobile) return null;
     const clean = mobile.replace(/\D/g, '').replace(/^0+/, '');
     const phone = clean.startsWith('91') ? clean : `91${clean}`;
+    
+    const handleReminder = async () => {
+        t.info(`Sending reminder to ${name || 'Rider'}...`);
+        try {
+            if (tlId) {
+                await supabase.from('notifications').insert({
+                    user_id: tlId,
+                    title: 'Follow-Up Required',
+                    message: `Please follow up with rider ${name || mobile} regarding their wallet balance.`,
+                    type: 'reminder',
+                    priority: 'high',
+                    is_read: false
+                });
+            }
+            t.success(`Database reminder triggered for ${name || mobile}`);
+        } catch (e) {
+            console.error(e);
+            t.error('Failed to send reminder');
+        }
+    };
+
     return (
         <div className="flex gap-1.5 flex-shrink-0">
             <a href={`tel:+${phone}`} className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 transition-colors" title="Call">
@@ -89,7 +110,7 @@ const ActionBtns: React.FC<{ mobile?: string; name?: string; toast: ReturnType<t
                 className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 transition-colors" title="WhatsApp">
                 <MessageCircle size={12} />
             </a>
-            <button onClick={() => t.success(`Reminder sent to ${name || mobile}`)} className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 transition-colors" title="Reminder">
+            <button onClick={handleReminder} className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 transition-colors" title="Reminder">
                 <Bell size={12} />
             </button>
         </div>
@@ -117,8 +138,6 @@ interface RiderRaw { id: string; status: string; wallet_amount: number; client_n
 interface TLEntry { id: string; full_name: string; reporting_manager: string; }
 interface CollRow { team_leader_id: string; total_collection: number; date: string; }
 interface LeadRow { id: string; status: string; created_by: string; }
-interface CityOpsUser { id: string; full_name: string; }
-
 type Section = 'fleet' | 'zomato' | 'financial' | 'wallet' | 'growth' | 'alerts' | 'leaderboard' | 'watchlist';
 
 // ── Main Component ──
@@ -137,7 +156,7 @@ const CityOpsDashboard: React.FC = () => {
     const [lastRefresh, setLastRefresh] = useState(new Date());
     const [section, setSection] = useState<Section>('fleet');
     const [negExpanded, setNegExpanded] = useState(false);
-    const [leaderboard, setLeaderboard] = useState<{ name: string; active: number; coll: number; health: number }[]>([]);
+    const [leaderboard, setLeaderboard] = useState<{ name: string; active: number; coll: number; health: number; isMe?: boolean }[]>([]);
     const [lbLoading, setLbLoading] = useState(false);
 
     // ✅ FIX: Use paginated fetch to avoid 1000-row limit
@@ -173,7 +192,7 @@ const CityOpsDashboard: React.FC = () => {
             setRiders((ridersRes.data || []) as RiderRaw[]);
             setLeads((leadsRes.data || []) as LeadRow[]);
             const tmap: Record<string, TLEntry> = {};
-            (tlRes.data || []).forEach((t: any) => { tmap[t.id] = t; });
+            (tlRes.data || []).forEach((t: { id: string; full_name: string; reporting_manager: string }) => { tmap[t.id] = t; });
             setTlMap(tmap);
             setCollToday((collTodayRes.data || []) as CollRow[]);
             setCollWeek((collWeekRes.data || []) as CollRow[]);
@@ -195,29 +214,34 @@ const CityOpsDashboard: React.FC = () => {
         return () => { supabase.removeChannel(ch); clearTimeout(t); };
     }, [cityOpsId, fetchAll]);
 
-    // Leaderboard (company-wide — fetches all CityOps)
+    // Leaderboard (company-wide — fetches all Team Leaders)
     const fetchLeaderboard = useCallback(async () => {
-        if (lbLoading) return;
         setLbLoading(true);
         try {
-            const { data: coUsers } = await supabase.from('users').select('id, full_name').eq('role', 'cityOps').eq('status', 'active');
-            if (!coUsers || coUsers.length === 0) { setLbLoading(false); return; }
-            const lb = await Promise.all(coUsers.map(async (co: CityOpsUser) => {
-                const { data: tls } = await supabase.from('users').select('id').eq('role', 'teamLeader').or(`city_ops_id.eq.${co.id}`);
-                const coTlIds = (tls || []).map((t: { id: string }) => t.id);
-                if (coTlIds.length === 0) return { name: co.full_name, active: 0, coll: 0, health: 0 };
-                const { data: r } = await fetchAllRidersPaginated('id, status', { column: 'team_leader_id', value: coTlIds, type: 'in' });
+            const { data: tlUsers } = await supabase.from('users').select('id, full_name, city_ops_id').eq('role', 'teamLeader').eq('status', 'active');
+            if (!tlUsers || tlUsers.length === 0) { setLbLoading(false); return; }
+            
+            const lb = await Promise.all(tlUsers.map(async (tl: { id: string; full_name: string; city_ops_id: string }) => {
+                const { data: r } = await fetchAllRidersPaginated('id, status', { column: 'team_leader_id', value: tl.id });
                 const riderList = r || [];
-                const active = riderList.filter((x: any) => x.status === 'active').length;
+                const active = riderList.filter((x: { status: string }) => x.status === 'active').length;
+                
                 const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-                const { data: coll } = await supabase.from('daily_collections').select('total_collection').eq('date', todayStr).in('team_leader_id', coTlIds);
-                const todayColl = (coll || []).reduce((s: number, c: any) => s + (c.total_collection || 0), 0);
-                return { name: co.full_name, active, coll: todayColl, health: riderList.length > 0 ? pct(active, riderList.length) : 0 };
+                const { data: coll } = await supabase.from('daily_collections').select('total_collection').eq('date', todayStr).eq('team_leader_id', tl.id);
+                const todayColl = (coll || []).reduce((s: number, c: { total_collection: number }) => s + (Number(c.total_collection) || 0), 0);
+                
+                return { 
+                    name: tl.full_name, 
+                    active, 
+                    coll: todayColl, 
+                    health: riderList.length > 0 ? pct(active, riderList.length) : 0,
+                    isMe: tl.city_ops_id === cityOpsId // Highlight TLs that belong to this CityOps
+                };
             }));
             setLeaderboard(lb.sort((a, b) => b.active - a.active));
         } catch (err) { console.error('[Leaderboard]', err); }
         finally { setLbLoading(false); }
-    }, [lbLoading]);
+    }, [cityOpsId]);
 
     useEffect(() => { if (section === 'leaderboard' && leaderboard.length === 0) fetchLeaderboard(); }, [section, leaderboard.length, fetchLeaderboard]);
 
@@ -429,9 +453,9 @@ const CityOpsDashboard: React.FC = () => {
                                         <div className="text-xs font-bold truncate">{r.rider_name || r.id.slice(0, 12)}</div>
                                         <div className="text-[9px] text-muted-foreground">{tlMap[r.team_leader_id]?.full_name || '—'} · {r.mobile_number}</div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className="text-xs font-black text-rose-600">-{fmtS(Math.abs(r.wallet_amount))}</span>
-                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} toast={toast} />
+                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} tlId={r.team_leader_id} toast={toast} />
                                     </div>
                                 </div>
                             ))}
@@ -565,16 +589,16 @@ const CityOpsDashboard: React.FC = () => {
                     <div className="bg-card border border-border/60 rounded-2xl p-8 text-center animate-pulse text-muted-foreground text-sm">Loading company-wide data...</div>
                 ) : (
                     <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                        <h3 className="text-xs font-black mb-3 flex items-center gap-2"><Award size={14} className="text-amber-500" /> City Ops Ranking (Active Fleet)</h3>
+                        <h3 className="text-xs font-black mb-3 flex items-center gap-2"><Award size={14} className="text-amber-500" /> Team Leader Ranking (Active Fleet)</h3>
                         <div className="space-y-1.5">
                             {leaderboard.map((lb, i) => {
-                                const isMe = lb.name === userData?.fullName;
+                                const isMe = lb.isMe;
                                 return (
                                     <div key={i} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${isMe ? 'bg-amber-500/10 border-amber-500/30 ring-1 ring-amber-400/30' : 'border-border/30'}`}>
                                         <div className="flex items-center gap-2">
                                             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-500 text-white' : i === 1 ? 'bg-slate-400 text-white' : i === 2 ? 'bg-amber-700 text-white' : 'bg-muted text-muted-foreground'}`}>{i + 1}</div>
                                             <div>
-                                                <div className={`text-xs font-bold ${isMe ? 'text-amber-600' : ''}`}>{lb.name} {isMe ? '(You)' : ''}</div>
+                                                <div className={`text-xs font-bold ${isMe ? 'text-amber-600' : ''}`}>{lb.name} {isMe ? '(Your Team)' : ''}</div>
                                                 <div className="text-[9px] text-muted-foreground">Health: {lb.health}%</div>
                                             </div>
                                         </div>
@@ -608,7 +632,7 @@ const CityOpsDashboard: React.FC = () => {
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className="text-xs font-black text-rose-600">-{fmtS(Math.abs(r.wallet_amount))}</span>
-                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} toast={toast} />
+                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} tlId={r.team_leader_id} toast={toast} />
                                     </div>
                                 </div>
                             ))}
@@ -627,7 +651,7 @@ const CityOpsDashboard: React.FC = () => {
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <span className="text-xs font-black text-amber-600">{fmt(r.wallet_amount || 0)}</span>
-                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} toast={toast} />
+                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} tlId={r.team_leader_id} toast={toast} />
                                     </div>
                                 </div>
                             ))}

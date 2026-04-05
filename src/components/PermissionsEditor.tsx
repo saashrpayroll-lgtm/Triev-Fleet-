@@ -78,10 +78,24 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             collectionHistory: false, export: false
         },
         cityOpsPanel: {
-            dashboard: false, riderManagement: false, leadManagement: false, leaderboard: false,
+            view: false,
+            dashboard: {
+                view: false,
+                statsCards: {
+                    totalRiders: false, activeRiders: false, inactiveRiders: false, deletedRiders: false,
+                    teamLeaders: false, revenue: false,
+                    totalLeads: false, newLeads: false, convertedLeads: false, notConvertedLeads: false,
+                    walletPositive: false, walletNegative: false, walletZero: false, walletAverage: false,
+                    leaderboard: false,
+                    zomatoVpi: false
+                },
+                charts: { revenue: false, onboarding: false, weeklyCollection: false },
+                recentActivity: false
+            },
+            riderManagement: false, leadManagement: false, leaderboard: false,
             dataManagement: { bulkRiderImport: false, bulkWalletUpdate: false, rentCollectionImport: false, auditSync: false, importHistory: false, googleSheets: false },
             walletLedger: false, reports: false, activityLog: false, notifications: false, analytics: false, walletBifurcation: false,
-            companyForms: false, staffRoles: false, rmPerformance: false, tlPerformance: false, allotmentSystem: false, profile: false
+            companyForms: false, staffRoles: false, rmPerformance: false, tlPerformance: false, allotmentSystem: false, profile: false, export: false
         }
     };
 
@@ -481,24 +495,44 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             label: 'City Ops Panel',
             icon: Users,
             permissions: [
-                { id: 'co_dash', label: 'Dashboard', description: 'View City Ops Dashboard', risk: 'low', path: 'cityOpsPanel.dashboard' },
+                { id: 'co_view', label: 'View Panel', description: 'Access City Ops Panel', risk: 'low', path: 'cityOpsPanel.view' },
+                { id: 'co_dash_view', label: 'View Dashboard', description: 'Access City Ops Dashboard', risk: 'low', path: 'cityOpsPanel.dashboard.view' },
+                { id: 'co_dash_revenue', label: 'View Revenue Stats', description: 'See financial metrics', risk: 'medium', path: 'cityOpsPanel.dashboard.statsCards.revenue' },
+                { id: 'co_dash_recent', label: 'Recent Activity', description: 'View latest system actions log', risk: 'low', path: 'cityOpsPanel.dashboard.recentActivity' },
+                { id: 'co_dash_zomato', label: 'Zomato Intelligence', description: 'View Zomato specific metrics', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.zomatoVpi' },
+                { id: 'co_dash_leaderboard', label: 'Leaderboard Stats', description: 'View leaderboard toplist', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.leaderboard' },
+                
+                // Dashboard Cards
+                { id: 'co_dash_total_riders', label: 'Total Riders Card', description: 'View total riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.totalRiders' },
+                { id: 'co_dash_active_riders', label: 'Active Riders Card', description: 'View active riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.activeRiders' },
+                { id: 'co_dash_inactive_riders', label: 'Inactive Riders Card', description: 'View inactive riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.inactiveRiders' },
+                { id: 'co_dash_deleted_riders', label: 'Deleted Riders Card', description: 'View deleted riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.deletedRiders' },
+                
+                { id: 'co_dash_wallet_pos', label: 'Positive Wallet Card', description: 'View positive wallet stats', risk: 'medium', path: 'cityOpsPanel.dashboard.statsCards.walletPositive' },
+                { id: 'co_dash_wallet_neg', label: 'Negative Wallet Card', description: 'View negative wallet stats', risk: 'medium', path: 'cityOpsPanel.dashboard.statsCards.walletNegative' },
+                
+                // Modules
                 { id: 'co_riders', label: 'Rider Management', description: 'Manage riders across city', risk: 'medium', path: 'cityOpsPanel.riderManagement' },
                 { id: 'co_leads', label: 'Lead Management', description: 'Manage leads across city', risk: 'medium', path: 'cityOpsPanel.leadManagement' },
-                { id: 'co_leaderboard', label: 'Leaderboard', description: 'View city leaderboard', risk: 'low', path: 'cityOpsPanel.leaderboard' },
+                { id: 'co_leaderboard', label: 'Leaderboard Page', description: 'View full leaderboard page', risk: 'low', path: 'cityOpsPanel.leaderboard' },
                 { id: 'co_rm_perf', label: 'RM Performance', description: 'View RM performance metrics', risk: 'low', path: 'cityOpsPanel.rmPerformance' },
                 { id: 'co_tl_perf', label: 'TL Performance', description: 'View TL performance metrics', risk: 'low', path: 'cityOpsPanel.tlPerformance' },
                 { id: 'co_allot', label: 'Allotment System', description: 'Access TL rider allotment system', risk: 'medium', path: 'cityOpsPanel.allotmentSystem' },
                 { id: 'co_forms', label: 'Company Forms', description: 'View company wide forms', risk: 'low', path: 'cityOpsPanel.companyForms' },
+                
+                // Data Hub
                 { id: 'co_data_rider', label: 'Data Hub: Import Riders', description: 'Bulk rider import', risk: 'high', path: 'cityOpsPanel.dataManagement.bulkRiderImport' },
                 { id: 'co_data_wallet', label: 'Data Hub: Bulk Wallet', description: 'Bulk wallet update', risk: 'high', path: 'cityOpsPanel.dataManagement.bulkWalletUpdate' },
                 { id: 'co_data_rent', label: 'Data Hub: Rent Collection', description: 'Rent collection import', risk: 'high', path: 'cityOpsPanel.dataManagement.rentCollectionImport' },
+                
                 { id: 'co_wallet_ledger', label: 'Wallet Logs', description: 'View comprehensive wallet ledger', risk: 'low', path: 'cityOpsPanel.walletLedger' },
                 { id: 'co_reports', label: 'Reports', description: 'Generate city reports', risk: 'low', path: 'cityOpsPanel.reports' },
                 { id: 'co_activity', label: 'Activity Logs', description: 'View city activity log', risk: 'low', path: 'cityOpsPanel.activityLog' },
-                { id: 'co_notif', label: 'Notifications', description: 'Manage notifications', risk: 'low', path: 'cityOpsPanel.notifications' },
+                { id: 'co_notif', label: 'Notifications Page', description: 'Manage notifications', risk: 'low', path: 'cityOpsPanel.notifications' },
                 { id: 'co_analytics', label: 'Analytics', description: 'Advanced analytics access', risk: 'low', path: 'cityOpsPanel.analytics' },
                 { id: 'co_roles', label: 'Staff & Roles', description: 'Create and manage RM/TL users', risk: 'high', path: 'cityOpsPanel.staffRoles' },
                 { id: 'co_profile', label: 'My Profile', description: 'Edit city ops profile', risk: 'low', path: 'cityOpsPanel.profile' },
+                { id: 'co_export', label: 'Export Data', description: 'Export City Ops reports', risk: 'medium', path: 'cityOpsPanel.export' },
             ]
         }
     ];

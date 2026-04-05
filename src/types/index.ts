@@ -134,7 +134,20 @@ export interface UserPermissions {
     };
     // City Ops Panel permissions (controlled by Admin via Permission Manager)
     cityOpsPanel?: {
-        dashboard: boolean;
+        view: boolean;
+        dashboard: {
+            view: boolean;
+            statsCards: {
+                totalRiders: false, activeRiders: false, inactiveRiders: false, deletedRiders: false,
+                teamLeaders: false, revenue: false,
+                totalLeads: false, newLeads: false, convertedLeads: false, notConvertedLeads: false,
+                walletPositive: false, walletNegative: false, walletZero: false, walletAverage: false,
+                leaderboard: false,
+                zomatoVpi: false
+            },
+            charts: { revenue: false, onboarding: false, weeklyCollection: false },
+            recentActivity: false
+        };
         riderManagement: boolean;
         leadManagement: boolean;
         leaderboard: boolean;
@@ -158,6 +171,7 @@ export interface UserPermissions {
         tlPerformance: boolean;
         allotmentSystem: boolean;
         profile: boolean;
+        export: boolean;
     };
 }
 
