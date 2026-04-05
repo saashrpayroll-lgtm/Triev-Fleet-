@@ -39,7 +39,8 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         if (!user) return;
 
         const checkInactivity = () => {
-            if (Date.now() - lastActivityRef.current > AUTO_LOGOUT_TIME) {
+            const stayActive = localStorage.getItem('stayActive') === 'true';
+            if (!stayActive && Date.now() - lastActivityRef.current > AUTO_LOGOUT_TIME) {
                 signOut();
             }
         };

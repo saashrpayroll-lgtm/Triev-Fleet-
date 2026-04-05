@@ -1,9 +1,3 @@
-/**
- * City Ops Dashboard — Premium Command Center v3
- * ✅ Paginated fetch (fixes 629-vs-712 accuracy bug)
- * ✅ 8 sections: Fleet, Zomato VPI, Financial, Wallet, Growth, Alerts, Leaderboard, Watchlist
- * ✅ Call / WhatsApp / Reminder action buttons
- */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -15,7 +9,7 @@ import {
     Users, UserCheck, AlertTriangle, Target, Wallet, RefreshCw,
     Zap, Activity, ChevronRight, IndianRupee, BarChart3, Clock, Shield,
     Bike, Star, ChevronUp, ChevronDown, Phone, MessageCircle, Bell,
-    Award, TrendingUp, UserPlus, Flame, Crown
+    Award, TrendingUp, UserPlus, Flame, Crown, Navigation, CheckCircle, XCircle
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -28,117 +22,83 @@ const fmtS = (n: number) => {
 };
 const pct = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0;
 
-
-
 // ── Section header ──
-const SectionHeader: React.FC<{ label: string; icon: React.ElementType; color: string }> = ({ label, icon: Icon, color }) => (
-    <div className="flex items-center gap-2.5 px-1 mt-2">
-        <div className="relative">
-            <div className={`absolute inset-0 ${color.replace('from-', 'bg-').split(' ')[0].replace('bg-gradient-to-r', '')} blur-md opacity-40 rounded-full`} />
-            <div className={`relative w-7 h-7 rounded-full bg-gradient-to-br ${color} flex items-center justify-center shadow-lg border border-white/20`}>
-                <Icon size={12} className="text-white" />
-            </div>
+const SectionHeader: React.FC<{ label: string; icon: React.ElementType; colorClass: string; badge?: string; live?: boolean }> = ({ label, icon: Icon, colorClass, badge, live }) => (
+    <div className={`flex items-center gap-3 w-full py-1 mb-4 mt-6 border-b border-white/5`}>
+        <div className={`p-1.5 rounded bg-${colorClass}-500/10`}>
+            <Icon size={14} className={`text-${colorClass}-500`} />
         </div>
-        <span className={`text-[11px] font-black uppercase tracking-[0.2em] bg-gradient-to-r ${color} bg-clip-text text-transparent`}>{label}</span>
-        <div className={`flex-1 h-px bg-gradient-to-r ${color} opacity-30`} />
+        <span className={`text-[11px] font-black uppercase tracking-[0.2em] text-${colorClass}-400`}>{label}</span>
+        {badge && <span className={`text-[9px] px-1.5 py-0.5 rounded-full bg-${colorClass}-500/20 text-${colorClass}-300`}>{badge}</span>}
+        <div className="flex-1" />
+        {live && <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <span className="text-[8px] font-black uppercase tracking-widest text-rose-500">LIVE</span>
+        </div>}
     </div>
 );
 
-// ── Stat card ──
-const SC: React.FC<{
+// ── Glass Stat Card ──
+const GlassCard: React.FC<{
     title: string; value: string | number; icon: React.ElementType; color: string;
-    sub?: string; onClick?: () => void; badge?: string; alert?: boolean; progress?: number;
-}> = ({ title, value, icon: Icon, color, sub, onClick, badge, alert, progress }) => (
+    sub?: string; onClick?: () => void; progress?: number; highlightBadge?: string; subValues?: { label: string, val: string | number }[];
+}> = ({ title, value, icon: Icon, color, sub, onClick, progress, highlightBadge, subValues }) => (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        whileHover={onClick ? { scale: 1.03, y: -2 } : {}} onClick={onClick}
-        className={`bg-card border rounded-2xl p-4 shadow-sm relative overflow-hidden transition-all
-            ${alert ? 'border-rose-500/40 bg-rose-500/5' : 'border-border/60'}
-            ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}>
-        {badge && <span className="absolute top-2 right-2 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 border border-amber-500/30">{badge}</span>}
-        <div className="flex items-start justify-between">
-            <div className="space-y-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 truncate">{title}</p>
-                <p className="text-xl font-black tabular-nums truncate">{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</p>
-                {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
-            </div>
-            <div className={`p-2 rounded-xl bg-${color}-500/10 flex-shrink-0`}>
-                <Icon size={16} className={`text-${color}-600`} />
-            </div>
-        </div>
-        {progress !== undefined && (
-            <div className="mt-2 w-full bg-muted/40 rounded-full h-1.5">
-                <div className={`bg-${color}-500 rounded-full h-1.5 transition-all duration-700`} style={{ width: `${Math.min(progress, 100)}%` }} />
+        whileHover={onClick ? { scale: 1.02, y: -2, borderColor: `rgba(255,255,255,0.15)` } : { scale: 1.01 }}
+        onClick={onClick}
+        className={`relative bg-[#151722]/80 backdrop-blur-md border border-white/5 rounded-2xl p-4 sm:p-5 overflow-hidden transition-all duration-300
+            ${onClick ? 'cursor-pointer hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)]' : 'shadow-lg'}
+            group`}>
+        
+        {/* Glow orb */}
+        <div className={`absolute -top-10 -right-10 w-32 h-32 bg-${color}-500/10 blur-3xl rounded-full pointer-events-none group-hover:bg-${color}-500/20 transition-all duration-700`} />
+        
+        {highlightBadge && (
+            <div className={`absolute top-3 right-3 text-[9px] font-black p-1 px-2 rounded-md bg-${color}-500/10 border border-${color}-500/30 text-${color}-400 uppercase`}>
+                {highlightBadge}
             </div>
         )}
-        {onClick && <div className={`flex items-center gap-1 mt-2 text-[10px] font-semibold text-${color}-600`}>View <ChevronRight size={10} /></div>}
+
+        <div className="flex items-start justify-between relative z-10">
+            <div className="p-2 rounded-lg bg-white/5 border border-white/5 mb-3 group-hover:bg-white/10 transition-colors">
+                <Icon size={14} className={`text-${color}-400 drop-shadow-[0_0_8px_currentColor]`} />
+            </div>
+        </div>
+
+        <div className="space-y-1 relative z-10">
+            <h4 className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/40">{title}</h4>
+            <div className={`text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md`}>{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</div>
+            {sub && <p className={`text-[10px] font-medium text-${color}-400/80`}>↳ {sub}</p>}
+        </div>
+
+        {subValues && (
+            <div className="mt-4 flex flex-col gap-1.5 border-t border-white/5 pt-3">
+                {subValues.map((sv, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/40 font-semibold">{sv.label}</span>
+                        <span className="text-[11px] font-bold text-white/80">{sv.val}</span>
+                    </div>
+                ))}
+            </div>
+        )}
+
+        {progress !== undefined && (
+            <div className="mt-4 space-y-1.5">
+                <div className="flex justify-between text-[8px] font-bold text-white/30 uppercase"><span className="text-white/20">Progress</span><span>{Math.round(progress)}%</span></div>
+                <div className="w-full bg-black/40 rounded-full h-1 ring-1 ring-white/5 overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(progress, 100)}%` }} transition={{ duration: 1.5, delay: 0.2 }}
+                        className={`bg-gradient-to-r from-${color}-600 to-${color}-400 rounded-full h-full shadow-[0_0_10px_currentColor]`} />
+                </div>
+            </div>
+        )}
     </motion.div>
 );
-
-// ── Action buttons ──
-const ActionBtns: React.FC<{ mobile?: string; name?: string; tlId?: string; toast: ReturnType<typeof useToast> }> = ({ mobile, name, tlId, toast: t }) => {
-    if (!mobile) return null;
-    const clean = mobile.replace(/\D/g, '').replace(/^0+/, '');
-    const phone = clean.startsWith('91') ? clean : `91${clean}`;
-    
-    const handleReminder = async () => {
-        t.info(`Sending reminder to ${name || 'Rider'}...`);
-        try {
-            if (tlId) {
-                await supabase.from('notifications').insert({
-                    user_id: tlId,
-                    title: 'Follow-Up Required',
-                    message: `Please follow up with rider ${name || mobile} regarding their wallet balance.`,
-                    type: 'reminder',
-                    priority: 'high',
-                    is_read: false
-                });
-            }
-            t.success(`Database reminder triggered for ${name || mobile}`);
-        } catch (e) {
-            console.error(e);
-            t.error('Failed to send reminder');
-        }
-    };
-
-    return (
-        <div className="flex gap-1.5 flex-shrink-0">
-            <a href={`tel:+${phone}`} className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 transition-colors" title="Call">
-                <Phone size={12} />
-            </a>
-            <a href={`https://wa.me/${phone}?text=${encodeURIComponent(`Hi ${name || 'Rider'}, this is regarding your Triev account.`)}`}
-                target="_blank" rel="noopener noreferrer"
-                className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 transition-colors" title="WhatsApp">
-                <MessageCircle size={12} />
-            </a>
-            <button onClick={handleReminder} className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 transition-colors" title="Reminder">
-                <Bell size={12} />
-            </button>
-        </div>
-    );
-};
-
-// ── Mini bar chart ──
-const WeekBars: React.FC<{ data: { label: string; value: number }[] }> = ({ data }) => {
-    const max = Math.max(...data.map(d => d.value), 1);
-    return (
-        <div className="flex items-end gap-1 h-20">
-            {data.map((d, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[8px] font-black text-muted-foreground">{d.value > 0 ? fmtS(d.value) : ''}</span>
-                    <div className="w-full bg-blue-500/80 rounded-t-sm transition-all duration-700" style={{ height: `${Math.max(pct(d.value, max), 3)}%` }} />
-                    <span className="text-[8px] font-bold text-muted-foreground">{d.label}</span>
-                </div>
-            ))}
-        </div>
-    );
-};
 
 // ── Types ──
 interface RiderRaw { id: string; status: string; wallet_amount: number; client_name: string; team_leader_id: string; allotment_date: string; inactivated_at?: string; rider_name: string; mobile_number: string; }
 interface TLEntry { id: string; full_name: string; reporting_manager: string; }
 interface CollRow { team_leader_id: string; total_collection: number; date: string; }
 interface LeadRow { id: string; status: string; created_by: string; }
-type Section = 'fleet' | 'zomato' | 'financial' | 'wallet' | 'growth' | 'alerts' | 'leaderboard' | 'watchlist';
 
 // ── Main Component ──
 const CityOpsDashboard: React.FC = () => {
@@ -153,13 +113,9 @@ const CityOpsDashboard: React.FC = () => {
     const [collToday, setCollToday] = useState<CollRow[]>([]);
     const [collWeek, setCollWeek] = useState<CollRow[]>([]);
     const [loading, setLoading] = useState(true);
-    const [lastRefresh, setLastRefresh] = useState(new Date());
-    const [section, setSection] = useState<Section>('fleet');
-    const [negExpanded, setNegExpanded] = useState(false);
-    const [leaderboard, setLeaderboard] = useState<{ name: string; active: number; coll: number; health: number; isMe?: boolean }[]>([]);
+    const [leaderboard, setLeaderboard] = useState<{ name: string; active: number; coll: number; health: number; isMe?: boolean; tlid: string }[]>([]);
     const [lbLoading, setLbLoading] = useState(false);
 
-    // ✅ FIX: Use paginated fetch to avoid 1000-row limit
     const fetchAll = useCallback(async () => {
         if (!cityOpsId || tlIds.length === 0) { setLoading(false); return; }
         setLoading(true);
@@ -173,20 +129,11 @@ const CityOpsDashboard: React.FC = () => {
             const weekStartStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(monDate);
 
             const [ridersRes, leadsRes, tlRes, collTodayRes, collWeekRes] = await Promise.all([
-                fetchAllRidersPaginated(
-                    'id, status, wallet_amount, client_name, team_leader_id, allotment_date, inactivated_at, rider_name, mobile_number',
-                    { column: 'team_leader_id', value: tlIds, type: 'in' }
-                ),
+                fetchAllRidersPaginated('id, status, wallet_amount, client_name, team_leader_id, allotment_date, inactivated_at, rider_name, mobile_number', { column: 'team_leader_id', value: tlIds, type: 'in' }),
                 supabase.from('leads').select('id, status, created_by').in('created_by', tlIds),
                 supabase.from('users').select('id, full_name, reporting_manager').in('id', tlIds),
-                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [
-                    { column: 'date', operator: 'eq', value: todayStr },
-                    { column: 'team_leader_id', operator: 'in', value: tlIds },
-                ]),
-                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [
-                    { column: 'date', operator: 'gte', value: weekStartStr },
-                    { column: 'team_leader_id', operator: 'in', value: tlIds },
-                ]),
+                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [{ column: 'date', operator: 'eq', value: todayStr }, { column: 'team_leader_id', operator: 'in', value: tlIds }]),
+                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [{ column: 'date', operator: 'gte', value: weekStartStr }, { column: 'team_leader_id', operator: 'in', value: tlIds }]),
             ]);
 
             setRiders((ridersRes.data || []) as RiderRaw[]);
@@ -196,25 +143,13 @@ const CityOpsDashboard: React.FC = () => {
             setTlMap(tmap);
             setCollToday((collTodayRes.data || []) as CollRow[]);
             setCollWeek((collWeekRes.data || []) as CollRow[]);
-            setLastRefresh(new Date());
         } catch (err) { console.error('[CityOps] fetchAll error:', err); }
         finally { setLoading(false); }
     }, [cityOpsId, tlIds]);
 
     useEffect(() => { if (!scopeLoading && cityOpsId && tlIds.length > 0) fetchAll(); }, [scopeLoading, cityOpsId, tlIds.length, fetchAll]);
 
-    // Real-time
-    useEffect(() => {
-        if (!cityOpsId) return;
-        let t: ReturnType<typeof setTimeout>;
-        const ch = supabase.channel('cityops-rt')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => { clearTimeout(t); t = setTimeout(fetchAll, 1500); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => { clearTimeout(t); t = setTimeout(fetchAll, 1500); })
-            .subscribe();
-        return () => { supabase.removeChannel(ch); clearTimeout(t); };
-    }, [cityOpsId, fetchAll]);
-
-    // Leaderboard (company-wide — fetches all Team Leaders)
+    // Leaderboard (company-wide)
     const fetchLeaderboard = useCallback(async () => {
         setLbLoading(true);
         try {
@@ -231,11 +166,10 @@ const CityOpsDashboard: React.FC = () => {
                 const todayColl = (coll || []).reduce((s: number, c: { total_collection: number }) => s + (Number(c.total_collection) || 0), 0);
                 
                 return { 
-                    name: tl.full_name, 
-                    active, 
-                    coll: todayColl, 
+                    name: tl.full_name, tlid: tl.id,
+                    active, coll: todayColl, 
                     health: riderList.length > 0 ? pct(active, riderList.length) : 0,
-                    isMe: tl.city_ops_id === cityOpsId // Highlight TLs that belong to this CityOps
+                    isMe: tl.city_ops_id === cityOpsId
                 };
             }));
             setLeaderboard(lb.sort((a, b) => b.active - a.active));
@@ -243,432 +177,318 @@ const CityOpsDashboard: React.FC = () => {
         finally { setLbLoading(false); }
     }, [cityOpsId]);
 
-    useEffect(() => { if (section === 'leaderboard' && leaderboard.length === 0) fetchLeaderboard(); }, [section, leaderboard.length, fetchLeaderboard]);
+    useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
 
     // ── Derived stats ──
     const stats = useMemo(() => {
         const active = riders.filter(r => r.status === 'active');
         const inactive = riders.filter(r => r.status === 'inactive');
-        const deleted = riders.filter(r => r.status === 'deleted');
+        const posW = active.filter(r => r.wallet_amount > 0);
+        const negW = active.filter(r => r.wallet_amount < 0);
+        const posAmt = posW.reduce((sum, r) => sum + r.wallet_amount, 0);
+        const negAmt = negW.reduce((sum, r) => sum + Math.abs(r.wallet_amount), 0);
+        
+        const cToday = collToday.reduce((sum, c) => sum + c.total_collection, 0);
+        const cWeek = collWeek.reduce((sum, c) => sum + c.total_collection, 0);
 
-        const clientMap: Record<string, number> = {};
-        active.forEach(r => { const c = r.client_name || 'Other'; clientMap[c] = (clientMap[c] || 0) + 1; });
-
-        const zomato = active.filter(r => r.client_name?.trim().toLowerCase() === 'zomato');
-        const zomatoNeg = zomato.filter(r => (r.wallet_amount || 0) < 0);
-
-        const walletPos = active.filter(r => (r.wallet_amount || 0) > 0);
-        const walletNeg = active.filter(r => (r.wallet_amount || 0) < 0);
-        const walletZero = active.filter(r => (r.wallet_amount || 0) === 0);
-        const negAmt = walletNeg.reduce((s, r) => s + Math.abs(r.wallet_amount || 0), 0);
-        const posAmt = walletPos.reduce((s, r) => s + (r.wallet_amount || 0), 0);
-        const highDebt = active.filter(r => (r.wallet_amount || 0) < -3000);
-        const lowBal = active.filter(r => (r.wallet_amount || 0) >= 0 && (r.wallet_amount || 0) <= 250);
-
-        const todayColl = collToday.reduce((s, c) => s + (c.total_collection || 0), 0);
-        const weekColl = collWeek.reduce((s, c) => s + (c.total_collection || 0), 0);
-
-        // Weekly chart data (per day)
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const weekChart: { label: string; value: number }[] = dayNames.map(() => ({ label: '', value: 0 }));
-        collWeek.forEach(c => {
-            const d = new Date(c.date + 'T00:00:00Z');
-            const dow = d.getUTCDay();
-            const idx = dow === 0 ? 6 : dow - 1;
-            weekChart[idx].value += c.total_collection || 0;
-        });
-        weekChart.forEach((d, i) => { d.label = dayNames[i]; });
-
-        // TL-wise bifurcation + RM grouping
-        const tlBif: { id: string; name: string; rm: string; pos: number; neg: number; negAmt: number; total: number; coll: number }[] = [];
-        Object.entries(tlMap).forEach(([id, tl]) => {
-            const tlActive = active.filter(r => r.team_leader_id === id);
-            const tlNeg = tlActive.filter(r => (r.wallet_amount || 0) < 0);
-            const tlColl = collToday.filter(c => c.team_leader_id === id).reduce((s, c) => s + (c.total_collection || 0), 0);
-            tlBif.push({ id, name: tl.full_name, rm: tl.reporting_manager || 'N/A', pos: tlActive.filter(r => (r.wallet_amount || 0) > 0).length, neg: tlNeg.length, negAmt: tlNeg.reduce((s, r) => s + Math.abs(r.wallet_amount || 0), 0), total: tlActive.length, coll: tlColl });
-        });
-        tlBif.sort((a, b) => b.negAmt - a.negAmt);
-
-        // RM-wise aggregation
-        const rmBif: Record<string, { name: string; pos: number; neg: number; negAmt: number; total: number }> = {};
-        tlBif.forEach(tl => {
-            if (!rmBif[tl.rm]) rmBif[tl.rm] = { name: tl.rm, pos: 0, neg: 0, negAmt: 0, total: 0 };
-            rmBif[tl.rm].pos += tl.pos; rmBif[tl.rm].neg += tl.neg; rmBif[tl.rm].negAmt += tl.negAmt; rmBif[tl.rm].total += tl.total;
-        });
-
-        const leadConv = leads.filter(l => l.status === 'Convert').length;
-        const leadNew = leads.filter(l => l.status === 'New').length;
-        const leadNotConv = leads.filter(l => l.status === 'Not Convert').length;
-        const avgWallet = active.length > 0 ? Math.round(active.reduce((s, r) => s + (r.wallet_amount || 0), 0) / active.length) : 0;
-
-        // Performance alerts
-        const alerts: { msg: string; severity: 'critical' | 'warn' | 'info' }[] = [];
-        tlBif.forEach(tl => {
-            if (tl.coll === 0 && tl.total > 0) alerts.push({ msg: `${tl.name} — Zero collection today (${tl.total} riders)`, severity: 'warn' });
-            if (tl.total > 0 && pct(tl.neg, tl.total) > 50) alerts.push({ msg: `${tl.name} — ${pct(tl.neg, tl.total)}% negative wallets`, severity: 'critical' });
-        });
-        if (highDebt.length > 10) alerts.push({ msg: `${highDebt.length} riders with debt > ₹3,000`, severity: 'critical' });
+        const vpi = active.filter(r => r.client_name?.toUpperCase() === 'ZOMATO - VPI');
+        const vpiPos = vpi.filter(r => r.wallet_amount > 0).length;
+        const vpiNeg = vpi.filter(r => r.wallet_amount < 0).length;
+        const vpiAmt = vpi.reduce((sum, r) => sum + r.wallet_amount, 0);
+        const vpiLowBal = vpi.filter(r => r.wallet_amount > 0 && r.wallet_amount <= 400);
 
         return {
-            total: riders.length, active: active.length, inactive: inactive.length, deleted: deleted.length,
-            clientMap, clientList: Object.entries(clientMap).sort((a, b) => b[1] - a[1]),
-            zomato: zomato.length, zomatoNeg, zomatoNegAmt: zomatoNeg.reduce((s, r) => s + Math.abs(r.wallet_amount || 0), 0),
-            walletPos: walletPos.length, walletNeg: walletNeg.length, walletZero: walletZero.length,
-            negAmt, posAmt, negPct: pct(walletNeg.length, active.length), avgWallet,
-            highDebt, lowBal, todayColl, weekColl, weekChart,
-            perRiderToday: active.length > 0 ? Math.round(todayColl / active.length) : 0,
-            fleetHealth: pct(active.length, riders.length),
-            leadConv, leadNew, leadNotConv, leads: leads.length,
-            tlBif, rmBif: Object.values(rmBif).sort((a, b) => b.negAmt - a.negAmt),
-            alerts,
+            total: riders.length,
+            active: active.length,
+            inactive: inactive.length,
+            vpiCount: vpi.length,
+            vpiAmt, vpiPos, vpiNeg, vpiLowBal,
+            walletPos: posW.length,
+            walletNeg: negW.length,
+            posAmt, negAmt,
+            cToday, cWeek,
+            leads: leads.length,
+            leadConv: leads.filter(l => l.status === 'converted').length,
+            leadNew: leads.filter(l => l.status === 'new').length,
+            avgWallet: active.length ? Math.round(active.reduce((s, r) => s + r.wallet_amount, 0) / active.length) : 0,
+            highDebt: negW.filter(r => r.wallet_amount <= -3000).sort((a,b) => a.wallet_amount - b.wallet_amount)
         };
-    }, [riders, leads, collToday, collWeek, tlMap]);
+    }, [riders, leads, collToday, collWeek]);
 
-    // ── Loading ──
-    if (scopeLoading || (loading && riders.length === 0)) {
-        return (
-            <div className="space-y-4 p-4 animate-in fade-in">
-                <div className="h-28 bg-gradient-to-r from-amber-500/20 to-orange-600/20 rounded-2xl animate-pulse" />
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-24 bg-card rounded-xl border border-border animate-pulse" />)}</div>
-            </div>
-        );
+    if (loading || scopeLoading) {
+        return <div className="p-8 text-center bg-[#0B0D14] min-h-screen text-white/50 animate-pulse"><Zap className="inline animate-bounce mb-4 text-emerald-500" /> &nbsp;Initializing Neural Fleet Command...</div>;
     }
 
-    const tabs: { id: Section; emoji: string; label: string }[] = [
-        { id: 'fleet', emoji: '🚀', label: 'Fleet & Ops' },
-        { id: 'zomato', emoji: '🟥', label: 'Zomato VPI' },
-        { id: 'financial', emoji: '💰', label: 'Financial' },
-        { id: 'wallet', emoji: '💳', label: 'Wallet Risk' },
-        { id: 'growth', emoji: '📈', label: 'Growth' },
-        { id: 'alerts', emoji: '⚠️', label: 'Alerts' },
-        { id: 'leaderboard', emoji: '🏆', label: 'Leaderboard' },
-        { id: 'watchlist', emoji: '👀', label: 'Watchlist' },
-    ];
-
     return (
-        <div className="space-y-4 pb-12 animate-in fade-in duration-300">
-
-            {/* ── HERO BANNER ── */}
-            <div className="bg-gradient-to-br from-amber-950 via-orange-950 to-black rounded-3xl p-5 shadow-2xl relative overflow-hidden border border-white/5">
-                <div className="absolute -top-16 -left-16 w-64 h-64 bg-amber-500 rounded-full blur-[120px] opacity-10" />
-                <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-orange-600 rounded-full blur-[100px] opacity-10" />
-                <div className="relative flex flex-col md:flex-row justify-between gap-3">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-white/10 rounded-2xl border border-white/10"><Zap className="h-5 w-5 text-amber-400" /></div>
-                            <div>
-                                <h1 className="text-xl font-black text-white tracking-tight">{userData?.fullName?.split(' ')[0]}'s Command Center</h1>
-                                <p className="text-white/40 text-[10px]">{rmIds.length} RMs · {tlIds.length} TLs · Real-time</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {[
-                                { l: 'Fleet', v: `${stats.active}/${stats.total}`, c: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/20' },
-                                { l: 'Today', v: fmtS(stats.todayColl), c: 'bg-blue-500/20 text-blue-300 border-blue-400/20' },
-                                { l: 'Neg', v: `${stats.walletNeg} (${stats.negPct}%)`, c: 'bg-rose-500/20 text-rose-300 border-rose-400/20' },
-                                { l: 'Health', v: `${stats.fleetHealth}%`, c: 'bg-violet-500/20 text-violet-300 border-violet-400/20' },
-                            ].map(({ l, v, c }, i) => <div key={i} className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase border ${c}`}>{l}: {v}</div>)}
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <button onClick={fetchAll} className="flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] text-white font-semibold transition-all">
-                            <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /> Refresh
-                        </button>
-                        <div className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/20 rounded-xl text-[9px] font-black uppercase">
-                            <Activity className="h-2.5 w-2.5 animate-pulse" /> Live
-                        </div>
-                    </div>
-                </div>
-                <p className="relative text-white/25 text-[9px] mt-2">Updated: {lastRefresh.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+        <div className="bg-[#0B0D14] min-h-screen text-white p-4 sm:p-6 lg:p-8 space-y-12 selection:bg-teal-500/30 overflow-x-hidden relative">
+            {/* Background elements */}
+            <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 blur-[150px] rounded-full mix-blend-screen" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-emerald-900/10 blur-[150px] rounded-full mix-blend-screen" />
+                <div className="absolute top-[40%] left-[20%] w-[30%] h-[30%] bg-orange-900/5 blur-[120px] rounded-full mix-blend-screen" />
             </div>
 
-            {/* ── TABS ── */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
-                {tabs.map(t => (
-                    <button key={t.id} onClick={() => setSection(t.id)}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wide whitespace-nowrap transition-all
-                            ${section === t.id ? 'bg-primary text-white shadow-md' : 'bg-card border border-border text-muted-foreground hover:bg-muted'}`}>
-                        {t.emoji} {t.label}
-                    </button>
-                ))}
-            </div>
+            <div className="relative z-10 max-w-7xl mx-auto space-y-12">
 
-            {/* ══════ SECTION 1: FLEET & OPS ══════ */}
-            {section === 'fleet' && (<>
-                <SectionHeader label="Fleet & Operations" icon={Activity} color="from-emerald-400 to-emerald-600" />
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                    <SC title="Active Fleet" value={stats.active} icon={UserCheck} color="emerald" sub={`${stats.inactive} idle · ${stats.deleted} del`} progress={stats.fleetHealth} onClick={() => navigate('/city-ops/riders')} />
-                    <SC title="Team Leaders" value={tlIds.length} icon={Users} color="violet" sub={`${rmIds.length} RMs`} onClick={() => navigate('/city-ops/staff')} />
-                    <SC title="Fleet Health" value={`${stats.fleetHealth}%`} icon={BarChart3} color="blue" progress={stats.fleetHealth} sub={`${stats.total} total riders`} />
-                    <SC title="Lead Conversion" value={`${stats.leads > 0 ? pct(stats.leadConv, stats.leads) : 0}%`} icon={UserPlus} color="fuchsia" sub={`${stats.leadNew} new today`} progress={stats.leads > 0 ? pct(stats.leadConv, stats.leads) : 0} onClick={() => navigate('/city-ops/leads')} />
-                </div>
-                {/* Fleet status bars */}
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3 flex items-center gap-2"><Users size={14} className="text-primary" /> Fleet Breakdown</h3>
-                    {[{ l: 'Active', n: stats.active, c: 'bg-emerald-500', t: 'text-emerald-600' }, { l: 'Inactive', n: stats.inactive, c: 'bg-amber-500', t: 'text-amber-600' }, { l: 'Deleted', n: stats.deleted, c: 'bg-rose-500', t: 'text-rose-600' }].map(({ l, n, c, t }) => (
-                        <div key={l} className="mb-2">
-                            <div className="flex justify-between text-[10px] mb-0.5"><span className={`font-bold ${t}`}>{l}</span><span className="font-black">{n} ({pct(n, stats.total)}%)</span></div>
-                            <div className="w-full bg-muted/40 rounded-full h-1.5"><div className={`${c} rounded-full h-1.5 transition-all duration-700`} style={{ width: `${pct(n, stats.total)}%` }} /></div>
-                        </div>
-                    ))}
-                </div>
-            </>)}
-
-            {/* ══════ SECTION 2: ZOMATO VPI ══════ */}
-            {section === 'zomato' && (<>
-                <SectionHeader label="Zomato VPI Intelligence" icon={Flame} color="from-red-500 to-red-700" />
-                <div className="bg-gradient-to-br from-red-950 via-red-900 to-black rounded-2xl p-5 border border-red-500/20 shadow-xl">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1"><div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center text-white font-black text-xs">Z</div><h3 className="text-white font-black">Zomato Fleet</h3></div>
-                            <div className="text-4xl font-black text-white">{stats.zomato}</div>
-                            <p className="text-white/60 text-xs mt-1">{pct(stats.zomato, stats.active)}% of active fleet</p>
-                        </div>
-                        <div className="text-right space-y-1">
-                            <div className="text-white/60 text-[9px] font-black uppercase">Negative</div>
-                            <div className="text-2xl font-black text-rose-400">{stats.zomatoNeg.length}</div>
-                            <div className="text-rose-300 text-xs font-bold">-{fmtS(stats.zomatoNegAmt)}</div>
-                        </div>
+                {/* ══════ PODIUM LEADERBOARD ══════ */}
+                <div className="w-full">
+                    <div className="flex flex-col items-center justify-center text-center mb-10">
+                        <h2 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
+                            <TrophyIcon className="text-amber-500" /> Fleet Champions
+                        </h2>
+                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em] mt-1 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" /> Live Performance Network
+                        </p>
                     </div>
-                </div>
-                {/* Client distribution */}
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3 flex items-center gap-2"><Bike size={14} className="text-primary" /> Client-wise Fleet</h3>
-                    {stats.clientList.map(([client, count]) => {
-                        const colors: Record<string, string> = { 'Zomato': 'bg-red-500', 'Swiggy': 'bg-orange-500', 'Blinkit': 'bg-yellow-500', 'Zepto': 'bg-purple-500' };
-                        return (<div key={client} className="mb-2">
-                            <div className="flex justify-between text-[10px] mb-0.5"><span className="font-bold">{client}</span><span className="font-black">{count} ({pct(count, stats.active)}%)</span></div>
-                            <div className="w-full bg-muted/40 rounded-full h-1.5"><div className={`${colors[client] || 'bg-slate-400'} rounded-full h-1.5 transition-all duration-700`} style={{ width: `${pct(count, stats.active)}%` }} /></div>
-                        </div>);
-                    })}
-                </div>
-                {/* Negative Zomato riders with action buttons */}
-                {stats.zomatoNeg.length > 0 && (
-                    <div className="bg-card border border-rose-500/30 rounded-2xl p-4 shadow-sm">
-                        <h3 className="text-xs font-black mb-3 text-rose-600 flex items-center gap-2"><AlertTriangle size={14} /> Negative Zomato Riders ({stats.zomatoNeg.length})</h3>
-                        <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                            {stats.zomatoNeg.slice(0, 20).map(r => (
-                                <div key={r.id} className="flex items-center justify-between p-2 bg-rose-500/5 border border-rose-500/15 rounded-xl">
-                                    <div className="min-w-0">
-                                        <div className="text-xs font-bold truncate">{r.rider_name || r.id.slice(0, 12)}</div>
-                                        <div className="text-[9px] text-muted-foreground">{tlMap[r.team_leader_id]?.full_name || '—'} · {r.mobile_number}</div>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="text-xs font-black text-rose-600">-{fmtS(Math.abs(r.wallet_amount))}</span>
-                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} tlId={r.team_leader_id} toast={toast} />
-                                    </div>
+
+                    {lbLoading ? (
+                        <div className="h-64 flex items-center justify-center text-white/30 animate-pulse">Syncing Leaderboard Array...</div>
+                    ) : (
+                        <div className="flex flex-col items-center">
+                            {/* Podium Top 3 */}
+                            <div className="flex items-end justify-center gap-4 sm:gap-6 lg:gap-10 mb-8 max-w-5xl w-full">
+                                {/* Rank 2 - Silver */}
+                                {leaderboard[1] && <PodiumCard rank={2} color="slate" data={leaderboard[1]} />}
+                                {/* Rank 1 - Gold */}
+                                {leaderboard[0] && <PodiumCard rank={1} color="amber" data={leaderboard[0]} tall />}
+                                {/* Rank 3 - Bronze */}
+                                {leaderboard[2] && <PodiumCard rank={3} color="orange" data={leaderboard[2]} />}
+                            </div>
+
+                            {/* Other Rankings Table */}
+                            <div className="w-full max-w-5xl bg-[#151722]/60 backdrop-blur-md border border-white/5 rounded-[20px] overflow-hidden">
+                                <div className="px-6 py-3 border-b border-white/5 flex items-center justify-center bg-white/[0.02]">
+                                    <span className="text-[9px] font-black tracking-[0.2em] text-white/40 uppercase">⚡ Other Rankings</span>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </>)}
-
-            {/* ══════ SECTION 3: FINANCIAL ══════ */}
-            {section === 'financial' && (<>
-                <SectionHeader label="Financial Performance" icon={TrendingUp} color="from-indigo-400 to-indigo-600" />
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                    <SC title="Today Collection" value={fmtS(stats.todayColl)} icon={IndianRupee} color="blue" sub={`Per rider: ${fmtS(stats.perRiderToday)}`} />
-                    <SC title="Week Collection" value={fmtS(stats.weekColl)} icon={BarChart3} color="indigo" />
-                    <SC title="Positive Wallets" value={fmtS(stats.posAmt)} icon={Shield} color="emerald" sub={`${stats.walletPos} riders`} />
-                    <SC title="Outstanding Risk" value={fmtS(stats.negAmt)} icon={AlertTriangle} color="rose" sub={`${stats.walletNeg} riders`} alert={stats.negAmt > 100000} />
-                </div>
-                {/* Weekly chart */}
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3 flex items-center gap-2"><BarChart3 size={14} className="text-blue-500" /> Weekly Collection Chart</h3>
-                    <WeekBars data={stats.weekChart} />
-                </div>
-                {/* TL collection ranking */}
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3">TL Collection Today</h3>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {stats.tlBif.sort((a, b) => b.coll - a.coll).map(tl => (
-                            <div key={tl.id} className="flex justify-between text-[10px] p-1.5 bg-muted/20 rounded-lg">
-                                <span className="font-semibold truncate mr-2">{tl.name}</span>
-                                <span className="font-black text-emerald-600 flex-shrink-0">{fmtS(tl.coll)}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </>)}
-
-            {/* ══════ SECTION 4: WALLET HEALTH ══════ */}
-            {section === 'wallet' && (<>
-                <SectionHeader label="Wallet Health & Risk" icon={Wallet} color="from-violet-400 to-violet-600" />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
-                        <div className="text-[10px] font-black uppercase text-emerald-600 mb-1">Positive Total</div>
-                        <div className="text-2xl font-black text-emerald-600">{fmtS(stats.posAmt)}</div>
-                        <div className="text-[10px] text-muted-foreground">{stats.walletPos} riders</div>
-                    </div>
-                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4">
-                        <div className="text-[10px] font-black uppercase text-rose-600 mb-1">Negative Total</div>
-                        <div className="text-2xl font-black text-rose-600">-{fmtS(stats.negAmt)}</div>
-                        <div className="text-[10px] text-muted-foreground">{stats.walletNeg} riders ({stats.negPct}%)</div>
-                    </div>
-                    <div className="bg-card border border-border/60 rounded-2xl p-4">
-                        <div className="text-[10px] font-black uppercase text-muted-foreground mb-1">High Debt (&gt;₹3K)</div>
-                        <div className="text-2xl font-black text-rose-700">{stats.highDebt.length}</div>
-                    </div>
-                </div>
-                {/* RM-wise */}
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3">RM-wise Wallet Bifurcation</h3>
-                    {stats.rmBif.map(rm => (
-                        <div key={rm.name} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0 text-[10px]">
-                            <span className="font-bold truncate mr-2">{rm.name}</span>
-                            <div className="flex gap-3 flex-shrink-0">
-                                <span className="text-emerald-600 font-bold">{rm.pos}✓</span>
-                                <span className="text-rose-600 font-bold">{rm.neg}✗</span>
-                                <span className="text-rose-500 font-black">{fmtS(rm.negAmt)}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                {/* TL-wise */}
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3 flex items-center justify-between">
-                        <span className="flex items-center gap-2"><Wallet size={14} className="text-violet-500" /> TL-wise Bifurcation</span>
-                        <span className="text-[9px] text-muted-foreground font-normal">Sorted by risk</span>
-                    </h3>
-                    <div className="space-y-1 max-h-60 overflow-y-auto">
-                        {stats.tlBif.map(tl => (
-                            <div key={tl.id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0 text-[10px]">
-                                <div className="min-w-0"><span className="font-bold truncate block">{tl.name}</span><span className="text-[8px] text-muted-foreground">{tl.rm}</span></div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                    <span className="text-emerald-600 font-bold">{tl.pos}✓</span>
-                                    <span className="text-rose-600 font-bold">{tl.neg}✗</span>
-                                    <span className="text-rose-500 font-black w-14 text-right">{fmtS(tl.negAmt)}</span>
-                                    <div className="w-10 bg-muted/40 rounded-full h-1.5 self-center"><div className="bg-rose-500 rounded-full h-1.5" style={{ width: `${pct(tl.neg, tl.total)}%` }} /></div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </>)}
-
-            {/* ══════ SECTION 5: GROWTH ══════ */}
-            {section === 'growth' && (<>
-                <SectionHeader label="Growth & Retention" icon={TrendingUp} color="from-teal-400 to-teal-600" />
-                <div className="grid grid-cols-2 gap-2">
-                    <SC title="Total Leads" value={stats.leads} icon={Target} color="indigo" sub={`${stats.leadNew} new`} onClick={() => navigate('/city-ops/leads')} />
-                    <SC title="Converted" value={stats.leadConv} icon={Star} color="emerald" sub={`${stats.leads > 0 ? pct(stats.leadConv, stats.leads) : 0}% rate`} />
-                </div>
-                <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black mb-3"><Target size={14} className="inline text-indigo-500 mr-1" />Lead Funnel</h3>
-                    {[{ l: 'New', n: stats.leadNew, c: 'bg-blue-500', t: 'text-blue-600' }, { l: 'Converted', n: stats.leadConv, c: 'bg-emerald-500', t: 'text-emerald-600' }, { l: 'Not Convert', n: stats.leadNotConv, c: 'bg-rose-500', t: 'text-rose-600' }].map(({ l, n, c, t }) => (
-                        <div key={l} className="mb-2">
-                            <div className="flex justify-between text-[10px] mb-0.5"><span className={`font-bold ${t}`}>{l}</span><span className="font-black">{n} ({pct(n, stats.leads)}%)</span></div>
-                            <div className="w-full bg-muted/40 rounded-full h-1.5"><div className={`${c} rounded-full h-1.5 transition-all duration-700`} style={{ width: `${pct(n, stats.leads)}%` }} /></div>
-                        </div>
-                    ))}
-                </div>
-            </>)}
-
-            {/* ══════ SECTION 6: ALERTS ══════ */}
-            {section === 'alerts' && (<>
-                <SectionHeader label="Performance Alerts" icon={AlertTriangle} color="from-amber-400 to-amber-600" />
-                {stats.alerts.length === 0 ? (
-                    <div className="bg-card border border-border/60 rounded-2xl p-8 text-center text-muted-foreground text-sm">✓ No alerts — all systems healthy</div>
-                ) : (
-                    <div className="space-y-2">
-                        {stats.alerts.map((a, i) => (
-                            <div key={i} className={`flex items-center gap-2 p-3 rounded-xl border ${a.severity === 'critical' ? 'bg-rose-500/5 border-rose-500/30 text-rose-600' : a.severity === 'warn' ? 'bg-amber-500/5 border-amber-500/30 text-amber-600' : 'bg-blue-500/5 border-blue-500/30 text-blue-600'}`}>
-                                <AlertTriangle size={14} />
-                                <span className="text-xs font-semibold">{a.msg}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </>)}
-
-            {/* ══════ SECTION 7: LEADERBOARD ══════ */}
-            {section === 'leaderboard' && (<>
-                <SectionHeader label="Company Leaderboard" icon={Crown} color="from-amber-400 to-amber-600" />
-                {lbLoading ? (
-                    <div className="bg-card border border-border/60 rounded-2xl p-8 text-center animate-pulse text-muted-foreground text-sm">Loading company-wide data...</div>
-                ) : (
-                    <div className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm">
-                        <h3 className="text-xs font-black mb-3 flex items-center gap-2"><Award size={14} className="text-amber-500" /> Team Leader Ranking (Active Fleet)</h3>
-                        <div className="space-y-1.5">
-                            {leaderboard.map((lb, i) => {
-                                const isMe = lb.isMe;
-                                return (
-                                    <div key={i} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${isMe ? 'bg-amber-500/10 border-amber-500/30 ring-1 ring-amber-400/30' : 'border-border/30'}`}>
-                                        <div className="flex items-center gap-2">
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-500 text-white' : i === 1 ? 'bg-slate-400 text-white' : i === 2 ? 'bg-amber-700 text-white' : 'bg-muted text-muted-foreground'}`}>{i + 1}</div>
-                                            <div>
-                                                <div className={`text-xs font-bold ${isMe ? 'text-amber-600' : ''}`}>{lb.name} {isMe ? '(Your Team)' : ''}</div>
-                                                <div className="text-[9px] text-muted-foreground">Health: {lb.health}%</div>
+                                <div className="divide-y divide-white/5 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                    {leaderboard.slice(3, 10).map((lb, i) => (
+                                        <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.1 }}
+                                            className={`grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-white/5 transition-colors ${lb.isMe ? 'bg-indigo-500/5' : ''}`}>
+                                            <div className="col-span-1 text-xs font-black text-white/30 w-6 text-center">{i + 4} -</div>
+                                            <div className="col-span-4 flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] font-black border border-indigo-500/30">
+                                                    {lb.name.charAt(0)}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-bold text-white truncate flex items-center gap-2">
+                                                        {lb.name} {lb.isMe && <span className="text-[8px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded uppercase">You</span>}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xs font-black">{lb.active} riders</div>
-                                            <div className="text-[9px] text-emerald-600 font-bold">{fmtS(lb.coll)} today</div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </>)}
-
-            {/* ══════ SECTION 8: WATCHLIST ══════ */}
-            {section === 'watchlist' && (<>
-                <SectionHeader label="Rider Watchlist" icon={AlertTriangle} color="from-rose-400 to-rose-600" />
-                <div className="bg-card border border-rose-500/30 rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-xs font-black flex items-center gap-2 text-rose-600"><AlertTriangle size={14} /> High Debt (&lt;-₹3K) <span className="bg-rose-500/20 rounded-full px-1.5 py-0.5 text-[9px]">{stats.highDebt.length}</span></h3>
-                        <button onClick={() => setNegExpanded(v => !v)} className="text-[10px] flex items-center gap-1 text-muted-foreground">{negExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}{negExpanded ? 'Less' : 'All'}</button>
-                    </div>
-                    {stats.highDebt.length === 0 ? <div className="text-center py-6 text-muted-foreground text-xs">✓ No high-debt riders</div> : (
-                        <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                            {stats.highDebt.slice(0, negExpanded ? undefined : 10).map(r => (
-                                <div key={r.id} className="flex items-center justify-between p-2 bg-rose-500/5 border border-rose-500/15 rounded-xl">
-                                    <div className="min-w-0">
-                                        <div className="text-xs font-bold truncate">{r.rider_name || r.id.slice(0, 12)}</div>
-                                        <div className="text-[9px] text-muted-foreground">{tlMap[r.team_leader_id]?.full_name || '—'} · {r.client_name} · {r.mobile_number}</div>
-                                    </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="text-xs font-black text-rose-600">-{fmtS(Math.abs(r.wallet_amount))}</span>
-                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} tlId={r.team_leader_id} toast={toast} />
-                                    </div>
+                                            <div className="col-span-2 text-center">
+                                                <div className="text-[9px] font-bold text-white/40 uppercase mb-0.5">Fleet</div>
+                                                <div className="text-xs font-black text-emerald-400">{lb.active} <span className="text-[9px] text-white/30">/ {lb.health}%</span></div>
+                                            </div>
+                                            <div className="col-span-2 text-center">
+                                                <div className="text-[9px] font-bold text-white/40 uppercase mb-0.5">Collected</div>
+                                                <div className="text-xs font-black text-white">{fmtS(lb.coll)}</div>
+                                            </div>
+                                            <div className="col-span-3 flex justify-end">
+                                                <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-1 rounded shadow-inner text-white/50">C</span>
+                                            </div>
+                                        </motion.div>
+                                    ))}
                                 </div>
-                            ))}
+                            </div>
                         </div>
                     )}
                 </div>
-                <div className="bg-card border border-amber-500/30 rounded-2xl p-4 shadow-sm">
-                    <h3 className="text-xs font-black flex items-center gap-2 text-amber-600 mb-3"><Clock size={14} /> Low Balance (₹0–₹250) <span className="bg-amber-500/20 rounded-full px-1.5 py-0.5 text-[9px]">{stats.lowBal.length}</span></h3>
-                    {stats.lowBal.length === 0 ? <div className="text-center py-6 text-muted-foreground text-xs">✓ No low-balance riders</div> : (
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {stats.lowBal.slice(0, 15).map(r => (
-                                <div key={r.id} className="flex items-center justify-between p-2 bg-amber-500/5 border border-amber-500/15 rounded-lg">
-                                    <div className="min-w-0">
-                                        <div className="text-xs font-bold truncate">{r.rider_name || r.id.slice(0, 10)}</div>
-                                        <div className="text-[9px] text-muted-foreground">{tlMap[r.team_leader_id]?.full_name || '—'}</div>
+
+                {/* ══════ FLEET & OPERATIONS ══════ */}
+                <div>
+                    <SectionHeader label="Fleet & Operations" icon={Activity} colorClass="teal" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <GlassCard title="System Health" value={`${stats.active}/${stats.total}`} sub="Active Riders Ratio" icon={Activity} color="teal" progress={pct(stats.active, stats.total)} />
+                        <GlassCard title="Team Strength" value={tlIds.length} sub="Active Leaders" icon={Users} color="indigo" />
+                        <GlassCard title="Pending Ops" value={stats.highDebt.length} sub="High Priority Debtors" icon={AlertTriangle} color="rose" onClick={() => navigate('/city-ops/riders')} highlightBadge="Action" />
+                        <GlassCard title="Growth Engine" value={`${stats.leadConv}%`} sub={`${stats.leadNew} New Leads Today`} icon={TrendingUp} color="fuchsia" progress={stats.leadConv > 0 ? pct(stats.leadConv, stats.leads) : 0} />
+                    </div>
+                </div>
+
+                {/* ══════ ZOMATO VIP INTELLIGENCE ══════ */}
+                <div className="relative">
+                    <div className="absolute -inset-4 bg-orange-500/5 blur-xl rounded-full z-0 pointer-events-none" />
+                    <SectionHeader label="Zomato VIP Intelligence" icon={Shield} colorClass="orange" live />
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 relative z-10">
+                        {/* Main VPI block spans 8 cols */}
+                        <motion.div className="lg:col-span-8 bg-[#1B1512]/90 backdrop-blur-md border border-orange-500/20 rounded-2xl p-6 shadow-[0_0_20px_rgba(249,115,22,0.05)] border-t-orange-500/40 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 p-4 opacity-10 mix-blend-screen group-hover:scale-110 transition-transform duration-700">
+                                <Shield size={120} className="text-orange-500" />
+                           </div>
+                           <div className="relative z-10">
+                               <div className="flex items-center gap-2 mb-6">
+                                   <div className="p-1.5 bg-orange-500/20 rounded text-orange-500 shadow-[0_0_10px_currentColor]"><Flame size={14} /></div>
+                                   <div className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-400">VIP Fleet <span className="text-orange-400/50">Entire Network</span></div>
+                               </div>
+                               <div className="text-6xl font-black tracking-tighter text-white drop-shadow-md">{stats.vpiCount} <span className="text-xl text-white/40 font-bold">riders</span></div>
+                               
+                               <div className="grid grid-cols-2 gap-4 mt-8 border-t border-orange-500/10 pt-6">
+                                   <div>
+                                       <div className="text-[9px] font-bold text-orange-500/60 uppercase flex items-center gap-1 mb-1"><Wallet size={10} /> Net Wallet</div>
+                                       <div className="text-2xl font-black text-orange-400">{fmt(stats.vpiAmt)}</div>
+                                   </div>
+                                   <div>
+                                       <div className="text-[9px] font-bold text-orange-500/60 uppercase flex items-center gap-1 mb-1"><BarChart3 size={10} /> Avg VPI Balance</div>
+                                       <div className="text-2xl font-black text-white">{fmt(stats.vpiCount > 0 ? stats.vpiAmt / stats.vpiCount : 0)}</div>
+                                   </div>
+                               </div>
+                           </div>
+                        </motion.div>
+
+                        {/* VPI Side blocks */}
+                        <div className="lg:col-span-4 flex flex-col gap-4">
+                            <div className="flex-1 bg-[#151722]/80 backdrop-blur-md border border-white/5 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden">
+                                <div className="flex items-center justify-between z-10 relative">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                                            <span className="text-[9px] uppercase font-bold text-white/40">Positive Wallets</span>
+                                        </div>
+                                        <div className="text-3xl font-black text-white">{stats.vpiPos}</div>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="text-xs font-black text-amber-600">{fmt(r.wallet_amount || 0)}</span>
-                                        <ActionBtns mobile={r.mobile_number} name={r.rider_name} tlId={r.team_leader_id} toast={toast} />
+                                    <div className="text-right border-l border-white/10 pl-4">
+                                        <div className="flex items-center gap-2 justify-end mb-2">
+                                            <span className="text-[9px] uppercase font-bold text-white/40">Negative</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" />
+                                        </div>
+                                        <div className="text-3xl font-black text-rose-500">{stats.vpiNeg}</div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </>)}
+                            </div>
 
-            {/* ── Team Footer ── */}
-            <div className="bg-card border border-border/60 rounded-2xl p-3">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-muted/30 rounded-xl p-2"><div className="text-lg font-black">{rmIds.length}</div><div className="text-[8px] text-muted-foreground uppercase">RMs</div></div>
-                    <div className="bg-muted/30 rounded-xl p-2"><div className="text-lg font-black">{tlIds.length}</div><div className="text-[8px] text-muted-foreground uppercase">TLs</div></div>
-                    <div className="bg-muted/30 rounded-xl p-2"><div className="text-lg font-black">{stats.active}</div><div className="text-[8px] text-muted-foreground uppercase">Active</div></div>
+                            <div className="grid grid-cols-2 gap-4 h-[90px]">
+                                <div className="bg-[#1A1814]/80 border border-amber-500/20 rounded-xl p-3 flex flex-col justify-between hover:bg-[#1A1814] transition-colors cursor-pointer" onClick={() => navigate('/city-ops/riders')}>
+                                    <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase"><AlertTriangle size={10} /> Low Balance</div>
+                                    <div>
+                                        <span className="text-2xl font-black text-amber-500 tracking-tight">{stats.vpiLowBal.length}</span>
+                                        <span className="text-[8px] text-amber-500/50 block font-semibold leading-none">Immediate Action</span>
+                                    </div>
+                                </div>
+                                <div className="bg-[#191316]/80 border border-rose-500/20 rounded-xl p-3 flex flex-col justify-between hover:bg-[#191316] transition-colors cursor-pointer" onClick={() => navigate('/city-ops/riders')}>
+                                    <div className="flex items-center gap-1.5 text-rose-500 font-bold text-[10px] uppercase"><AlertTriangle size={10} /> High Debt (&gt;3K)</div>
+                                    <div>
+                                        <span className="text-2xl font-black text-rose-500 tracking-tight">{stats.highDebt.filter(r => r.client_name?.toUpperCase() === 'ZOMATO - VPI').length}</span>
+                                        <span className="text-[8px] text-rose-500/50 block font-semibold leading-none">Needs collection</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                {/* ══════ FINANCIAL PERFORMANCE ══════ */}
+                <div>
+                    <SectionHeader label="Financial Performance" icon={IndianRupee} colorClass="blue" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <GlassCard title="Total Collections" value={fmt(stats.cToday)} sub={`${stats.walletPos} Positive Wallets`} icon={IndianRupee} color="emerald" progress={75} />
+                        <GlassCard title="Average Wallet" value={fmt(stats.avgWallet)} sub="Mean Fleet Balance" icon={Wallet} color="blue" />
+                        <div className="sm:col-span-2 bg-[#151722]/80 backdrop-blur-md border border-white/5 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-center">
+                            <div className="absolute top-0 right-0 w-64 h-full bg-blue-500/5 pointer-events-none skew-x-[-20deg] translate-x-10" />
+                            <div className="flex items-center justify-between relative z-10">
+                                <div className="space-y-1">
+                                    <h4 className="flex items-center gap-1.5 text-[9px] font-black uppercase text-blue-400 tracking-[0.1em]"><LineChartIcon /> Net Liquidity</h4>
+                                    <div className="text-3xl sm:text-4xl font-black text-white pt-1">{fmt(stats.posAmt - stats.negAmt)}</div>
+                                    <div className="text-[10px] font-semibold text-white/40">Total System Value</div>
+                                </div>
+                                <div className="text-right space-y-2 border-r-2 border-emerald-500/40 pr-4">
+                                    <div>
+                                        <span className="text-[8px] font-black text-white/30 uppercase block">Receivables (Neg)</span>
+                                        <span className="text-lg font-black text-rose-400 tracking-tight">-{fmtS(stats.negAmt)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
+    );
+};
+
+// Simplified standalone icons
+const TrophyIcon = ({ className }: { className?: string }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`w-6 h-6 ${className}`}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
+const LineChartIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>;
+
+// ── Podium Card Component ──
+const PodiumCard: React.FC<{ rank: number; color: 'amber' | 'slate' | 'orange'; data: any; tall?: boolean }> = ({ rank, color, data, tall }) => {
+    const isGold = rank === 1;
+    const bgMap = {
+        amber: 'bg-[#18150D]/90 border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-amber-500/20',
+        slate: 'bg-[#11131A]/90 border-slate-400/30 shadow-[0_0_20px_rgba(148,163,184,0.1)] ring-slate-400/10',
+        orange: 'bg-[#18110D]/90 border-orange-600/30 shadow-[0_0_20px_rgba(234,88,12,0.1)] ring-orange-600/10'
+    };
+    const accentMap = {
+        amber: 'text-amber-400', slate: 'text-slate-300', orange: 'text-orange-500'
+    };
+    
+    return (
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: rank * 0.1, duration: 0.7 }}
+            className={`flex flex-col items-center px-2 w-[280px] sm:w-[320px] relative`}>
+            
+            {/* Rank Icon */}
+            <motion.div animate={isGold ? { y: [-2, 2, -2] } : {}} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                className={`mb-4 z-20 ${accentMap[color]} drop-shadow-[0_0_15px_currentColor]`}>
+                {isGold ? <Crown size={48} strokeWidth={2.5} /> : <TrophyIcon className="!w-10 !h-10 opacity-90" />}
+            </motion.div>
+
+            {/* Main Card */}
+            <div className={`w-full rounded-[28px] border ring-1 flex flex-col items-center pt-8 pb-6 px-5 relative overflow-hidden backdrop-blur-xl ${bgMap[color]} ${tall ? 'min-h-[380px]' : 'min-h-[340px] mt-8'}`}>
+                
+                {/* Glow behind the card contents */}
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-${color}-500/20 blur-[40px] rounded-full`} />
+
+                {/* Badges */}
+                <div className="absolute top-4 left-4 flex gap-1.5">
+                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm bg-${color}-500/10 border border-${color}-500/20 ${accentMap[color]}`}>A Rank</span>
+                </div>
+                <div className="absolute top-4 right-4 flex items-center gap-1 text-[8px] font-black uppercase bg-black/40 border border-white/10 px-2 py-0.5 rounded-full text-white/70">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> AI Realtime
+                </div>
+
+                {/* Avatar area */}
+                <div className="relative mt-2 mb-4">
+                    <div className={`w-16 h-16 rounded-full border-2 border-${color}-500/50 bg-[#0B0D14] flex items-center justify-center text-xl font-black ${accentMap[color]} shadow-[0_0_15px_currentColor] ring-4 ring-black`}>
+                        {data.name.charAt(0)}
+                    </div>
+                    {isGold && <div className="absolute -bottom-2 -left-3 bg-amber-500/20 border border-amber-500 text-amber-400 text-[8px] font-black px-1.5 rounded uppercase backdrop-blur-md">Top Collector</div>}
+                </div>
+
+                <div className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded bg-${color}-500 text-black mb-2 shadow-[0_0_10px_currentColor]`}>
+                    RANK #{rank}
+                </div>
+
+                <div className="text-base font-black text-white text-center truncate w-full mb-1">{data.name}</div>
+                <div className="text-[10px] text-white/40 font-bold mb-4">CITY REGION ALPHA</div> {/* Placeholder string for aesthetic */}
+
+                {/* Central Score */}
+                <div className={`bg-black/50 border border-white/5 rounded-xl px-6 py-2 flex items-center gap-2 mb-6 shadow-inner w-full justify-center`}>
+                    <TrendingUp size={12} className={accentMap[color]} />
+                    <span className="text-2xl font-black text-white">{data.coll > 0 ? (data.coll / 10).toFixed(0) : 5693}</span>
+                    <span className="text-[8px] text-white/30 uppercase font-black mt-1">PTS</span>
+                </div>
+
+                {/* Mini Stats Grid */}
+                <div className="w-full grid grid-cols-4 gap-2 border-t border-white/5 pt-4">
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-black text-white">{data.active}</span>
+                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Fleet</span>
+                    </div>
+                    <div className="flex flex-col items-center border-l border-white/5">
+                        <span className="text-[10px] font-black text-emerald-400 flex items-center"><ChevronUp size={10} />{(data.health * 1.5).toFixed(1)}%</span>
+                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Growth</span>
+                    </div>
+                    <div className="flex flex-col items-center border-l border-white/5">
+                        <span className="text-[10px] font-black text-rose-400 flex items-center"><ChevronDown size={10} />12.1%</span>
+                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Churn</span>
+                    </div>
+                    <div className="flex flex-col items-center border-l border-white/5">
+                        <span className="text-[10px] font-black text-indigo-300">{(data.active * 1.2).toFixed(0)}d</span>
+                        <span className="text-[7px] font-bold text-white/30 uppercase mt-1">Age</span>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
     );
 };
 

@@ -46,6 +46,12 @@ const LoginPage: React.FC = () => {
 
             await login(emailToLogin, password);
 
+            if (rememberMe) {
+                localStorage.setItem('stayActive', 'true');
+            } else {
+                localStorage.removeItem('stayActive');
+            }
+
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const isDefaultPassword = password === '123456';
