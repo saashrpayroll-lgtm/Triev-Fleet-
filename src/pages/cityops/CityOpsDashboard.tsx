@@ -41,6 +41,12 @@ interface TLData {
     debt: number;
 }
 
+interface Lead {
+    id: string;
+    team_leader_id: string;
+    status: string;
+}
+
 // --- Helpers ---
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const pct = (part: number, total: number) => total > 0 ? Math.round((part / total) * 100) : 0;
@@ -58,7 +64,7 @@ const logActivity = async (userId: string, action: string, details: string) => {
 
 // --- Sub-Components ---
 
-const SectionHeader = ({ label, icon: Icon, colorClass, live }: { label: string, icon: any, colorClass: string, live?: boolean }) => (
+const SectionHeader = ({ label, icon: Icon, colorClass, live }: { label: string, icon: React.ElementType, colorClass: string, live?: boolean }) => (
     <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
             <div className={`p-2 rounded-xl bg-opacity-10 border border-opacity-20 flex items-center justify-center`} style={{ backgroundColor: `rgba(var(--${colorClass}-rgb, 16, 185, 129), 0.1)`, borderColor: `rgba(var(--${colorClass}-rgb, 16, 185, 129), 0.2)`, color: `var(--${colorClass}-color, #10b981)` }}>
@@ -75,7 +81,7 @@ const SectionHeader = ({ label, icon: Icon, colorClass, live }: { label: string,
     </div>
 );
 
-const ColorMap: any = {
+const ColorMap: Record<string, string> = {
     emerald: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/10',
     blue: 'text-blue-500 bg-blue-500/10 border-blue-500/20 shadow-blue-500/10',
     orange: 'text-orange-500 bg-orange-500/10 border-orange-500/20 shadow-orange-500/10',
@@ -84,7 +90,18 @@ const ColorMap: any = {
     teal: 'text-teal-500 bg-teal-500/10 border-teal-500/20 shadow-teal-500/10'
 };
 
-const GlassCard = ({ title, value, sub, icon: Icon, color, progress, onClick, highlightBadge }: any) => (
+interface GlassCardProps {
+    title: string;
+    value: string | number;
+    sub: string;
+    icon: React.ElementType;
+    color: string;
+    progress?: number;
+    onClick?: () => void;
+    highlightBadge?: string;
+}
+
+const GlassCard = ({ title, value, sub, icon: Icon, color, progress, onClick, highlightBadge }: GlassCardProps) => (
     <motion.div 
         whileHover={{ y: -5, scale: 1.02 }}
         onClick={onClick}
@@ -121,12 +138,19 @@ const GlassCard = ({ title, value, sub, icon: Icon, color, progress, onClick, hi
     </motion.div>
 );
 
-const PodiumCard = ({ rank, color, data, tall }: any) => {
+interface PodiumCardProps {
+    rank: number;
+    color: string;
+    data: TLData;
+    tall?: boolean;
+}
+
+const PodiumCard = ({ rank, color, data, tall }: PodiumCardProps) => {
     const isGold = rank === 1;
-    const accentMap: any = { amber: 'text-amber-400', slate: 'text-slate-300', orange: 'text-orange-500' };
-    const borderMap: any = { amber: 'border-amber-500/30', slate: 'border-slate-500/20', orange: 'border-orange-500/20' };
-    const bgGlow: any = { amber: 'bg-amber-500/10', slate: 'bg-slate-500/10', orange: 'bg-orange-500/10' };
-    const pillBg: any = { amber: 'bg-amber-500', slate: 'bg-slate-400', orange: 'bg-orange-500' };
+    const accentMap: Record<string, string> = { amber: 'text-amber-400', slate: 'text-slate-300', orange: 'text-orange-500' };
+    const borderMap: Record<string, string> = { amber: 'border-amber-500/30', slate: 'border-slate-500/20', orange: 'border-orange-500/20' };
+    const bgGlow: Record<string, string> = { amber: 'bg-amber-500/10', slate: 'bg-slate-500/10', orange: 'bg-orange-500/10' };
+    const pillBg: Record<string, string> = { amber: 'bg-amber-500', slate: 'bg-slate-400', orange: 'bg-orange-500' };
     
     return (
         <motion.div 
@@ -181,9 +205,9 @@ const CityOpsDashboard: React.FC = () => {
 
     // -- Data State --
     const [riders, setRiders] = useState<LocalRider[]>([]);
-    const [leads, setLeads] = useState<any[]>([]);
+    const [leads, setLeads] = useState<Lead[]>([]);
     const [leaderboard, setLeaderboard] = useState<TLData[]>([]);
-    const [weeklyColl, setWeeklyColl] = useState<any[]>([]);
+    const [weeklyColl, setWeeklyColl] = useState<{ date: string; amount: number }[]>([]);
 
     const fetchData = useCallback(async () => {
         if (scopeLoading || !tlIds.length) return;
@@ -199,7 +223,7 @@ const CityOpsDashboard: React.FC = () => {
 
             // 3. Get Weekly Collection Array
             const { data: wColl } = await supabase.from('daily_collections').select('date, total_collection').in('team_leader_id', tlIds).gte('date', format(subDays(new Date(), 7), 'yyyy-MM-dd'));
-            const dateMap: any = {};
+            const dateMap: Record<string, number> = {};
             for(let i=6; i>=0; i--) dateMap[format(subDays(new Date(), i), 'yyyy-MM-dd')] = 0;
             (wColl || []).forEach(c => { if(dateMap[c.date] !== undefined) dateMap[c.date] += Number(c.total_collection) || 0; });
             setWeeklyColl(Object.keys(dateMap).map(k => ({ date: format(new Date(k), 'EEE'), amount: dateMap[k] })));
@@ -349,8 +373,8 @@ const CityOpsDashboard: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
-                                {['day','week','month'].map(t => (
-                                    <button key={t} onClick={() => setDateFilter(t as any)} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${dateFilter === t ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
+                                {(['day', 'week', 'month'] as const).map(t => (
+                                    <button key={t} onClick={() => setDateFilter(t)} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${dateFilter === t ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
                                         {t}
                                     </button>
                                 ))}
@@ -676,7 +700,7 @@ const CityOpsDashboard: React.FC = () => {
 };
 
 // Simple Star Icon
-const Star = ({ size, className }: any) => (
+const Star = ({ size, className }: { size: number, className?: string }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
