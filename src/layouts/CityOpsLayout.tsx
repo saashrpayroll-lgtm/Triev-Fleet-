@@ -82,13 +82,14 @@ const CityOpsLayout: React.FC = () => {
         }
     };
 
-    const perms = userData?.permissions?.cityOpsPanel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const perms = userData?.permissions?.cityOpsPanel as any;
 
     const navGroups: NavGroup[] = [
         {
             title: 'Overview',
             items: [
-                { path: '/city-ops', icon: LayoutDashboard, label: 'Dashboard', visible: perms?.dashboard ?? true },
+                { path: '/city-ops', icon: LayoutDashboard, label: 'Dashboard', visible: perms?.dashboard?.view ?? perms?.dashboard ?? true },
                 { path: '/city-ops/analytics', icon: TrendingUp, label: 'Analytics', visible: perms?.analytics ?? true },
                 { path: '/city-ops/leaderboard', icon: Trophy, label: 'Leaderboard', visible: perms?.leaderboard ?? true },
             ].filter(item => item.visible)
