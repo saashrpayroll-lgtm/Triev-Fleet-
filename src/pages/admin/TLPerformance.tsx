@@ -124,44 +124,45 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 tlQuery = tlQuery.in('id', scopedTlIds);
             }
 
-            const [ridersRes, leadsRes, usersRes, dailyCollectionsRes, todayLedgerRes, weekLedgerRes] = await Promise.all([
-                // ✅ Scope riders to this City Ops' TLs only — prevents data leakage
+            const [ridersRes, leadsRes, usersRes, dailyCollectionsRes, todayCollRes, weekCollRes] = await Promise.all([
+                // Scope riders to this City Ops' TLs only
                 scopedTlIds && scopedTlIds.length > 0
                     ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
                     : fetchAllRidersPaginated('*'),
                 supabase.from('leads').select('*'),
                 tlQuery,
-                supabase.from('daily_collections').select('*').order('date', { ascending: false }).limit(5000),
-                supabase.from('wallet_ledger').select('team_leader_id, amount').eq('transaction_type', 'collection').gte('transaction_date', todayStr + 'T00:00:00Z'),
-                supabase.from('wallet_ledger').select('team_leader_id, amount').eq('transaction_type', 'collection').gte('transaction_date', weekStartStr + 'T00:00:00Z')
+                // daily_collections has team_leader_id — use for today's and weekly collections
+                supabase.from('daily_collections').select('*').eq('date', todayStr),
+                // For TODAY: filter daily_collections by today's date
+                supabase.from('daily_collections').select('team_leader_id, total_collection').eq('date', todayStr),
+                // For WEEK: filter daily_collections from weekStart
+                supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', weekStartStr)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
             if (usersRes.error) throw usersRes.error;
             if (dailyCollectionsRes.error) throw dailyCollectionsRes.error;
-            if (todayLedgerRes.error) throw todayLedgerRes.error;
-            if (weekLedgerRes.error) throw weekLedgerRes.error;
+            if (todayCollRes.error) throw todayCollRes.error;
+            if (weekCollRes.error) throw weekCollRes.error;
 
             const riders = ridersRes.data || [];
             const leads = leadsRes.data || [];
             const teamLeaders = usersRes.data || [];
-            // Use dailyCollectionsRes.data if needed for history
-            // const history = dailyCollectionsRes.data || [];
 
-            // Aggregate current day collection from ledger
+            // Aggregate current day collection from daily_collections (has team_leader_id)
             const dailyMap: Record<string, number> = {};
-            (todayLedgerRes.data || []).forEach((row: { team_leader_id: string; amount: number }) => {
+            (todayCollRes.data || []).forEach((row: { team_leader_id: string; total_collection: number }) => {
                 if (row.team_leader_id) {
-                    dailyMap[row.team_leader_id] = (dailyMap[row.team_leader_id] || 0) + (row.amount || 0);
+                    dailyMap[row.team_leader_id] = (dailyMap[row.team_leader_id] || 0) + (Number(row.total_collection) || 0);
                 }
             });
 
-            // Aggregate weekly collection from ledger
+            // Aggregate weekly collection from daily_collections
             const weeklyMap: Record<string, number> = {};
-            (weekLedgerRes.data || []).forEach((row: { team_leader_id: string; amount: number }) => {
+            (weekCollRes.data || []).forEach((row: { team_leader_id: string; total_collection: number }) => {
                 if (row.team_leader_id) {
-                    weeklyMap[row.team_leader_id] = (weeklyMap[row.team_leader_id] || 0) + (row.amount || 0);
+                    weeklyMap[row.team_leader_id] = (weeklyMap[row.team_leader_id] || 0) + (Number(row.total_collection) || 0);
                 }
             });
 

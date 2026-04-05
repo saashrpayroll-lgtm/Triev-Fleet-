@@ -20,7 +20,11 @@ interface ActivityLog {
     metadata?: any;
 }
 
-const ActivityLog: React.FC = () => {
+interface ActivityLogProps {
+    scopedUserNames?: string[];
+}
+
+const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserNames }) => {
     // Data State
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,8 +69,11 @@ const ActivityLog: React.FC = () => {
             if (error) throw error;
 
             if (data) {
-                const validLogs = (data as ActivityLog[]).filter(l => l.isDeleted !== true);
-                setLogs(validLogs);
+                // Filter by scoped user names if provided (City Ops view)
+                const filtered = scopedUserNames && scopedUserNames.length > 0
+                    ? (data as ActivityLog[]).filter(l => !l.isDeleted && scopedUserNames.includes(l.userName))
+                    : (data as ActivityLog[]).filter(l => l.isDeleted !== true);
+                setLogs(filtered);
             }
         } catch (error: any) {
             console.error('Error fetching logs:', error);

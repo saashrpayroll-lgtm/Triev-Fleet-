@@ -31,7 +31,7 @@ export interface AnalyticsConfig {
 
 export const AnalyticsService = {
     fetchDashboardAnalytics: async (config?: AnalyticsConfig): Promise<AnalyticsData> => {
-        const { scopedCityOpsId, scopedTlIds } = config || {};
+        const { scopedTlIds } = config || {};
         
         const today = new Date();
         const sixMonthsAgo = subMonths(today, 5);
@@ -46,13 +46,9 @@ export const AnalyticsService = {
             }
             // Note: scopedCityOpsId is kept in config for future use once SQL migration is run
 
-            // Build filter queries for leads
-            let leadsQuery = supabase.from('leads').select('id, status, created_at');
-            if (scopedTlIds && scopedTlIds.length > 0) {
-                leadsQuery = leadsQuery.in('team_leader_id', scopedTlIds);
-            } else if (scopedCityOpsId) {
-                // If scopedCityOpsId but no tlIds (unlikely as we fetch them), fallback or handle.
-            }
+            // Build filter queries for leads (leads table has NO team_leader_id column)
+            // Leads are fetched globally — scoping is not possible at DB level for leads
+            const leadsQuery = supabase.from('leads').select('id, status, created_at');
 
             // Parallel Fetching
             const [ridersRes, leadsRes] = await Promise.all([

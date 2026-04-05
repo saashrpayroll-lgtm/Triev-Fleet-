@@ -275,7 +275,6 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 username,
                 jobLocation:job_location,
                 reportingManager:reporting_manager,
-                reportingManagerId:reporting_manager_id,
                 city_ops_id,
                 permissions,
                 remarks,
@@ -292,13 +291,15 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
             const { data: teamLeadersData, error: usersError } = await tlQuery;
             if (usersError) throw usersError;
 
-            // Step 2: Scope riders by TL IDs (safe — team_leader_id always exists)
+            // Step 2: Scope riders by TL IDs (safe — team_leader_id always exists on riders)
+            // Admin: no scopedCityOpsId → no filter → fetch ALL riders
+            // City Ops: scopedCityOpsId present → filter by scoped TL ids only
             const scopedTlIds = scopedCityOpsId && teamLeadersData && teamLeadersData.length > 0
                 ? (teamLeadersData as { id: string }[]).map(tl => tl.id)
-                : undefined;
+                : null;
             const riderFilter = scopedTlIds && scopedTlIds.length > 0
                 ? { column: 'team_leader_id', value: scopedTlIds, type: 'in' as const }
-                : undefined;
+                : undefined;  // No filter for Admin = fetch everything
 
             const { data: ridersData, error: ridersError } = await fetchAllRidersPaginated(`
                 id,

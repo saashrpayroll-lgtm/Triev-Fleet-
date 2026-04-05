@@ -55,7 +55,11 @@ interface SummaryStat {
     color: string;
 }
 
-const Reports: React.FC = () => {
+interface ReportsProps {
+    scopedTlIds?: string[];
+}
+
+const Reports: React.FC<ReportsProps> = ({ scopedTlIds }) => {
     // --- State ---
     const [viewMode, setViewMode] = useState<'dashboard' | 'reports'>('dashboard');
     const [loading, setLoading] = useState(true);
@@ -107,7 +111,9 @@ const Reports: React.FC = () => {
                     teamLeaderId:team_leader_id,
                     teamLeaderName:team_leader_name,
                     createdAt:created_at
-                `),
+                `, scopedTlIds && scopedTlIds.length > 0
+                    ? { column: 'team_leader_id', value: scopedTlIds, type: 'in' as const }
+                    : undefined),
                 supabase.from('users').select(`
                     id, fullName:full_name, email, role, status
                 `),
@@ -127,10 +133,19 @@ const Reports: React.FC = () => {
             if (dailyCollectionsRes.error) throw dailyCollectionsRes.error;
 
             setRiders((ridersRes.data || []) as any);
-            setTeamLeaders((usersRes.data || []).filter((u: any) => u.role === 'teamLeader') as any);
+            // Only show scoped TLs — if scopedTlIds provided, filter the users list
+            const allTLs = (usersRes.data || []).filter((u: any) => u.role === 'teamLeader');
+            const filteredTLs = scopedTlIds && scopedTlIds.length > 0
+                ? allTLs.filter((tl: any) => scopedTlIds.includes(tl.id))
+                : allTLs;
+            setTeamLeaders(filteredTLs as any);
             setRequests((requestsRes.data || []) as any);
             setLeads(leadsRes.data || []);
-            setDailyCollections(dailyCollectionsRes.data || []);
+            setDailyCollections(
+                scopedTlIds && scopedTlIds.length > 0
+                    ? (dailyCollectionsRes.data || []).filter((c: any) => scopedTlIds.includes(c.team_leader_id))
+                    : (dailyCollectionsRes.data || [])
+            );
         } catch (error) {
             console.error('Error fetching data:', error);
             toast.error("Failed to fetch analytics data");

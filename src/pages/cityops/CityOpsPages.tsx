@@ -3,10 +3,8 @@
  * Pattern: Each City Ops page wraps an Admin-equivalent component with scope filtering.
  */
 import React from 'react';
-import GlassCard from '@/components/GlassCard';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Construction } from 'lucide-react';
 import AdminLeads from '../admin/AdminLeads';
 import RiderManagement from '../admin/RiderManagement';
 import WalletHistory from '../admin/WalletHistory';
@@ -21,48 +19,11 @@ import AdminNotificationsPage from '../admin/AdminNotificationsPage';
 import DataManagement from '../admin/DataManagement';
 import UserManagementPage from '../admin/users/index';
 
-interface ScopedPageProps {
-    title: string;
-    description: string;
-}
+import Reports from '../admin/Reports';
+import ActivityLog from '../admin/ActivityLog';
 
-const ScopedPageShell: React.FC<ScopedPageProps> = ({ title, description }) => {
-    const { cityOpsId, rmIds, tlIds, isLoading } = useCityOpsScope();
+// ── Export all City Ops page components ─────────────────────────────────────
 
-    if (isLoading) {
-        return (
-            <div className="space-y-4 animate-pulse">
-                <div className="h-8 bg-muted rounded w-1/3" />
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-64 bg-muted rounded" />
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-6 animate-in fade-in duration-300">
-            <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
-                    {title}
-                </h1>
-                <p className="text-muted-foreground mt-1">{description}</p>
-            </div>
-            <GlassCard className="p-8 text-center">
-                <Construction size={48} className="mx-auto text-amber-500 mb-4" />
-                <h3 className="text-lg font-bold mb-2">Module Under Construction</h3>
-                <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                    This module is being connected to your scoped data.
-                    Your team: {rmIds.length} RMs, {tlIds.length} TLs.
-                </p>
-                <p className="text-xs text-muted-foreground mt-3 font-mono">
-                    Scope ID: {cityOpsId}
-                </p>
-            </GlassCard>
-        </div>
-    );
-};
-
-// ── Export all City Ops page stubs ──────────────────────────────────────────
 
 export const CityOpsRiderManagement: React.FC = () => {
     const { cityOpsId, isLoading } = useCityOpsScope();
@@ -112,13 +73,36 @@ export const CityOpsDataManagement: React.FC = () => {
     return <DataManagement scopedCityOpsId={user.id} />;
 };
 
-export const CityOpsReports: React.FC = () => (
-    <ScopedPageShell title="Reports" description="Generate and export reports for your team" />
-);
+export const CityOpsReports: React.FC = () => {
+    const { tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <Reports scopedTlIds={tlIds} />;
+};
 
-export const CityOpsActivityLog: React.FC = () => (
-    <ScopedPageShell title="Activity Logs" description="Track all actions performed in your panel" />
-);
+export const CityOpsActivityLog: React.FC = () => {
+    const { rmIds, tlIds, isLoading } = useCityOpsScope();
+    const [scopedUserNames, setScopedUserNames] = React.useState<string[]>([]);
+    const [namesLoading, setNamesLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        if (isLoading) return;
+        const fetchNames = async () => {
+            try {
+                const allIds = [...rmIds, ...tlIds];
+                if (allIds.length === 0) { setScopedUserNames([]); setNamesLoading(false); return; }
+                const { data } = await import('@/config/supabase').then(m =>
+                    m.supabase.from('users').select('full_name').in('id', allIds)
+                );
+                setScopedUserNames((data || []).map((u: { full_name: string }) => u.full_name).filter(Boolean));
+            } catch { /* ignore */ }
+            finally { setNamesLoading(false); }
+        };
+        fetchNames();
+    }, [rmIds, tlIds, isLoading]);
+
+    if (isLoading || namesLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <ActivityLog scopedUserNames={scopedUserNames.length > 0 ? scopedUserNames : undefined} />;
+};
 
 export const CityOpsAnalytics: React.FC = () => {
     const { cityOpsId, rmIds, tlIds, isLoading } = useCityOpsScope();
