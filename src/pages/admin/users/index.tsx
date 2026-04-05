@@ -34,7 +34,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
     // Local State
     const [searchTerm, setSearchTerm] = useState('');
     const isCityOpsScoped = !!scopedCityOpsId;
-    const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'teamLeader' | 'reportingManager'>('all');
+    const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'cityOps' | 'teamLeader' | 'reportingManager'>('all');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
     const [showDeleted, setShowDeleted] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -56,7 +56,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
         const statusParam = params.get('status');
 
         if (roleParam) {
-            setFilterRole(roleParam as 'all' | 'admin' | 'teamLeader' | 'reportingManager');
+            setFilterRole(roleParam as 'all' | 'admin' | 'cityOps' | 'teamLeader' | 'reportingManager');
         }
 
         if (statusParam) {
@@ -281,6 +281,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
         inactive: nonDeleted.filter(u => u.status === 'inactive').length,
         suspended: nonDeleted.filter(u => u.status === 'suspended').length,
         admins: nonDeleted.filter(u => u.role === 'admin').length,
+        cityOps: nonDeleted.filter(u => u.role === 'cityOps').length,
         teamLeaders: nonDeleted.filter(u => u.role === 'teamLeader').length,
         reportingManagers: nonDeleted.filter(u => u.role === 'reportingManager').length,
         pendingResets: passwordResetRequests.length,
@@ -319,10 +320,16 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
                                 <p className="text-[8px] font-bold uppercase tracking-wider text-emerald-300/70">Active</p>
                             </div>
                             {!isCityOpsScoped && (
-                            <div className="bg-purple-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-purple-400/20 text-center min-w-[60px]">
-                                <p className="text-xl font-black text-purple-400">{stats.admins}</p>
-                                <p className="text-[8px] font-bold uppercase tracking-wider text-purple-300/70">Admins</p>
-                            </div>
+                            <>
+                                <div className="bg-purple-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-purple-400/20 text-center min-w-[60px]">
+                                    <p className="text-xl font-black text-purple-400">{stats.admins}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-purple-300/70">Admins</p>
+                                </div>
+                                <div className="bg-orange-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-orange-400/20 text-center min-w-[60px]">
+                                    <p className="text-xl font-black text-orange-400">{stats.cityOps}</p>
+                                    <p className="text-[8px] font-bold uppercase tracking-wider text-orange-300/70">City Ops</p>
+                                </div>
+                            </>
                             )}
                             <div className="bg-blue-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-blue-400/20 text-center min-w-[60px]">
                                 <p className="text-xl font-black text-blue-400">{stats.teamLeaders}</p>
@@ -393,6 +400,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
                                 : [
                                     { value: 'all' as const, label: 'All' },
                                     { value: 'admin' as const, label: 'Admin' },
+                                    { value: 'cityOps' as const, label: 'City Ops' },
                                     { value: 'teamLeader' as const, label: 'TL' },
                                     { value: 'reportingManager' as const, label: 'RM' },
                                 ]

@@ -134,7 +134,10 @@ export const useUsers = (config?: UseUsersConfig) => {
             });
 
             setHasMore(data.length === USERS_PER_PAGE);
-            if (!isRefresh && data.length > 0) {
+
+            if (isRefresh) {
+                setPage(1);
+            } else if (data.length > 0) {
                 setPage(prev => prev + 1);
             }
 
