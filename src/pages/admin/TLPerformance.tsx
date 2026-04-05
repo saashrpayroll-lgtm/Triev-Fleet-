@@ -26,6 +26,7 @@ interface TLRawData {
     weeklyMap: Record<string, number>;
     monthlyMap: Record<string, number>;
     periodMap: Record<string, number>;
+    grandTotalMap: Record<string, number>;
     fetchedTodayStr: string;
 }
 
@@ -38,10 +39,12 @@ interface TLRow {
     // Fleet
     totalRiders: number;
     activeRiders: number;
+    inactiveRiders: number;
     // Collection
     todayCollection: number;
     weeklyCollection: number;
     monthlyCollection: number;
+    grandTotal: number;
     periodCollection: number;
     periodDayAvg: number;
     periodPerRider: number;
@@ -50,6 +53,7 @@ interface TLRow {
     negativeCount: number;
     positiveAmount: number;
     negativeAmount: number;
+    walletPositivePct: number;
     // Flow (A/S/N)
     allotments: number;
     submissions: number;
@@ -87,14 +91,16 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     const [loading, setLoading] = useState(true);
     const [rawData, setRawData] = useState<TLRawData>({
         riders: [], leads: [], teamLeaders: [],
-        todayMap: {}, weeklyMap: {}, monthlyMap: {}, periodMap: {},
+        todayMap: {}, weeklyMap: {}, monthlyMap: {}, periodMap: {}, grandTotalMap: {},
         fetchedTodayStr: ''
     });
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
-    const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
+    const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'lastweek' | 'month' | 'lastmonth' | 'custom'>('today');
     const [customRange, setCustomRange] = useState({ start: '', end: '' });
+    const [scoreFilter, setScoreFilter] = useState<'all' | 'top' | 'mid' | 'low'>('all');
+    const [collFilter, setCollFilter] = useState<'all' | 'above50k' | 'above20k' | 'below20k'>('all');
     const [rmFilter, setRmFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [riskFilter, setRiskFilter] = useState<'all' | 'high_risk' | 'low_risk'>('all');
@@ -113,6 +119,8 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         const diffMon = dow === 0 ? 6 : dow - 1;
         const weekStart = new Date(workDate);
         weekStart.setUTCDate(workDate.getUTCDate() - diffMon);
+        const lastWeekEnd = new Date(weekStart); lastWeekEnd.setUTCDate(weekStart.getUTCDate() - 1);
+        const lastWeekStart = new Date(lastWeekEnd); lastWeekStart.setUTCDate(lastWeekEnd.getUTCDate() - 6);
 
         switch (filter) {
             case 'today': return { start: todayStr, end: todayStr, today: todayStr };
@@ -122,9 +130,15 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 return { start: yStr, end: yStr, today: todayStr };
             }
             case 'week': return { start: weekStart.toISOString().split('T')[0], end: todayStr, today: todayStr };
+            case 'lastweek': return { start: lastWeekStart.toISOString().split('T')[0], end: lastWeekEnd.toISOString().split('T')[0], today: todayStr };
             case 'month': {
                 const mStart = new Date(Date.UTC(y, m - 1, 1)).toISOString().split('T')[0];
                 return { start: mStart, end: todayStr, today: todayStr };
+            }
+            case 'lastmonth': {
+                const lmEnd = new Date(Date.UTC(y, m - 1, 0));
+                const lmStart = new Date(Date.UTC(y, m - 2, 1));
+                return { start: lmStart.toISOString().split('T')[0], end: lmEnd.toISOString().split('T')[0], today: todayStr };
             }
             case 'custom':
                 return { start: custom.start || todayStr, end: custom.end || todayStr, today: todayStr };
@@ -148,7 +162,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             let tlQuery = supabase.from('users').select('*').eq('role', 'teamLeader');
             if (scopedTlIds && scopedTlIds.length > 0) tlQuery = tlQuery.in('id', scopedTlIds);
 
-            const [ridersRes, leadsRes, tlRes, todayCollRes, weekCollRes, monthCollRes] = await Promise.all([
+            const [ridersRes, leadsRes, tlRes, todayCollRes, weekCollRes, monthCollRes, grandCollRes] = await Promise.all([
                 scopedTlIds && scopedTlIds.length > 0
                     ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
                     : fetchAllRidersPaginated('*'),
@@ -156,10 +170,12 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 tlQuery,
                 // Today's collection
                 supabase.from('daily_collections').select('team_leader_id, total_collection').eq('date', todayStr),
-                // Weekly collection
+                // Weekly collection (Mon–today)
                 supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', weekStartStr),
-                // Monthly collection
+                // Monthly collection (1st–today)
                 supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', monthStartStr),
+                // Grand Total — all time, never resets
+                supabase.from('daily_collections').select('team_leader_id, total_collection'),
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -168,6 +184,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             if (todayCollRes.error) throw todayCollRes.error;
             if (weekCollRes.error) throw weekCollRes.error;
             if (monthCollRes.error) throw monthCollRes.error;
+            if (grandCollRes.error) throw grandCollRes.error;
 
             const aggMap = (rows: { team_leader_id: string; total_collection: number }[]) => {
                 const map: Record<string, number> = {};
@@ -180,6 +197,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             const todayMap = aggMap(todayCollRes.data || []);
             const weeklyMap = aggMap(weekCollRes.data || []);
             const monthlyMap = aggMap(monthCollRes.data || []);
+            const grandTotalMap = aggMap(grandCollRes.data || []);
 
             // Map TL data — Supabase select('*') returns snake_case, we need to map to our User type
             const teamLeaders: User[] = (tlRes.data || []).map((u: Record<string, unknown>) => ({
@@ -206,7 +224,8 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 todayMap,
                 weeklyMap,
                 monthlyMap,
-                periodMap: todayMap, // default; recomputed in processRows
+                grandTotalMap,
+                periodMap: todayMap,
                 fetchedTodayStr: todayStr
             });
         } catch (err) {
@@ -246,8 +265,8 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
     const daysInPeriod = useMemo(() => {
         if (dateFilter === 'today' || dateFilter === 'yesterday') return 1;
-        if (dateFilter === 'week') return 7;
-        if (dateFilter === 'month') return 30;
+        if (dateFilter === 'week' || dateFilter === 'lastweek') return 7;
+        if (dateFilter === 'month' || dateFilter === 'lastmonth') return 30;
         if (dateFilter === 'custom' && customRange.start && customRange.end) {
             const diff = Math.ceil((new Date(customRange.end).getTime() - new Date(customRange.start).getTime()) / 86400000) + 1;
             return Math.max(1, diff);
@@ -291,9 +310,11 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 reportingManager: tl.reportingManager || (tl as unknown as Record<string, string>).reporting_manager || 'N/A',
                 totalRiders: metrics.totalRiders,
                 activeRiders: metrics.activeRiders,
+                inactiveRiders: metrics.inactiveRiders,
                 todayCollection: rawData.todayMap[tl.id] || 0,
                 weeklyCollection: rawData.weeklyMap[tl.id] || 0,
                 monthlyCollection: rawData.monthlyMap[tl.id] || 0,
+                grandTotal: rawData.grandTotalMap[tl.id] || 0,
                 periodCollection: periodCol,
                 periodDayAvg: daysInPeriod > 0 ? Math.round(periodCol / daysInPeriod) : 0,
                 periodPerRider: metrics.activeRiders > 0 ? Math.round(periodCol / metrics.activeRiders) : 0,
@@ -301,6 +322,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 negativeCount: metrics.negativeWalletCount,
                 positiveAmount: metrics.positiveWallet,
                 negativeAmount: metrics.negativeWallet,
+                walletPositivePct: metrics.activeRiders > 0 ? Math.round((metrics.positiveWalletCount / metrics.activeRiders) * 100) : 0,
                 allotments: metrics.allotments,
                 submissions: metrics.submissions,
                 netGrowth: metrics.netGrowth,
@@ -333,6 +355,14 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         if (riskFilter === 'low_risk') data = data.filter(t => t.negativeCount === 0);
         if (rmFilter !== 'all') data = data.filter(t => t.reportingManager === rmFilter);
         if (selectedTLs.length > 0) data = data.filter(t => selectedTLs.includes(t.id));
+        // Score filter
+        if (scoreFilter === 'top') data = data.filter(t => t.score >= 5000);
+        if (scoreFilter === 'mid') data = data.filter(t => t.score >= 1500 && t.score < 5000);
+        if (scoreFilter === 'low') data = data.filter(t => t.score < 1500);
+        // Collection filter
+        if (collFilter === 'above50k') data = data.filter(t => t.todayCollection >= 50000);
+        if (collFilter === 'above20k') data = data.filter(t => t.todayCollection >= 20000);
+        if (collFilter === 'below20k') data = data.filter(t => t.todayCollection < 20000);
 
         data.sort((a, b) => {
             const av = a[sortConfig.key as keyof TLRow];
@@ -344,12 +374,13 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 : String(bv).localeCompare(String(av));
         });
         return data;
-    }, [processRows, debouncedSearch, statusFilter, riskFilter, rmFilter, selectedTLs, sortConfig]);
+    }, [processRows, debouncedSearch, statusFilter, riskFilter, rmFilter, selectedTLs, sortConfig, scoreFilter, collFilter]);
 
     // Grand Totals
     const totals = useMemo(() => ({
         totalRiders: filteredData.reduce((s, t) => s + t.totalRiders, 0),
         activeRiders: filteredData.reduce((s, t) => s + t.activeRiders, 0),
+        inactiveRiders: filteredData.reduce((s, t) => s + t.inactiveRiders, 0),
         positiveCount: filteredData.reduce((s, t) => s + t.positiveCount, 0),
         negativeCount: filteredData.reduce((s, t) => s + t.negativeCount, 0),
         positiveAmount: filteredData.reduce((s, t) => s + t.positiveAmount, 0),
@@ -357,6 +388,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         todayCollection: filteredData.reduce((s, t) => s + t.todayCollection, 0),
         weeklyCollection: filteredData.reduce((s, t) => s + t.weeklyCollection, 0),
         monthlyCollection: filteredData.reduce((s, t) => s + t.monthlyCollection, 0),
+        grandTotal: filteredData.reduce((s, t) => s + t.grandTotal, 0),
         periodCollection: filteredData.reduce((s, t) => s + t.periodCollection, 0),
         allotments: filteredData.reduce((s, t) => s + t.allotments, 0),
         submissions: filteredData.reduce((s, t) => s + t.submissions, 0),
@@ -420,7 +452,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     const avgScore = totals.score;
     const avgGrade = avgScore >= 70 ? 'A' : avgScore >= 50 ? 'B' : avgScore >= 30 ? 'C' : 'D';
 
-    const dateLabel: Record<string, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month', custom: 'Custom' };
+    const dateLabel: Record<string, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', lastweek: 'Last Week', month: 'This Month', lastmonth: 'Last Month', custom: 'Custom' };
 
     if (loading && rawData.teamLeaders.length === 0) {
         return (
@@ -535,8 +567,10 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                     className="pl-8 pr-7 py-2 bg-background border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer">
                                     <option value="today">Today</option>
                                     <option value="yesterday">Yesterday</option>
-                                    <option value="week">This Week</option>
+                                    <option value="week">This Week (Mon–Sun)</option>
+                                    <option value="lastweek">Last Week</option>
                                     <option value="month">This Month</option>
+                                    <option value="lastmonth">Last Month</option>
                                     <option value="custom">Custom Range</option>
                                 </select>
                                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary/70 pointer-events-none" />
@@ -571,7 +605,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
                     {/* Expanded Filter Panel */}
                     {isFilterOpen && (
-                        <div className="px-5 py-4 border-b border-border/40 bg-muted/5 grid grid-cols-2 md:grid-cols-4 gap-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="px-5 py-4 border-b border-border/40 bg-muted/5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-in slide-in-from-top-2 duration-200">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase text-muted-foreground">Status</label>
                                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
@@ -582,6 +616,24 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                 <label className="text-[10px] font-black uppercase text-muted-foreground">Wallet Risk</label>
                                 <select value={riskFilter} onChange={e => setRiskFilter(e.target.value as typeof riskFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
                                     <option value="all">All</option><option value="high_risk">Has Negative</option><option value="low_risk">All Positive</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase text-muted-foreground">AI Score</label>
+                                <select value={scoreFilter} onChange={e => setScoreFilter(e.target.value as typeof scoreFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
+                                    <option value="all">All Scores</option>
+                                    <option value="top">Top (S/A ≥ 5000)</option>
+                                    <option value="mid">Mid (B/C ≥ 1500)</option>
+                                    <option value="low">Low (D &lt; 1500)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black uppercase text-muted-foreground">Today Coll.</label>
+                                <select value={collFilter} onChange={e => setCollFilter(e.target.value as typeof collFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
+                                    <option value="all">All</option>
+                                    <option value="above50k">≥ ₹50K</option>
+                                    <option value="above20k">≥ ₹20K</option>
+                                    <option value="below20k">&lt; ₹20K</option>
                                 </select>
                             </div>
                             <div className="space-y-1.5 col-span-2">
@@ -613,10 +665,11 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                             <thead className="bg-muted/30 text-[9px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/40 sticky top-0 z-10">
                                 <tr>
                                     <SortTh label="Team Leader" sortKey="name" className="pl-4 pr-2 py-3 min-w-[200px]" />
-                                    <SortTh label="Riders" sortKey="activeRiders" className="text-center px-2" />
-                                    <th className="px-2 py-3 min-w-[200px]">
+                                    <SortTh label="Fleet" sortKey="activeRiders" className="text-center px-2" />
+                                    <th className="px-2 py-3 min-w-[230px]">
                                         Collection <span className="text-primary normal-case font-semibold">▾ {dateLabel[dateFilter]}</span>
                                     </th>
+                                    <th className="px-2 py-3 min-w-[100px] text-amber-600">Grand Total</th>
                                     <th className="px-2 py-3">Wallet Health</th>
                                     <th className="px-2 py-3">Fleet Flow</th>
                                     <SortTh label="Leads %" sortKey="leadsConvRate" className="text-center px-2" />
@@ -646,11 +699,13 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                             </div>
                                         </td>
 
-                                        {/* Riders: Active / Total */}
+                                        {/* Fleet: Active / Inactive / Total */}
                                         <td className="px-2 py-3 text-center">
-                                            <div className="font-black text-sm">{tl.activeRiders} <span className="text-muted-foreground font-normal text-[10px]">/ {tl.totalRiders}</span></div>
+                                            <div className="font-black text-sm text-emerald-600">{tl.activeRiders}</div>
+                                            <div className="text-[9px] text-rose-500">{tl.inactiveRiders} idle</div>
+                                            <div className="text-[9px] text-muted-foreground">of {tl.totalRiders}</div>
                                             <div className="w-full bg-muted/40 rounded-full h-1 mt-1">
-                                                <div className="bg-blue-500 rounded-full h-1 transition-all" style={{ width: `${tl.totalRiders > 0 ? Math.round((tl.activeRiders / tl.totalRiders) * 100) : 0}%` }} />
+                                                <div className="bg-emerald-500 rounded-full h-1 transition-all" style={{ width: `${tl.totalRiders > 0 ? Math.round((tl.activeRiders / tl.totalRiders) * 100) : 0}%` }} />
                                             </div>
                                         </td>
 
@@ -676,14 +731,20 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                             </div>
                                         </td>
 
-                                        {/* Wallet Health: POS / NEG counts + amounts */}
+                                        {/* Grand Total Collection — never resets */}
+                                        <td className="px-2 py-3">
+                                            <div className="font-black text-amber-600 text-[11px]">{fmt(tl.grandTotal)}</div>
+                                            <div className="text-[9px] text-muted-foreground">All time</div>
+                                        </td>
+
+                                        {/* Wallet Health: POS / NEG counts + amounts + % */}
                                         <td className="px-2 py-3">
                                             <div className="flex items-center gap-1.5">
                                                 <span className="px-1.5 py-0.5 rounded font-black text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">{tl.positiveCount} POS</span>
                                                 <span className="px-1.5 py-0.5 rounded font-black text-[10px] bg-rose-500/10 text-rose-600 border border-rose-500/20">{tl.negativeCount} NEG</span>
                                             </div>
                                             <div className="mt-1 space-y-0.5">
-                                                <div className="text-[9px] text-emerald-600 font-semibold">{fmtShort(tl.positiveAmount)}</div>
+                                                <div className="text-[9px] text-emerald-600 font-semibold">{fmtShort(tl.positiveAmount)} <span className="text-muted-foreground">({tl.walletPositivePct}%)</span></div>
                                                 <div className="text-[9px] text-rose-600 font-semibold">-{fmtShort(Math.abs(tl.negativeAmount))}</div>
                                             </div>
                                         </td>
@@ -749,9 +810,13 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                         <td className="pl-4 pr-2 py-3">
                                             <div className="text-[10px] font-black uppercase text-primary tracking-wider">Totals ({filteredData.length} TLs)</div>
                                         </td>
+                                        {/* Fleet totals */}
                                         <td className="px-2 py-3 text-center">
-                                            <div className="font-black">{totals.activeRiders} <span className="text-muted-foreground font-normal">/ {totals.totalRiders}</span></div>
+                                            <div className="font-black text-emerald-600">{totals.activeRiders}</div>
+                                            <div className="text-[9px] text-rose-500">{totals.inactiveRiders} idle</div>
+                                            <div className="text-[9px] text-muted-foreground">of {totals.totalRiders}</div>
                                         </td>
+                                        {/* Collection totals */}
                                         <td className="px-2 py-3">
                                             <div className="space-y-0.5">
                                                 <div className="text-[10px] text-emerald-600 font-black">{fmt(totals.todayCollection)}</div>
@@ -759,12 +824,19 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                                 <div className="text-[9px] text-muted-foreground">{fmt(totals.monthlyCollection)}</div>
                                             </div>
                                         </td>
+                                        {/* Grand Total */}
+                                        <td className="px-2 py-3">
+                                            <div className="font-black text-amber-600 text-[11px]">{fmt(totals.grandTotal)}</div>
+                                            <div className="text-[9px] text-muted-foreground">All time</div>
+                                        </td>
+                                        {/* Wallet totals */}
                                         <td className="px-2 py-3">
                                             <div className="flex items-center gap-1.5">
                                                 <span className="font-black text-emerald-600">{totals.positiveCount} POS</span>
                                                 <span className="font-black text-rose-600">{totals.negativeCount} NEG</span>
                                             </div>
                                         </td>
+                                        {/* Flow totals */}
                                         <td className="px-2 py-3">
                                             <div className={`font-black ${totals.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                 {totals.netGrowth >= 0 ? '+' : ''}{totals.netGrowth} / -{totals.submissions}
