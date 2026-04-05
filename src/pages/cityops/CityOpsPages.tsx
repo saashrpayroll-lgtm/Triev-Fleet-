@@ -6,6 +6,8 @@ import React from 'react';
 import GlassCard from '@/components/GlassCard';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 import { Construction } from 'lucide-react';
+import AdminLeads from '../admin/AdminLeads';
+import RiderManagement from '../admin/RiderManagement';
 
 interface ScopedPageProps {
     title: string;
@@ -50,13 +52,17 @@ const ScopedPageShell: React.FC<ScopedPageProps> = ({ title, description }) => {
 
 // ── Export all City Ops page stubs ──────────────────────────────────────────
 
-export const CityOpsRiderManagement: React.FC = () => (
-    <ScopedPageShell title="Rider Management" description="Manage riders under your team hierarchy" />
-);
+export const CityOpsRiderManagement: React.FC = () => {
+    const { cityOpsId, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <RiderManagement scopedCityOpsId={cityOpsId} />;
+};
 
-export const CityOpsLeads: React.FC = () => (
-    <ScopedPageShell title="Lead Management" description="Track and manage leads assigned to your team" />
-);
+export const CityOpsLeads: React.FC = () => {
+    const { tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <AdminLeads scopedTlIds={tlIds} />;
+};
 
 export const CityOpsDataManagement: React.FC = () => (
     <ScopedPageShell title="Data Hub" description="Bulk imports, wallet updates, and rent collection" />

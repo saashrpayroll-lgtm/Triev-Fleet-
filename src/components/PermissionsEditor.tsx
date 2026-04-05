@@ -76,6 +76,12 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             dashboard: false, tlPerformance: false, leaderboard: false,
             riderOverview: false, leadOverview: false, reports: false,
             collectionHistory: false, export: false
+        },
+        cityOpsPanel: {
+            dashboard: false, riderManagement: false, leadManagement: false, leaderboard: false,
+            dataManagement: { bulkRiderImport: false, bulkWalletUpdate: false, rentCollectionImport: false, auditSync: false, importHistory: false, googleSheets: false },
+            walletLedger: false, reports: false, activityLog: false, notifications: false, analytics: false, walletBifurcation: false,
+            companyForms: false, staffRoles: false, rmPerformance: false, tlPerformance: false, allotmentSystem: false, profile: false
         }
     };
 
@@ -468,6 +474,31 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'rm_reports', label: 'Reports', description: 'View weekly/monthly performance reports', risk: 'medium', path: 'rmPanel.reports' },
                 { id: 'rm_collection', label: 'Collection History', description: 'View date-wise collection tracking', risk: 'low', path: 'rmPanel.collectionHistory' },
                 { id: 'rm_export', label: 'Export Data', description: 'Download data from any RM panel page', risk: 'medium', path: 'rmPanel.export' },
+            ]
+        },
+        {
+            id: 'cityOpsPanel',
+            label: 'City Ops Panel',
+            icon: Users,
+            permissions: [
+                { id: 'co_dash', label: 'Dashboard', description: 'View City Ops Dashboard', risk: 'low', path: 'cityOpsPanel.dashboard' },
+                { id: 'co_riders', label: 'Rider Management', description: 'Manage riders across city', risk: 'medium', path: 'cityOpsPanel.riderManagement' },
+                { id: 'co_leads', label: 'Lead Management', description: 'Manage leads across city', risk: 'medium', path: 'cityOpsPanel.leadManagement' },
+                { id: 'co_leaderboard', label: 'Leaderboard', description: 'View city leaderboard', risk: 'low', path: 'cityOpsPanel.leaderboard' },
+                { id: 'co_rm_perf', label: 'RM Performance', description: 'View RM performance metrics', risk: 'low', path: 'cityOpsPanel.rmPerformance' },
+                { id: 'co_tl_perf', label: 'TL Performance', description: 'View TL performance metrics', risk: 'low', path: 'cityOpsPanel.tlPerformance' },
+                { id: 'co_allot', label: 'Allotment System', description: 'Access TL rider allotment system', risk: 'medium', path: 'cityOpsPanel.allotmentSystem' },
+                { id: 'co_forms', label: 'Company Forms', description: 'View company wide forms', risk: 'low', path: 'cityOpsPanel.companyForms' },
+                { id: 'co_data_rider', label: 'Data Hub: Import Riders', description: 'Bulk rider import', risk: 'high', path: 'cityOpsPanel.dataManagement.bulkRiderImport' },
+                { id: 'co_data_wallet', label: 'Data Hub: Bulk Wallet', description: 'Bulk wallet update', risk: 'high', path: 'cityOpsPanel.dataManagement.bulkWalletUpdate' },
+                { id: 'co_data_rent', label: 'Data Hub: Rent Collection', description: 'Rent collection import', risk: 'high', path: 'cityOpsPanel.dataManagement.rentCollectionImport' },
+                { id: 'co_wallet_ledger', label: 'Wallet Logs', description: 'View comprehensive wallet ledger', risk: 'low', path: 'cityOpsPanel.walletLedger' },
+                { id: 'co_reports', label: 'Reports', description: 'Generate city reports', risk: 'low', path: 'cityOpsPanel.reports' },
+                { id: 'co_activity', label: 'Activity Logs', description: 'View city activity log', risk: 'low', path: 'cityOpsPanel.activityLog' },
+                { id: 'co_notif', label: 'Notifications', description: 'Manage notifications', risk: 'low', path: 'cityOpsPanel.notifications' },
+                { id: 'co_analytics', label: 'Analytics', description: 'Advanced analytics access', risk: 'low', path: 'cityOpsPanel.analytics' },
+                { id: 'co_roles', label: 'Staff & Roles', description: 'Create and manage RM/TL users', risk: 'high', path: 'cityOpsPanel.staffRoles' },
+                { id: 'co_profile', label: 'My Profile', description: 'Edit city ops profile', risk: 'low', path: 'cityOpsPanel.profile' },
             ]
         }
     ];

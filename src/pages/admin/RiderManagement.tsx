@@ -34,7 +34,11 @@ interface AdvancedFilters {
     reportingManager: string;
 }
 
-const RiderManagement: React.FC = () => {
+interface RiderManagementProps {
+    scopedCityOpsId?: string;
+}
+
+const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) => {
     const { userData: currentUser } = useSupabaseAuth();
     const location = useLocation();
     const [activeTab, setActiveTab] = useState<TabType>('all');
@@ -280,6 +284,7 @@ const RiderManagement: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
+            const filter = scopedCityOpsId ? { column: 'city_ops_id', value: scopedCityOpsId, type: 'eq' as const } : undefined;
             const { data: ridersData, error: ridersError } = await fetchAllRidersPaginated(`
                 id,
                 trievId:triev_id,
@@ -299,7 +304,7 @@ const RiderManagement: React.FC = () => {
                 inactivatedAt:inactivated_at,
                 lastStatusChangeAt:last_status_change_at,
                 deletedAt:deleted_at
-            `);
+            `, filter);
             if (ridersError) throw ridersError;
 
             const { data: teamLeadersData, error: usersError } = await supabase.from('users').select(`

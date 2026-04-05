@@ -18,7 +18,10 @@ import { toast } from 'sonner';
 import { startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { formatPhoneNumber } from '@/utils/validationUtils';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
-const AdminLeads: React.FC = () => {
+interface AdminLeadsProps {
+    scopedTlIds?: string[];
+}
+const AdminLeads: React.FC<AdminLeadsProps> = ({ scopedTlIds }) => {
     const { userData: currentUser } = useSupabaseAuth();
     const location = useLocation();
     const navigate = useNavigate();
@@ -79,13 +82,26 @@ id, mobileNumber: mobile_number, trievId: triev_id, riderName: rider_name
             if (riderData) setRiders(riderData as any);
 
             // 2. Fetch Leads
-            const { data: leadData } = await supabase.from('leads').select(`
+            let query = supabase.from('leads').select(`
 id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
     city, status, score, category, source, createdAt: created_at,
         drivingLicense: driving_license, clientInterested: client_interested,
             location, createdBy: created_by, createdByName: created_by_name,
                 remarks
                     `).order('id', { ascending: false });
+
+            // Apply TL scoping if provided (for City Ops / RM Panel Integration)
+            if (scopedTlIds) {
+                if (scopedTlIds.length === 0) {
+                     setLeads([]);
+                     setTeamLeaders([]);
+                     setLoading(false);
+                     return;
+                }
+                query = query.in('created_by', scopedTlIds);
+            }
+
+            const { data: leadData } = await query;
 
             if (leadData) {
                 const leadsData = leadData as any[];
@@ -131,7 +147,7 @@ id, leadId: lead_id, riderName: rider_name, mobileNumber: mobile_number,
         return () => {
             subscription.unsubscribe();
         };
-    }, [refreshKey]);
+    }, [refreshKey, scopedTlIds]);
 
     // Apply Filters
     const filteredLeads = useMemo(() => {
