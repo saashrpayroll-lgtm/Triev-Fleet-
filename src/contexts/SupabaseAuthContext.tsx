@@ -207,6 +207,8 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
             if (data) {
                 setUserData(formatUserData(data));
+                // Store role so logout redirect works even when userData closure is stale
+                try { localStorage.setItem('user_role', data.role || ''); } catch { /* storage unavailable */ }
             } else {
                 console.warn('User profile not found in database. Using minimal fallback.');
                 // Minimal fallback to allow login but restrict access
@@ -251,28 +253,25 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     const signOut = async () => {
+        // Read role NOW (before clearing anything) — also check localStorage as fallback
+        // This ensures auto-logout's closure captures the correct role even if userData is stale.
+        const roleFromContext = userData?.role as string | undefined;
+        let role: string | undefined = roleFromContext;
+        if (!role) {
+            try { role = localStorage.getItem('user_role') ?? undefined; } catch { /* ignore */ }
+        }
         try {
-            // Check role before signing out to determine redirect path
-            const role = userData?.role;
-
-            // 1. Force kill all active Subscriptions/Channels (Presence, RLS listeners, etc.)
-            // This prevents Supabase auth.signOut() from hanging indefinitely
+            // 1. Force kill all active Subscriptions/Channels
             await supabase.removeAllChannels();
 
-            // Commented out to prevent `<Navigate to="/login">` from preempting the role-based hard navigation:
-            // setSession(null);
-            // setUser(null);
-            // setUserData(null);
-
-            // Clear local storage (if any user preferences were saved)
-            // Do not clear the theme unless desired, but we can clear auth tokens as a fallback
+            // Clear auth tokens from local storage
             Object.keys(localStorage).forEach(key => {
-                if (key.includes('supabase.auth.token')) {
+                if (key.includes('supabase.auth.token') || key === 'user_role') {
                     localStorage.removeItem(key);
                 }
             });
 
-            // 2. Attempt a graceful signout with a hard 2-second timeout
+            // 2. Attempt graceful signout with 2-second timeout
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Sign out timeout')), 2000)
             );
@@ -280,10 +279,10 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             try {
                 await Promise.race([supabase.auth.signOut(), timeoutPromise]);
             } catch (authError) {
-                console.warn('Backend signout timed out or failed, proceeding with local signout logs:', authError);
+                console.warn('Backend signout timed out or failed, proceeding with local signout:', authError);
             }
 
-            // Role-based redirect
+            // Role-based redirect — admin → /admin-login, everyone else → /login
             if (role === 'admin') {
                 window.location.href = '/admin-login';
             } else {
@@ -291,8 +290,10 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             }
         } catch (error) {
             console.error('Logout failed fatally:', error);
-            // Fallback redirect
-            window.location.href = '/login';
+            // Even in fatal error, use stored role for redirect (don't lose admin to /login)
+            let fallbackRole: string | null = null;
+            try { fallbackRole = localStorage.getItem('user_role'); } catch { /* ignore */ }
+            window.location.href = (fallbackRole === 'admin' || role === 'admin') ? '/admin-login' : '/login';
         }
     };
 
