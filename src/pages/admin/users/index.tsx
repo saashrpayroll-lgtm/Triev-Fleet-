@@ -33,6 +33,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
 
     // Local State
     const [searchTerm, setSearchTerm] = useState('');
+    const isCityOpsScoped = !!scopedCityOpsId;
     const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'teamLeader' | 'reportingManager'>('all');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
     const [showDeleted, setShowDeleted] = useState(false);
@@ -317,10 +318,12 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
                                 <p className="text-xl font-black text-emerald-400">{stats.active}</p>
                                 <p className="text-[8px] font-bold uppercase tracking-wider text-emerald-300/70">Active</p>
                             </div>
+                            {!isCityOpsScoped && (
                             <div className="bg-purple-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-purple-400/20 text-center min-w-[60px]">
                                 <p className="text-xl font-black text-purple-400">{stats.admins}</p>
                                 <p className="text-[8px] font-bold uppercase tracking-wider text-purple-300/70">Admins</p>
                             </div>
+                            )}
                             <div className="bg-blue-500/15 backdrop-blur-sm rounded-xl px-3 py-2 border border-blue-400/20 text-center min-w-[60px]">
                                 <p className="text-xl font-black text-blue-400">{stats.teamLeaders}</p>
                                 <p className="text-[8px] font-bold uppercase tracking-wider text-blue-300/70">TLs</p>
@@ -381,12 +384,19 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
 
                         {/* Role Filter */}
                         <div className="flex bg-muted/50 p-0.5 rounded-xl border border-border/40 overflow-hidden">
-                            {([
-                                { value: 'all', label: 'All' },
-                                { value: 'admin', label: 'Admin' },
-                                { value: 'teamLeader', label: 'TL' },
-                                { value: 'reportingManager', label: 'RM' },
-                            ] as const).map(opt => (
+                            {(isCityOpsScoped
+                                ? [
+                                    { value: 'all' as const, label: 'All' },
+                                    { value: 'teamLeader' as const, label: 'TL' },
+                                    { value: 'reportingManager' as const, label: 'RM' },
+                                ]
+                                : [
+                                    { value: 'all' as const, label: 'All' },
+                                    { value: 'admin' as const, label: 'Admin' },
+                                    { value: 'teamLeader' as const, label: 'TL' },
+                                    { value: 'reportingManager' as const, label: 'RM' },
+                                ]
+                            ).map(opt => (
                                 <button
                                     key={opt.value}
                                     onClick={() => setFilterRole(opt.value)}
