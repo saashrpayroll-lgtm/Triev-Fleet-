@@ -491,7 +491,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                             <div className="relative">
                                 <select
                                     value={dateFilter}
-                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDateFilter(e.target.value as any)}
+                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDateFilter(e.target.value as 'today' | 'yesterday' | 'week' | 'month' | 'custom')}
                                     className="pl-9 pr-8 py-2 bg-background border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
                                 >
                                     <option value="today">Today</option>
@@ -550,7 +550,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                     <label className="text-[10px] font-black uppercase text-muted-foreground">Status</label>
                                     <select 
                                         value={filterStatus} 
-                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)} 
+                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')} 
                                         className="w-full p-2 bg-background border border-border rounded-lg text-sm"
                                     >
                                         <option value="all">All</option>
@@ -562,7 +562,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                     <label className="text-[10px] font-black uppercase text-muted-foreground">Risk Level</label>
                                     <select 
                                         value={riskFilter} 
-                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRiskFilter(e.target.value as any)} 
+                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRiskFilter(e.target.value as 'all' | 'high_risk' | 'low_risk')} 
                                         className="w-full p-2 bg-background border border-border rounded-lg text-sm"
                                     >
                                         <option value="all">All Masks</option>
@@ -574,7 +574,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                     <label className="text-[10px] font-black uppercase text-muted-foreground">Performance</label>
                                     <select 
                                         value={perfFilter} 
-                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPerfFilter(e.target.value as any)} 
+                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPerfFilter(e.target.value as 'all' | 'top_performers' | 'low_conversion')} 
                                         className="w-full p-2 bg-background border border-border rounded-lg text-sm"
                                     >
                                         <option value="all">All Tiers</option>
