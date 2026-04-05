@@ -2,13 +2,16 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import {
-    Users, AlertTriangle, Wallet,
-    Zap, Activity, IndianRupee, BarChart3, Shield,
-    ChevronUp, ChevronDown, TrendingUp, Flame, Crown
+    Users, UserCheck, AlertTriangle, Target, Wallet, RefreshCw,
+    Zap, Activity, ChevronRight, IndianRupee, BarChart3, Clock, Shield,
+    Bike, Star, ChevronUp, ChevronDown, Phone, MessageCircle, Bell,
+    Award, TrendingUp, UserPlus, Flame, Crown, Navigation, CheckCircle, XCircle
 } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 // ── Helpers ──
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -93,16 +96,20 @@ const GlassCard: React.FC<{
 
 // ── Types ──
 interface RiderRaw { id: string; status: string; wallet_amount: number; client_name: string; team_leader_id: string; allotment_date: string; inactivated_at?: string; rider_name: string; mobile_number: string; }
+interface TLEntry { id: string; full_name: string; reporting_manager: string; }
 interface CollRow { team_leader_id: string; total_collection: number; date: string; }
 interface LeadRow { id: string; status: string; created_by: string; }
 
 // ── Main Component ──
 const CityOpsDashboard: React.FC = () => {
-    const { cityOpsId, tlIds, isLoading: scopeLoading } = useCityOpsScope();
+    const { userData } = useSupabaseAuth();
+    const { cityOpsId, rmIds, tlIds, isLoading: scopeLoading } = useCityOpsScope();
     const navigate = useNavigate();
+    const toast = useToast();
 
     const [riders, setRiders] = useState<RiderRaw[]>([]);
     const [leads, setLeads] = useState<LeadRow[]>([]);
+    const [tlMap, setTlMap] = useState<Record<string, TLEntry>>({});
     const [collToday, setCollToday] = useState<CollRow[]>([]);
     const [collWeek, setCollWeek] = useState<CollRow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -121,15 +128,19 @@ const CityOpsDashboard: React.FC = () => {
             const monDate = new Date(today); monDate.setDate(today.getDate() - diffMon);
             const weekStartStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(monDate);
 
-            const [ridersRes, leadsRes, collTodayRes, collWeekRes] = await Promise.all([
+            const [ridersRes, leadsRes, tlRes, collTodayRes, collWeekRes] = await Promise.all([
                 fetchAllRidersPaginated('id, status, wallet_amount, client_name, team_leader_id, allotment_date, inactivated_at, rider_name, mobile_number', { column: 'team_leader_id', value: tlIds, type: 'in' }),
                 supabase.from('leads').select('id, status, created_by').in('created_by', tlIds),
+                supabase.from('users').select('id, full_name, reporting_manager').in('id', tlIds),
                 fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [{ column: 'date', operator: 'eq', value: todayStr }, { column: 'team_leader_id', operator: 'in', value: tlIds }]),
                 fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', [{ column: 'date', operator: 'gte', value: weekStartStr }, { column: 'team_leader_id', operator: 'in', value: tlIds }]),
             ]);
 
             setRiders((ridersRes.data || []) as RiderRaw[]);
             setLeads((leadsRes.data || []) as LeadRow[]);
+            const tmap: Record<string, TLEntry> = {};
+            (tlRes.data || []).forEach((t: { id: string; full_name: string; reporting_manager: string }) => { tmap[t.id] = t; });
+            setTlMap(tmap);
             setCollToday((collTodayRes.data || []) as CollRow[]);
             setCollWeek((collWeekRes.data || []) as CollRow[]);
         } catch (err) { console.error('[CityOps] fetchAll error:', err); }
@@ -400,7 +411,7 @@ const TrophyIcon = ({ className }: { className?: string }) => <svg viewBox="0 0 
 const LineChartIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>;
 
 // ── Podium Card Component ──
-const PodiumCard: React.FC<{ rank: number; color: 'amber' | 'slate' | 'orange'; data: { name: string; active: number; coll: number; health: number; isMe?: boolean; tlid: string }; tall?: boolean }> = ({ rank, color, data, tall }) => {
+const PodiumCard: React.FC<{ rank: number; color: 'amber' | 'slate' | 'orange'; data: any; tall?: boolean }> = ({ rank, color, data, tall }) => {
     const isGold = rank === 1;
     const bgMap = {
         amber: 'bg-[#18150D]/90 border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-amber-500/20',
