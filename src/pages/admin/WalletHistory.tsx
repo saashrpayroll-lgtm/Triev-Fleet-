@@ -60,7 +60,11 @@ const StatCard = ({ label, value, Icon, color }: { label: string; value: string;
     </motion.div>
 );
 
-const WalletHistory: React.FC = () => {
+interface WalletHistoryProps {
+    scopedCityOpsId?: string;
+}
+
+const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
     const { userData } = useSupabaseAuth();
     const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -164,7 +168,9 @@ const WalletHistory: React.FC = () => {
             }
 
             let q = supabase.from('wallet_ledger')
-                .select('*, riders!inner(rider_name, team_leader_id, users(full_name))', { count: 'exact' });
+                .select('*, riders!inner(rider_name, team_leader_id, city_ops_id, users(full_name))', { count: 'exact' });
+
+            if (scopedCityOpsId) q = q.eq('riders.city_ops_id', scopedCityOpsId);
 
             if (filterType !== 'all') q = q.eq('transaction_type', filterType);
             if (filterMode !== 'all') q = q.eq('mode', filterMode);
@@ -204,7 +210,7 @@ const WalletHistory: React.FC = () => {
             toast.error(`Failed to load ledger: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
         finally { setLoading(false); }
-    }, [debouncedSearch, currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData]);
+    }, [debouncedSearch, currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData, scopedCityOpsId]);
 
     useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 

@@ -8,6 +8,7 @@ import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 import { Construction } from 'lucide-react';
 import AdminLeads from '../admin/AdminLeads';
 import RiderManagement from '../admin/RiderManagement';
+import WalletHistory from '../admin/WalletHistory';
 
 interface ScopedPageProps {
     title: string;
@@ -63,14 +64,15 @@ export const CityOpsLeads: React.FC = () => {
     if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
     return <AdminLeads scopedTlIds={tlIds} />;
 };
-
 export const CityOpsDataManagement: React.FC = () => (
     <ScopedPageShell title="Data Hub" description="Bulk imports, wallet updates, and rent collection" />
 );
 
-export const CityOpsWalletHistory: React.FC = () => (
-    <ScopedPageShell title="Wallet Logs" description="Complete wallet ledger for your riders" />
-);
+export const CityOpsWalletHistory: React.FC = () => {
+    const { cityOpsId, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <WalletHistory scopedCityOpsId={cityOpsId} />;
+};
 
 export const CityOpsRMPerformance: React.FC = () => (
     <ScopedPageShell title="RM Performance" description="Performance metrics for your Reporting Managers" />
