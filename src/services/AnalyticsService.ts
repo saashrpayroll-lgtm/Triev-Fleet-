@@ -1,5 +1,4 @@
 import { supabase } from '@/config/supabase';
-import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { format, subMonths, eachMonthOfInterval } from 'date-fns';
 
 export interface AnalyticsData {
@@ -31,26 +30,41 @@ export interface AnalyticsConfig {
 }
 
 export const AnalyticsService = {
-    fetchDashboardAnalytics: async (_config?: AnalyticsConfig): Promise<AnalyticsData> => {
-        if (_config) {
-            console.debug('Analytics Scope Config:', _config);
-        }
+    fetchDashboardAnalytics: async (config?: AnalyticsConfig): Promise<AnalyticsData> => {
+        const { scopedCityOpsId, scopedTlIds } = config || {};
         
         const today = new Date();
         const sixMonthsAgo = subMonths(today, 5);
 
         try {
+            // Build filter queries for riders
+            // Logic: Filter by city_ops_id if available, otherwise filter by TLIds.
+            let ridersQuery = supabase.from('riders').select('id, created_at, client_name, wallet_amount, status, team_leader_id');
+            if (scopedCityOpsId) {
+                ridersQuery = ridersQuery.or(`city_ops_id.eq.${scopedCityOpsId},team_leader_id.in.(${scopedTlIds?.join(',') || ''})`);
+            } else if (scopedTlIds && scopedTlIds.length > 0) {
+                ridersQuery = ridersQuery.in('team_leader_id', scopedTlIds);
+            }
+
+            // Build filter queries for leads
+            let leadsQuery = supabase.from('leads').select('id, status, created_at');
+            if (scopedTlIds && scopedTlIds.length > 0) {
+                leadsQuery = leadsQuery.in('team_leader_id', scopedTlIds);
+            } else if (scopedCityOpsId) {
+                // If scopedCityOpsId but no tlIds (unlikely as we fetch them), fallback or handle.
+            }
+
             // Parallel Fetching
             const [ridersRes, leadsRes] = await Promise.all([
-                fetchAllRidersPaginated('id, created_at, client_name, wallet_amount, status, team_leader_id'),
-                supabase.from('leads').select('id, status, created_at')
+                ridersQuery,
+                leadsQuery
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
 
             const riders = ridersRes.data || [];
-            const leads = leadsRes.data || [];
+            const leads = (leadsRes.data as any[]) || [];
 
             // 1. Rider Growth (Last 6 Months)
             const months = eachMonthOfInterval({ start: sixMonthsAgo, end: today });

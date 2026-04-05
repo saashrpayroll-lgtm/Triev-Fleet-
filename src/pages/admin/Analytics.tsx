@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -12,7 +12,6 @@ import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
 import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
 import AdminWalletBifurcation from '@/components/dashboard/AdminWalletBifurcation';
-import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 // Premium color palette
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -25,12 +24,19 @@ const GRADIENT_COLORS = [
 ];
 
 // Custom tooltip for charts
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayload {
+    name: string;
+    value: number | string;
+    color?: string;
+    fill?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-popover border border-border rounded-xl px-4 py-3 shadow-xl text-sm">
                 <p className="font-semibold text-foreground mb-1">{label}</p>
-                {payload.map((entry: any, i: number) => (
+                {payload.map((entry, i) => (
                     <p key={i} style={{ color: entry.color || entry.fill }} className="font-medium">
                         {entry.name}: <span className="font-bold">{entry.value}</span>
                     </p>
@@ -62,13 +68,11 @@ interface AnalyticsProps {
 }
 
 const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, scopedTlIds }) => {
-    // We call useSupabaseAuth to hook into context if needed, but no variables are destructured to avoid lint errors
-    useSupabaseAuth();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const result = await AnalyticsService.fetchDashboardAnalytics({
@@ -84,7 +88,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, sco
         } finally {
             setLoading(false);
         }
-    };
+    }, [scopedCityOpsId, scopedRmIds, scopedTlIds]);
 
     useEffect(() => {
         fetchData();
@@ -111,7 +115,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, sco
             supabase.removeChannel(leadsChannel);
             if (debounceTimer) clearTimeout(debounceTimer);
         };
-    }, []);
+    }, [fetchData]);
 
     if (loading) {
         return (

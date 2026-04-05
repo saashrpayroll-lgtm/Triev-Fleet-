@@ -95,11 +95,19 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             const endOfDayIST = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
+            let tlQuery = supabase.from('users').select('*').in('role', ['teamLeader']);
+            let rmQuery = supabase.from('users').select('*').eq('role', 'reportingManager');
+
+            if (scopedRmIds && scopedRmIds.length > 0) {
+                tlQuery = tlQuery.in('reporting_manager_id', scopedRmIds);
+                rmQuery = rmQuery.in('id', scopedRmIds);
+            }
+
             const [ridersRes, leadsRes, usersRes, rmsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 fetchAllRidersPaginated('*'),
                 supabase.from('leads').select('*'),
-                supabase.from('users').select('*').in('role', ['teamLeader']),
-                supabase.from('users').select('*').eq('role', 'reportingManager'),
+                tlQuery,
+                rmQuery,
                 supabase.from('daily_collections').select('*').order('date', { ascending: false }).limit(20000),
                 supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')

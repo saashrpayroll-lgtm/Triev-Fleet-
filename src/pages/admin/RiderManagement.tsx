@@ -307,7 +307,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
             `, filter);
             if (ridersError) throw ridersError;
 
-            const { data: teamLeadersData, error: usersError } = await supabase.from('users').select(`
+            let tlQuery = supabase.from('users').select(`
                 id,
                 fullName:full_name,
                 email,
@@ -318,6 +318,8 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 username,
                 jobLocation:job_location,
                 reportingManager:reporting_manager,
+                reportingManagerId:reporting_manager_id,
+                city_ops_id,
                 permissions,
                 remarks,
                 profilePicUrl:profile_pic_url,
@@ -325,6 +327,13 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 createdAt:created_at,
                 updatedAt:updated_at
             `).eq('role', 'teamLeader');
+
+            if (scopedCityOpsId) {
+                // Fetch TLs whose city_ops_id matches OR whose RM's manager is this City Ops (via city_ops_id)
+                tlQuery = tlQuery.eq('city_ops_id', scopedCityOpsId);
+            }
+
+            const { data: teamLeadersData, error: usersError } = await tlQuery;
             if (usersError) throw usersError;
 
             const mappedRiders = ((ridersData as Rider[]) || []).map(r => ({ ...r, walletAmount: r.status === 'active' ? r.walletAmount : 0 }));

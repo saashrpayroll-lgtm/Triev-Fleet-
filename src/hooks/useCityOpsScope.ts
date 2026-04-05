@@ -36,11 +36,13 @@ export const useCityOpsScope = (): CityOpsScope => {
 
         try {
             // Step 1: Fetch all RMs reporting to this City Ops
+            // Logic: An RM is under this City Ops if their reporting_manager is the City Ops ID (UUID)
+            // OR if their city_ops_id is explicitly set.
             const { data: rms, error: rmError } = await supabase
                 .from('users')
                 .select('id')
-                .eq('city_ops_id', userData.id)
                 .eq('role', 'reportingManager')
+                .or(`city_ops_id.eq.${userData.id},reporting_manager.eq.${userData.id}`)
                 .in('status', ['active', 'inactive']);
 
             if (rmError) throw rmError;
@@ -49,11 +51,13 @@ export const useCityOpsScope = (): CityOpsScope => {
             setRmIds(fetchedRmIds);
 
             // Step 2: Fetch all TLs reporting to this City Ops
+            // Logic: A TL is under this City Ops if their city_ops_id is set
+            // OR if they report to one of the RMs we just found.
             const { data: tls, error: tlError } = await supabase
                 .from('users')
                 .select('id')
-                .eq('city_ops_id', userData.id)
                 .eq('role', 'teamLeader')
+                .or(`city_ops_id.eq.${userData.id}${fetchedRmIds.length > 0 ? `,reporting_manager.in.(${fetchedRmIds.join(',')})` : ''}`)
                 .in('status', ['active', 'inactive']);
 
             if (tlError) throw tlError;
