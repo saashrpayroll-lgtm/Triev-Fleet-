@@ -23,7 +23,11 @@ import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { useDebounce } from '@/hooks/useDebounce';
 
-const TLPerformance: React.FC = () => {
+interface TLPerformanceProps {
+    scopedTlIds?: string[];
+}
+
+const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     const [loading, setLoading] = useState(true);
     const [rawData, setRawData] = useState<{
         riders: any[];
@@ -178,7 +182,9 @@ const TLPerformance: React.FC = () => {
                     status: String(r.status || '').toLowerCase()
                 })),
                 leads: leadsRes.data || [],
-                teamLeaders: (usersRes.data || []).map((u: any) => ({
+                teamLeaders: (usersRes.data || [])
+                    .filter((u: any) => !scopedTlIds || scopedTlIds.includes(u.id))
+                    .map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id

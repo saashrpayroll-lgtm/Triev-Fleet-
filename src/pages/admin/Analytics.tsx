@@ -54,7 +54,14 @@ const SectionHeader = ({ icon, title, subtitle, color }: { icon: React.ReactNode
     </div>
 );
 
-const Analytics: React.FC = () => {
+interface AnalyticsProps {
+    scopedCityOpsId?: string;
+    scopedRmIds?: string[];
+    scopedTlIds?: string[];
+}
+
+const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, scopedTlIds }) => {
+    const { userData } = useSupabaseAuth();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);

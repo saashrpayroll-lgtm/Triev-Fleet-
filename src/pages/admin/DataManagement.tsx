@@ -12,7 +12,11 @@ import { logActivity } from '@/utils/activityLog';
 import RiderAuditModal from '@/components/RiderAuditModal';
 import ImportLogModal from '@/components/ImportLogModal';
 
-const DataManagement: React.FC = () => {
+interface DataManagementProps {
+    scopedCityOpsId?: string;
+}
+
+const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
     const { userData } = useSupabaseAuth();
     // Persistent Settings
     const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z10000', apiKey: '', enabled: false, strictMirror: false });
@@ -194,6 +198,11 @@ const DataManagement: React.FC = () => {
         // unless we split isSyncing state. The user wants "dono me... chalta rahe".
         // If we use global lock, one will block the other.
         // Let's rely on the lock but realize 10s is enough time for one to finish usually.
+
+        if (scopedCityOpsId) {
+            alert("Data Uploads are restricted to Admin Panel.");
+            return;
+        }
 
         setIsSyncing(true);
         setSyncError(null);

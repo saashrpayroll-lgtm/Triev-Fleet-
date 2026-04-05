@@ -9,7 +9,14 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const useUsers = () => {
+interface UseUsersConfig {
+    scopedCityOpsId?: string;
+    scopedRmIds?: string[];
+    scopedTlIds?: string[];
+}
+
+export const useUsers = (config?: UseUsersConfig) => {
+    const { scopedCityOpsId, scopedRmIds, scopedTlIds } = config || {};
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     // Hardcoded list of immune users (Super Admins)
@@ -69,7 +76,7 @@ export const useUsers = () => {
 
         const currentOffset = isRefresh ? 0 : page * USERS_PER_PAGE;
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('users')
             .select(`
                 id,
@@ -88,10 +95,26 @@ export const useUsers = () => {
                 profilePicUrl:profile_pic_url,
                 suspendedUntil:suspended_until,
                 createdAt:created_at,
-                updatedAt:updated_at
+                updatedAt:updated_at,
+                cityOpsId:city_ops_id
             `)
             .order('created_at', { ascending: false })
             .range(currentOffset, currentOffset + USERS_PER_PAGE - 1);
+
+        if (scopedCityOpsId) {
+            const validIds = [...(scopedRmIds || []), ...(scopedTlIds || [])];
+            if (validIds.length > 0) {
+                query = query.in('id', validIds);
+            } else {
+                // If city ops has no team, return empty array immediately to avoid fetching all users
+                setUsers([]);
+                setHasMore(false);
+                setLoading(false);
+                return;
+            }
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Error fetching users:', error);
@@ -167,8 +190,13 @@ export const useUsers = () => {
                             profilePicUrl: next.profile_pic_url,
                             suspendedUntil: next.suspended_until,
                             createdAt: next.created_at,
-                            updatedAt: next.updated_at
+                            updatedAt: next.updated_at,
+                            cityOpsId: next.city_ops_id
                         } as User;
+                        
+                        // If scoped, check if new user belongs to CityOps
+                        if (scopedCityOpsId && mappedNew.cityOpsId !== scopedCityOpsId) return prev;
+
                         return [mappedNew, ...prev];
                     }
 
@@ -271,6 +299,10 @@ export const useUsers = () => {
                 position: userData.position || null,
                 updated_at: new Date().toISOString()
             };
+
+            if (scopedCityOpsId) {
+                updatePayload.city_ops_id = scopedCityOpsId;
+            }
 
             const { error: updateError } = await supabase
                 .from('users')

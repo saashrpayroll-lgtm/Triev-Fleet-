@@ -54,7 +54,11 @@ const gradeConfig: Record<string, { bg: string; text: string; border: string }> 
     D: { bg: 'bg-rose-400/10', text: 'text-rose-400', border: 'border-rose-400/20' },
 };
 
-const LeaderboardPage: React.FC = () => {
+interface LeaderboardPageProps {
+    scopedTlIds?: string[];
+}
+
+const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
     const [teamLeaders, setTeamLeaders] = useState<User[]>([]);
     const [riders, setRiders] = useState<Rider[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
@@ -85,12 +89,16 @@ const LeaderboardPage: React.FC = () => {
             ]);
 
             if (usersRes.data) {
-                setTeamLeaders(usersRes.data.map((u: any) => ({
-                    id: u.id, fullName: u.full_name, mobile: u.mobile,
-                    email: u.email, status: u.status, role: u.role,
-                    profilePicUrl: u.profile_pic_url || undefined,
-                    targetAmount: u.target_amount || 0 // Store gamification target
-                })) as any);
+                setTeamLeaders(
+                    usersRes.data
+                        .filter((u: any) => !scopedTlIds || scopedTlIds.includes(u.id))
+                        .map((u: any) => ({
+                            id: u.id, fullName: u.full_name, mobile: u.mobile,
+                            email: u.email, status: u.status, role: u.role,
+                            profilePicUrl: u.profile_pic_url || undefined,
+                            targetAmount: u.target_amount || 0 // Store gamification target
+                        })) as any
+                );
             }
             if (ridersRes.data) {
                 setRiders(ridersRes.data.map((r: any) => ({

@@ -8,19 +8,24 @@ import BulkActionsBar from './components/BulkActionsBar';
 import PermissionsEditor from '@/components/PermissionsEditor';
 import SuspendUserModal from '@/components/SuspendUserModal';
 import UserDetailModal from './components/UserDetailModal';
-import { User, PasswordResetRequest, UserFormData, UserPermissions } from '@/types';
+import { User, PasswordResetRequest, UserFormData, UserPermissions, UserRole } from '@/types';
 import { exportToExcel } from '@/utils/exportUtils';
 import { useToast } from '@/contexts/ToastContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
+export interface UserManagementPageProps {
+    scopedCityOpsId?: string;
+    scopedRmIds?: string[];
+    scopedTlIds?: string[];
+}
 
-const UserManagementPage: React.FC = () => {
+const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId, scopedRmIds, scopedTlIds }) => {
     const {
         users, loading, createUser, updateUser,
         toggleStatus, suspendUser, deleteUser,
         restoreUser, permanentDeleteUser, bulkDeleteUsers, bulkSuspendUsers, bulkToggleStatus,
         getNextId, loadMore, hasMore, refreshUsers
-    } = useUsers();
+    } = useUsers({ scopedCityOpsId, scopedRmIds, scopedTlIds });
     const { userData } = useSupabaseAuth();
 
     const toast = useToast();
@@ -519,6 +524,7 @@ const UserManagementPage: React.FC = () => {
                 onGenerateId={getNextId}
                 isSubmitting={isSubmitting}
                 initialData={null}
+                restrictedRoles={scopedCityOpsId ? ['teamLeader', 'reportingManager'] as UserRole[] : undefined}
             />
 
             {editingUser && (
@@ -529,6 +535,7 @@ const UserManagementPage: React.FC = () => {
                     onGenerateId={getNextId}
                     initialData={editingUser}
                     isSubmitting={isSubmitting}
+                    restrictedRoles={scopedCityOpsId ? ['teamLeader', 'reportingManager'] as UserRole[] : undefined}
                 />
             )}
 

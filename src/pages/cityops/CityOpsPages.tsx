@@ -5,10 +5,21 @@
 import React from 'react';
 import GlassCard from '@/components/GlassCard';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Construction } from 'lucide-react';
 import AdminLeads from '../admin/AdminLeads';
 import RiderManagement from '../admin/RiderManagement';
 import WalletHistory from '../admin/WalletHistory';
+import RMPerformance from '../admin/RMPerformance';
+import TLPerformance from '../admin/TLPerformance';
+import LeaderboardPage from '../admin/LeaderboardPage';
+import Analytics from '../admin/Analytics';
+import TLAllotment from '../admin/TLAllotment';
+import AdminForms from '../admin/AdminForms';
+import Profile from '../admin/Profile';
+import AdminNotificationsPage from '../admin/AdminNotificationsPage';
+import DataManagement from '../admin/DataManagement';
+import UserManagementPage from '../admin/users/index';
 
 interface ScopedPageProps {
     title: string;
@@ -64,9 +75,6 @@ export const CityOpsLeads: React.FC = () => {
     if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
     return <AdminLeads scopedTlIds={tlIds} />;
 };
-export const CityOpsDataManagement: React.FC = () => (
-    <ScopedPageShell title="Data Hub" description="Bulk imports, wallet updates, and rent collection" />
-);
 
 export const CityOpsWalletHistory: React.FC = () => {
     const { cityOpsId, isLoading } = useCityOpsScope();
@@ -74,21 +82,35 @@ export const CityOpsWalletHistory: React.FC = () => {
     return <WalletHistory scopedCityOpsId={cityOpsId} />;
 };
 
-export const CityOpsRMPerformance: React.FC = () => (
-    <ScopedPageShell title="RM Performance" description="Performance metrics for your Reporting Managers" />
-);
+export const CityOpsRMPerformance: React.FC = () => {
+    const { rmIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <RMPerformance scopedRmIds={rmIds} />;
+};
 
-export const CityOpsTLPerformance: React.FC = () => (
-    <ScopedPageShell title="TL Performance" description="Performance metrics for your Team Leaders" />
-);
+export const CityOpsTLPerformance: React.FC = () => {
+    const { tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <TLPerformance scopedTlIds={tlIds} />;
+};
 
-export const CityOpsTLAllotment: React.FC = () => (
-    <ScopedPageShell title="Allotment System" description="Rider allotment tracking for your team" />
-);
+export const CityOpsTLAllotment: React.FC = () => {
+    const { tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <TLAllotment scopedTlIds={tlIds} />;
+};
 
-export const CityOpsLeaderboard: React.FC = () => (
-    <ScopedPageShell title="Leaderboard" description="Team rankings and competition" />
-);
+export const CityOpsLeaderboard: React.FC = () => {
+    const { tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <LeaderboardPage scopedTlIds={tlIds} />;
+};
+
+export const CityOpsDataManagement: React.FC = () => {
+    const { user } = useSupabaseAuth();
+    if (!user?.id) return null;
+    return <DataManagement scopedCityOpsId={user.id} />;
+};
 
 export const CityOpsReports: React.FC = () => (
     <ScopedPageShell title="Reports" description="Generate and export reports for your team" />
@@ -98,22 +120,26 @@ export const CityOpsActivityLog: React.FC = () => (
     <ScopedPageShell title="Activity Logs" description="Track all actions performed in your panel" />
 );
 
-export const CityOpsAnalytics: React.FC = () => (
-    <ScopedPageShell title="Analytics" description="Advanced analytics and insights for your team" />
-);
+export const CityOpsAnalytics: React.FC = () => {
+    const { cityOpsId, rmIds, tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
+    return <Analytics scopedCityOpsId={cityOpsId} scopedRmIds={rmIds} scopedTlIds={tlIds} />;
+};
 
-export const CityOpsForms: React.FC = () => (
-    <ScopedPageShell title="Company Forms" description="Standardized forms for your operations" />
-);
+export const CityOpsForms: React.FC = () => {
+    return <AdminForms />;
+};
 
-export const CityOpsStaffRoles: React.FC = () => (
-    <ScopedPageShell title="Staff & Roles" description="Create and manage RMs and TLs under your team" />
-);
+export const CityOpsStaffRoles: React.FC = () => {
+    const { cityOpsId, rmIds, tlIds, isLoading } = useCityOpsScope();
+    if (isLoading) return <div>Loading Staff...</div>;
+    return <UserManagementPage scopedCityOpsId={cityOpsId!} scopedRmIds={rmIds} scopedTlIds={tlIds} />;
+};
 
-export const CityOpsNotifications: React.FC = () => (
-    <ScopedPageShell title="Notifications" description="Your notifications and alerts" />
-);
+export const CityOpsNotifications: React.FC = () => {
+    return <AdminNotificationsPage />;
+};
 
-export const CityOpsProfile: React.FC = () => (
-    <ScopedPageShell title="My Profile" description="View and edit your profile information" />
-);
+export const CityOpsProfile: React.FC = () => {
+    return <Profile />;
+};

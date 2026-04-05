@@ -55,7 +55,11 @@ const toISTDate = (): Date => {
     return new Date(y, m - 1, day);
 };
 
-const TLAllotment: React.FC = () => {
+interface TLAllotmentProps {
+    scopedTlIds?: string[];
+}
+
+const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [data, setData] = useState<TLMetric[]>([]);
@@ -135,7 +139,7 @@ const TLAllotment: React.FC = () => {
             if (ridersRes.error) throw ridersRes.error;
             if (dailyColRes.error) throw dailyColRes.error;
 
-            const tls = tlsRes.data || [];
+            const tls = (tlsRes.data || []).filter(u => !scopedTlIds || scopedTlIds.includes(u.id));
             const riders = ridersRes.data || [];
 
             // Build unique RM names list for dropdown from TLs' reporting_manager field

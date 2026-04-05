@@ -11,10 +11,11 @@ interface UserFormModalProps {
     onGenerateId: (role: string) => Promise<string>;
     initialData?: UserType | null;
     isSubmitting: boolean;
+    restrictedRoles?: UserRole[];
 }
 
 const UserFormModal: React.FC<UserFormModalProps> = ({
-    isOpen, onClose, onSubmit, onGenerateId, initialData, isSubmitting
+    isOpen, onClose, onSubmit, onGenerateId, initialData, isSubmitting, restrictedRoles
 }) => {
     useEffect(() => {
         if (isOpen) console.error("UserFormModal: MOUNTED/OPENED", initialData ? "EDIT Mode" : "CREATE Mode");
@@ -207,10 +208,10 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
                                     className={inputClasses}
                                     disabled={isEditMode}
                                 >
-                                    <option value="teamLeader">Team Leader</option>
-                                    <option value="reportingManager">Reporting Manager</option>
-                                    <option value="cityOps">City Ops</option>
-                                    <option value="admin">Admin</option>
+                                    {(!restrictedRoles || restrictedRoles.includes('teamLeader')) && <option value="teamLeader">Team Leader</option>}
+                                    {(!restrictedRoles || restrictedRoles.includes('reportingManager')) && <option value="reportingManager">Reporting Manager</option>}
+                                    {(!restrictedRoles || restrictedRoles.includes('cityOps')) && <option value="cityOps">City Ops</option>}
+                                    {(!restrictedRoles || restrictedRoles.includes('admin')) && <option value="admin">Admin</option>}
                                 </select>
                             </div>
                             <div>

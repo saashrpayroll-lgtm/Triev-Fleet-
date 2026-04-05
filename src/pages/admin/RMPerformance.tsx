@@ -52,7 +52,11 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; col
     );
 };
 
-const RMPerformance: React.FC = () => {
+interface RMPerformanceProps {
+    scopedRmIds?: string[];
+}
+
+const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
     const [loading, setLoading] = useState(true);
     const [rawData, setRawData] = useState<{
         riders: any[];
@@ -158,7 +162,9 @@ const RMPerformance: React.FC = () => {
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
                 })),
-                rms: (rmsRes.data || []).map((u: any) => ({
+                rms: (rmsRes.data || [])
+                    .filter((u: any) => !scopedRmIds || scopedRmIds.includes(u.id))
+                    .map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
