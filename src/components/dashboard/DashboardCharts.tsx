@@ -16,7 +16,7 @@ const CHART_GRADIENTS = [
     { id: 'grad1', from: '#f43f5e', to: '#fb923c' },
     { id: 'grad2', from: '#94a3b8', to: '#64748b' },
 ];
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomPieTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
@@ -37,6 +37,7 @@ const CustomPieTooltip = ({ active, payload }: any) => {
     return null;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         const isRisk = label.toLowerCase().includes('risk') || label.toLowerCase().includes('due');

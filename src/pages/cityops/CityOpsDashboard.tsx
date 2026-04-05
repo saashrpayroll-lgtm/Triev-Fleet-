@@ -2,39 +2,26 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Users, UserCheck, Wallet, Inbox, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, ShieldCheck, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
-import Leaderboard from '@/components/Leaderboard';
-
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import RecentActivity from '@/components/dashboard/RecentActivity';
 import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';
 import { WalletSyncWidget } from '@/components/WalletSyncWidget';
 import WeeklyCollectionChart from '@/components/dashboard/WeeklyCollectionChart';
-import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
-import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
-import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
-import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
 import ZomatoVIPSection from '@/components/dashboard/ZomatoVIPSection';
 import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
-import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
-import RiderTenure from '@/components/dashboard/RiderTenure';
-import RevenueForecast from '@/components/dashboard/RevenueForecast';
-import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
-import TLComparisonCard from '@/components/dashboard/TLComparisonCard';
-import FleetGrowthIndicator from '@/components/dashboard/FleetGrowthIndicator';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
-import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
+import { DateFilterType } from '@/utils/dateUtils';
 import TLPerformance from '@/pages/admin/TLPerformance';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
-import { calculateAIScore } from '@/utils/performance';
 
 const CityOpsDashboard: React.FC = () => {
-    const { cityOpsId, tlIds, isLoading: scopeLoading } = useCityOpsScope();
+    const { tlIds, isLoading: scopeLoading } = useCityOpsScope();
     const { userData } = useSupabaseAuth();
     const navigate = useNavigate();
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
@@ -47,9 +34,9 @@ const CityOpsDashboard: React.FC = () => {
         leads: [] as Lead[],
         requests: [] as Request[],
         teamLeaders: [] as User[],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         dailyCollectionsRaw: [] as any[]
     });
-    const [tlCollections, setTlCollections] = useState<Record<string, number>>({});
     const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
     const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
     // ✅ FIX: Separate period-aware rent collection total from wallet data
@@ -183,6 +170,7 @@ const CityOpsDashboard: React.FC = () => {
             const [yr2, mo2] = nowStr2.split('-').map(Number);
             const monthStart2 = `${yr2}-${String(mo2).padStart(2, '0')}-01`;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             dailyData.forEach((d: any) => {
                 const tlId = d.team_leader_id;
                 const amt = Number(d.total_collection) || 0;
@@ -215,6 +203,7 @@ const CityOpsDashboard: React.FC = () => {
 
             // Live today from wallet_ledger — ONLY for TLs without a today snapshot
             const liveTodayByTL: Record<string, number> = {};
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
                 if (txn.rider && txn.rider.team_leader_id) {
@@ -232,8 +221,6 @@ const CityOpsDashboard: React.FC = () => {
                 weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
             });
 
-
-            setTlCollections(collections);
             setDailyCollections(dayMap);
             setWeeklyCollections(weekMap);
 
@@ -243,6 +230,7 @@ const CityOpsDashboard: React.FC = () => {
             // Solution: for each TL, use their snapshot if it exists, else count live active riders.
             const allRiderData = ridersRes.data || [];
             const liveFleetByTL: Record<string, number> = {};
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             allRiderData.forEach((r: any) => {
                 if (r.status === 'active' && r.team_leader_id) {
                     liveFleetByTL[r.team_leader_id] = (liveFleetByTL[r.team_leader_id] || 0) + 1;
@@ -255,6 +243,7 @@ const CityOpsDashboard: React.FC = () => {
                     sum + (snapshotMap[tlId] && snapshotMap[tlId] > 0 ? snapshotMap[tlId] : (liveFleetByTL[tlId] || 0)),
                     0);
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const liveActiveCount = allRiderData.filter((r: any) => r.status === 'active').length;
             setFleetSnapshots({
                 today: computeFleetTotal(tlTodayFleet),
@@ -281,7 +270,7 @@ const CityOpsDashboard: React.FC = () => {
         } finally {
             if (isInitial) setLoading(false);
         }
-    }, [userData]);
+    }, [userData, tlIds, scopeLoading]);
 
     useEffect(() => {
         fetchDashboardData(true);
@@ -322,7 +311,10 @@ const CityOpsDashboard: React.FC = () => {
 
     // --- Filtering Logic (Date & Role) ---
     const filteredData = useMemo(() => {
-        let { riders, leads, requests, teamLeaders } = rawData;
+        const { riders, leads, requests, teamLeaders } = rawData;
+        
+        let filteredLeads = leads;
+        let filteredRequests = requests;
         const now = new Date();
         const filterDate = dateFilter === 'week' ? startOfWeek(now) :
             dateFilter === 'month' ? startOfMonth(now) : null;
@@ -338,12 +330,11 @@ const CityOpsDashboard: React.FC = () => {
 
         // 2. Date Filtering (Applied to CreatedAt fields)
         if (filterDate) {
-            // riders = riders.filter(r => new Date(r.created_at) >= filterDate);
-            leads = leads.filter(l => new Date(l.createdAt) >= filterDate);
-            requests = requests.filter(r => new Date(r.createdAt) >= filterDate);
+            filteredLeads = leads.filter(l => new Date(l.createdAt) >= filterDate);
+            filteredRequests = requests.filter(r => new Date(r.createdAt) >= filterDate);
         }
 
-        return { riders, leads, requests, teamLeaders };
+        return { riders, leads: filteredLeads, requests: filteredRequests, teamLeaders };
     }, [rawData, dateFilter, userData]);
 
 
@@ -369,6 +360,7 @@ const CityOpsDashboard: React.FC = () => {
         // ✅ FIX: Compute period-specific rent total from daily_collections
         const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
         const nowStr = istFormatter.format(new Date());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dailyColRaw = (rawData as any).dailyCollectionsRaw || [];
         let periodRent = 0;
         if (dateFilter === 'all') {
@@ -383,10 +375,12 @@ const CityOpsDashboard: React.FC = () => {
             const mo = new Date().getUTCMonth() + 1;
             const monthStart = `${yr}-${String(mo).padStart(2, '0')}-01`;
             periodRent = dailyColRaw
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .filter((d: any) => {
                     const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
                     return dDate >= monthStart && dDate <= nowStr;
                 })
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .reduce((s: number, d: any) => s + (Number(d.total_collection) || 0), 0);
         }
 
@@ -441,6 +435,7 @@ const CityOpsDashboard: React.FC = () => {
             
             // Zomato VIP Stats — pre-filter once for efficiency
             ...(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const vipRiders = activeRidersList.filter(r => r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'));
                 const vipPos = vipRiders.filter(r => r.walletAmount >= 0);
                 const vipNeg = vipRiders.filter(r => r.walletAmount < 0);
@@ -475,127 +470,12 @@ const CityOpsDashboard: React.FC = () => {
             ],
             leads: [
                 { name: 'Converted', value: stats.convertedLeads, color: '#84cc16' },
-                { name: 'Pipeline', value: stats.totalLeads - stats.convertedLeads, color: '#94a3b8' }
             ]
         };
-    }, [filteredData, stats]);
+    }, [stats]);
 
-    // --- TL Performance Stats ---
-    const period = useMemo(() => resolvePerformancePeriod(dateFilter), [dateFilter]);
 
-    const tlStats = useMemo(() => {
-        const { teamLeaders, riders, leads } = rawData;
 
-        return teamLeaders.map(tl => {
-            const tlCollectionAllTime = tlCollections[tl.id] || 0;
-
-            // Period-specific collection for accurate Avg calculation
-            let periodCollection = tlCollectionAllTime;
-            let activeDays = 1;
-            let perDayAverageCollection = 0;
-
-            if (dateFilter === 'day') {
-                // When viewing Today, "Per Day Avg" should act as a benchmark (Month-To-Date Average)
-                periodCollection = dailyCollections[tl.id] || 0; // Today's actual
-
-                const now = new Date();
-                const year = now.getUTCFullYear();
-                const month = now.getUTCMonth() + 1; // 1-12
-                const monthStartUTC_local = new Date(Date.UTC(year, month - 1, 1));
-                const monthStartStr_local = monthStartUTC_local.toISOString().split('T')[0];
-
-                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-                const nowISTStr = formatter.format(now);
-
-                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
-                const mtdData = tlDailyData.filter((d: any) => {
-                    if (d.team_leader_id !== tl.id) return false;
-                    const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
-                    // Include up to yesterday, today's data is in periodCollection
-                    return dDateStr >= monthStartStr_local && dDateStr < nowISTStr;
-                });
-
-                const mtdHistoricalTotal = mtdData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
-                const mtdActiveDays = new Set(mtdData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size;
-
-                // Total MTD = historical + today's live
-                const totalMTD = mtdHistoricalTotal + periodCollection;
-                const totalMTDDays = mtdActiveDays + (periodCollection > 0 ? 1 : 0);
-
-                perDayAverageCollection = Math.round(totalMTDDays > 0 ? (totalMTD / totalMTDDays) : 0);
-                activeDays = 1; // Unused for today's 'periodCollection', purely for local block return
-            } else if (period) {
-                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
-                const filteredData = tlDailyData.filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end);
-                periodCollection = filteredData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
-                activeDays = Math.max(1, new Set(filteredData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size);
-                perDayAverageCollection = Math.round(periodCollection / activeDays);
-            }
-
-            const metrics = calculateAIScore(tl, riders, leads, periodCollection, period);
-
-            // Activity Pulse Detection
-            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
-            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
-            const lastLeadTime = tlLeads.length > 0 ? Math.max(...tlLeads.map(l => new Date(l.createdAt).getTime())) : 0;
-            const lastRiderUpdate = tlRiders.length > 0 ? Math.max(...tlRiders.map(r => new Date(r.updatedAt || r.createdAt).getTime())) : 0;
-            const lastActivity = new Date(Math.max(lastLeadTime, lastRiderUpdate)).toISOString();
-
-            return {
-                id: tl.id,
-                name: tl.fullName || 'Unknown',
-                email: tl.email,
-                totalRiders: metrics.totalRiders,
-                activeRiders: metrics.activeRiders,
-                wallet: {
-                    total: metrics.positiveWallet + metrics.negativeWallet,
-                    positiveCount: tlRiders.filter(r => r.walletAmount > 0).length,
-                    positiveAmount: metrics.positiveWallet,
-                    negativeCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length,
-                    negativeAmount: metrics.negativeWallet
-                },
-                leads: {
-                    total: metrics.leadsTotal,
-                    converted: metrics.convertedLeads,
-                    conversionRate: metrics.conversionRate
-                },
-                status: tl.status,
-                totalCollection: metrics.collection,
-                dailyCollection: dailyCollections[tl.id] || 0,
-                weeklyCollection: weeklyCollections[tl.id] || 0,
-                monthlyCollection: (() => {
-                    const now = new Date();
-                    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-                    const nowISTStr = formatter.format(now);
-                    const [y, m] = nowISTStr.split('-').map(Number);
-                    const monthStartStr = new Date(Date.UTC(y, m - 1, 1)).toISOString().split('T')[0];
-                    const monthEndStr = new Date(Date.UTC(y, m, 0)).toISOString().split('T')[0];
-                    const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
-                    return tlDailyData
-                        .filter((d: any) => d.team_leader_id === tl.id && d.date >= monthStartStr && d.date <= monthEndStr)
-                        .reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
-                })(),
-                avgRiderCollection: metrics.activeRiders > 0 ? Math.round(periodCollection / metrics.activeRiders) : 0,
-                perDayAverageCollection: perDayAverageCollection || 0,
-                activeDays, // Added activeDays here
-                leadsToday: tlLeads.filter(l => {
-                    const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-                    const leadDate = istFormatter.format(new Date(l.createdAt));
-                    const todayDate = istFormatter.format(new Date());
-                    return leadDate === todayDate;
-                }).length,
-                churnLeads: tlLeads.filter(l => l.status === 'Not Convert').length,
-                criticalDebtCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length,
-                lastActivity,
-                allotments: metrics.allotments,
-                submissions: metrics.submissions,
-                netGrowth: metrics.netGrowth,
-                reportingManager: tl.reportingManager || '',
-                score: metrics.score,
-                aiGrade: metrics.aiGrade
-            };
-        });
-    }, [rawData, tlCollections, dailyCollections, weeklyCollections, period]);
 
     // --- Render Loading ---
     if (loading) {
@@ -634,7 +514,7 @@ const CityOpsDashboard: React.FC = () => {
         );
     }
 
-    const isTL = userData?.role === 'teamLeader';
+    
 
     return (
         <div className="space-y-4 pb-10">
@@ -699,23 +579,31 @@ const CityOpsDashboard: React.FC = () => {
                     <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
-                    {/* BLACK: System Health — premium dark card */}
                     <SmartMetricCard
-                        title="System Health"
-                        value={`${stats.activeRiders}/${stats.totalRiders}`}
+                        title="Active Fleet"
+                        value={stats.activeRiders}
                         icon={Activity}
-                        color="emerald"
+                        color="blue"
                         trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'uptime', direction: 'up' }}
-                        subtitle="Active Riders Ratio"
-                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
+                        subtitle="Currently Assigned"
                         progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
                         onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
                         isCurrency={false}
                     />
 
                     <SmartMetricCard
+                        title="Inactive Fleet"
+                        value={stats.inactiveRiders}
+                        icon={TrendingDown}
+                        color="orange"
+                        subtitle="Unassigned or Suspended"
+                        onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                        isCurrency={false}
+                    />
+                    
+                    <SmartMetricCard
                         title="Team Strength"
-                        value={stats.totalTLs.toString()}
+                        value={stats.totalTLs}
                         icon={Users}
                         color="violet"
                         subtitle={`${stats.activeTLs} Active Leaders`}
@@ -731,18 +619,6 @@ const CityOpsDashboard: React.FC = () => {
                         aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
                         subtitle={`${stats.criticalRequests} High Priority`}
                         onClick={() => navigate('/portal/requests?status=pending')}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Growth Engine"
-                        value={`${stats.conversionRate}%`}
-                        icon={UserPlus}
-                        color="fuchsia"
-                        trend={{ value: 5, label: 'velocity', direction: 'up' }}
-                        subtitle={`${stats.newLeadsToday} New Leads Today`}
-                        progress={stats.conversionRate}
-                        onClick={() => navigate('/portal/leads?status=New')}
                         isCurrency={false}
                     />
                 </div>
