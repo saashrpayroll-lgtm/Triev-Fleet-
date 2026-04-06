@@ -148,6 +148,14 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
     const fetchData = useCallback(async () => {
         try {
+            if (scopedTlIds !== undefined && scopedTlIds.length === 0) {
+                setRawData({ 
+                    riders: [], leads: [], teamLeaders: [], 
+                    todayMap: {}, weeklyMap: {}, monthlyMap: {}, periodMap: {}, grandTotalMap: {}, fetchedTodayStr: '' 
+                });
+                setLoading(false);
+                return;
+            }
             setLoading(true);
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
             const todayStr = formatter.format(new Date());

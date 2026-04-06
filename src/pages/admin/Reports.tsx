@@ -93,6 +93,16 @@ const Reports: React.FC<ReportsProps> = ({ scopedTlIds }) => {
     }, []);
 
     const fetchInitialData = async () => {
+        if (scopedTlIds !== undefined && scopedTlIds.length === 0) {
+            setRiders([]);
+            setTeamLeaders([]);
+            setRequests([]);
+            setLeads([]);
+            setDailyCollections([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
             const [ridersRes, usersRes, requestsRes, leadsRes, dailyCollectionsRes] = await Promise.all([

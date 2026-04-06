@@ -90,6 +90,13 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
     };
 
     const fetchMetrics = useCallback(async () => {
+        if (scopedTlIds !== undefined && scopedTlIds.length === 0) {
+            setData([]);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
         setLoading(true);
         try {
             const pStart = startDate ? format(startDate, 'yyyy-MM-dd') : '1970-01-01';

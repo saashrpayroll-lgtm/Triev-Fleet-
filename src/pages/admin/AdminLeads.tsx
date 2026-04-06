@@ -75,6 +75,14 @@ const AdminLeads: React.FC<AdminLeadsProps> = ({ scopedTlIds }) => {
         setLoading(true);
 
         const fetchData = async () => {
+            if (scopedTlIds !== undefined && scopedTlIds.length === 0) {
+                 setLeads([]);
+                 setTeamLeaders([]);
+                 setRiders([]);
+                 setLoading(false);
+                 return;
+            }
+
             // 1. Fetch Riders
             const { data: riderData } = await fetchAllRidersPaginated(`
 id, mobileNumber: mobile_number, trievId: triev_id, riderName: rider_name

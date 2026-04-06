@@ -60,8 +60,15 @@ const WeeklyCollectionChart: React.FC<WeeklyCollectionChartProps> = ({ tlIds }) 
                 .gte('date', format(startDate, 'yyyy-MM-dd'));
 
             // Scope to specific TLs if provided (City Ops / RM)
-            if (tlIds && tlIds.length > 0) {
-                query = query.in('team_leader_id', tlIds);
+            if (tlIds !== undefined) {
+                if (tlIds.length > 0) {
+                    query = query.in('team_leader_id', tlIds);
+                } else {
+                    setData([]);
+                    setTotalWeekly(0);
+                    setLoading(false);
+                    return;
+                }
             }
 
             const { data: dailyData, error } = await query;

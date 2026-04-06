@@ -37,6 +37,15 @@ export const AnalyticsService = {
         const sixMonthsAgo = subMonths(today, 5);
 
         try {
+            // Scope clamping: If TL scope is explicitly provided but empty, City Ops has no team yet.
+            if (scopedTlIds !== undefined && scopedTlIds.length === 0) {
+                return {
+                    riderGrowth: [], leadFunnel: [], clientDistribution: [], walletHealth: [],
+                    revenueTrend: [], tlPerformance: [],
+                    kpis: { totalRiders: 0, activeRiders: 0, totalLeads: 0, conversionRate: 0 }
+                };
+            }
+
             // Build filter queries for riders
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const riderFilters: any[] = [];

@@ -13,7 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
 import { exportToCSV } from '@/utils/exportUtils';
-
+import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 interface LedgerEntry {
     id: string;
     rider_id: string;
@@ -66,6 +66,8 @@ interface WalletHistoryProps {
 
 const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
     const { userData } = useSupabaseAuth();
+    const { tlIds: scopedTlIds, isLoading: isScopeLoading } = useCityOpsScope();
+    
     const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [teamLeaders, setTeamLeaders] = useState<UserType[]>([]);
@@ -176,7 +178,19 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             let q = supabase.from('wallet_ledger')
                 .select('*, riders!inner(rider_name, team_leader_id, city_ops_id, users(full_name))', { count: 'exact' });
 
-            if (scopedCityOpsId) q = q.eq('riders.city_ops_id', scopedCityOpsId);
+            if (scopedCityOpsId && isScopeLoading) return; // wait for scope
+
+            // Explicitly clamp if City Ops but no TLs found
+            if (scopedCityOpsId && (!scopedTlIds || scopedTlIds.length === 0)) {
+                setTransactions([]);
+                setTotalCount(0);
+                setLoading(false);
+                return;
+            }
+
+            if (scopedCityOpsId && scopedTlIds && scopedTlIds.length > 0) {
+                q = q.in('riders.team_leader_id', scopedTlIds);
+            }
 
             if (filterType !== 'all') q = q.eq('transaction_type', filterType);
             if (filterMode !== 'all') q = q.eq('mode', filterMode);
@@ -216,7 +230,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             toast.error(`Failed to load ledger: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
         finally { setLoading(false); }
-    }, [debouncedSearch, currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData, scopedCityOpsId]);
+    }, [debouncedSearch, currentPage, pageSize, filterType, filterMode, dateRange, filterTL, userData, scopedCityOpsId, scopedTlIds, isScopeLoading]);
 
     useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 

@@ -46,6 +46,12 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
 
     // Fetch Logs
     const fetchLogs = async () => {
+        if (scopedUserIds !== undefined && scopedUserIds.length === 0) {
+            setLogs([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
             let query = supabase

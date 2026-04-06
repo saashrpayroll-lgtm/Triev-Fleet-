@@ -316,9 +316,18 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
             // Step 2: Scope riders by TL IDs (safe — team_leader_id always exists on riders)
             // Admin: no scopedCityOpsId → no filter → fetch ALL riders
             // City Ops: scopedCityOpsId present → filter by scoped TL ids only
-            const scopedTlIds = scopedCityOpsId && teamLeadersData && teamLeadersData.length > 0
+            const scopedTlIds = scopedCityOpsId && teamLeadersData
                 ? (teamLeadersData as { id: string }[]).map(tl => tl.id)
                 : null;
+            
+            // Explicitly clamp if scopedCityOpsId is used but no TLs found
+            if (scopedCityOpsId && (!scopedTlIds || scopedTlIds.length === 0)) {
+                setRiders([]);
+                setTeamLeaders([]);
+                setLoading(false);
+                return;
+            }
+
             const riderFilter = scopedTlIds && scopedTlIds.length > 0
                 ? { column: 'team_leader_id', value: scopedTlIds, type: 'in' as const }
                 : undefined;  // No filter for Admin = fetch everything

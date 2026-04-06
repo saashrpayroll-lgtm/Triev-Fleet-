@@ -51,18 +51,25 @@ export const useCityOpsScope = (): CityOpsScope => {
             const fetchedRmIds = rms?.map(r => r.id) || [];
             setRmIds(fetchedRmIds);
 
-            // Step 2: Fetch all TLs strictly under this City Ops UUID
-            // Again, name-based filtering is removed to guarantee 100% data isolation.
-            const { data: tls, error: tlError } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('role', 'teamLeader')
-                .eq('city_ops_id', userData.id)
-                .in('status', ['active', 'inactive', 'suspended']);
+            // Step 2: Fetch all TLs under this City Ops.
+            // TLs are linked to RMs via the reporting_manager field (which stores RM full_name).
+            // They can also be linked if their reporting_manager is the City Ops' own full_name.
+            const rmNames = (rms || []).map(r => r.full_name).filter(Boolean);
+            const validManagers = [...rmNames, userData.fullName].filter(Boolean);
 
-            if (tlError) throw tlError;
+            let fetchedTlIds: string[] = [];
 
-            const fetchedTlIds = tls?.map(t => t.id) || [];
+            if (validManagers.length > 0) {
+                const { data: tls, error: tlError } = await supabase
+                    .from('users')
+                    .select('id, full_name')
+                    .eq('role', 'teamLeader')
+                    .in('reporting_manager', validManagers)
+                    .in('status', ['active', 'inactive', 'suspended']);
+
+                if (tlError) throw tlError;
+                fetchedTlIds = tls?.map(t => t.id) || [];
+            }
             setTlIds(fetchedTlIds);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Failed to load scope';

@@ -81,6 +81,12 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
     const [expandedRM, setExpandedRM] = useState<string | null>(null);
 
     const fetchData = async () => {
+        if (scopedRmIds !== undefined && scopedRmIds.length === 0) {
+            setRawData({ riders: [], leads: [], teamLeaders: [], rms: [], collections: [] });
+            setLoading(false);
+            return;
+        }
+
         try {
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
             const now = new Date();
