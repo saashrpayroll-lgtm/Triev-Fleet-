@@ -16,9 +16,22 @@ interface RiderAuditModalProps {
     onClose: () => void;
 }
 
+interface AuditRiderRecord {
+    id: string;
+    rider_name: string;
+    mobile_number: string;
+    triev_id: string;
+    status: string;
+    team_leader_name: string;
+    inactivated_at: string | null;
+    last_status_change_at?: string | null;
+    allotment_date: string | null;
+    [key: string]: unknown; // allow extra DB fields
+}
+
 interface AuditResult {
-    extraRiders: Record<string, unknown>[]; // In DB as active, not in Sheet
-    returningRiders: Record<string, unknown>[]; // In DB as inactive/deleted, BUT IS in Sheet
+    extraRiders: AuditRiderRecord[];
+    returningRiders: AuditRiderRecord[];
     matchedCount: number;
     dbCount: number; // Active DB standard count
     sheetCount: number;
@@ -92,8 +105,9 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             if (error) throw error;
             if (!dbRiders) throw new Error("No riders found in database");
 
-            const activeDbRiders = dbRiders.filter(r => r.status === 'active');
-            const inactiveDbRiders = dbRiders.filter(r => r.status !== 'active');
+            const typedRiders = dbRiders as unknown as AuditRiderRecord[];
+            const activeDbRiders = typedRiders.filter(r => r.status === 'active');
+            const inactiveDbRiders = typedRiders.filter(r => r.status !== 'active');
 
             // 2. Normalize Sheet Data
             const sheetIdentifiers = new Set<string>();
@@ -124,7 +138,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             });
 
             // 3. Compare DB vs Sheet
-            const extraRiders: Record<string, unknown>[] = [];
+            const extraRiders: AuditRiderRecord[] = [];
             let matchedCount = 0;
 
             // Check Active Riders (Are they missing from sheet?)
@@ -144,7 +158,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             });
 
             // 4. Find Returning Riders (In INACTIVE DB, but IS in Sheet)
-            const returningRiders: Record<string, unknown>[] = [];
+            const returningRiders: AuditRiderRecord[] = [];
             inactiveDbRiders.forEach(dbRider => {
                 const dbTrievId = (dbRider.triev_id || '').toLowerCase();
                 const dbMobile = (dbRider.mobile_number || '').replace(/[^0-9]/g, '');
@@ -273,7 +287,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                 setSelectedReturningIds(new Set());
             }
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Reactivation Failed:", err);
             toast.error("Failed to reactivate riders.");
         } finally {
