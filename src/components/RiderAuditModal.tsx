@@ -8,6 +8,8 @@ import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { logActivity } from '@/utils/activityLog';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { useCityOpsScope } from '@/hooks/useCityOpsScope';
+import { User } from '@/types';
 
 interface RiderAuditModalProps {
     isOpen: boolean;
@@ -24,24 +26,63 @@ interface AuditResult {
 
 const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) => {
     const { userData } = useSupabaseAuth();
+    const { tlIds: myTlIds } = useCityOpsScope();
+    const isCityOps = userData?.role === 'cityOps';
+
     const [step, setStep] = useState<'upload' | 'analyzing' | 'results'>('upload');
     const [results, setResults] = useState<AuditResult | null>(null);
     const [selectedExtraIds, setSelectedExtraIds] = useState<Set<string>>(new Set());
     const [selectedReturningIds, setSelectedReturningIds] = useState<Set<string>>(new Set());
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Scope Selectors
+    const [managers, setManagers] = useState<User[]>([]);
+    const [auditScopeType, setAuditScopeType] = useState<'global' | 'rm' | 'tl'>('global');
+    const [selectedRm, setSelectedRm] = useState<string>('all');
+    const [selectedTlId, setSelectedTlId] = useState<string>('all');
+
     // Search state
     const [searchExtra, setSearchExtra] = useState('');
     const [searchReturning, setSearchReturning] = useState('');
+
+    React.useEffect(() => {
+        if (!isOpen || isCityOps) return;
+        
+        const fetchManagers = async () => {
+            const { data } = await supabase.from('users')
+                .select('id, fullName:full_name, role, reportingManager:reporting_manager')
+                .in('role', ['reportingManager', 'teamLeader']);
+            if (data) setManagers(data as unknown as User[]);
+        };
+        fetchManagers();
+    }, [isOpen, isCityOps]);
 
     if (!isOpen) return null;
 
     const handleAnalyze = async (sheetData: any[]) => {
         setStep('analyzing');
         try {
-            // 1. Fetch ALL Riders from DB (Active and Inactive)
+            let filterObj: { column: string; value: any; type: 'eq' | 'in' } | undefined = undefined;
+            let validIds: string[] = [];
+
+            if (isCityOps) {
+                if (myTlIds.length === 0) throw new Error("No team leaders found in your scope to audit.");
+                validIds = myTlIds;
+            } else if (auditScopeType === 'rm' && selectedRm !== 'all') {
+                validIds = managers.filter(m => m.role === 'teamLeader' && m.reportingManager === selectedRm).map(m => m.id);
+                if (validIds.length === 0) throw new Error("No Team Leaders found active under this Reporting Manager.");
+            } else if (auditScopeType === 'tl' && selectedTlId !== 'all') {
+                validIds = [selectedTlId];
+            }
+
+            if (validIds.length > 0) {
+                filterObj = { column: 'team_leader_id', type: 'in', value: validIds };
+            }
+
+            // 1. Fetch Riders from DB (Active and Inactive) with applied Scope
             const { data: dbRiders, error } = await fetchAllRidersPaginated(
-                'id, rider_name, mobile_number, triev_id, status, team_leader_name, inactivated_at, allotment_date'
+                'id, rider_name, mobile_number, triev_id, status, team_leader_name, inactivated_at, allotment_date',
+                filterObj
             );
 
             if (error) throw error;
@@ -317,6 +358,73 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                     <div className="p-6 flex-1 overflow-y-auto">
                         {step === 'upload' && (
                             <div className="space-y-4">
+                                {isCityOps ? (
+                                    <div className="mb-6 bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start gap-3">
+                                        <AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={20} />
+                                        <div>
+                                            <p className="font-bold text-orange-800">Secure Scope Lock Active</p>
+                                            <p className="text-sm text-orange-700 mt-1">
+                                                Audit scope is mathematically locked to your native Team Leaders. Out-of-scope riders are perfectly protected.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mb-6 space-y-3 bg-slate-50 dark:bg-slate-900/50 p-5 rounded-xl border border-border">
+                                        <label className="text-sm font-bold flex items-center gap-2">
+                                            <Database size={16} className="text-indigo-500" />
+                                            Define Database Audit Scope
+                                        </label>
+                                        <p className="text-xs text-muted-foreground mb-2">Select which records the uploaded sheet should be processed against to avoid false-flagging missing riders.</p>
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            <div className="flex-1">
+                                                <select
+                                                    value={auditScopeType}
+                                                    onChange={e => {
+                                                        setAuditScopeType(e.target.value as any);
+                                                        setSelectedRm('all');
+                                                        setSelectedTlId('all');
+                                                    }}
+                                                    className="w-full text-sm p-2.5 rounded-xl border border-border bg-background shadow-sm focus:ring-2 focus:ring-indigo-500/20"
+                                                >
+                                                    <option value="global">Entire Company Database</option>
+                                                    <option value="rm">Specific Reporting Manager</option>
+                                                    <option value="tl">Specific Team Leader</option>
+                                                </select>
+                                            </div>
+                                            
+                                            {auditScopeType === 'rm' && (
+                                                <div className="flex-1">
+                                                    <select
+                                                        value={selectedRm}
+                                                        onChange={e => setSelectedRm(e.target.value)}
+                                                        className="w-full text-sm p-2.5 rounded-xl border border-border bg-background shadow-sm focus:ring-2 focus:ring-indigo-500/20"
+                                                    >
+                                                        <option value="all">Select Default RM</option>
+                                                        {managers.filter(m => m.role === 'reportingManager').map(rm => (
+                                                            <option key={rm.id} value={rm.fullName}>{rm.fullName}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+                                            
+                                            {auditScopeType === 'tl' && (
+                                                <div className="flex-1">
+                                                    <select
+                                                        value={selectedTlId}
+                                                        onChange={e => setSelectedTlId(e.target.value)}
+                                                        className="w-full text-sm p-2.5 rounded-xl border border-border bg-background shadow-sm focus:ring-2 focus:ring-indigo-500/20"
+                                                    >
+                                                        <option value="all">Select Default TL</option>
+                                                        {managers.filter(m => m.role === 'teamLeader').map(tl => (
+                                                            <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex gap-3 text-sm text-blue-700">
                                     <AlertTriangle className="shrink-0" size={20} />
                                     <div>
