@@ -979,17 +979,17 @@ const CityOpsDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Leaderboard & TL Performance Podium (Native Injection) */}
             <div className="mb-4">
+                <TeamLeaderPerformanceTable data={tlStats} />
+            </div>
+
+            {/* Leaderboard & TL Performance Podium (Native Injection) */}
+            <div className="mb-4 mt-8">
                 <Leaderboard
                     teamLeaders={rawData.teamLeaders}
                     riders={rawData.riders}
                     collections={allTimeCollections}
                 />
-            </div>
-            
-            <div className="mb-4">
-                <TeamLeaderPerformanceTable data={tlStats} />
             </div>
         </div>
     );
