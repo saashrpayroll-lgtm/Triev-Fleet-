@@ -153,7 +153,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
   if (loading) return <LoadingScreen />;
 
-  if (!user || !userData) return <Navigate to="/login" replace />;
+  if (!user || !userData) {
+    const lastRole = localStorage.getItem('user_role');
+    if (lastRole === 'admin') {
+      return <Navigate to="/admin-login" replace />;
+    }
+    return <Navigate to="/login" replace />;
+  }
 
   if ((userData.role as string) === 'guest') {
     return (

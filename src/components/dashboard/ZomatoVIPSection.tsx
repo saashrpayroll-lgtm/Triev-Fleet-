@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, TrendingDown, AlertTriangle, Skull, Wallet, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 interface ZomatoVIPSectionProps {
     stats: {
@@ -26,6 +27,22 @@ const miniCards = [
 
 const ZomatoVIPSection: React.FC<ZomatoVIPSectionProps> = ({ stats }) => {
     const navigate = useNavigate();
+    const { userData } = useSupabaseAuth();
+    
+    // Determine the correct route prefix based on role
+    const isCityOps = userData?.role === 'cityOps';
+    const basePath = isCityOps ? '/city-ops' : '/portal';
+    
+    // Filter matching Admin uses ?filter=x but City Ops uses location.state!
+    // Since CityOpsRiderManagement renders RiderManagement, URL params actually work! City Ops layout just has fewer buttons.
+    // However, to be consistent with how City Ops routes handle this:
+    const handleNavigate = (filterCode: string) => {
+        if (isCityOps) {
+            navigate(`${basePath}/riders`, { state: { filter: filterCode } });
+        } else {
+            navigate(`${basePath}/riders?filter=${filterCode}`);
+        }
+    };
 
     const getVal = (key: string) => {
         switch (key) {
@@ -132,7 +149,7 @@ const ZomatoVIPSection: React.FC<ZomatoVIPSectionProps> = ({ stats }) => {
                             </div>
                             <motion.div
                                 whileHover={{ scale: 1.05 }}
-                                onClick={() => navigate('/portal/riders?filter=zomato')}
+                                onClick={() => handleNavigate('zomato')}
                                 className="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl p-2.5 cursor-pointer flex flex-col justify-center items-center shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-shadow"
                             >
                                 <ArrowRight size={16} className="text-white mb-1" />
@@ -157,7 +174,7 @@ const ZomatoVIPSection: React.FC<ZomatoVIPSectionProps> = ({ stats }) => {
                                     transition={{ delay: 0.1 + i * 0.05 }}
                                     whileHover={{ y: -4, scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
-                                    onClick={() => navigate('/portal/riders?filter=zomato')}
+                                    onClick={() => handleNavigate('zomato')}
                                     className={`
                                         relative overflow-hidden rounded-xl p-3 cursor-pointer group
                                         bg-white/60 dark:bg-slate-800/60 backdrop-blur-md

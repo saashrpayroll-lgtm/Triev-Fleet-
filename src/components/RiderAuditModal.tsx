@@ -37,7 +37,8 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
     // Scope Selectors
     const [managers, setManagers] = useState<User[]>([]);
-    const [auditScopeType, setAuditScopeType] = useState<'global' | 'rm' | 'tl'>('global');
+    const [auditScopeType, setAuditScopeType] = useState<'global' | 'cityOps' | 'rm' | 'tl'>('global');
+    const [selectedCityOpsId, setSelectedCityOpsId] = useState<string>('all');
     const [selectedRm, setSelectedRm] = useState<string>('all');
     const [selectedTlId, setSelectedTlId] = useState<string>('all');
 
@@ -50,8 +51,8 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
         
         const fetchManagers = async () => {
             const { data } = await supabase.from('users')
-                .select('id, fullName:full_name, role, reportingManager:reporting_manager')
-                .in('role', ['reportingManager', 'teamLeader']);
+                .select('id, fullName:full_name, role, reportingManager:reporting_manager, cityOpsId:city_ops_id')
+                .in('role', ['cityOps', 'reportingManager', 'teamLeader']);
             if (data) setManagers(data as unknown as User[]);
         };
         fetchManagers();
@@ -68,6 +69,9 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             if (isCityOps) {
                 if (myTlIds.length === 0) throw new Error("No team leaders found in your scope to audit.");
                 validIds = myTlIds;
+            } else if (auditScopeType === 'cityOps' && selectedCityOpsId !== 'all') {
+                validIds = managers.filter(m => m.role === 'teamLeader' && m.cityOpsId === selectedCityOpsId).map(m => m.id);
+                if (validIds.length === 0) throw new Error("No Team Leaders found active under this City Ops.");
             } else if (auditScopeType === 'rm' && selectedRm !== 'all') {
                 validIds = managers.filter(m => m.role === 'teamLeader' && m.reportingManager === selectedRm).map(m => m.id);
                 if (validIds.length === 0) throw new Error("No Team Leaders found active under this Reporting Manager.");
@@ -357,76 +361,106 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
                     <div className="p-6 flex-1 overflow-y-auto">
                         {step === 'upload' && (
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {isCityOps ? (
-                                    <div className="mb-6 bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start gap-3">
-                                        <AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={20} />
+                                    <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-5 rounded-2xl flex items-start gap-4">
+                                        <div className="p-2.5 bg-amber-500/20 rounded-xl">
+                                            <AlertTriangle className="text-amber-500" size={24} />
+                                        </div>
                                         <div>
-                                            <p className="font-bold text-orange-800">Secure Scope Lock Active</p>
-                                            <p className="text-sm text-orange-700 mt-1">
-                                                Audit scope is mathematically locked to your native Team Leaders. Out-of-scope riders are perfectly protected.
+                                            <p className="font-black text-amber-600/90 text-lg">Secure Scope Locking</p>
+                                            <p className="text-sm text-amber-700/80 mt-1.5 leading-relaxed">
+                                                Your audit scope is permanently restricted to your active Team Leaders. You can safely upload imports; the system guarantees out-of-scope riders cannot be falsely flagged or deactivated.
                                             </p>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="mb-6 space-y-3 bg-slate-50 dark:bg-slate-900/50 p-5 rounded-xl border border-border">
-                                        <label className="text-sm font-bold flex items-center gap-2">
-                                            <Database size={16} className="text-indigo-500" />
-                                            Define Database Audit Scope
-                                        </label>
-                                        <p className="text-xs text-muted-foreground mb-2">Select which records the uploaded sheet should be processed against to avoid false-flagging missing riders.</p>
-                                        <div className="flex flex-col sm:flex-row gap-4">
-                                            <div className="flex-1">
-                                                <select
-                                                    value={auditScopeType}
-                                                    onChange={e => {
-                                                        setAuditScopeType(e.target.value as any);
-                                                        setSelectedRm('all');
-                                                        setSelectedTlId('all');
-                                                    }}
-                                                    className="w-full text-sm p-2.5 rounded-xl border border-border bg-background shadow-sm focus:ring-2 focus:ring-indigo-500/20"
-                                                >
-                                                    <option value="global">Entire Company Database</option>
-                                                    <option value="rm">Specific Reporting Manager</option>
-                                                    <option value="tl">Specific Team Leader</option>
-                                                </select>
+                                    <div className="bg-white dark:bg-slate-900 shadow-sm border border-border p-6 rounded-2xl relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 blur-[100px] rounded-full pointer-events-none group-hover:bg-indigo-500/10 transition-colors" />
+                                        
+                                        <div className="relative">
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
+                                                    <Database size={18} />
+                                                </div>
+                                                <h3 className="font-bold text-lg">Define Database Context</h3>
                                             </div>
+                                            <p className="text-sm text-muted-foreground mb-5 pl-11">Bound the audit query scope to prevent false-negative matching.</p>
                                             
-                                            {auditScopeType === 'rm' && (
-                                                <div className="flex-1">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Primary Scope</label>
                                                     <select
-                                                        value={selectedRm}
-                                                        onChange={e => setSelectedRm(e.target.value)}
-                                                        className="w-full text-sm p-2.5 rounded-xl border border-border bg-background shadow-sm focus:ring-2 focus:ring-indigo-500/20"
+                                                        value={auditScopeType}
+                                                        onChange={e => {
+                                                            setAuditScopeType(e.target.value as any);
+                                                            setSelectedCityOpsId('all');
+                                                            setSelectedRm('all');
+                                                            setSelectedTlId('all');
+                                                        }}
+                                                        className="w-full text-sm p-3 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/50 hover:border-indigo-500/50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
                                                     >
-                                                        <option value="all">Select Default RM</option>
-                                                        {managers.filter(m => m.role === 'reportingManager').map(rm => (
-                                                            <option key={rm.id} value={rm.fullName}>{rm.fullName}</option>
-                                                        ))}
+                                                        <option value="global">Entire Company Database</option>
+                                                        <option value="cityOps">Specific City Ops Territory</option>
+                                                        <option value="rm">Specific Reporting Manager</option>
+                                                        <option value="tl">Specific Team Leader</option>
                                                     </select>
                                                 </div>
-                                            )}
-                                            
-                                            {auditScopeType === 'tl' && (
-                                                <div className="flex-1">
-                                                    <select
-                                                        value={selectedTlId}
-                                                        onChange={e => setSelectedTlId(e.target.value)}
-                                                        className="w-full text-sm p-2.5 rounded-xl border border-border bg-background shadow-sm focus:ring-2 focus:ring-indigo-500/20"
-                                                    >
-                                                        <option value="all">Select Default TL</option>
-                                                        {managers.filter(m => m.role === 'teamLeader').map(tl => (
-                                                            <option key={tl.id} value={tl.id}>{tl.fullName}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
+
+                                                {auditScopeType === 'cityOps' && (
+                                                    <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Target City Ops</label>
+                                                        <select
+                                                            value={selectedCityOpsId}
+                                                            onChange={e => setSelectedCityOpsId(e.target.value)}
+                                                            className="w-full text-sm p-3 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/50 hover:border-indigo-500/50 transition-all font-medium"
+                                                        >
+                                                            <option value="all">Select City Ops...</option>
+                                                            {managers.filter(m => m.role === 'cityOps').map(co => (
+                                                                <option key={co.id} value={co.id}>{co.fullName}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                
+                                                {auditScopeType === 'rm' && (
+                                                    <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Target Manager</label>
+                                                        <select
+                                                            value={selectedRm}
+                                                            onChange={e => setSelectedRm(e.target.value)}
+                                                            className="w-full text-sm p-3 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/50 hover:border-indigo-500/50 transition-all font-medium"
+                                                        >
+                                                            <option value="all">Select Group RM...</option>
+                                                            {managers.filter(m => m.role === 'reportingManager').map(rm => (
+                                                                <option key={rm.id} value={rm.fullName}>{rm.fullName}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                
+                                                {auditScopeType === 'tl' && (
+                                                    <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2">
+                                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Target Direct TL</label>
+                                                        <select
+                                                            value={selectedTlId}
+                                                            onChange={e => setSelectedTlId(e.target.value)}
+                                                            className="w-full text-sm p-3 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/50 hover:border-indigo-500/50 transition-all font-medium"
+                                                        >
+                                                            <option value="all">Select Team Leader...</option>
+                                                            {managers.filter(m => m.role === 'teamLeader').map(tl => (
+                                                                <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex gap-3 text-sm text-blue-700">
-                                    <AlertTriangle className="shrink-0" size={20} />
+                                <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 flex gap-4 text-sm text-indigo-800 dark:text-indigo-300">
+                                    <div className="shrink-0 pt-0.5"><AlertTriangle size={20} className="text-indigo-500" /></div>
                                     <div>
                                         <p className="font-bold">How this works:</p>
                                         <ul className="list-disc list-inside mt-1 space-y-1">
