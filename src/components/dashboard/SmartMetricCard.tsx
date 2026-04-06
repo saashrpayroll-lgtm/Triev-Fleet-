@@ -260,4 +260,4 @@ const SmartMetricCard: React.FC<SmartMetricCardProps> = ({
     );
 };
 
-export default SmartMetricCard;
+export default React.memo(SmartMetricCard);
