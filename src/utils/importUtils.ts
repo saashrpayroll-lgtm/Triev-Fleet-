@@ -826,7 +826,7 @@ export const processRentCollectionImport = async (
         summary.errors.push({ row: 0, identifier: 'FILE', reason: `Fatal Error: ${error.message}` });
     }
 
-    await logImportHistory(adminId, adminName, 'googleSheet', summary, fileData.length);
+    await logImportHistory(adminId, adminName, 'rent_collection' as any, summary, fileData.length);
 
     // Silently prune old >35 days (5 weeks) wallet ledger data to save DB space
     if (summary.success > 0) {
