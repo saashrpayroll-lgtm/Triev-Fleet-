@@ -14,14 +14,17 @@ interface ActivityLog {
     metadata?: any;
 }
 
-const RecentActivity: React.FC = () => {
+interface RecentActivityProps {
+    scopedUserIds?: string[];
+}
+
+const RecentActivity: React.FC<RecentActivityProps> = ({ scopedUserIds }) => {
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchActivity = async () => {
         try {
-            // Fetch last 5 logs
-            const { data, error } = await supabase
+            let query = supabase
                 .from('activity_logs')
                 .select(`
                     id, 
@@ -34,6 +37,13 @@ const RecentActivity: React.FC = () => {
                 `)
                 .order('timestamp', { ascending: false })
                 .limit(5);
+
+            // Scope to specific users for City Ops
+            if (scopedUserIds && scopedUserIds.length > 0) {
+                query = query.in('user_id', scopedUserIds);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
             setActivities((data || []) as ActivityLog[]);
@@ -52,6 +62,8 @@ const RecentActivity: React.FC = () => {
             .channel('recent-activity-sync')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs' }, (payload) => {
                 const item = payload.new as any;
+                // Skip if scoped and user not in scope
+                if (scopedUserIds && scopedUserIds.length > 0 && !scopedUserIds.includes(item.user_id)) return;
                 const mapped: ActivityLog = {
                     id: item.id,
                     actionType: item.action_type,

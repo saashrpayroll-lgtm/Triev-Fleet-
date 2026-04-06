@@ -5,6 +5,7 @@ import { Session } from '@supabase/supabase-js';
 
 interface SupabaseAuthContextType {
     session: Session | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     user: any | null;
     userData: User | null;
     loading: boolean;
@@ -16,6 +17,7 @@ interface SupabaseAuthContextType {
 
 const SupabaseAuthContext = createContext<SupabaseAuthContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSupabaseAuth = () => {
     const context = useContext(SupabaseAuthContext);
     if (!context) {
@@ -26,6 +28,7 @@ export const useSupabaseAuth = () => {
 
 export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [session, setSession] = useState<Session | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [user, setUser] = useState<any | null>(null);
     const [userData, setUserData] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
@@ -76,8 +79,10 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             window.removeEventListener('scroll', updateActivity);
             window.removeEventListener('touchstart', updateActivity);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]); // ← only [user], not lastActivity — prevents the re-registration storm
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const formatUserData = (data: any): User => {
         // Since we use aliasing in .select(), 'data' should already have camelCase keys.
         // But for safety and for the Realtime payload (which is raw snake_case), we keep some mapping or ensure Realtime also uses aliasing (which it doesn't easily).
@@ -108,6 +113,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let subscription: any = null;
 
         const setupSubscription = async (userId: string) => {
@@ -167,12 +173,13 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             authListener.unsubscribe();
             if (subscription) supabase.removeChannel(subscription);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchUserData = async (userId: string, email?: string) => {
         try {
             // Try to get user from 'users' table
-            let { data, error } = await supabase
+            const { data, error } = await supabase
                 .from('users')
                 .select(`
                     id,
@@ -220,6 +227,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                     status: 'active', // Allow login to see "Unauthorized" or "Setup Profile" page
                     username: email?.split('@')[0] || 'guest',
                     permissions: {}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } as any as User);
             }
 

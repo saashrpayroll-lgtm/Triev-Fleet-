@@ -155,7 +155,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
     const fetchHistory = async () => {
         setLoadingHistory(true);
         try {
-            const { data, error } = await supabase
+            let historyQuery = supabase
                 .from('import_history')
                 .select(`
                     id,
@@ -173,6 +173,13 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                 `)
                 .order('timestamp', { ascending: false })
                 .limit(20);
+
+            // City Ops: only show their own imports
+            if (scopedCityOpsId && userData?.id) {
+                historyQuery = historyQuery.eq('admin_id', userData.id);
+            }
+
+            const { data, error } = await historyQuery;
 
             if (error) {
                 console.error("Supabase Error fetching history:", error);

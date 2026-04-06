@@ -4,15 +4,31 @@ import { LedgerAPI } from "@/api/ledger";
 import { toast } from "sonner";
 import { supabase } from "@/config/supabase";
 
-export function WalletSyncWidget() {
+interface WalletSyncWidgetProps {
+    riderIds?: string[];
+}
+
+export function WalletSyncWidget({ riderIds }: WalletSyncWidgetProps) {
     const [mismatches, setMismatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchMismatches = async () => {
         try {
             setLoading(true);
-            const data = await LedgerAPI.getMismatches();
-            setMismatches(data || []);
+            // If riderIds provided (City Ops), fetch only their team's mismatches
+            if (riderIds && riderIds.length > 0) {
+                const { data, error } = await supabase
+                    .from('wallet_mismatches')
+                    .select('*, riders(rider_name, mobile_number)')
+                    .eq('status', 'pending')
+                    .in('rider_id', riderIds)
+                    .order('difference', { ascending: false });
+                if (error) throw error;
+                setMismatches(data || []);
+            } else {
+                const data = await LedgerAPI.getMismatches();
+                setMismatches(data || []);
+            }
         } catch (error) {
             console.error("Failed to fetch mismatches", error);
         } finally {

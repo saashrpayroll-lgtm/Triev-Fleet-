@@ -27,6 +27,7 @@ import { supabase } from '@/config/supabase';
 
 interface NavItem {
     path: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     icon: any;
     label: string;
     visible?: boolean;
@@ -48,6 +49,20 @@ const AdminLayout: React.FC = () => {
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
+    const fetchCounts = async () => {
+        if (!userData) return;
+        try {
+            const [{ count: reqCount }, { count: notifCount }] = await Promise.all([
+                supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+                supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).eq('is_read', false)
+            ]);
+            setPendingRequestsCount(reqCount || 0);
+            setUnreadNotificationsCount(notifCount || 0);
+        } catch (e) {
+            console.error("Failed to fetch sidebar counts:", e);
+        }
+    };
+
     React.useEffect(() => {
         if (!userData) return;
         fetchCounts();
@@ -65,21 +80,8 @@ const AdminLayout: React.FC = () => {
             supabase.removeChannel(reqChannel);
             supabase.removeChannel(notifChannel);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userData]);
-
-    const fetchCounts = async () => {
-        if (!userData) return;
-        try {
-            const [{ count: reqCount }, { count: notifCount }] = await Promise.all([
-                supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-                supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).eq('is_read', false)
-            ]);
-            setPendingRequestsCount(reqCount || 0);
-            setUnreadNotificationsCount(notifCount || 0);
-        } catch (e) {
-            console.error("Failed to fetch sidebar counts:", e);
-        }
-    };
 
     // DEBUG: Monitor permissions
     // React.useEffect(() => {
@@ -123,6 +125,7 @@ const AdminLayout: React.FC = () => {
         {
             title: 'Management',
             items: [
+                { path: '/portal/cityops-performance', icon: Activity, label: 'CityOps Performance', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/rm-performance', icon: Activity, label: 'RM Performance', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },

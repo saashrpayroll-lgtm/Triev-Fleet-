@@ -21,10 +21,10 @@ interface ActivityLog {
 }
 
 interface ActivityLogProps {
-    scopedUserNames?: string[];
+    scopedUserIds?: string[];
 }
 
-const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserNames }) => {
+const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
     // Data State
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,7 +48,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserNames }) => {
     const fetchLogs = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('activity_logs')
                 .select(`
                     id,
@@ -66,13 +66,17 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserNames }) => {
                 .order('timestamp', { ascending: false })
                 .limit(2000);
 
+            // DB-level scoping: only fetch logs for specific user IDs
+            if (scopedUserIds && scopedUserIds.length > 0) {
+                query = query.in('user_id', scopedUserIds);
+            }
+
+            const { data, error } = await query;
+
             if (error) throw error;
 
             if (data) {
-                // Filter by scoped user names if provided (City Ops view)
-                const filtered = scopedUserNames && scopedUserNames.length > 0
-                    ? (data as ActivityLog[]).filter(l => !l.isDeleted && scopedUserNames.includes(l.userName))
-                    : (data as ActivityLog[]).filter(l => l.isDeleted !== true);
+                const filtered = (data as ActivityLog[]).filter(l => l.isDeleted !== true);
                 setLogs(filtered);
             }
         } catch (error: any) {

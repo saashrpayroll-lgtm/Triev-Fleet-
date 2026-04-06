@@ -23,7 +23,7 @@ import { calculateAIScore } from '@/utils/performance';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 
 const CityOpsDashboard: React.FC = () => {
-    const { tlIds, isLoading: scopeLoading } = useCityOpsScope();
+    const { cityOpsId, rmIds, tlIds, isLoading: scopeLoading } = useCityOpsScope();
     const { userData } = useSupabaseAuth();
     const navigate = useNavigate();
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
@@ -686,7 +686,7 @@ const CityOpsDashboard: React.FC = () => {
             </motion.div>
 
             {/* Wallet Sync Widget */}
-            <WalletSyncWidget />
+            <WalletSyncWidget riderIds={rawData.riders?.map((r: any) => r.id)} />
             {/* --- Fleet & Operations --- */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1">
@@ -971,10 +971,10 @@ const CityOpsDashboard: React.FC = () => {
                 {/* Activity Feed (1/3 width) */}
                 <div className="lg:col-span-1 flex flex-col gap-3">
                     <div>
-                        <WeeklyCollectionChart />
+                        <WeeklyCollectionChart tlIds={tlIds} />
                     </div>
                     <div className="flex-grow">
-                        <RecentActivity />
+                        <RecentActivity scopedUserIds={[...(cityOpsId ? [cityOpsId] : []), ...rmIds, ...tlIds]} />
                     </div>
                 </div>
             </div>

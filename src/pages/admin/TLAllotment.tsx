@@ -119,13 +119,16 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
                 // Step 1: Active TLs — server-side scoped to City Ops if applicable
                 tlBaseQuery,
 
-                // Step 2: All riders (including deleted) to ensure historical allotments/submissions are included
-                fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at'),
+                // Step 2: Riders — scope to team's TLs if applicable
+                scopedTlIds && scopedTlIds.length > 0
+                    ? fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
+                    : fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, created_at, updated_at, inactivated_at'),
 
-                // Step 3: ✅ daily_collections — proven source of truth for rent/collections per TL
+                // Step 3: ✅ daily_collections — scoped to team's TLs if applicable
                 fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date, active_riders_count', [
                     { column: 'date', operator: 'gte', value: pStart },
-                    { column: 'date', operator: 'lte', value: pEnd }
+                    { column: 'date', operator: 'lte', value: pEnd },
+                    ...(scopedTlIds && scopedTlIds.length > 0 ? [{ column: 'team_leader_id', operator: 'in' as const, value: scopedTlIds }] : [])
                 ]),
 
                 // Step 4: ✅ Today's live override via wallet_ledger with !inner JOIN

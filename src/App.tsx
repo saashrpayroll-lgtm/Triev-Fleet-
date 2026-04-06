@@ -49,6 +49,7 @@ const RequestManagement = React.lazy(() => import('@/pages/admin/RequestManageme
 const LeaderboardPage = React.lazy(() => import('@/pages/admin/LeaderboardPage'));
 const TLPerformance = React.lazy(() => import('@/pages/admin/TLPerformance'));
 const RMPerformance = React.lazy(() => import('@/pages/admin/RMPerformance'));
+const CityOpsPerformance = React.lazy(() => import('@/pages/admin/CityOpsPerformance'));
 const TLAllotment = React.lazy(() => import('@/pages/admin/TLAllotment'));
 const AdminNotificationsPage = React.lazy(() => import('@/pages/admin/AdminNotificationsPage'));
 const AdminForms = React.lazy(() => import('@/pages/admin/AdminForms'));
@@ -298,6 +299,7 @@ function AppRoutes() {
             <Route path="riders" element={<RiderManagement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="cityops-performance" element={<CityOpsPerformance />} />
             <Route path="rm-performance" element={<RMPerformance />} />
             <Route path="tl-performance" element={<TLPerformance />} />
             <Route path="tl-allotment" element={<TLAllotment />} />

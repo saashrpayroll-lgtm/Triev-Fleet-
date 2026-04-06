@@ -62,9 +62,8 @@ export const CityOpsTLAllotment: React.FC = () => {
 };
 
 export const CityOpsLeaderboard: React.FC = () => {
-    const { tlIds, isLoading } = useCityOpsScope();
-    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
-    return <LeaderboardPage scopedTlIds={tlIds} />;
+    // Leaderboard is intentionally GLOBAL — shows entire company rankings
+    return <LeaderboardPage />;
 };
 
 export const CityOpsDataManagement: React.FC = () => {
@@ -80,28 +79,13 @@ export const CityOpsReports: React.FC = () => {
 };
 
 export const CityOpsActivityLog: React.FC = () => {
-    const { rmIds, tlIds, isLoading } = useCityOpsScope();
-    const [scopedUserNames, setScopedUserNames] = React.useState<string[]>([]);
-    const [namesLoading, setNamesLoading] = React.useState(true);
+    const { cityOpsId, rmIds, tlIds, isLoading } = useCityOpsScope();
 
-    React.useEffect(() => {
-        if (isLoading) return;
-        const fetchNames = async () => {
-            try {
-                const allIds = [...rmIds, ...tlIds];
-                if (allIds.length === 0) { setScopedUserNames([]); setNamesLoading(false); return; }
-                const { data } = await import('@/config/supabase').then(m =>
-                    m.supabase.from('users').select('full_name').in('id', allIds)
-                );
-                setScopedUserNames((data || []).map((u: { full_name: string }) => u.full_name).filter(Boolean));
-            } catch { /* ignore */ }
-            finally { setNamesLoading(false); }
-        };
-        fetchNames();
-    }, [rmIds, tlIds, isLoading]);
+    if (isLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
 
-    if (isLoading || namesLoading) return <div className="p-8 text-center animate-pulse">Loading localized scope...</div>;
-    return <ActivityLog scopedUserNames={scopedUserNames.length > 0 ? scopedUserNames : undefined} />;
+    // Include all team member IDs + the CityOps user's own ID
+    const allScopedIds = [...(cityOpsId ? [cityOpsId] : []), ...rmIds, ...tlIds];
+    return <ActivityLog scopedUserIds={allScopedIds.length > 0 ? allScopedIds : undefined} />;
 };
 
 export const CityOpsAnalytics: React.FC = () => {

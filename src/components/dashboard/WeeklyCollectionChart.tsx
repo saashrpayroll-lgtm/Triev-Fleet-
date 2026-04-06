@@ -39,7 +39,11 @@ const CustomTooltip = ({ active, payload }: TooltipProps): React.ReactElement | 
     return null;
 };
 
-const WeeklyCollectionChart: React.FC = () => {
+interface WeeklyCollectionChartProps {
+    tlIds?: string[];
+}
+
+const WeeklyCollectionChart: React.FC<WeeklyCollectionChartProps> = ({ tlIds }) => {
     const [data, setData] = useState<ChartDataPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [totalWeekly, setTotalWeekly] = useState(0);
@@ -50,10 +54,17 @@ const WeeklyCollectionChart: React.FC = () => {
             const startDate = subDays(endDate, 6);
             startDate.setHours(0, 0, 0, 0);
 
-            const { data: dailyData, error } = await supabase
+            let query = supabase
                 .from('daily_collections')
                 .select('date, total_collection')
                 .gte('date', format(startDate, 'yyyy-MM-dd'));
+
+            // Scope to specific TLs if provided (City Ops / RM)
+            if (tlIds && tlIds.length > 0) {
+                query = query.in('team_leader_id', tlIds);
+            }
+
+            const { data: dailyData, error } = await query;
 
             if (error) throw error;
 
@@ -87,7 +98,8 @@ const WeeklyCollectionChart: React.FC = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchWeeklyData)
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tlIds?.length]);
 
     const maxAmount = Math.max(...data.map(d => d.amount), 1);
 

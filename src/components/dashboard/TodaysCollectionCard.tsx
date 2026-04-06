@@ -65,8 +65,18 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
 
             if (teamLeaderId) {
                 query = query.eq('rider.team_leader_id', teamLeaderId);
-            } else if (tlIds && tlIds.length > 0) {
-                query = query.in('rider.team_leader_id', tlIds);
+            } else if (tlIds !== undefined) {
+                if (tlIds.length > 0) {
+                    query = query.in('rider.team_leader_id', tlIds);
+                } else {
+                    // This City Ops / RM has no TLs assigned yet, so their collection is 0.
+                    // Fall back to a dummy query or simply return early to save a DB call.
+                    setAmount(0);
+                    setTransactionCount(0);
+                    setVelocity(0);
+                    setIsSyncing(false);
+                    return;
+                }
             }
 
             const { data, error } = await query;
@@ -119,12 +129,14 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                         setAmount(prev => prev + amt);
                         setTransactionCount(prev => prev + 1);
                     }
-                } else if (tlIds && tlIds.length > 0) {
-                    const { data: riderData } = await supabase
-                        .from('riders').select('team_leader_id').eq('id', newLog.rider_id).single();
-                    if (riderData && tlIds.includes(riderData.team_leader_id || '')) {
-                        setAmount(prev => prev + amt);
-                        setTransactionCount(prev => prev + 1);
+                } else if (tlIds !== undefined) {
+                    if (tlIds.length > 0) {
+                        const { data: riderData } = await supabase
+                            .from('riders').select('team_leader_id').eq('id', newLog.rider_id).single();
+                        if (riderData && tlIds.includes(riderData.team_leader_id || '')) {
+                            setAmount(prev => prev + amt);
+                            setTransactionCount(prev => prev + 1);
+                        }
                     }
                 } else {
                     setAmount(prev => prev + amt);

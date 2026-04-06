@@ -166,16 +166,27 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 scopedTlIds && scopedTlIds.length > 0
                     ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
                     : fetchAllRidersPaginated('*'),
-                supabase.from('leads').select('*'),
+                // Leads: scope to team's TLs if applicable
+                scopedTlIds && scopedTlIds.length > 0
+                    ? supabase.from('leads').select('*').in('createdBy', scopedTlIds)
+                    : supabase.from('leads').select('*'),
                 tlQuery,
-                // Today's collection
-                supabase.from('daily_collections').select('team_leader_id, total_collection').eq('date', todayStr),
-                // Weekly collection (Mon–today)
-                supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', weekStartStr),
-                // Monthly collection (1st–today)
-                supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', monthStartStr),
-                // Grand Total — all time, never resets
-                supabase.from('daily_collections').select('team_leader_id, total_collection'),
+                // Today's collection — scoped
+                scopedTlIds && scopedTlIds.length > 0
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection').eq('date', todayStr).in('team_leader_id', scopedTlIds)
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection').eq('date', todayStr),
+                // Weekly collection (Mon–today) — scoped
+                scopedTlIds && scopedTlIds.length > 0
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', weekStartStr).in('team_leader_id', scopedTlIds)
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', weekStartStr),
+                // Monthly collection (1st–today) — scoped
+                scopedTlIds && scopedTlIds.length > 0
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', monthStartStr).in('team_leader_id', scopedTlIds)
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection').gte('date', monthStartStr),
+                // Grand Total — all time — scoped
+                scopedTlIds && scopedTlIds.length > 0
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection').in('team_leader_id', scopedTlIds)
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection'),
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -240,16 +251,20 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     const fetchPeriodData = useCallback(async () => {
         const { start, end } = getDateRangeStr(dateFilter, customRange);
         if (!start || !end) return;
-        const { data, error } = await supabase.from('daily_collections')
+        let periodQuery = supabase.from('daily_collections')
             .select('team_leader_id, total_collection')
             .gte('date', start).lte('date', end);
+        if (scopedTlIds && scopedTlIds.length > 0) {
+            periodQuery = periodQuery.in('team_leader_id', scopedTlIds);
+        }
+        const { data, error } = await periodQuery;
         if (error) return;
         const map: Record<string, number> = {};
         (data || []).forEach((r: { team_leader_id: string; total_collection: number }) => {
             if (r.team_leader_id) map[r.team_leader_id] = (map[r.team_leader_id] || 0) + (Number(r.total_collection) || 0);
         });
         setRawData(prev => ({ ...prev, periodMap: map }));
-    }, [dateFilter, customRange, getDateRangeStr]);
+    }, [dateFilter, customRange, getDateRangeStr, scopedTlIds]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { fetchPeriodData(); }, [fetchPeriodData]);
