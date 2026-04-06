@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead } from '@/types';
 
 export interface RMTeamData {
@@ -39,17 +39,16 @@ export function useRMTeamData(): RMTeamData {
 
             try {
                 // 1. Fetch Team Leaders assigned to this RM
-                const { data: tlData, error: tlError } = await supabase
-                    .from('users')
-                    .select(`
+                const { data: tlData, error: tlError } = await fetchTablePaginated('users', `
                         id, userId:user_id, fullName:full_name, email, mobile, role, status,
                         username, jobLocation:job_location, reportingManager:reporting_manager,
                         permissions, remarks, profilePicUrl:profile_pic_url,
                         suspendedUntil:suspended_until, createdAt:created_at, updatedAt:updated_at,
                         position
-                    `)
-                    .ilike('reporting_manager', `%${rmName.trim()}%`)
-                    .eq('role', 'teamLeader');
+                    `, [
+                        { column: 'reporting_manager', operator: 'ilike', value: `%${rmName.trim()}%` },
+                        { column: 'role', operator: 'eq', value: 'teamLeader' }
+                    ]);
 
                 console.log('[RM Panel Debug] RM Name:', rmName.trim());
                 console.log('[RM Panel Debug] TL Query result:', { count: tlData?.length, error: tlError, data: tlData?.map((t: any) => ({ id: t.id, name: t.full_name || t.fullName, rm: t.reporting_manager || t.reportingManager })) });
@@ -82,16 +81,17 @@ export function useRMTeamData(): RMTeamData {
                 setRiders((riderData as unknown as Rider[]) || []);
 
                 // 3. Fetch Leads created by these TLs
-                const { data: leadData, error: leadError } = await supabase
-                    .from('leads')
-                    .select(`
+                const { data: leadDataRaw, error: leadError } = await fetchTablePaginated('leads', `
                         id, leadId:lead_id, riderName:rider_name, mobileNumber:mobile_number,
                         city, status, score, category, source, createdAt:created_at,
                         drivingLicense:driving_license, clientInterested:client_interested,
                         location, createdBy:created_by, createdByName:created_by_name, remarks
-                    `)
-                    .in('created_by', tlIds)
-                    .order('id', { ascending: false });
+                    `, [
+                        { column: 'created_by', operator: 'in', value: tlIds }
+                    ]);
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const leadData = leadDataRaw ? [...leadDataRaw].sort((a: any, b: any) => b.id - a.id) : [];
 
                 if (leadError) throw leadError;
                 setLeads((leadData as Lead[]) || []);

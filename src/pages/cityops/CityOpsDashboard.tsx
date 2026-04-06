@@ -77,27 +77,27 @@ const CityOpsDashboard: React.FC = () => {
                     updatedAt:updated_at,
                     createdAt:created_at
                 `, { column: 'team_leader_id', type: 'in', value: tlIds }),
-                supabase.from('leads').select(`
+                fetchTablePaginated('leads', `
                     id,
                     leadId:lead_id,
                     riderName:rider_name,
                     status,
                     createdBy:created_by,
                     createdAt:created_at
-                `).in('created_by', tlIds),
-                supabase.from('requests').select(`
+                `, [{ column: 'created_by', operator: 'in', value: tlIds }]),
+                fetchTablePaginated('requests', `
                     id,
                     status,
                     createdAt:created_at
-                `).in('team_leader_id', tlIds),
-                supabase.from('users').select(`
+                `, [{ column: 'team_leader_id', operator: 'in', value: tlIds }]),
+                fetchTablePaginated('users', `
                     id,
                     fullName:full_name,
                     email,
                     status,
                     role,
                     profilePicUrl:profile_pic_url
-                `).in('id', tlIds),
+                `, [{ column: 'id', operator: 'in', value: tlIds }]),
                 fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date, active_riders_count', [
                     { column: 'date', operator: 'gte', value: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)) },
                     { column: 'team_leader_id', operator: 'in', value: tlIds }

@@ -1,4 +1,4 @@
-import { supabase } from '@/config/supabase';
+import { fetchTablePaginated } from '@/utils/dbUtils';
 import { format, subMonths, eachMonthOfInterval } from 'date-fns';
 
 export interface AnalyticsData {
@@ -38,28 +38,23 @@ export const AnalyticsService = {
 
         try {
             // Build filter queries for riders
-            // Logic: Filter by city_ops_id if available, otherwise filter by TLIds.
-            let ridersQuery = supabase.from('riders').select('id, created_at, client_name, wallet_amount, status, team_leader_id');
-            // Safe scoping: prefer TL-based filtering (team_leader_id) as city_ops_id column may not exist yet
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const riderFilters: any[] = [];
             if (scopedTlIds && scopedTlIds.length > 0) {
-                ridersQuery = ridersQuery.in('team_leader_id', scopedTlIds);
+                riderFilters.push({ column: 'team_leader_id', operator: 'in', value: scopedTlIds });
             }
-            // Note: scopedCityOpsId is kept in config for future use once SQL migration is run
-
-            // Build filter queries for leads (leads table has NO team_leader_id column)
-            // Leads are fetched globally — scoping is not possible at DB level for leads
-            const leadsQuery = supabase.from('leads').select('id, status, created_at');
 
             // Parallel Fetching
             const [ridersRes, leadsRes] = await Promise.all([
-                ridersQuery,
-                leadsQuery
+                fetchTablePaginated('riders', 'id, created_at, client_name, wallet_amount, status, team_leader_id', riderFilters),
+                fetchTablePaginated('leads', 'id, status, created_at')
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
 
             const riders = ridersRes.data || [];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const leads = (leadsRes.data as any[]) || [];
 
             // 1. Rider Growth (Last 6 Months)
@@ -135,16 +130,18 @@ export const AnalyticsService = {
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             const thirtyDaysAgoStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(thirtyDaysAgo);
 
-            let tlsQuery = supabase.from('users').select('id, full_name').eq('role', 'teamLeader');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tlFilters: any[] = [{ column: 'role', operator: 'eq', value: 'teamLeader' }];
             if (scopedTlIds && scopedTlIds.length > 0) {
-                tlsQuery = tlsQuery.in('id', scopedTlIds);
+                tlFilters.push({ column: 'id', operator: 'in', value: scopedTlIds });
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const collectionFilters: any[] = [{ column: 'date', operator: 'gte', value: thirtyDaysAgoStr }];
+
             const [tlsRes, collectionsRes] = await Promise.all([
-                tlsQuery,
-                supabase.from('daily_collections')
-                    .select('team_leader_id, total_collection, date')
-                    .gte('date', thirtyDaysAgoStr)
+                fetchTablePaginated('users', 'id, full_name', tlFilters),
+                fetchTablePaginated('daily_collections', 'team_leader_id, total_collection, date', collectionFilters)
             ]);
 
             const tls = tlsRes.data || [];

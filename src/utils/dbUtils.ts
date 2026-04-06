@@ -56,7 +56,7 @@ export async function fetchAllRidersPaginated(
 export async function fetchTablePaginated(
     tableName: string,
     selectQuery: string = '*',
-    filters?: { column?: string; value: any; operator?: 'eq' | 'in' | 'gte' | 'lte' | 'neq' | 'or' }[]
+    filters?: { column?: string; value: any; operator?: 'eq' | 'in' | 'gte' | 'lte' | 'neq' | 'or' | 'ilike' | 'like' }[]
 ): Promise<{ data: any[] | null; error: any }> {
     const allData: any[] = [];
     let from = 0;
@@ -80,6 +80,8 @@ export async function fetchTablePaginated(
                         if (op === 'gte') query = query.gte(filter.column, filter.value);
                         if (op === 'lte') query = query.lte(filter.column, filter.value);
                         if (op === 'in' && Array.isArray(filter.value)) query = query.in(filter.column, filter.value);
+                        if (op === 'ilike') query = query.ilike(filter.column, filter.value);
+                        if (op === 'like') query = query.like(filter.column, filter.value);
                     }
                 }
             }
