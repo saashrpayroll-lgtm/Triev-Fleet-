@@ -18,6 +18,7 @@ import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { DateFilterType, resolvePerformancePeriod } from '@/utils/dateUtils';
 import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
+import Leaderboard from '@/components/Leaderboard';
 import { calculateAIScore } from '@/utils/performance';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 
@@ -707,7 +708,7 @@ const CityOpsDashboard: React.FC = () => {
                         trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'uptime', direction: 'up' }}
                         subtitle="Currently Assigned"
                         progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'active' } })}
                         isCurrency={false}
                     />
 
@@ -717,7 +718,7 @@ const CityOpsDashboard: React.FC = () => {
                         icon={TrendingDown}
                         color="orange"
                         subtitle="Unassigned or Suspended"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'inactive' } })}
                         isCurrency={false}
                     />
                     
@@ -727,7 +728,7 @@ const CityOpsDashboard: React.FC = () => {
                         icon={Users}
                         color="violet"
                         subtitle={`${stats.activeTLs} Active Leaders`}
-                        onClick={() => navigate('/portal/users?role=teamLeader')}
+                        onClick={() => navigate('/city-ops/users?role=teamLeader')}
                         isCurrency={false}
                     />
 
@@ -738,7 +739,7 @@ const CityOpsDashboard: React.FC = () => {
                         color="blue"
                         aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
                         subtitle={`${stats.criticalRequests} High Priority`}
-                        onClick={() => navigate('/portal/requests?status=pending')}
+                        onClick={() => navigate('/city-ops/requests?status=pending')}
                         isCurrency={false}
                     />
                 </div>
@@ -769,7 +770,7 @@ const CityOpsDashboard: React.FC = () => {
                         trend={{ value: 12, label: 'revenue', direction: 'up' }}
                         subtitle={`${stats.positiveWalletCount} Positive Wallets`}
                         progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
+                        onClick={() => navigate('/city-ops/data', { state: { tab: 'import' } })}
                     />
 
                     <TodaysCollectionCard tlIds={tlIds} />
@@ -816,7 +817,7 @@ const CityOpsDashboard: React.FC = () => {
                         icon={Smartphone}
                         color="violet"
                         subtitle="Total System Value"
-                        onClick={() => navigate('/portal/riders')}
+                        onClick={() => navigate('/city-ops/riders')}
                     />
 
                     <SmartMetricCard
@@ -825,7 +826,7 @@ const CityOpsDashboard: React.FC = () => {
                         icon={TrendingUp}
                         color="cyan"
                         subtitle="Mean Fleet Balance"
-                        onClick={() => navigate('/portal/riders')}
+                        onClick={() => navigate('/city-ops/riders')}
                     />
                 </div>
             </motion.div>
@@ -852,7 +853,7 @@ const CityOpsDashboard: React.FC = () => {
                         subtitle="Wallet > 0"
                         trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
                         progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'positive_wallet' } })}
                         isCurrency={false}
                     />
 
@@ -864,7 +865,7 @@ const CityOpsDashboard: React.FC = () => {
                         subtitle="Wallet < 0"
                         trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
                         progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'negative_wallet' } })}
                         isCurrency={false}
                     />
 
@@ -874,7 +875,7 @@ const CityOpsDashboard: React.FC = () => {
                         icon={Coins}
                         color="amber"
                         subtitle="Dormant Wallets"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'zero_balance' } })}
                         isCurrency={false}
                     />
 
@@ -885,7 +886,7 @@ const CityOpsDashboard: React.FC = () => {
                         color="orange"
                         className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
                         subtitle="At-Risk of Rejection"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'low_balance' } })}
                         isCurrency={false}
                     />
 
@@ -896,7 +897,7 @@ const CityOpsDashboard: React.FC = () => {
                         color="red"
                         className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
                         subtitle="Debt > ₹3000"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'high_debt' } })}
                         isCurrency={false}
                     />
 
@@ -909,7 +910,7 @@ const CityOpsDashboard: React.FC = () => {
                         aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
                         subtitle={`${stats.negativeWalletCount} Negative Wallets`}
                         className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'negative_wallet' } })}
                         isCurrency={true}
                     />
                 </div>
@@ -936,7 +937,7 @@ const CityOpsDashboard: React.FC = () => {
                         trend={{ value: stats.conversionRate, label: 'rate', direction: 'up' }}
                         subtitle={`${stats.totalLeads} Total Leads`}
                         progress={stats.conversionRate}
-                        onClick={() => navigate('/portal/leads?status=Convert')}
+                        onClick={() => navigate('/city-ops/leads?status=Convert')}
                         isCurrency={false}
                     />
 
@@ -947,7 +948,7 @@ const CityOpsDashboard: React.FC = () => {
                         color="slate"
                         trend={{ value: stats.totalRiders > 0 ? Math.round((stats.inactiveRiders / stats.totalRiders) * 100) : 0, label: 'churn rate', direction: 'down' }}
                         subtitle={`${stats.deletedRiders} Permanently Deleted`}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
+                        onClick={() => navigate('/city-ops/riders', { state: { filter: 'inactive' } })}
                         isCurrency={false}
                     />
                 </div>
@@ -978,7 +979,15 @@ const CityOpsDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* TL Performance Podium (Native Injection) - Replaced with TL Table as requested */}
+            {/* Leaderboard & TL Performance Podium (Native Injection) */}
+            <div className="mb-4">
+                <Leaderboard
+                    teamLeaders={rawData.teamLeaders}
+                    riders={rawData.riders}
+                    collections={allTimeCollections}
+                />
+            </div>
+            
             <div className="mb-4">
                 <TeamLeaderPerformanceTable data={tlStats} />
             </div>

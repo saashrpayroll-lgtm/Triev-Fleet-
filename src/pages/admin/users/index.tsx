@@ -254,6 +254,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
     const filteredUsers = users.filter(user => {
         if (!user) return false;
 
+        // City Ops should not see/manage their own profile in the users list
+        if (scopedCityOpsId && user.id === scopedCityOpsId) return false;
+
         if (showDeleted) {
             if (user.status !== 'deleted') return false;
         } else {
