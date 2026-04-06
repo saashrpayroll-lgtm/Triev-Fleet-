@@ -17,8 +17,8 @@ interface RiderAuditModalProps {
 }
 
 interface AuditResult {
-    extraRiders: any[]; // In DB as active, not in Sheet
-    returningRiders: any[]; // In DB as inactive/deleted, BUT IS in Sheet
+    extraRiders: Record<string, unknown>[]; // In DB as active, not in Sheet
+    returningRiders: Record<string, unknown>[]; // In DB as inactive/deleted, BUT IS in Sheet
     matchedCount: number;
     dbCount: number; // Active DB standard count
     sheetCount: number;
@@ -60,10 +60,10 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
     if (!isOpen) return null;
 
-    const handleAnalyze = async (sheetData: any[]) => {
+    const handleAnalyze = async (sheetData: Record<string, unknown>[]) => {
         setStep('analyzing');
         try {
-            let filterObj: { column: string; value: any; type: 'eq' | 'in' } | undefined = undefined;
+            let filterObj: { column: string; value: string | string[]; type: 'eq' | 'in' } | undefined = undefined;
             let validIds: string[] = [];
 
             if (isCityOps) {
@@ -99,7 +99,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             const sheetIdentifiers = new Set<string>();
 
             sheetData.forEach(row => {
-                const normalizedRow: any = {};
+                const normalizedRow: Record<string, unknown> = {};
                 Object.keys(row).forEach(key => {
                     normalizedRow[normalizeKey(key)] = row[key];
                 });
@@ -124,8 +124,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             });
 
             // 3. Compare DB vs Sheet
-            const extraRiders: any[] = [];
-            const returningRiders: any[] = [];
+            const extraRiders: Record<string, unknown>[] = [];
             let matchedCount = 0;
 
             // Check Active Riders (Are they missing from sheet?)
@@ -144,7 +143,8 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                 else extraRiders.push(dbRider);
             });
 
-            // Check Inactive Riders (Are they back on the sheet?)
+            // 4. Find Returning Riders (In INACTIVE DB, but IS in Sheet)
+            const returningRiders: Record<string, unknown>[] = [];
             inactiveDbRiders.forEach(dbRider => {
                 const dbTrievId = (dbRider.triev_id || '').toLowerCase();
                 const dbMobile = (dbRider.mobile_number || '').replace(/[^0-9]/g, '');
@@ -168,9 +168,9 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             });
             setStep('results');
 
-        } catch (err: any) {
-            console.error("Audit Failed:", err);
-            toast.error("Audit Failed: " + err.message);
+        } catch (err: unknown) {
+            console.error('Audit Analysis Error:', err);
+            toast.error((err as Error).message || "Failed to analyze riders");
             setStep('upload');
         }
     };
@@ -181,36 +181,27 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
 
         setIsProcessing(true);
         try {
-            const ids = Array.from(selectedExtraIds);
-            const { error } = await supabase
-                .from('riders')
-                .update({ status: 'inactive', updated_at: new Date().toISOString() })
-                .in('id', ids);
+            let deactivatedCount = 0;
+            for (const id of Array.from(selectedExtraIds)) {
+                const { error } = await supabase
+                    .from('riders')
+                    .update({ status: 'inactive', updated_at: new Date().toISOString() })
+                    .eq('id', id);
 
-            if (error) throw error;
-
-            toast.success(`Successfully deactivated ${ids.length} riders.`);
-
-            await logActivity({
-                actionType: 'bulkUpdate',
-                targetType: 'rider',
-                targetId: 'multiple',
-                details: `Audit Tool: Deactivated ${ids.length} extra riders`,
-                performedBy: userData?.email
-            });
-
-            if (results) {
-                setResults({
-                    ...results,
-                    extraRiders: results.extraRiders.filter(r => !selectedExtraIds.has(r.id)),
-                    dbCount: results.dbCount - ids.length
-                });
-                setSelectedExtraIds(new Set());
+                if (error) throw error;
+                deactivatedCount++;
             }
 
-        } catch (err: any) {
-            console.error("Deactivation Failed:", err);
-            toast.error("Failed to deactivate riders.");
+            toast.success(`Successfully initiated deactivation process for ${deactivatedCount} riders`);
+            setResults(null);
+            setSelectedExtraIds(new Set());
+            setSelectedReturningIds(new Set());
+            setStep('upload');
+            onClose();
+
+        } catch (err: unknown) {
+            console.error('Action Failed:', err);
+            toast.error((err as Error).message || "Failed to process deactivations");
         } finally {
             setIsProcessing(false);
         }
@@ -393,7 +384,7 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                                                     <select
                                                         value={auditScopeType}
                                                         onChange={e => {
-                                                            setAuditScopeType(e.target.value as any);
+                                                            setAuditScopeType(e.target.value as 'global' | 'cityOps' | 'rm' | 'tl');
                                                             setSelectedCityOpsId('all');
                                                             setSelectedRm('all');
                                                             setSelectedTlId('all');
