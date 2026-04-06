@@ -271,4 +271,4 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ riderData, walletData
     );
 };
 
-export default DashboardCharts;
+export default React.memo(DashboardCharts);

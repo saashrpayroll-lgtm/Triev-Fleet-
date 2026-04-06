@@ -199,7 +199,6 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
             if (error && error.code === 'PGRST116') {
                 // User doesn't exist in public.users yet, maybe auto-create or just return basics
-                console.log("User not found in public.users, basic access only");
                 // Optional: Create basic user record here if needed
             } else if (error) {
                 console.error('Error fetching user data:', error);
@@ -233,7 +232,6 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const refreshUserData = async () => {
         if (session?.user) {
-            console.log('Manually refreshing user data...');
             await fetchUserData(session.user.id, session.user.email);
         }
     };
