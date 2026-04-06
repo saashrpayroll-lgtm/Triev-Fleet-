@@ -132,7 +132,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 validTlIds.length > 0 ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: validTlIds, type: 'in' }) : fetchAllRidersPaginated('*', {column: 'id', value: ['invalid'], type:'in'}),
-                validTlIds.length > 0 ? supabase.from('leads').select('*').in('createdBy', validTlIds) : supabase.from('leads').select('*').eq('id', 'invalid'),
+                validTlIds.length > 0 ? supabase.from('leads').select('*').in('created_by', validTlIds) : supabase.from('leads').select('*').eq('id', 'invalid'),
                 validTlIds.length > 0 ? supabase.from('daily_collections').select('*').in('team_leader_id', validTlIds).order('date', { ascending: false }).limit(20000) : supabase.from('daily_collections').select('*').limit(0),
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')

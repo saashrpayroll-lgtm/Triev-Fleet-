@@ -176,7 +176,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                     : fetchAllRidersPaginated('*'),
                 // Leads: scope to team's TLs if applicable
                 scopedTlIds && scopedTlIds.length > 0
-                    ? supabase.from('leads').select('*').in('createdBy', scopedTlIds)
+                    ? supabase.from('leads').select('*').in('created_by', scopedTlIds)
                     : supabase.from('leads').select('*'),
                 tlQuery,
                 // Today's collection — scoped

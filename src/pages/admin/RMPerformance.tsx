@@ -140,7 +140,7 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                     : fetchAllRidersPaginated('*'),
                 // Leads: scope by createdBy (TL IDs)
                 scopedTlIdsForRM && scopedTlIdsForRM.length > 0
-                    ? supabase.from('leads').select('*').in('createdBy', scopedTlIdsForRM)
+                    ? supabase.from('leads').select('*').in('created_by', scopedTlIdsForRM)
                     : supabase.from('leads').select('*'),
                 tlQuery,
                 // RMs
