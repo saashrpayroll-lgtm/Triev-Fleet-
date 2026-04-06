@@ -35,35 +35,29 @@ export const useCityOpsScope = (): CityOpsScope => {
         setError(null);
 
         try {
-            const cityOpsName = userData.fullName || '';
 
-            // Step 1: Fetch all RMs reporting to this City Ops
-            // reporting_manager stores a NAME string, not a UUID.
-            // Match by city_ops_id (UUID) OR reporting_manager (name of the City Ops user).
+            // Step 1: Fetch all RMs strictly reporting to this City Ops UUID
+            // We ONLY use city_ops_id to prevent name collisions where a new City Ops
+            // inherits RMs just because of a generic or blank name.
             const { data: rms, error: rmError } = await supabase
                 .from('users')
                 .select('id, full_name')
                 .eq('role', 'reportingManager')
-                .or(`city_ops_id.eq.${userData.id},reporting_manager.eq.${cityOpsName}`)
+                .eq('city_ops_id', userData.id)
                 .in('status', ['active', 'inactive', 'suspended']);
 
             if (rmError) throw rmError;
 
             const fetchedRmIds = rms?.map(r => r.id) || [];
-            const fetchedRmNames = rms?.map(r => r.full_name).filter(Boolean) || [];
             setRmIds(fetchedRmIds);
 
-            // Step 2: Fetch all TLs under this City Ops
-            // A TL's reporting_manager stores the NAME of their RM (or City Ops directly).
-            // Match by: city_ops_id (UUID) OR reporting_manager matches an RM name OR City Ops name.
-            const allManagerNames = [...new Set([cityOpsName, ...fetchedRmNames])].filter(Boolean);
-            const nameFilter = allManagerNames.map(n => `reporting_manager.eq.${n}`).join(',');
-
+            // Step 2: Fetch all TLs strictly under this City Ops UUID
+            // Again, name-based filtering is removed to guarantee 100% data isolation.
             const { data: tls, error: tlError } = await supabase
                 .from('users')
                 .select('id, full_name')
                 .eq('role', 'teamLeader')
-                .or(`city_ops_id.eq.${userData.id}${nameFilter ? `,${nameFilter}` : ''}`)
+                .eq('city_ops_id', userData.id)
                 .in('status', ['active', 'inactive', 'suspended']);
 
             if (tlError) throw tlError;
