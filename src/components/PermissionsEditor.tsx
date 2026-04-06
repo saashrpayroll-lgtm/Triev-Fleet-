@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckSquare, Layers, User, Wallet, MessageSquare, Shield, Brain, LayoutDashboard, Users, Settings, BarChart3, Radio, UserCog, Search, Zap } from 'lucide-react';
 import { UserPermissions } from '@/types';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 interface PermissionsEditorProps {
     isOpen: boolean;
@@ -324,7 +325,10 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
     // No longer needed manual save action, but keeping for reset/close check logic if needed
 
     // --- Configuration ---
-    const tabs: TabConfig[] = [
+    const { userData } = useSupabaseAuth();
+    const isCityOps = userData?.role === 'cityOps';
+
+    const baseTabs: TabConfig[] = [
         {
             id: 'dashboard',
             label: 'Dashboard & Analytics',
@@ -536,6 +540,8 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             ]
         }
     ];
+
+    const tabs = isCityOps ? baseTabs.filter(t => t.id !== 'cityOpsPanel') : baseTabs;
 
     if (!isOpen) return null;
 
