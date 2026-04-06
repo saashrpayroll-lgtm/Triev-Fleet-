@@ -207,11 +207,25 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
             }
 
             toast.success(`Successfully initiated deactivation process for ${deactivatedCount} riders`);
-            setResults(null);
-            setSelectedExtraIds(new Set());
-            setSelectedReturningIds(new Set());
-            setStep('upload');
-            onClose();
+            
+            // Log the activity
+            await logActivity({
+                actionType: 'bulkUpdate',
+                targetType: 'rider',
+                targetId: 'multiple',
+                details: `Audit Tool: Deactivated ${deactivatedCount} extra riders`,
+                performedBy: userData?.email
+            });
+
+            // Update state inline instead of closing the modal
+            if (results) {
+                setResults({
+                    ...results,
+                    extraRiders: results.extraRiders.filter(r => !selectedExtraIds.has(r.id)),
+                    dbCount: results.dbCount - deactivatedCount
+                });
+                setSelectedExtraIds(new Set());
+            }
 
         } catch (err: unknown) {
             console.error('Action Failed:', err);
