@@ -81,14 +81,44 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
         }
     }, [showTLDropdown]);
 
+    // Advanced filters
+    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
+        teamLeader: 'all',
+        client: 'all',
+        walletRange: 'all',
+        reportingManager: 'all',
+    });
+
     // URL Filter & Highlight Logic
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const filterParam = params.get('filter');
+        let filterParam = params.get('filter');
         const highlightMobile = params.get('highlight');
 
-        if (filterParam && ['all', 'active', 'inactive', 'deleted', 'zomato'].includes(filterParam)) {
-            setActiveTab(filterParam as TabType);
+        // Allow reading from location.state if passed by City Ops navigator
+        const stateProps = location.state as Record<string, string> | null;
+        if (!filterParam && stateProps?.filter) {
+            filterParam = stateProps.filter;
+        }
+
+        if (filterParam) {
+            // Handle complex filters like zomato_positive
+            if (filterParam.startsWith('zomato')) {
+                setActiveTab('zomato');
+                
+                // Map the sub-filter to the wallet range
+                if (filterParam === 'zomato_pos') {
+                    setAdvancedFilters(prev => ({ ...prev, walletRange: 'positive' }));
+                } else if (filterParam === 'zomato_neg') {
+                    setAdvancedFilters(prev => ({ ...prev, walletRange: 'negative' }));
+                } else if (filterParam === 'zomato_low') {
+                    setAdvancedFilters(prev => ({ ...prev, walletRange: 'low_balance' }));
+                } else if (filterParam === 'zomato_debt') {
+                    setAdvancedFilters(prev => ({ ...prev, walletRange: 'high_debt' }));
+                }
+            } else if (['all', 'active', 'inactive', 'deleted'].includes(filterParam)) {
+                setActiveTab(filterParam as TabType);
+            }
         }
 
         if (highlightMobile) {
@@ -101,15 +131,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 setTimeout(() => setHighlightedRiderId(null), 3000);
             }
         }
-    }, [location.search, riders]); // Add riders to dependency to trigger when data loads
-
-    // Advanced filters
-    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
-        teamLeader: 'all',
-        client: 'all',
-        walletRange: 'all',
-        reportingManager: 'all',
-    });
+    }, [location.search, location.state, riders]); // Add riders to dependency to trigger when data loads
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);

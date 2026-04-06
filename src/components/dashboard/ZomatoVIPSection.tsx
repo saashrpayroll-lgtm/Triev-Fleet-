@@ -174,7 +174,7 @@ const ZomatoVIPSection: React.FC<ZomatoVIPSectionProps> = ({ stats }) => {
                                     transition={{ delay: 0.1 + i * 0.05 }}
                                     whileHover={{ y: -4, scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
-                                    onClick={() => handleNavigate('zomato')}
+                                    onClick={() => handleNavigate(`zomato_${card.key}`)}
                                     className={`
                                         relative overflow-hidden rounded-xl p-3 cursor-pointer group
                                         bg-white/60 dark:bg-slate-800/60 backdrop-blur-md
