@@ -16,8 +16,9 @@ import ZomatoVIPSection from '@/components/dashboard/ZomatoVIPSection';
 import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
-import { DateFilterType } from '@/utils/dateUtils';
-import TLPerformance from '@/pages/admin/TLPerformance';
+import { DateFilterType, resolvePerformancePeriod } from '@/utils/dateUtils';
+import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerformanceTable';
+import { calculateAIScore } from '@/utils/performance';
 import { useCityOpsScope } from '@/hooks/useCityOpsScope';
 
 const CityOpsDashboard: React.FC = () => {
@@ -39,6 +40,7 @@ const CityOpsDashboard: React.FC = () => {
     });
     const [dailyCollections, setDailyCollections] = useState<Record<string, number>>({});
     const [weeklyCollections, setWeeklyCollections] = useState<Record<string, number>>({});
+    const [allTimeCollections, setAllTimeCollections] = useState<Record<string, number>>({});
     // ✅ FIX: Separate period-aware rent collection total from wallet data
     const [periodRentTotal, setPeriodRentTotal] = useState<number>(0);
     // ✅ FIX: Period-aware fleet snapshots from daily_collections.active_riders_count
@@ -221,6 +223,7 @@ const CityOpsDashboard: React.FC = () => {
                 weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
             });
 
+            setAllTimeCollections(collections);
             setDailyCollections(dayMap);
             setWeeklyCollections(weekMap);
 
@@ -454,6 +457,123 @@ const CityOpsDashboard: React.FC = () => {
             })()
         };
     }, [filteredData, periodRentTotal, dailyCollections, weeklyCollections, rawData, dateFilter, fleetSnapshots]);
+
+    const tlStats = useMemo(() => {
+        if (!filteredData || !filteredData.teamLeaders) return [];
+        const { teamLeaders, riders, leads } = filteredData;
+        const period = resolvePerformancePeriod(dateFilter);
+
+        return teamLeaders.map(tl => {
+            const tlCollectionAllTime = allTimeCollections[tl.id] || 0;
+            let periodCollection = tlCollectionAllTime;
+            let activeDays = 1;
+            let perDayAverageCollection = 0;
+
+            if (dateFilter === 'day') {
+                periodCollection = dailyCollections[tl.id] || 0; 
+                const now = new Date();
+                const year = now.getUTCFullYear();
+                const month = now.getUTCMonth() + 1; 
+                const monthStartUTC_local = new Date(Date.UTC(year, month - 1, 1));
+                const monthStartStr_local = monthStartUTC_local.toISOString().split('T')[0];
+                const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                const nowISTStr = formatter.format(now);
+                
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                const mtdData = tlDailyData.filter((d: any) => {
+                    if (d.team_leader_id !== tl.id) return false;
+                    const dDateStr = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                    return dDateStr >= monthStartStr_local && dDateStr < nowISTStr;
+                });
+
+                const mtdHistoricalTotal = mtdData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                const mtdActiveDays = new Set(mtdData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size;
+
+                const totalMTD = mtdHistoricalTotal + periodCollection;
+                const totalMTDDays = mtdActiveDays + (periodCollection > 0 ? 1 : 0);
+
+                perDayAverageCollection = Math.round(totalMTDDays > 0 ? (totalMTD / totalMTDDays) : 0);
+                activeDays = 1; 
+            } else if (period) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const tlDailyData = (rawData as any).dailyCollectionsRaw || [];
+                const dData = tlDailyData.filter((d: any) => d.team_leader_id === tl.id && d.date >= period.start && d.date <= period.end);
+                periodCollection = dData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                activeDays = Math.max(1, new Set(dData.filter((d: any) => Number(d.total_collection) > 0).map((d: any) => d.date)).size);
+                perDayAverageCollection = Math.round(periodCollection / activeDays);
+            }
+
+            const metrics = calculateAIScore(tl, riders, leads, periodCollection, period);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tlRiders = riders.filter(r => r.teamLeaderId === tl.id || (r as any).team_leader_id === tl.id);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tlLeads = leads.filter(l => l.createdBy === tl.id || (l as any).created_by === tl.id);
+            const lastLeadTime = tlLeads.length > 0 ? Math.max(...tlLeads.map(l => new Date(l.createdAt).getTime())) : 0;
+            const lastRiderUpdate = tlRiders.length > 0 ? Math.max(...tlRiders.map(r => new Date(r.updatedAt || r.createdAt).getTime())) : 0;
+            const lastActivity = new Date(Math.max(lastLeadTime, lastRiderUpdate)).toISOString();
+
+            return {
+                id: tl.id,
+                name: tl.fullName || 'Unknown',
+                email: tl.email,
+                totalRiders: metrics.totalRiders,
+                activeRiders: metrics.activeRiders,
+                wallet: {
+                    total: metrics.positiveWallet + metrics.negativeWallet,
+                    positiveCount: tlRiders.filter(r => r.walletAmount > 0).length,
+                    positiveAmount: metrics.positiveWallet,
+                    negativeCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < 0).length,
+                    negativeAmount: metrics.negativeWallet
+                },
+                leads: {
+                    total: metrics.leadsTotal,
+                    converted: metrics.convertedLeads,
+                    conversionRate: metrics.conversionRate
+                },
+                status: tl.status,
+                totalCollection: metrics.collection,
+                dailyCollection: dailyCollections[tl.id] || 0,
+                weeklyCollection: weeklyCollections[tl.id] || 0,
+                monthlyCollection: (() => {
+                    const now2 = new Date();
+                    const ist2 = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const nowStr2 = ist2.format(now2);
+                    const [yr2, mo2] = nowStr2.split('-').map(Number);
+                    const monthStart2 = `${yr2}-${String(mo2).padStart(2, '0')}-01`;
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const monthData = ((rawData as any).dailyCollectionsRaw || []).filter((d: any) => {
+                        const dt = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                        return d.team_leader_id === tl.id && dt >= monthStart2 && dt <= nowStr2;
+                    });
+                    const pastMonth = monthData.reduce((sum: number, d: any) => sum + (Number(d.total_collection) || 0), 0);
+                    const isTodayInDb = monthData.some((d: any) => {
+                       const dt = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                       return dt === nowStr2;
+                    });
+                    return pastMonth + (isTodayInDb ? 0 : (dailyCollections[tl.id] || 0));
+                })(),
+                leadsToday: tlLeads.filter(l => {
+                    const ld = new Date(l.createdAt);
+                    const d = new Date();
+                    return ld.getDate() === d.getDate() && ld.getMonth() === d.getMonth() && ld.getFullYear() === d.getFullYear();
+                }).length,
+                churnLeads: tlLeads.filter(l => l.status === 'Not Convert').length,
+                criticalDebtCount: tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length,
+                allotments: metrics.allotments,
+                submissions: metrics.submissions,
+                netGrowth: metrics.netGrowth,
+                avgRiderCollection: metrics.collectionPerRider || 0,
+                perDayAverageCollection,
+                activeDays,
+                lastActivity,
+                reportingManager: tl.reportingManager,
+                score: metrics.score,
+                aiGrade: metrics.aiGrade
+            };
+        });
+    }, [filteredData, allTimeCollections, dailyCollections, weeklyCollections, rawData, dateFilter]);
 
     // --- Chart Data ---
     const chartData = useMemo(() => {
@@ -858,10 +978,10 @@ const CityOpsDashboard: React.FC = () => {
                 </div>
             </div>
 
-            
-            {/* TL Performance Podium (Native Injection) */}
-            <TLPerformance scopedTlIds={tlIds} />
-
+            {/* TL Performance Podium (Native Injection) - Replaced with TL Table as requested */}
+            <div className="mb-4">
+                <TeamLeaderPerformanceTable data={tlStats} />
+            </div>
         </div>
     );
 };
