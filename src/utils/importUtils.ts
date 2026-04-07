@@ -284,10 +284,9 @@ export const processRiderImport = async (
         }
     }
 
-    // ── 4. PASS 2: Execute pending updates in parallel chunks ────────────────
     const updateChunks = chunkArray(pendingUpdates, 20);
     for (const chunk of updateChunks) {
-        await Promise.all(chunk.map(async ({ id, payload, rowNum }) => {
+        for (const { id, payload, rowNum } of chunk) {
             try {
                 const { error } = await supabase.from('riders').update(payload).eq('id', id);
                 if (error) throw error;
@@ -296,7 +295,7 @@ export const processRiderImport = async (
                 summary.failed++;
                 summary.errors.push({ row: rowNum, identifier: id, reason: err.message });
             }
-        }));
+        }
     }
 
     // ── 5. PASS 2: Bulk-insert all new riders in one call ───────────────────
