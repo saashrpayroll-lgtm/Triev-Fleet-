@@ -493,81 +493,70 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     return (
         <div className="space-y-0 pb-12">
             {/* ── HERO HEADER ─────────────────────────────────────────────────────── */}
-            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-7 rounded-b-[2.5rem] shadow-2xl relative overflow-hidden border-b border-white/5">
+            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-6 md:p-8 rounded-b-[2.5rem] shadow-2xl relative overflow-hidden border-b border-white/5">
                 <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[80%] bg-indigo-600 rounded-full blur-[140px] opacity-10" />
-                    <div className="absolute bottom-[-30%] right-[-5%] w-[35%] h-[80%] bg-emerald-500 rounded-full blur-[120px] opacity-10" />
+                    <div className="absolute top-[-20%] left-[-10%] w-[40%] h-[80%] bg-indigo-600 rounded-full blur-[140px] opacity-15 animate-pulse" style={{animationDuration:'6s'}} />
+                    <div className="absolute bottom-[-30%] right-[-5%] w-[35%] h-[80%] bg-emerald-500 rounded-full blur-[120px] opacity-12 animate-pulse" style={{animationDuration:'8s'}} />
+                    <div className="absolute top-[10%] right-[20%] w-[20%] h-[40%] bg-violet-500 rounded-full blur-[100px] opacity-8 animate-pulse" style={{animationDuration:'7s'}} />
                 </div>
                 <div className="relative flex flex-col md:flex-row md:items-start justify-between gap-5">
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-white/10 backdrop-blur rounded-2xl border border-white/10">
-                                <TrendingUp className="h-6 w-6 text-emerald-400" />
+                            <div className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/15 shadow-lg shadow-indigo-500/10">
+                                <TrendingUp className="h-7 w-7 text-emerald-400" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-black text-white tracking-tight">Team Performance Engine</h1>
+                                <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Team Performance Engine</h1>
                                 <p className="text-white/40 text-xs mt-0.5">Real-time TL analytics & fleet intelligence</p>
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className="px-3 py-1 bg-white/10 text-white/70 rounded-full text-[10px] font-black uppercase tracking-wider border border-white/5">
-                                {filteredData.length} Control Units
-                            </span>
-                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-[10px] font-black uppercase border border-emerald-400/20">
-                                {activeTLCount} Active
-                            </span>
-                            {topPerformer && (
-                                <span className="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-[10px] font-black border border-amber-400/20">
-                                    🏆 {topPerformer.name.split(' ')[0]} ({topPerformer.aiGrade})
-                                </span>
-                            )}
+                            <span className="px-3 py-1.5 bg-white/10 backdrop-blur text-white/80 rounded-full text-[10px] font-black uppercase tracking-wider border border-white/10">{filteredData.length} Control Units</span>
+                            <span className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 rounded-full text-[10px] font-black uppercase border border-emerald-400/20">{activeTLCount} Active</span>
+                            {topPerformer && <span className="px-3 py-1.5 bg-amber-500/20 text-amber-300 rounded-full text-[10px] font-black border border-amber-400/20">🏆 {topPerformer.name.split(' ')[0]} ({topPerformer.aiGrade})</span>}
                         </div>
                     </div>
-
-                    {/* Summary stat pills */}
-                    <div className="flex flex-wrap gap-2 md:justify-end">
-                        {[
-                            { label: 'Today Coll.', value: fmtShort(totals.todayCollection), color: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/20', Icon: TrendingUp },
-                            { label: 'Active Riders', value: totals.activeRiders.toString(), color: 'bg-blue-500/20 text-blue-300 border-blue-400/20', Icon: Users },
-                            { label: 'Net Risk', value: fmtShort(totals.negativeAmount), color: 'bg-rose-500/20 text-rose-300 border-rose-400/20', Icon: AlertTriangle },
-                            { label: 'Avg Score', value: `${avgScore} (${avgGrade})`, color: 'bg-violet-500/20 text-violet-300 border-violet-400/20', Icon: Star },
-                            { label: 'Leads Found', value: `+${totals.leadsToday}`, color: 'bg-indigo-500/20 text-indigo-300 border-indigo-400/20', Icon: Target },
-                            { label: 'Net Growth', value: totals.netGrowth >= 0 ? `+${totals.netGrowth}` : String(totals.netGrowth), color: totals.netGrowth >= 0 ? 'bg-teal-500/20 text-teal-300 border-teal-400/20' : 'bg-rose-500/20 text-rose-300 border-rose-400/20', Icon: ArrowUpRight },
-                        ].map(({ label, value, color, Icon }, i) => (
-                            <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-black uppercase ${color}`}>
-                                <Icon size={12} />
-                                <span>{label}: {value}</span>
-                            </div>
-                        ))}
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2">
+                        <div ref={exportRef} className="relative">
+                            <button onClick={() => setIsExportOpen(v => !v)} className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 hover:scale-105 border border-white/10 rounded-xl text-sm text-white font-semibold transition-all duration-200">
+                                <Download className="h-4 w-4" /> Export
+                            </button>
+                            {isExportOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1">
+                                    <button onClick={() => { exportToExcel(); setIsExportOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel (.xlsx)</button>
+                                    <button onClick={() => { exportToPDF(); setIsExportOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-rose-500" /> PDF Document</button>
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 hover:scale-105 border border-white/10 rounded-xl text-sm text-white font-semibold transition-all duration-200">
+                            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+                        </button>
+                        <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/20 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                            <Activity className="h-3 w-3 animate-pulse" /> Live
+                        </div>
                     </div>
                 </div>
 
-                {/* Action buttons */}
-                <div className="relative flex items-center justify-end gap-3 mt-5">
-                    <div ref={exportRef} className="relative">
-                        <button
-                            onClick={() => setIsExportOpen(v => !v)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm text-white font-semibold transition-all"
-                        >
-                            <Download className="h-4 w-4" /> Export
-                        </button>
-                        {isExportOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1">
-                                <button onClick={() => { exportToExcel(); setIsExportOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500" /> Excel (.xlsx)
-                                </button>
-                                <button onClick={() => { exportToPDF(); setIsExportOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-muted rounded-lg flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-rose-500" /> PDF Document
-                                </button>
+                {/* ── STAT CARDS ROW ── */}
+                <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
+                    {[
+                        { label: 'Today Collection', value: fmtShort(totals.todayCollection), sub: `${dateLabel[dateFilter]}`, gradient: 'from-emerald-500/20 to-emerald-600/5', border: 'border-emerald-400/20', text: 'text-emerald-300', Icon: TrendingUp },
+                        { label: 'Active Riders', value: totals.activeRiders.toString(), sub: `of ${totals.totalRiders} total`, gradient: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-400/20', text: 'text-blue-300', Icon: Users },
+                        { label: 'Wallet Risk', value: fmtShort(Math.abs(totals.negativeAmount)), sub: `${totals.negativeCount} riders`, gradient: 'from-rose-500/20 to-rose-600/5', border: 'border-rose-400/20', text: 'text-rose-300', Icon: AlertTriangle },
+                        { label: 'Avg AI Score', value: `${avgScore}`, sub: `Grade ${avgGrade}`, gradient: 'from-violet-500/20 to-violet-600/5', border: 'border-violet-400/20', text: 'text-violet-300', Icon: Star },
+                        { label: 'Leads Today', value: `+${totals.leadsToday}`, sub: `${totals.churnLeads} churned`, gradient: 'from-indigo-500/20 to-indigo-600/5', border: 'border-indigo-400/20', text: 'text-indigo-300', Icon: Target },
+                        { label: 'Net Growth', value: totals.netGrowth >= 0 ? `+${totals.netGrowth}` : String(totals.netGrowth), sub: `+${totals.allotments}A / -${totals.submissions}S`, gradient: totals.netGrowth >= 0 ? 'from-teal-500/20 to-teal-600/5' : 'from-rose-500/20 to-rose-600/5', border: totals.netGrowth >= 0 ? 'border-teal-400/20' : 'border-rose-400/20', text: totals.netGrowth >= 0 ? 'text-teal-300' : 'text-rose-300', Icon: ArrowUpRight },
+                    ].map(({ label, value, sub, gradient, border, text, Icon }, i) => (
+                        <div key={i} className={`group bg-gradient-to-br ${gradient} backdrop-blur-xl border ${border} rounded-2xl p-4 hover:scale-[1.04] hover:shadow-lg transition-all duration-300 cursor-default`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <Icon size={14} className={`${text} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                                <span className="text-[9px] font-black uppercase tracking-wider text-white/50">{label}</span>
                             </div>
-                        )}
-                    </div>
-                    <button onClick={fetchData} className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-sm text-white font-semibold transition-all">
-                        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-                    </button>
-                    <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/20 text-emerald-300 border border-emerald-400/20 rounded-xl text-[10px] font-black uppercase tracking-wider">
-                        <Activity className="h-3 w-3 animate-pulse" /> Live Sync
-                    </div>
+                            <div className={`text-xl font-black ${text} leading-none`}>{value}</div>
+                            <div className="text-[10px] text-white/35 mt-1">{sub}</div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
@@ -575,23 +564,28 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 {/* ── ANALYSIS CORE TABLE CARD ─────────────────────────────────────── */}
                 <div className="bg-card border border-border/40 rounded-2xl shadow-xl overflow-hidden">
                     {/* Table Controls */}
-                    <div className="p-4 border-b border-border/40 bg-muted/10 flex flex-col md:flex-row justify-between gap-3 flex-wrap">
-                        <div>
-                            <h2 className="text-base font-bold">Analysis Core</h2>
-                            <p className="text-[10px] text-muted-foreground">Strategic performance monitoring and data decomposition.</p>
+                    <div className="p-4 md:p-5 border-b border-border/40 bg-gradient-to-r from-muted/20 to-transparent">
+                        <div className="flex flex-col md:flex-row justify-between gap-3 flex-wrap mb-3">
+                            <div>
+                                <h2 className="text-lg font-black tracking-tight">Analysis Core</h2>
+                                <p className="text-[10px] text-muted-foreground">Strategic performance monitoring and data decomposition.</p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <span className="px-2 py-1 bg-muted/50 rounded-lg font-bold">{filteredData.length} of {processRows.length} TLs</span>
+                            </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             {/* Search */}
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                 <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                                    placeholder="Search TL units..." className="pl-9 pr-3 py-2 bg-background border border-border rounded-xl text-xs w-52 focus:ring-2 focus:ring-primary/20" />
+                                    placeholder="Search TL, email, RM..." className="pl-9 pr-3 py-2.5 bg-background border border-border rounded-xl text-xs w-56 focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all" />
                             </div>
                             {/* Date Filter */}
                             <div className="relative">
                                 <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary" />
                                 <select value={dateFilter} onChange={e => setDateFilter(e.target.value as typeof dateFilter)}
-                                    className="pl-8 pr-7 py-2 bg-background border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer">
+                                    className="pl-8 pr-7 py-2.5 bg-background border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/30 appearance-none cursor-pointer font-semibold">
                                     <option value="today">Today</option>
                                     <option value="yesterday">Yesterday</option>
                                     <option value="week">This Week (Mon–Sun)</option>
@@ -615,7 +609,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                 <div className="relative">
                                     <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-teal-600" />
                                     <select value={rmFilter} onChange={e => setRmFilter(e.target.value)}
-                                        className="pl-8 pr-7 py-2 bg-background border border-border rounded-xl text-xs focus:ring-2 focus:ring-teal-500/20 appearance-none cursor-pointer">
+                                        className="pl-8 pr-7 py-2.5 bg-background border border-border rounded-xl text-xs focus:ring-2 focus:ring-teal-500/30 appearance-none cursor-pointer font-semibold">
                                         <option value="all">All Managers</option>
                                         {uniqueRMs.map(rm => <option key={rm} value={rm}>{rm}</option>)}
                                     </select>
@@ -624,7 +618,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                             )}
                             {/* More Filters toggle */}
                             <button onClick={() => setIsFilterOpen(v => !v)}
-                                className={`p-2 border rounded-xl hover:bg-muted transition-colors ${isFilterOpen ? 'bg-primary/10 border-primary/30' : ''}`}>
+                                className={`p-2.5 border rounded-xl hover:bg-muted transition-all duration-200 ${isFilterOpen ? 'bg-primary/10 border-primary/30 shadow-sm shadow-primary/20' : 'hover:scale-105'}`}>
                                 <Filter className="h-3.5 w-3.5" />
                             </button>
                         </div>
@@ -632,22 +626,22 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
                     {/* Expanded Filter Panel */}
                     {isFilterOpen && (
-                        <div className="px-5 py-4 border-b border-border/40 bg-muted/5 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/[0.02] to-transparent grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-in slide-in-from-top-2 duration-200">
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase text-muted-foreground">Status</label>
-                                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
+                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Status</label>
+                                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} className="w-full py-2 px-2.5 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/20">
                                     <option value="all">All</option><option value="active">Active</option><option value="inactive">Inactive</option>
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase text-muted-foreground">Wallet Risk</label>
-                                <select value={riskFilter} onChange={e => setRiskFilter(e.target.value as typeof riskFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
+                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Wallet Risk</label>
+                                <select value={riskFilter} onChange={e => setRiskFilter(e.target.value as typeof riskFilter)} className="w-full py-2 px-2.5 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/20">
                                     <option value="all">All</option><option value="high_risk">Has Negative</option><option value="low_risk">All Positive</option>
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase text-muted-foreground">AI Score</label>
-                                <select value={scoreFilter} onChange={e => setScoreFilter(e.target.value as typeof scoreFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
+                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">AI Score</label>
+                                <select value={scoreFilter} onChange={e => setScoreFilter(e.target.value as typeof scoreFilter)} className="w-full py-2 px-2.5 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/20">
                                     <option value="all">All Scores</option>
                                     <option value="top">Top (S/A ≥ 5000)</option>
                                     <option value="mid">Mid (B/C ≥ 1500)</option>
@@ -655,8 +649,8 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase text-muted-foreground">Today Coll.</label>
-                                <select value={collFilter} onChange={e => setCollFilter(e.target.value as typeof collFilter)} className="w-full py-1.5 px-2 bg-background border border-border rounded-lg text-xs">
+                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Today Coll.</label>
+                                <select value={collFilter} onChange={e => setCollFilter(e.target.value as typeof collFilter)} className="w-full py-2 px-2.5 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/20">
                                     <option value="all">All</option>
                                     <option value="above50k">≥ ₹50K</option>
                                     <option value="above20k">≥ ₹20K</option>
@@ -664,20 +658,20 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                 </select>
                             </div>
                             <div className="space-y-1.5 col-span-2">
-                                <label className="text-[10px] font-black uppercase text-muted-foreground">Filter TLs ({rawData.teamLeaders.length} total)</label>
+                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Filter TLs ({rawData.teamLeaders.length} total)</label>
                                 <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
                                     {rawData.teamLeaders.map(tl => {
                                         const name = tl.fullName || (tl as unknown as Record<string, string>).full_name || tl.id;
                                         return (
                                             <button key={tl.id}
                                                 onClick={() => setSelectedTLs(p => p.includes(tl.id) ? p.filter(x => x !== tl.id) : [...p, tl.id])}
-                                                className={`px-2 py-0.5 text-[10px] rounded-full border font-bold transition-colors ${selectedTLs.includes(tl.id) ? 'bg-primary text-white border-primary' : 'bg-background border-border hover:bg-muted'}`}>
+                                                className={`px-2.5 py-1 text-[10px] rounded-full border font-bold transition-all duration-200 hover:scale-105 ${selectedTLs.includes(tl.id) ? 'bg-primary text-white border-primary shadow-sm shadow-primary/30' : 'bg-background border-border hover:bg-muted'}`}>
                                                 {name}
                                             </button>
                                         );
                                     })}
                                     {selectedTLs.length > 0 && (
-                                        <button onClick={() => setSelectedTLs([])} className="px-2 py-0.5 text-[10px] rounded-full bg-rose-100 text-rose-700 border border-rose-300 font-bold">
+                                        <button onClick={() => setSelectedTLs([])} className="px-2.5 py-1 text-[10px] rounded-full bg-rose-100 text-rose-700 border border-rose-300 font-bold hover:scale-105 transition-all">
                                             ✕ Clear
                                         </button>
                                     )}
@@ -688,36 +682,42 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
                     {/* ── DATA TABLE ──────────────────────────────────────────────────── */}
                     <div className="overflow-x-auto">
+                        <div className="overflow-y-auto" style={{ maxHeight: '680px' }}>
                         <table className="w-full text-xs text-left border-collapse">
-                            <thead className="bg-muted/30 text-[9px] font-black uppercase tracking-widest text-muted-foreground border-b border-border/40 sticky top-0 z-10">
+                            <thead className="bg-gradient-to-r from-slate-900 to-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-300 border-b-2 border-primary/20 sticky top-0 z-10">
                                 <tr>
-                                    <SortTh label="Team Leader" sortKey="name" className="pl-4 pr-2 py-3 min-w-[200px]" />
+                                    <SortTh label="Team Leader" sortKey="name" className="pl-5 pr-2 py-3.5 min-w-[200px]" />
                                     <SortTh label="Fleet" sortKey="activeRiders" className="text-center px-2" />
-                                    <th className="px-2 py-3 min-w-[230px]">
-                                        Collection <span className="text-primary normal-case font-semibold">▾ {dateLabel[dateFilter]}</span>
+                                    <th className="px-2 py-3.5 min-w-[230px]">
+                                        Collection <span className="text-emerald-400 normal-case font-semibold">▾ {dateLabel[dateFilter]}</span>
                                     </th>
-                                    <th className="px-2 py-3 min-w-[100px] text-amber-600">Grand Total</th>
-                                    <th className="px-2 py-3">Wallet Health</th>
-                                    <th className="px-2 py-3">Fleet Flow</th>
+                                    <th className="px-2 py-3.5 min-w-[100px] text-amber-400">Grand Total</th>
+                                    <th className="px-2 py-3.5">Wallet Health</th>
+                                    <th className="px-2 py-3.5">Fleet Flow</th>
                                     <SortTh label="Leads %" sortKey="leadsConvRate" className="text-center px-2" />
                                     <SortTh label="Avg Age" sortKey="avgTenureDays" className="text-center px-2" />
                                     <SortTh label="Score" sortKey="score" className="text-center px-2" />
-                                    <th className="px-2 py-3 text-right pr-4">Status</th>
+                                    <th className="px-2 py-3.5 text-right pr-5">Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-border/20">
+                            <tbody className="divide-y divide-border/15">
                                 {filteredData.length === 0 ? (
-                                    <tr><td colSpan={9} className="py-16 text-center text-muted-foreground text-sm">No data found. Try adjusting filters.</td></tr>
-                                ) : filteredData.map(tl => (
-                                    <tr key={tl.id} className="hover:bg-muted/10 transition-colors group">
+                                    <tr><td colSpan={10} className="py-20 text-center text-muted-foreground text-sm">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Search className="h-8 w-8 opacity-30" />
+                                            <span>No data found. Try adjusting filters.</span>
+                                        </div>
+                                    </td></tr>
+                                ) : filteredData.map((tl, idx) => (
+                                    <tr key={tl.id} className={`group hover:bg-primary/[0.03] transition-all duration-200 ${idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/[0.03]'}`}>
                                         {/* TL Name + RM */}
-                                        <td className="pl-4 pr-2 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0">
+                                        <td className="pl-5 pr-2 py-3.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-[11px] font-black text-primary flex-shrink-0 border border-primary/10 group-hover:scale-110 transition-transform duration-200">
                                                     {(tl.name || '?').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-[11px] leading-tight">{tl.name}</div>
+                                                    <div className="font-bold text-[11px] leading-tight group-hover:text-primary transition-colors">{tl.name}</div>
                                                     <div className="text-[9px] text-muted-foreground leading-tight">{tl.email}</div>
                                                     {tl.reportingManager && tl.reportingManager !== 'N/A' && (
                                                         <div className="text-[9px] text-teal-600 font-semibold leading-tight">↳ {tl.reportingManager}</div>
@@ -726,30 +726,30 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                             </div>
                                         </td>
 
-                                        {/* Fleet: Active / Inactive / Total */}
-                                        <td className="px-2 py-3 text-center">
+                                        {/* Fleet */}
+                                        <td className="px-2 py-3.5 text-center">
                                             <div className="font-black text-sm text-emerald-600">{tl.activeRiders}</div>
-                                            <div className="text-[9px] text-rose-500">{tl.inactiveRiders} idle</div>
+                                            <div className="text-[9px] text-rose-500 font-semibold">{tl.inactiveRiders} idle</div>
                                             <div className="text-[9px] text-muted-foreground">of {tl.totalRiders}</div>
-                                            <div className="w-full bg-muted/40 rounded-full h-1 mt-1">
-                                                <div className="bg-emerald-500 rounded-full h-1 transition-all" style={{ width: `${tl.totalRiders > 0 ? Math.round((tl.activeRiders / tl.totalRiders) * 100) : 0}%` }} />
+                                            <div className="w-full bg-muted/40 rounded-full h-1.5 mt-1">
+                                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full h-1.5 transition-all" style={{ width: `${tl.totalRiders > 0 ? Math.round((tl.activeRiders / tl.totalRiders) * 100) : 0}%` }} />
                                             </div>
                                         </td>
 
-                                        {/* Collection: Period/Today/Weekly/Monthly + Day Avg + Per Rider */}
-                                        <td className="px-2 py-3 min-w-[190px]">
+                                        {/* Collection */}
+                                        <td className="px-2 py-3.5 min-w-[190px]">
                                             <div className="space-y-0.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] font-black text-primary uppercase w-12">Today</span>
-                                                    <span className="font-black text-emerald-600 text-[11px]">{fmt(tl.todayCollection)}</span>
+                                                    <span className="font-black text-emerald-600 text-[12px]">{fmt(tl.todayCollection)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] font-black text-muted-foreground uppercase w-12">Weekly</span>
-                                                    <span className="font-semibold text-[10px]">{fmt(tl.weeklyCollection)}</span>
+                                                    <span className="font-bold text-[10px]">{fmt(tl.weeklyCollection)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] font-black text-muted-foreground uppercase w-12">Monthly</span>
-                                                    <span className="font-semibold text-[10px]">{fmt(tl.monthlyCollection)}</span>
+                                                    <span className="font-bold text-[10px]">{fmt(tl.monthlyCollection)}</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-border/20">
@@ -758,76 +758,76 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                             </div>
                                         </td>
 
-                                        {/* Grand Total Collection — never resets */}
-                                        <td className="px-2 py-3">
-                                            <div className="font-black text-amber-600 text-[11px]">{fmt(tl.grandTotal)}</div>
-                                            <div className="text-[9px] text-muted-foreground">All time</div>
+                                        {/* Grand Total */}
+                                        <td className="px-2 py-3.5">
+                                            <div className="font-black text-amber-600 text-[12px]">{fmt(tl.grandTotal)}</div>
+                                            <div className="text-[9px] text-muted-foreground font-semibold">All time</div>
                                         </td>
 
-                                        {/* Wallet Health: POS / NEG counts + amounts + % */}
-                                        <td className="px-2 py-3">
+                                        {/* Wallet Health */}
+                                        <td className="px-2 py-3.5">
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                    <span className="px-1 py-0.5 rounded font-black text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 w-12 text-center">{tl.positiveCount} POS</span>
-                                                    <span className="text-[10px] text-emerald-600 font-bold">{fmtShort(tl.positiveAmount)}</span>
+                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[9px] bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 w-12 text-center">{tl.positiveCount} POS</span>
+                                                    <span className="text-[10px] text-emerald-600 font-black">{fmtShort(tl.positiveAmount)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                    <span className="px-1 py-0.5 rounded font-black text-[9px] bg-rose-500/10 text-rose-600 border border-rose-500/20 w-12 text-center">{tl.negativeCount} NEG</span>
-                                                    <span className="text-[10px] text-rose-600 font-bold">-{fmtShort(Math.abs(tl.negativeAmount))}</span>
+                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[9px] bg-rose-500/15 text-rose-600 border border-rose-500/20 w-12 text-center">{tl.negativeCount} NEG</span>
+                                                    <span className="text-[10px] text-rose-600 font-black">-{fmtShort(Math.abs(tl.negativeAmount))}</span>
                                                 </div>
-                                                <div className="text-[8px] text-muted-foreground mt-0.5 font-semibold">
+                                                <div className="text-[8px] text-muted-foreground mt-0.5 font-bold">
                                                     POS: {tl.walletPositivePct}% &nbsp;|&nbsp; NEG: {100 - (tl.walletPositivePct || 100)}%
                                                 </div>
                                             </div>
                                         </td>
 
-                                        {/* Fleet Flow: Allotment / Submission / Net Growth */}
-                                        <td className="px-2 py-3">
+                                        {/* Fleet Flow */}
+                                        <td className="px-2 py-3.5">
                                             <div className="space-y-0.5">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] text-muted-foreground w-16">Net Growth</span>
-                                                    <span className={`font-black text-[11px] ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    <span className="text-[9px] text-muted-foreground w-16 font-semibold">Net Growth</span>
+                                                    <span className={`font-black text-[12px] ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                         {tl.netGrowth >= 0 ? '+' : ''}{tl.netGrowth}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] text-muted-foreground w-16">Allotment</span>
+                                                    <span className="text-[9px] text-muted-foreground w-16 font-semibold">Allotment</span>
                                                     <span className="font-bold text-[10px] text-emerald-500">+{tl.allotments}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] text-muted-foreground w-16">Submission</span>
+                                                    <span className="text-[9px] text-muted-foreground w-16 font-semibold">Submission</span>
                                                     <span className="font-bold text-[10px] text-rose-500">-{tl.submissions}</span>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* Leads % */}
-                                        <td className="px-2 py-3 text-center">
-                                            <div className="font-black text-[11px]">{tl.leadsConvRate}%</div>
-                                            <div className="text-[9px] text-muted-foreground">{tl.leadsConverted}/{tl.leadsTotal}</div>
-                                            {tl.leadsToday > 0 && <div className="text-[9px] text-indigo-500 font-bold">+{tl.leadsToday} today</div>}
+                                        <td className="px-2 py-3.5 text-center">
+                                            <div className="font-black text-[12px]">{tl.leadsConvRate}%</div>
+                                            <div className="text-[9px] text-muted-foreground font-semibold">{tl.leadsConverted}/{tl.leadsTotal}</div>
+                                            {tl.leadsToday > 0 && <div className="text-[9px] text-indigo-500 font-black">+{tl.leadsToday} today</div>}
                                         </td>
 
                                         {/* Avg Age */}
-                                        <td className="px-2 py-3 text-center">
+                                        <td className="px-2 py-3.5 text-center">
                                             <div className="flex items-center justify-center gap-1">
                                                 <Clock size={10} className="text-muted-foreground" />
                                                 <span className="font-black text-[11px]">{Math.round(tl.avgTenureDays)}d</span>
                                             </div>
-                                            <div className="text-[9px] text-muted-foreground">{Math.round(tl.avgTenureDays / 30)}mo</div>
+                                            <div className="text-[9px] text-muted-foreground font-semibold">{Math.round(tl.avgTenureDays / 30)}mo</div>
                                         </td>
 
                                         {/* Score */}
-                                        <td className="px-2 py-3 text-center">
+                                        <td className="px-2 py-3.5 text-center">
                                             <div className="font-black text-indigo-600 text-base leading-none">{tl.score}</div>
-                                            <span className={`text-[9px] font-black px-1 rounded ${tl.aiGrade === 'A' ? 'text-emerald-600' : tl.aiGrade === 'B' ? 'text-blue-600' : tl.aiGrade === 'C' ? 'text-amber-600' : 'text-rose-600'}`}>
+                                            <span className={`inline-block mt-1 text-[9px] font-black px-2 py-0.5 rounded-full border ${tl.aiGrade === 'S' ? 'bg-amber-500/15 text-amber-500 border-amber-500/30' : tl.aiGrade === 'A' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : tl.aiGrade === 'B' ? 'bg-blue-500/15 text-blue-600 border-blue-500/30' : tl.aiGrade === 'C' ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
                                                 {tl.aiGrade}
                                             </span>
                                         </td>
 
                                         {/* Status */}
-                                        <td className="px-2 py-3 text-right pr-4">
-                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${tl.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20'}`}>
+                                        <td className="px-2 py-3.5 text-right pr-5">
+                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${tl.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25' : 'bg-rose-500/15 text-rose-600 border-rose-500/25'}`}>
                                                 {tl.status}
                                             </span>
                                         </td>
@@ -838,60 +838,58 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                             {/* ── GRAND TOTALS FOOTER ────────────────────────────────────────── */}
                             {filteredData.length > 0 && (
                                 <tfoot>
-                                    <tr className="bg-gradient-to-r from-indigo-950/30 via-slate-900/20 to-transparent border-t-2 border-primary/30 font-black text-[10px]">
-                                        <td className="pl-4 pr-2 py-3">
-                                            <div className="text-[10px] font-black uppercase text-primary tracking-wider">Totals ({filteredData.length} TLs)</div>
+                                    <tr className="bg-gradient-to-r from-indigo-950/30 via-slate-900/20 to-transparent border-t-2 border-primary/30 font-black text-[10px] sticky bottom-0 z-10">
+                                        <td className="pl-5 pr-2 py-4">
+                                            <div className="text-[11px] font-black uppercase text-primary tracking-wider">Σ Totals ({filteredData.length} TLs)</div>
                                         </td>
-                                        {/* Fleet totals */}
-                                        <td className="px-2 py-3 text-center">
-                                            <div className="font-black text-emerald-600">{totals.activeRiders}</div>
-                                            <div className="text-[9px] text-rose-500">{totals.inactiveRiders} idle</div>
+                                        <td className="px-2 py-4 text-center">
+                                            <div className="font-black text-emerald-600 text-sm">{totals.activeRiders}</div>
+                                            <div className="text-[9px] text-rose-500 font-semibold">{totals.inactiveRiders} idle</div>
                                             <div className="text-[9px] text-muted-foreground">of {totals.totalRiders}</div>
                                         </td>
-                                        {/* Collection totals */}
-                                        <td className="px-2 py-3">
+                                        <td className="px-2 py-4">
                                             <div className="space-y-0.5">
-                                                <div className="text-[10px] text-emerald-600 font-black">{fmt(totals.todayCollection)}</div>
-                                                <div className="text-[9px] text-muted-foreground">{fmt(totals.weeklyCollection)}</div>
-                                                <div className="text-[9px] text-muted-foreground">{fmt(totals.monthlyCollection)}</div>
+                                                <div className="text-[11px] text-emerald-600 font-black">{fmt(totals.todayCollection)}</div>
+                                                <div className="text-[9px] text-muted-foreground font-bold">{fmt(totals.weeklyCollection)} weekly</div>
+                                                <div className="text-[9px] text-muted-foreground font-bold">{fmt(totals.monthlyCollection)} monthly</div>
                                             </div>
                                         </td>
-                                        {/* Grand Total */}
-                                        <td className="px-2 py-3">
-                                            <div className="font-black text-amber-600 text-[11px]">{fmt(totals.grandTotal)}</div>
-                                            <div className="text-[9px] text-muted-foreground">All time</div>
+                                        <td className="px-2 py-4">
+                                            <div className="font-black text-amber-600 text-[12px]">{fmt(totals.grandTotal)}</div>
+                                            <div className="text-[9px] text-muted-foreground font-semibold">All time</div>
                                         </td>
-                                        {/* Wallet totals */}
-                                        <td className="px-2 py-3">
+                                        <td className="px-2 py-4">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="font-black text-[10px] text-emerald-600 w-10">{totals.positiveCount} POS</span>
-                                                    <span className="text-[10px] text-emerald-600">{fmtShort(totals.positiveAmount)}</span>
+                                                    <span className="font-black text-[10px] text-emerald-600">{totals.positiveCount} POS</span>
+                                                    <span className="text-[10px] text-emerald-600 font-bold">{fmtShort(totals.positiveAmount)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="font-black text-[10px] text-rose-600 w-10">{totals.negativeCount} NEG</span>
-                                                    <span className="text-[10px] text-rose-600">-{fmtShort(Math.abs(totals.negativeAmount))}</span>
+                                                    <span className="font-black text-[10px] text-rose-600">{totals.negativeCount} NEG</span>
+                                                    <span className="text-[10px] text-rose-600 font-bold">-{fmtShort(Math.abs(totals.negativeAmount))}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        {/* Flow totals */}
-                                        <td className="px-2 py-3">
-                                            <div className={`font-black ${totals.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                {totals.netGrowth >= 0 ? '+' : ''}{totals.netGrowth} / -{totals.submissions}
+                                        <td className="px-2 py-4">
+                                            <div className={`font-black text-[11px] ${totals.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {totals.netGrowth >= 0 ? '+' : ''}{totals.netGrowth} net
                                             </div>
+                                            <div className="text-[9px] text-muted-foreground font-bold">+{totals.allotments}A / -{totals.submissions}S</div>
                                         </td>
-                                        <td className="px-2 py-3 text-center">
-                                            <div className="text-primary">+{totals.leadsToday}</div>
+                                        <td className="px-2 py-4 text-center">
+                                            <div className="font-black text-primary">+{totals.leadsToday}</div>
                                         </td>
-                                        <td className="px-2 py-3 text-center text-muted-foreground">—</td>
-                                        <td className="px-2 py-3 text-center">
-                                            <div className="font-black text-indigo-600">{totals.score} ({avgGrade})</div>
+                                        <td className="px-2 py-4 text-center text-muted-foreground">—</td>
+                                        <td className="px-2 py-4 text-center">
+                                            <div className="font-black text-indigo-600 text-sm">{totals.score}</div>
+                                            <span className="text-[9px] font-black text-indigo-400">({avgGrade})</span>
                                         </td>
-                                        <td className="pr-4" />
+                                        <td className="pr-5" />
                                     </tr>
                                 </tfoot>
                             )}
                         </table>
+                        </div>
                     </div>
                 </div>
             </div>
