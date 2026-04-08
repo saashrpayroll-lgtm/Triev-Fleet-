@@ -387,9 +387,9 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         if (scoreFilter === 'mid') data = data.filter(t => t.score >= 1500 && t.score < 5000);
         if (scoreFilter === 'low') data = data.filter(t => t.score < 1500);
         // Collection filter
-        if (collFilter === 'above50k') data = data.filter(t => t.todayCollection >= 50000);
-        if (collFilter === 'above20k') data = data.filter(t => t.todayCollection >= 20000);
-        if (collFilter === 'below20k') data = data.filter(t => t.todayCollection < 20000);
+        if (collFilter === 'above50k') data = data.filter(t => t.periodCollection >= 50000);
+        if (collFilter === 'above20k') data = data.filter(t => t.periodCollection >= 20000);
+        if (collFilter === 'below20k') data = data.filter(t => t.periodCollection < 20000);
 
         data.sort((a, b) => {
             const av = a[sortConfig.key as keyof TLRow];
@@ -541,26 +541,26 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 {/* ── STAT CARDS ROW ── */}
                 <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
                     {[
-                        { label: 'Today Collection', value: fmtShort(totals.todayCollection), sub: `${dateLabel[dateFilter]}`, gradient: 'from-emerald-500/20 to-emerald-600/5', border: 'border-emerald-400/20', text: 'text-emerald-300', Icon: TrendingUp },
+                        { label: `${dateLabel[dateFilter] || 'Selected'} Coll.`, value: fmtShort(totals.periodCollection), sub: `for this period`, gradient: 'from-emerald-500/20 to-emerald-600/5', border: 'border-emerald-400/20', text: 'text-emerald-300', Icon: TrendingUp },
                         { label: 'Active Riders', value: totals.activeRiders.toString(), sub: `of ${totals.totalRiders} total`, gradient: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-400/20', text: 'text-blue-300', Icon: Users },
                         { label: 'Wallet Risk', value: fmtShort(Math.abs(totals.negativeAmount)), sub: `${totals.negativeCount} riders`, gradient: 'from-rose-500/20 to-rose-600/5', border: 'border-rose-400/20', text: 'text-rose-300', Icon: AlertTriangle },
                         { label: 'Avg AI Score', value: `${avgScore}`, sub: `Grade ${avgGrade}`, gradient: 'from-violet-500/20 to-violet-600/5', border: 'border-violet-400/20', text: 'text-violet-300', Icon: Star },
-                        { label: 'Leads Today', value: `+${totals.leadsToday}`, sub: `${totals.churnLeads} churned`, gradient: 'from-indigo-500/20 to-indigo-600/5', border: 'border-indigo-400/20', text: 'text-indigo-300', Icon: Target },
+                        { label: 'Leads Found', value: `+${totals.leadsToday}`, sub: `${totals.churnLeads} churned`, gradient: 'from-indigo-500/20 to-indigo-600/5', border: 'border-indigo-400/20', text: 'text-indigo-300', Icon: Target },
                         { label: 'Net Growth', value: totals.netGrowth >= 0 ? `+${totals.netGrowth}` : String(totals.netGrowth), sub: `+${totals.allotments}A / -${totals.submissions}S`, gradient: totals.netGrowth >= 0 ? 'from-teal-500/20 to-teal-600/5' : 'from-rose-500/20 to-rose-600/5', border: totals.netGrowth >= 0 ? 'border-teal-400/20' : 'border-rose-400/20', text: totals.netGrowth >= 0 ? 'text-teal-300' : 'text-rose-300', Icon: ArrowUpRight },
                     ].map(({ label, value, sub, gradient, border, text, Icon }, i) => (
-                        <div key={i} className={`group bg-gradient-to-br ${gradient} backdrop-blur-xl border ${border} rounded-2xl p-4 hover:scale-[1.04] hover:shadow-lg transition-all duration-300 cursor-default`}>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Icon size={14} className={`${text} opacity-70 group-hover:opacity-100 transition-opacity`} />
-                                <span className="text-[9px] font-black uppercase tracking-wider text-white/50">{label}</span>
+                        <div key={i} className={`group bg-gradient-to-br ${gradient} backdrop-blur-xl border ${border} rounded-2xl p-4 md:p-5 hover:scale-[1.04] hover:shadow-lg transition-all duration-300 cursor-default flex flex-col justify-between`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <Icon size={16} className={`${text} opacity-70 group-hover:opacity-100 transition-opacity`} />
+                                <span className="text-[11px] lg:text-xs font-black uppercase tracking-wider text-white/70">{label}</span>
                             </div>
-                            <div className={`text-xl font-black ${text} leading-none`}>{value}</div>
-                            <div className="text-[10px] text-white/35 mt-1">{sub}</div>
+                            <div className={`text-2xl md:text-3xl font-black ${text} leading-none tracking-tight`}>{value}</div>
+                            <div className="text-[11px] text-white/40 mt-1.5 font-semibold">{sub}</div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="px-4 pt-5 space-y-4">
+            <div className="px-4 pt-6 space-y-4">
                 {/* ── ANALYSIS CORE TABLE CARD ─────────────────────────────────────── */}
                 <div className="bg-card border border-border/40 rounded-2xl shadow-xl overflow-hidden">
                     {/* Table Controls */}
@@ -649,7 +649,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Today Coll.</label>
+                                <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">{dateLabel[dateFilter] || 'Selected'} Coll.</label>
                                 <select value={collFilter} onChange={e => setCollFilter(e.target.value as typeof collFilter)} className="w-full py-2 px-2.5 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary/20">
                                     <option value="all">All</option>
                                     <option value="above50k">≥ ₹50K</option>
@@ -684,23 +684,23 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                     <div className="overflow-x-auto">
                         <div className="overflow-y-auto" style={{ maxHeight: '680px' }}>
                         <table className="w-full text-xs text-left border-collapse">
-                            <thead className="bg-gradient-to-r from-slate-900 to-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-300 border-b-2 border-primary/20 sticky top-0 z-10">
+                            <thead className="bg-gradient-to-r from-slate-900 to-slate-800 text-[11px] font-black uppercase tracking-widest text-slate-300 border-b-2 border-primary/20 sticky top-0 z-10">
                                 <tr>
-                                    <SortTh label="Team Leader" sortKey="name" className="pl-5 pr-2 py-3.5 min-w-[200px]" />
-                                    <SortTh label="Fleet" sortKey="activeRiders" className="text-center px-2" />
-                                    <th className="px-2 py-3.5 min-w-[230px]">
-                                        Collection <span className="text-emerald-400 normal-case font-semibold">▾ {dateLabel[dateFilter]}</span>
+                                    <SortTh label="Team Leader" sortKey="name" className="pl-5 pr-3 py-4 min-w-[200px]" />
+                                    <SortTh label="Fleet" sortKey="activeRiders" className="text-center px-3" />
+                                    <th className="px-3 py-4 min-w-[230px]">
+                                        Collection <span className="text-emerald-400 normal-case font-semibold tracking-normal">▾ {dateLabel[dateFilter] || 'Selected'}</span>
                                     </th>
-                                    <th className="px-2 py-3.5 min-w-[100px] text-amber-400">Grand Total</th>
-                                    <th className="px-2 py-3.5">Wallet Health</th>
-                                    <th className="px-2 py-3.5">Fleet Flow</th>
-                                    <SortTh label="Leads %" sortKey="leadsConvRate" className="text-center px-2" />
-                                    <SortTh label="Avg Age" sortKey="avgTenureDays" className="text-center px-2" />
-                                    <SortTh label="Score" sortKey="score" className="text-center px-2" />
-                                    <th className="px-2 py-3.5 text-right pr-5">Status</th>
+                                    <th className="px-3 py-4 min-w-[120px] text-amber-400">Grand Total</th>
+                                    <th className="px-3 py-4">Wallet Health</th>
+                                    <th className="px-3 py-4">Fleet Flow</th>
+                                    <SortTh label="Leads %" sortKey="leadsConvRate" className="text-center px-3" />
+                                    <SortTh label="Avg Age" sortKey="avgTenureDays" className="text-center px-3" />
+                                    <SortTh label="Score" sortKey="score" className="text-center px-3" />
+                                    <th className="px-3 py-4 text-right pr-6">Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-border/15">
+                            <tbody className="divide-y divide-border/15 font-medium">
                                 {filteredData.length === 0 ? (
                                     <tr><td colSpan={10} className="py-20 text-center text-muted-foreground text-sm">
                                         <div className="flex flex-col items-center gap-2">
@@ -711,123 +711,122 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                 ) : filteredData.map((tl, idx) => (
                                     <tr key={tl.id} className={`group hover:bg-primary/[0.03] transition-all duration-200 ${idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/[0.03]'}`}>
                                         {/* TL Name + RM */}
-                                        <td className="pl-5 pr-2 py-3.5">
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-[11px] font-black text-primary flex-shrink-0 border border-primary/10 group-hover:scale-110 transition-transform duration-200">
+                                        <td className="pl-5 pr-3 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-xs font-black text-primary flex-shrink-0 border border-primary/10 group-hover:scale-110 transition-transform duration-200">
                                                     {(tl.name || '?').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-[11px] leading-tight group-hover:text-primary transition-colors">{tl.name}</div>
-                                                    <div className="text-[9px] text-muted-foreground leading-tight">{tl.email}</div>
+                                                    <div className="font-black text-sm leading-tight group-hover:text-primary transition-colors">{tl.name}</div>
+                                                    <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">{tl.email}</div>
                                                     {tl.reportingManager && tl.reportingManager !== 'N/A' && (
-                                                        <div className="text-[9px] text-teal-600 font-semibold leading-tight">↳ {tl.reportingManager}</div>
+                                                        <div className="text-[11px] text-teal-600 font-bold leading-tight mt-0.5">↳ {tl.reportingManager}</div>
                                                     )}
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* Fleet */}
-                                        <td className="px-2 py-3.5 text-center">
-                                            <div className="font-black text-sm text-emerald-600">{tl.activeRiders}</div>
-                                            <div className="text-[9px] text-rose-500 font-semibold">{tl.inactiveRiders} idle</div>
-                                            <div className="text-[9px] text-muted-foreground">of {tl.totalRiders}</div>
-                                            <div className="w-full bg-muted/40 rounded-full h-1.5 mt-1">
-                                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full h-1.5 transition-all" style={{ width: `${tl.totalRiders > 0 ? Math.round((tl.activeRiders / tl.totalRiders) * 100) : 0}%` }} />
+                                        <td className="px-3 py-4 text-center">
+                                            <div className="font-black text-base text-emerald-600">{tl.activeRiders}</div>
+                                            <div className="text-[11px] text-rose-500 font-bold">{tl.inactiveRiders} idle</div>
+                                            <div className="text-[11px] text-muted-foreground mt-0.5">of {tl.totalRiders}</div>
+                                            <div className="w-full bg-muted/40 rounded-full h-2 mt-1.5">
+                                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full h-2 transition-all" style={{ width: `${tl.totalRiders > 0 ? Math.round((tl.activeRiders / tl.totalRiders) * 100) : 0}%` }} />
                                             </div>
                                         </td>
 
                                         {/* Collection */}
-                                        <td className="px-2 py-3.5 min-w-[190px]">
-                                            <div className="space-y-0.5">
+                                        <td className="px-3 py-4 min-w-[200px]">
+                                            <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-black text-primary uppercase w-12">Today</span>
-                                                    <span className="font-black text-emerald-600 text-[12px]">{fmt(tl.todayCollection)}</span>
+                                                    <span className="text-[11px] font-black text-primary uppercase w-16">{dateLabel[dateFilter] || 'Selected'}</span>
+                                                    <span className="font-black text-emerald-600 text-sm">{fmt(tl.periodCollection)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-black text-muted-foreground uppercase w-12">Weekly</span>
-                                                    <span className="font-bold text-[10px]">{fmt(tl.weeklyCollection)}</span>
+                                                    <span className="text-[11px] font-black text-muted-foreground uppercase w-16">Weekly</span>
+                                                    <span className="font-bold text-xs">{fmt(tl.weeklyCollection)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-black text-muted-foreground uppercase w-12">Monthly</span>
-                                                    <span className="font-bold text-[10px]">{fmt(tl.monthlyCollection)}</span>
+                                                    <span className="text-[11px] font-black text-muted-foreground uppercase w-16">Monthly</span>
+                                                    <span className="font-bold text-xs">{fmt(tl.monthlyCollection)}</span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3 mt-1.5 pt-1.5 border-t border-border/20">
-                                                <span className="text-[8px] text-muted-foreground">Day avg: <span className="font-black text-foreground">{fmt(tl.periodDayAvg)}</span></span>
-                                                <span className="text-[8px] text-muted-foreground">Per rider: <span className="font-black text-foreground">{fmt(tl.periodPerRider)}</span></span>
+                                            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/20">
+                                                <span className="text-[10px] text-muted-foreground font-semibold">Day avg: <span className="font-black text-foreground">{fmt(tl.periodDayAvg)}</span></span>
+                                                <span className="text-[10px] text-muted-foreground font-semibold">Per rider: <span className="font-black text-foreground">{fmt(tl.periodPerRider)}</span></span>
                                             </div>
                                         </td>
 
                                         {/* Grand Total */}
-                                        <td className="px-2 py-3.5">
-                                            <div className="font-black text-amber-600 text-[12px]">{fmt(tl.grandTotal)}</div>
-                                            <div className="text-[9px] text-muted-foreground font-semibold">All time</div>
+                                        <td className="px-3 py-4">
+                                            <div className="font-black text-amber-600 text-sm">{fmt(tl.grandTotal)}</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold mt-0.5">All time</div>
                                         </td>
-
                                         {/* Wallet Health */}
-                                        <td className="px-2 py-3.5">
+                                        <td className="px-3 py-4">
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[9px] bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 w-12 text-center">{tl.positiveCount} POS</span>
-                                                    <span className="text-[10px] text-emerald-600 font-black">{fmtShort(tl.positiveAmount)}</span>
+                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 w-14 text-center">{tl.positiveCount} POS</span>
+                                                    <span className="text-xs text-emerald-600 font-black">{fmtShort(tl.positiveAmount)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[9px] bg-rose-500/15 text-rose-600 border border-rose-500/20 w-12 text-center">{tl.negativeCount} NEG</span>
-                                                    <span className="text-[10px] text-rose-600 font-black">-{fmtShort(Math.abs(tl.negativeAmount))}</span>
+                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-rose-500/15 text-rose-600 border border-rose-500/20 w-14 text-center">{tl.negativeCount} NEG</span>
+                                                    <span className="text-xs text-rose-600 font-black">-{fmtShort(Math.abs(tl.negativeAmount))}</span>
                                                 </div>
-                                                <div className="text-[8px] text-muted-foreground mt-0.5 font-bold">
+                                                <div className="text-[10px] text-muted-foreground mt-0.5 font-bold">
                                                     POS: {tl.walletPositivePct}% &nbsp;|&nbsp; NEG: {100 - (tl.walletPositivePct || 100)}%
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* Fleet Flow */}
-                                        <td className="px-2 py-3.5">
-                                            <div className="space-y-0.5">
+                                        <td className="px-3 py-4">
+                                            <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] text-muted-foreground w-16 font-semibold">Net Growth</span>
-                                                    <span className={`font-black text-[12px] ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    <span className="text-[11px] text-muted-foreground w-16 font-bold">Net Growth</span>
+                                                    <span className={`font-black text-sm ${tl.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                         {tl.netGrowth >= 0 ? '+' : ''}{tl.netGrowth}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] text-muted-foreground w-16 font-semibold">Allotment</span>
-                                                    <span className="font-bold text-[10px] text-emerald-500">+{tl.allotments}</span>
+                                                    <span className="text-[11px] text-muted-foreground w-16 font-bold">Allotment</span>
+                                                    <span className="font-bold text-[11px] text-emerald-500">+{tl.allotments}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] text-muted-foreground w-16 font-semibold">Submission</span>
-                                                    <span className="font-bold text-[10px] text-rose-500">-{tl.submissions}</span>
+                                                    <span className="text-[11px] text-muted-foreground w-16 font-bold">Submission</span>
+                                                    <span className="font-bold text-[11px] text-rose-500">-{tl.submissions}</span>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* Leads % */}
-                                        <td className="px-2 py-3.5 text-center">
-                                            <div className="font-black text-[12px]">{tl.leadsConvRate}%</div>
-                                            <div className="text-[9px] text-muted-foreground font-semibold">{tl.leadsConverted}/{tl.leadsTotal}</div>
-                                            {tl.leadsToday > 0 && <div className="text-[9px] text-indigo-500 font-black">+{tl.leadsToday} today</div>}
+                                        <td className="px-3 py-4 text-center">
+                                            <div className="font-black text-sm">{tl.leadsConvRate}%</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold mt-0.5">{tl.leadsConverted}/{tl.leadsTotal}</div>
+                                            {tl.leadsToday > 0 && <div className="text-[11px] text-indigo-500 font-black mt-0.5">+{tl.leadsToday} today</div>}
                                         </td>
 
                                         {/* Avg Age */}
-                                        <td className="px-2 py-3.5 text-center">
+                                        <td className="px-3 py-4 text-center">
                                             <div className="flex items-center justify-center gap-1">
-                                                <Clock size={10} className="text-muted-foreground" />
-                                                <span className="font-black text-[11px]">{Math.round(tl.avgTenureDays)}d</span>
+                                                <Clock size={12} className="text-muted-foreground" />
+                                                <span className="font-black text-xs">{Math.round(tl.avgTenureDays)}d</span>
                                             </div>
-                                            <div className="text-[9px] text-muted-foreground font-semibold">{Math.round(tl.avgTenureDays / 30)}mo</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold mt-0.5">{Math.round(tl.avgTenureDays / 30)}mo</div>
                                         </td>
 
                                         {/* Score */}
-                                        <td className="px-2 py-3.5 text-center">
-                                            <div className="font-black text-indigo-600 text-base leading-none">{tl.score}</div>
-                                            <span className={`inline-block mt-1 text-[9px] font-black px-2 py-0.5 rounded-full border ${tl.aiGrade === 'S' ? 'bg-amber-500/15 text-amber-500 border-amber-500/30' : tl.aiGrade === 'A' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : tl.aiGrade === 'B' ? 'bg-blue-500/15 text-blue-600 border-blue-500/30' : tl.aiGrade === 'C' ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
+                                        <td className="px-3 py-4 text-center">
+                                            <div className="font-black text-indigo-600 text-lg leading-none">{tl.score}</div>
+                                            <span className={`inline-block mt-1.5 text-[10px] font-black px-2.5 py-0.5 rounded-full border ${tl.aiGrade === 'S' ? 'bg-amber-500/15 text-amber-500 border-amber-500/30' : tl.aiGrade === 'A' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' : tl.aiGrade === 'B' ? 'bg-blue-500/15 text-blue-600 border-blue-500/30' : tl.aiGrade === 'C' ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' : 'bg-rose-500/15 text-rose-600 border-rose-500/30'}`}>
                                                 {tl.aiGrade}
                                             </span>
                                         </td>
 
                                         {/* Status */}
-                                        <td className="px-2 py-3.5 text-right pr-5">
-                                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${tl.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25' : 'bg-rose-500/15 text-rose-600 border-rose-500/25'}`}>
+                                        <td className="px-3 py-4 text-right pr-6">
+                                            <span className={`px-3 py-1.5 rounded-full text-[11px] font-black uppercase border ${tl.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25' : 'bg-rose-500/15 text-rose-600 border-rose-500/25'}`}>
                                                 {tl.status}
                                             </span>
                                         </td>
@@ -838,53 +837,53 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                             {/* ── GRAND TOTALS FOOTER ────────────────────────────────────────── */}
                             {filteredData.length > 0 && (
                                 <tfoot>
-                                    <tr className="bg-gradient-to-r from-indigo-950/30 via-slate-900/20 to-transparent border-t-2 border-primary/30 font-black text-[10px] sticky bottom-0 z-10">
-                                        <td className="pl-5 pr-2 py-4">
-                                            <div className="text-[11px] font-black uppercase text-primary tracking-wider">Σ Totals ({filteredData.length} TLs)</div>
+                                    <tr className="bg-gradient-to-r from-indigo-950/30 via-slate-900/20 to-transparent border-t-2 border-primary/30 font-black text-xs sticky bottom-0 z-10">
+                                        <td className="pl-5 pr-3 py-5">
+                                            <div className="text-xs font-black uppercase text-primary tracking-wider">Σ Totals ({filteredData.length})</div>
                                         </td>
-                                        <td className="px-2 py-4 text-center">
-                                            <div className="font-black text-emerald-600 text-sm">{totals.activeRiders}</div>
-                                            <div className="text-[9px] text-rose-500 font-semibold">{totals.inactiveRiders} idle</div>
-                                            <div className="text-[9px] text-muted-foreground">of {totals.totalRiders}</div>
+                                        <td className="px-3 py-5 text-center">
+                                            <div className="font-black text-emerald-600 text-base">{totals.activeRiders}</div>
+                                            <div className="text-[11px] text-rose-500 font-bold">{totals.inactiveRiders} idle</div>
+                                            <div className="text-[11px] text-muted-foreground mt-0.5">of {totals.totalRiders}</div>
                                         </td>
-                                        <td className="px-2 py-4">
-                                            <div className="space-y-0.5">
-                                                <div className="text-[11px] text-emerald-600 font-black">{fmt(totals.todayCollection)}</div>
-                                                <div className="text-[9px] text-muted-foreground font-bold">{fmt(totals.weeklyCollection)} weekly</div>
-                                                <div className="text-[9px] text-muted-foreground font-bold">{fmt(totals.monthlyCollection)} monthly</div>
+                                        <td className="px-3 py-5">
+                                            <div className="space-y-1">
+                                                <div className="text-base text-emerald-600 font-black">{fmt(totals.periodCollection)}</div>
+                                                <div className="text-[11px] text-muted-foreground font-bold">{fmt(totals.weeklyCollection)} weekly</div>
+                                                <div className="text-[11px] text-muted-foreground font-bold">{fmt(totals.monthlyCollection)} monthly</div>
                                             </div>
                                         </td>
-                                        <td className="px-2 py-4">
-                                            <div className="font-black text-amber-600 text-[12px]">{fmt(totals.grandTotal)}</div>
-                                            <div className="text-[9px] text-muted-foreground font-semibold">All time</div>
+                                        <td className="px-3 py-5">
+                                            <div className="font-black text-amber-600 text-sm">{fmt(totals.grandTotal)}</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold mt-0.5">All time</div>
                                         </td>
-                                        <td className="px-2 py-4">
+                                        <td className="px-3 py-5">
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="font-black text-[10px] text-emerald-600">{totals.positiveCount} POS</span>
-                                                    <span className="text-[10px] text-emerald-600 font-bold">{fmtShort(totals.positiveAmount)}</span>
+                                                    <span className="font-black text-[11px] text-emerald-600">{totals.positiveCount} POS</span>
+                                                    <span className="text-xs text-emerald-600 font-black">{fmtShort(totals.positiveAmount)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="font-black text-[10px] text-rose-600">{totals.negativeCount} NEG</span>
-                                                    <span className="text-[10px] text-rose-600 font-bold">-{fmtShort(Math.abs(totals.negativeAmount))}</span>
+                                                    <span className="font-black text-[11px] text-rose-600">{totals.negativeCount} NEG</span>
+                                                    <span className="text-xs text-rose-600 font-black">-{fmtShort(Math.abs(totals.negativeAmount))}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-2 py-4">
-                                            <div className={`font-black text-[11px] ${totals.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <td className="px-3 py-5">
+                                            <div className={`font-black text-sm ${totals.netGrowth >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                                 {totals.netGrowth >= 0 ? '+' : ''}{totals.netGrowth} net
                                             </div>
-                                            <div className="text-[9px] text-muted-foreground font-bold">+{totals.allotments}A / -{totals.submissions}S</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold mt-0.5">+{totals.allotments}A / -{totals.submissions}S</div>
                                         </td>
-                                        <td className="px-2 py-4 text-center">
-                                            <div className="font-black text-primary">+{totals.leadsToday}</div>
+                                        <td className="px-3 py-5 text-center">
+                                            <div className="font-black text-primary text-sm">+{totals.leadsToday}</div>
                                         </td>
-                                        <td className="px-2 py-4 text-center text-muted-foreground">—</td>
-                                        <td className="px-2 py-4 text-center">
-                                            <div className="font-black text-indigo-600 text-sm">{totals.score}</div>
-                                            <span className="text-[9px] font-black text-indigo-400">({avgGrade})</span>
+                                        <td className="px-3 py-5 text-center text-muted-foreground">—</td>
+                                        <td className="px-3 py-5 text-center">
+                                            <div className="font-black text-indigo-600 text-base">{totals.score}</div>
+                                            <span className="text-[11px] font-black text-indigo-400">({avgGrade})</span>
                                         </td>
-                                        <td className="pr-5" />
+                                        <td className="pr-6" />
                                     </tr>
                                 </tfoot>
                             )}
