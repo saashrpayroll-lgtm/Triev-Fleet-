@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -36,6 +36,10 @@ const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [loading, setLoading] = useState(true);
+    // Progressive rendering: defer heavy sections to avoid blocking sidebar/header
+    const [renderPhase, setRenderPhase] = useState(0); // 0=stats only, 1=charts, 2=tables, 3=leaderboard
+    // Fetch lock: prevent concurrent fetches that pile up and freeze UI
+    const isFetchingRef = useRef(false);
 
 
     // Raw Data State
@@ -63,6 +67,9 @@ const Dashboard: React.FC = () => {
     // --- Data Fetching & Real-time ---
     const fetchDashboardData = React.useCallback(async (isInitial = false) => {
         if (!userData) return;
+        // Prevent concurrent fetches — if one is in-flight, skip this call
+        if (isFetchingRef.current && !isInitial) return;
+        isFetchingRef.current = true;
         if (isInitial) setLoading(true);
 
         try {
@@ -274,6 +281,7 @@ const Dashboard: React.FC = () => {
         } catch (error) {
             console.error('Data Load Error:', error);
         } finally {
+            isFetchingRef.current = false;
             if (isInitial) setLoading(false);
         }
     }, [userData]);
@@ -285,7 +293,7 @@ const Dashboard: React.FC = () => {
         let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
             if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            ledgerDebounce = setTimeout(() => fetchDashboardData(), 1200);
+            ledgerDebounce = setTimeout(() => fetchDashboardData(), 2500);
         };
 
         const channel = supabase
@@ -314,6 +322,17 @@ const Dashboard: React.FC = () => {
         };
     }, [fetchDashboardData]);
 
+    // Progressive rendering: stagger heavy sections so sidebar stays responsive
+    useEffect(() => {
+        if (loading) return;
+        // Phase 1: Charts & activity (after a short breath)
+        const t1 = setTimeout(() => setRenderPhase(1), 50);
+        // Phase 2: TL table, system health, analytics (after 200ms)
+        const t2 = setTimeout(() => setRenderPhase(2), 200);
+        // Phase 3: Leaderboard & presence (after 400ms)
+        const t3 = setTimeout(() => setRenderPhase(3), 400);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }, [loading]);
 
     // --- Filtering Logic (Date & Role) ---
     const filteredData = useMemo(() => {
@@ -956,6 +975,7 @@ const Dashboard: React.FC = () => {
             <WalletWatchlist riders={rawData.riders} />
 
             {/* ── Charts & Activity ── */}
+            {renderPhase >= 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
                 {/* Charts Area (2/3 width) */}
                 <div className="lg:col-span-2">
@@ -976,9 +996,10 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
             </div>
+            )}
 
             {/* TL Performance Table & System Health (Admin Only) */}
-            {!isTL && (
+            {!isTL && renderPhase >= 2 && (
                 <>
                     {/* Admin Quick Insight Strip */}
                     <QuickInsightStrip
@@ -1030,13 +1051,16 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     {/* V4 Admin Live Presence Dashboard */}
+                    {renderPhase >= 3 && (
                     <div className="animate-in slide-in-from-bottom duration-700 delay-500 mb-4">
                         <LivePresenceDashboard />
                     </div>
+                    )}
                 </>
             )}
 
             {/* Premium AI Leaderboard Section */}
+            {renderPhase >= 3 && (
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1090,6 +1114,7 @@ const Dashboard: React.FC = () => {
                     />
                 </div>
             </motion.div>
+            )}
         </div>
     );
 };

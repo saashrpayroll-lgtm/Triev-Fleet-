@@ -63,28 +63,38 @@ export function usePresence(userId: string | undefined, email: string | undefine
         });
 
         // 3. Activity Tracking for 'Idle' state
+        // Throttle: only process activity events at most once per 10 seconds
+        // to avoid flooding React with state updates on every mousemove/scroll.
+        // The idle timer is still cleared/reset, but the state update is throttled.
+        let lastActivityTime = 0;
+        const ACTIVITY_THROTTLE_MS = 10_000; // 10 seconds
+
         const resetIdleTimer = () => {
             if (idleTimer.current) clearTimeout(idleTimer.current);
 
-            setStatus((currentStatus) => {
-                if (currentStatus === 'idle') {
-                    // Transition back to online
-                    broadcastPresence('online');
-                }
-                return 'online';
-            });
+            const now = Date.now();
+            if (now - lastActivityTime > ACTIVITY_THROTTLE_MS) {
+                lastActivityTime = now;
+                setStatus((currentStatus) => {
+                    if (currentStatus === 'idle') {
+                        // Transition back to online
+                        broadcastPresence('online');
+                    }
+                    return 'online';
+                });
+            }
 
             idleTimer.current = setTimeout(() => {
                 broadcastPresence('idle');
             }, IDLE_TIMEOUT_MS);
         };
 
-        // Start tracking activity
-        window.addEventListener('mousemove', resetIdleTimer);
-        window.addEventListener('keydown', resetIdleTimer);
-        window.addEventListener('click', resetIdleTimer);
-        window.addEventListener('scroll', resetIdleTimer);
-        window.addEventListener('touchstart', resetIdleTimer);
+        // Start tracking activity — use passive listeners to avoid blocking scroll/touch
+        window.addEventListener('mousemove', resetIdleTimer, { passive: true });
+        window.addEventListener('keydown', resetIdleTimer, { passive: true });
+        window.addEventListener('click', resetIdleTimer, { passive: true });
+        window.addEventListener('scroll', resetIdleTimer, { passive: true });
+        window.addEventListener('touchstart', resetIdleTimer, { passive: true });
 
         // Initial setup
         resetIdleTimer();

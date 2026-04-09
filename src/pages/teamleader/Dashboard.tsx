@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
@@ -67,6 +67,10 @@ const Dashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    // Progressive rendering: defer heavy sections to avoid blocking sidebar/header
+    const [renderPhase, setRenderPhase] = useState(0);
+    // Fetch lock: prevent concurrent fetches
+    const isFetchingRef = useRef(false);
 
     // Stats State mapped from Leaderboard logic to respect Date Filters
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
@@ -291,6 +295,9 @@ const Dashboard: React.FC = () => {
     // --- Data Fetching & Real-time ---
     const fetchStats = React.useCallback(async () => {
         if (!userData) return;
+        // Prevent concurrent fetches
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
 
         try {
             // 1. Fetch My Riders (for permission/context if needed, though mostly fetched in bulk below)
@@ -427,6 +434,7 @@ const Dashboard: React.FC = () => {
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
         } finally {
+            isFetchingRef.current = false;
             setLoading(false);
         }
     }, [userData]);
@@ -438,7 +446,7 @@ const Dashboard: React.FC = () => {
         let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
             if (realtimeDebounce) clearTimeout(realtimeDebounce);
-            realtimeDebounce = setTimeout(() => fetchStats(), 1200);
+            realtimeDebounce = setTimeout(() => fetchStats(), 2500);
         };
 
         const channel = supabase
@@ -464,6 +472,15 @@ const Dashboard: React.FC = () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [userData]);
+
+    // Progressive rendering: stagger heavy sections so sidebar stays responsive
+    useEffect(() => {
+        if (loading) return;
+        const t1 = setTimeout(() => setRenderPhase(1), 50);
+        const t2 = setTimeout(() => setRenderPhase(2), 200);
+        const t3 = setTimeout(() => setRenderPhase(3), 400);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }, [loading]);
 
     useEffect(() => {
         if (!loading && stats.totalRiders > 0) {
@@ -814,6 +831,7 @@ const Dashboard: React.FC = () => {
 
 
             {/* --- Debt Recovery Tasks --- */}
+            {renderPhase >= 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
                     <div className="relative">
@@ -846,8 +864,10 @@ const Dashboard: React.FC = () => {
                     </ComponentErrorBoundary>
                 </div>
             </motion.div>
+            )}
 
             {/* --- Analytics & AI Coach --- */}
+            {renderPhase >= 2 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
                     <div className="relative">
@@ -953,8 +973,10 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
             </motion.div>
+            )}
 
             {/* --- Quick Actions --- */}
+            {renderPhase >= 3 && (<>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
                     <div className="relative">
@@ -1183,6 +1205,9 @@ const Dashboard: React.FC = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* renderPhase >= 3 closing bracket */}
+            </>)}
 
             {selectedReminderRider && (
                 <AIReminderModal

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useRMTeamData } from '@/hooks/useRMTeamData';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,9 @@ import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
 const RMDashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const { teamLeaders, riders, leads, loading } = useRMTeamData();
+
+    // Progressive rendering: defer heavy sections to avoid blocking sidebar/header
+    const [renderPhase, setRenderPhase] = useState(0);
 
     
     // Heavy Defaulters & Recovery Form
@@ -44,6 +47,15 @@ const RMDashboard: React.FC = () => {
         };
         fetchHRForm();
     }, []);
+
+    // Progressive rendering: stagger heavy sections so sidebar stays responsive
+    useEffect(() => {
+        if (loading) return;
+        const t1 = setTimeout(() => setRenderPhase(1), 50);
+        const t2 = setTimeout(() => setRenderPhase(2), 200);
+        const t3 = setTimeout(() => setRenderPhase(3), 400);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }, [loading]);
 
     const heavyDefaulters = useMemo(() => {
         return riders.filter(r => r.status === 'active' && r.walletAmount <= -1500);
@@ -549,6 +561,7 @@ const RMDashboard: React.FC = () => {
             </motion.div>
 
             {/* ── RM WALLET RISK BIFURCATION ── */}
+            {renderPhase >= 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3">
                 <div className="flex items-center gap-2.5 px-1 mt-3">
                     <div className="relative">
@@ -606,8 +619,10 @@ const RMDashboard: React.FC = () => {
                 </div>
             </div>
             </motion.div>
+            )}
 
             {/* ── TABLES GRID ── */}
+            {renderPhase >= 2 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-3">
                 <div className="flex items-center gap-2.5 px-1 mt-3">
                     <div className="relative">
@@ -733,6 +748,7 @@ const RMDashboard: React.FC = () => {
                 </div>
             </div>
             </motion.div>
+            )}
             {/* ── FLEET BIFURCATION RIDER MODAL ── */}
             <AnimatePresence>
                 {selectedBracket && (

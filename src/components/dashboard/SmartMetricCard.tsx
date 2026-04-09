@@ -6,29 +6,40 @@ import { motion, animate } from 'framer-motion';
 import { safeRender } from '@/utils/safeRender';
 import Sparkline from '@/components/ui/Sparkline';
 
+const formatValue = (val: number, isCurrency: boolean) =>
+    isCurrency ? `₹${Math.round(val).toLocaleString('en-IN')}` : Math.round(val).toLocaleString('en-IN');
+
 const AnimatedCounter = ({ value, isCurrency = false }: { value: number; isCurrency?: boolean }) => {
     const nodeRef = useRef<HTMLSpanElement>(null);
+    const prevValueRef = useRef<number | null>(null);
 
     useEffect(() => {
         const node = nodeRef.current;
         if (!node) return;
 
-        const controls = animate(0, value, {
-            duration: 1.5,
+        // On first render, show value immediately (no animation) to reduce main-thread load
+        if (prevValueRef.current === null) {
+            node.textContent = formatValue(value, isCurrency);
+            prevValueRef.current = value;
+            return;
+        }
+
+        // On subsequent changes, animate from previous to new value
+        const from = prevValueRef.current;
+        prevValueRef.current = value;
+
+        const controls = animate(from, value, {
+            duration: 0.8,
             ease: "easeOut",
             onUpdate(current) {
-                if (isCurrency) {
-                    node.textContent = `₹${Math.round(current).toLocaleString('en-IN')}`;
-                } else {
-                    node.textContent = Math.round(current).toLocaleString('en-IN');
-                }
+                node.textContent = formatValue(current, isCurrency);
             }
         });
 
         return () => controls.stop();
     }, [value, isCurrency]);
 
-    return <span ref={nodeRef}>{isCurrency ? '₹0' : '0'}</span>;
+    return <span ref={nodeRef}>{formatValue(value, isCurrency)}</span>;
 };
 
 

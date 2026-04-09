@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
@@ -27,6 +27,8 @@ export function useRMTeamData(): RMTeamData {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    // Fetch lock: prevent concurrent fetches from piling up
+    const isFetchingRef = useRef(false);
 
     const rmName = userData?.fullName || '';
 
@@ -34,6 +36,9 @@ export function useRMTeamData(): RMTeamData {
         if (!rmName) return;
 
         const fetchData = async () => {
+            // Prevent concurrent fetches
+            if (isFetchingRef.current) return;
+            isFetchingRef.current = true;
             setLoading(true);
             setError(null);
 
@@ -100,27 +105,29 @@ export function useRMTeamData(): RMTeamData {
                 console.error('RM Team Data fetch error:', err);
                 setError(err.message || 'Failed to load team data');
             } finally {
+                isFetchingRef.current = false;
                 setLoading(false);
             }
         };
 
         fetchData();
 
-        // Real-time subscriptions
+        // Real-time subscriptions — DEBOUNCED to prevent re-fetch storms
+        let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (realtimeDebounce) clearTimeout(realtimeDebounce);
+            realtimeDebounce = setTimeout(() => fetchData(), 2500);
+        };
+
         const channel = supabase
             .channel('rm-team-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-                fetchData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
-                fetchData();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
-                fetchData();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
             .subscribe();
 
         return () => {
+            if (realtimeDebounce) clearTimeout(realtimeDebounce);
             channel.unsubscribe();
         };
     }, [rmName, refreshKey]);

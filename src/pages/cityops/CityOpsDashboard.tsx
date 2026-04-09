@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -28,6 +28,10 @@ const CityOpsDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [loading, setLoading] = useState(true);
+    // Progressive rendering: defer heavy sections to avoid blocking sidebar/header
+    const [renderPhase, setRenderPhase] = useState(0);
+    // Fetch lock: prevent concurrent fetches
+    const isFetchingRef = useRef(false);
 
 
     // Raw Data State
@@ -59,6 +63,9 @@ const CityOpsDashboard: React.FC = () => {
         if (tlIds.length === 0) { setLoading(false); return; }
         if (!userData) return;
         if (isInitial) setLoading(true);
+        // Prevent concurrent fetches
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
 
         try {
             const [ridersRes, leadsRes, requestsRes, usersRes, dailyRes, todayLedgerRes] = await Promise.all([
@@ -272,6 +279,7 @@ const CityOpsDashboard: React.FC = () => {
         } catch (error) {
             console.error('Data Load Error:', error);
         } finally {
+            isFetchingRef.current = false;
             if (isInitial) setLoading(false);
         }
     }, [userData, tlIds, scopeLoading]);
@@ -283,7 +291,7 @@ const CityOpsDashboard: React.FC = () => {
         let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
             if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            ledgerDebounce = setTimeout(() => fetchDashboardData(), 1200);
+            ledgerDebounce = setTimeout(() => fetchDashboardData(), 2500);
         };
 
         const channel = supabase
@@ -311,6 +319,15 @@ const CityOpsDashboard: React.FC = () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [fetchDashboardData, tlIds.length, scopeLoading]);
+
+    // Progressive rendering: stagger heavy sections so sidebar stays responsive
+    useEffect(() => {
+        if (loading) return;
+        const t1 = setTimeout(() => setRenderPhase(1), 50);
+        const t2 = setTimeout(() => setRenderPhase(2), 200);
+        const t3 = setTimeout(() => setRenderPhase(3), 400);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }, [loading]);
 
 
     // --- Filtering Logic (Date & Role) ---
@@ -832,6 +849,7 @@ const CityOpsDashboard: React.FC = () => {
             </motion.div>
 
             {/* --- Wallet Health & Risk --- */}
+            {renderPhase >= 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
                     <div className="relative">
@@ -915,8 +933,10 @@ const CityOpsDashboard: React.FC = () => {
                     />
                 </div>
             </motion.div>
+            )}
 
             {/* --- Growth & Retention --- */}
+            {renderPhase >= 2 && (<>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
                     <div className="relative">
@@ -956,8 +976,10 @@ const CityOpsDashboard: React.FC = () => {
 
             {/* --- Wallet Watchlist --- */}
             <WalletWatchlist riders={rawData.riders} />
+            </>)}
 
             {/* ── Charts & Activity ── */}
+            {renderPhase >= 3 && (<>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
                 {/* Charts Area (2/3 width) */}
                 <div className="lg:col-span-2">
@@ -991,6 +1013,7 @@ const CityOpsDashboard: React.FC = () => {
                     collections={allTimeCollections}
                 />
             </div>
+            </>)}
         </div>
     );
 };
