@@ -45,7 +45,7 @@ const AIReminderModal: React.FC<AIReminderModalProps> = ({ rider, type, isOpen, 
             } else if (type === 'zero_collection') {
                 generatedMsg = await AIService.generatePaymentReminder(rider, lang, 'urgent');
             } else {
-                generatedMsg = await AIService.generatePaymentReminder(rider, lang, 'friendly');
+                generatedMsg = await AIService.generatePaymentReminder(rider, lang, 'urgent');
             }
             setMessage(generatedMsg);
         } catch (error) {

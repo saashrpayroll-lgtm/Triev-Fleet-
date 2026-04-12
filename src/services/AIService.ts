@@ -283,13 +283,27 @@ Provide 2-3 concise bullet points about onboarding checklist, expectations, or i
     },
 
     generatePaymentReminder: async (rider: any, language: 'hindi' | 'english', tone: 'professional' | 'friendly' | 'urgent'): Promise<string> => {
-        const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+        const walletAmt = rider.walletAmount;
+        // Keep the minus sign! Show actual amount so AI knows the rider is negative
+        const amountStr = walletAmt.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
         const name = rider.riderName;
+
+        // Determine severity based on how negative they are
+        const absAmt = Math.abs(walletAmt);
+        let severity = 'Low Negative';
+        let severityHint = 'Polite but firm — nudge them to clear a small pending amount.';
+        if (absAmt >= 500) {
+            severity = 'High Negative';
+            severityHint = 'Serious and assertive — emphasize that this is overdue and must be cleared immediately.';
+        }
+        if (absAmt >= 700) {
+            severity = 'Critical Negative';
+            severityHint = 'Very stern and authoritative — warn that continued non-payment will lead to escalation.';
+        }
 
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
         const toneInstruction = tone === 'professional' ? 'professional and respectful' : tone === 'friendly' ? 'friendly and polite' : 'urgent but respectful';
 
-        // Add randomness factor
         const variations = [
             "Focus on immediate payment to avoid service interruption.",
             "Focus on maintaining a good relationship.",
@@ -299,39 +313,40 @@ Provide 2-3 concise bullet points about onboarding checklist, expectations, or i
         ];
         const randomFocus = variations[Math.floor(Math.random() * variations.length)];
 
-        const prompt = `Generate a UNIQUE WhatsApp payment reminder for a rider.
+        const prompt = `Generate a UNIQUE WhatsApp payment reminder for a rider who has a NEGATIVE wallet balance (owes money).
 Rider Name: ${name}
-Outstanding Amount: ${amountStr}
+Wallet Balance: ${amountStr}
+Severity Level: ${severity}
 
 INSTRUCTIONS:
 1. ${languageInstruction}
-2. Tone: ${toneInstruction}
-3. The message MUST include the Rider Name ("${name}") and the Amount ("${amountStr}") clearly.
-4. VARIATION INSTRUCTION: ${randomFocus}
-5. Keep it concise (2-3 sentences).
-6. Do not include any introductory text, just the message body.
+2. Tone: ${toneInstruction}. Severity hint: ${severityHint}
+3. CRITICAL: The rider's balance is NEGATIVE — they OWE money. Always show the amount with the minus (−) sign, e.g., "*${amountStr}*". Use words like "बकाया" (dues), "pending amount", "overdue" — NEVER words like "top-up" or "recharge".
+4. The message MUST include the Rider Name ("${name}") and the exact Amount ("${amountStr}") clearly.
+5. VARIATION INSTRUCTION: ${randomFocus}
+6. Keep it concise (2-3 sentences).
+7. Do not include any introductory text, just the message body.
 
 Return ONLY the final message text ready to send.`;
 
-        // Use 'analysis' (Gemini) for better multi-lingual support than Groq
-        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Professional Payment Reminder Specialist.");
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Professional Payment Recovery Specialist.");
 
         if (text) return cleanText(text);
 
-        // Fallbacks
+        // Fallbacks — keep minus sign
         if (language === 'hindi') {
-            return `नमस्ते *${name}*, आपके वॉलेट में *${amountStr}* की बकाया राशि है। कृपया अपनी सेवाओं को जारी रखने के लिए इसे जल्द से जल्द क्लियर करें। धन्यवाद।`;
+            return `नमस्ते *${name}*, आपके वॉलेट में *${amountStr}* का बकाया है। कृपया अपनी सेवाओं को जारी रखने के लिए इसे जल्द से जल्द क्लियर करें। धन्यवाद।`;
         }
-        return `Dear *${name}*, this is a friendly reminder about your outstanding balance of *${amountStr}*. Please clear your dues at the earliest. Thank you!`;
+        return `Dear *${name}*, your wallet balance is *${amountStr}*. Please clear your pending dues at the earliest to avoid service interruption. Thank you!`;
     },
 
     generateLowBalanceReminder: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
-        const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+        // Low balance riders are POSITIVE (₹0 to ₹250) — no Math.abs() needed, show actual balance
+        const amountStr = rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
         const name = rider.riderName;
 
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
 
-        // Add randomness factor
         const variations = [
             "Focus on maintaining a seamless, uninterrupted EV riding experience.",
             "Focus on preventing future negative balances.",
@@ -340,15 +355,15 @@ Return ONLY the final message text ready to send.`;
         ];
         const randomFocus = variations[Math.floor(Math.random() * variations.length)];
 
-        const prompt = `Generate a UNIQUE, FRIENDLY WhatsApp reminder for a rider whose wallet balance is running very low (between 0 and 250).
+        const prompt = `Generate a UNIQUE, FRIENDLY WhatsApp reminder for a rider whose wallet balance is running very low (between ₹0 and ₹250). This rider is NOT in negative — they just need a top-up.
 Rider Name: ${name}
-Current Balance: ${amountStr}
+Current Wallet Balance: ${amountStr} (POSITIVE but low)
 
 INSTRUCTIONS:
 1. ${languageInstruction}
 2. Tone: Helpful, proactive, friendly, and non-threatening.
-3. CRITICAL: This rider is NOT in negative balance. They are simply low. Do not use words like "outstanding", "dues", "recovery", or "penalty".
-4. INSTEAD, strictly encourage them to "Top-Up" or "Recharge" to maintain a balance of at least ₹250 to ensure uninterrupted rides.
+3. ABSOLUTE RULE: This rider does NOT owe any money. Do NOT use words like "बकाया" (dues), "outstanding", "recovery", "penalty", "overdue", or "clear dues". These are FORBIDDEN.
+4. INSTEAD, strictly use words like "Top-Up", "Recharge", "बैलेंस बनाए रखें" (maintain balance), "टॉप-अप करें". Encourage them to maintain at least ₹250 for uninterrupted rides.
 5. The message MUST include the Rider Name ("${name}") and the Current Balance ("${amountStr}").
 6. VARIATION INSTRUCTION: ${randomFocus} (Ensure the message feels fresh/unique).
 7. Keep it concise (2-3 sentences max).
@@ -360,18 +375,18 @@ Return ONLY the final message text ready to send.`;
         if (text) return cleanText(text);
 
         if (language === 'hindi') {
-            return `नमस्ते *${name}*, आपका वर्तमान वॉलेट बैलेंस *${amountStr}* है। निर्बाध राइडिंग अनुभव के लिए कृपया अपने वॉलेट में टॉप-अप करें और कम से कम ₹250 का बैलेंस बनाए रखें। सुरक्षित सवारी करें!`;
+            return `नमस्ते *${name}*, आपका वर्तमान वॉलेट बैलेंस *${amountStr}* है। निर्बाध राइडिंग अनुभव के लिए कृपया अपने वॉलेट में टॉप-अप करें और कम से कम ₹250 का बैलेंस बनाए रखें। सुरक्षित सवारी करें! 🛵`;
         }
-        return `Hello *${name}*, your current wallet balance is running low at *${amountStr}*. Please do a quick top-up to maintain at least ₹250 for an uninterrupted riding experience. Ride safe!`;
+        return `Hello *${name}*, your current wallet balance is *${amountStr}*. Please do a quick top-up to maintain at least ₹250 for an uninterrupted riding experience. Ride safe! 🛵`;
     },
 
     generateRecoveryMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
-        const amountStr = Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+        // Critical negative — keep the minus sign to show severity
+        const amountStr = rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
         const name = rider.riderName;
 
         const languageInstruction = language === 'hindi' ? 'OUTPUT MUST BE IN PURE HINDI (Devanagari script).' : 'Write the message in English.';
 
-        // Add randomness factor for recovery
         const variations = [
             "Emphasize the immediate assignment of the team.",
             "Emphasize the consequences of non-payment.",
@@ -381,18 +396,19 @@ Return ONLY the final message text ready to send.`;
         ];
         const randomFocus = variations[Math.floor(Math.random() * variations.length)];
 
-        const prompt = `Generate a STERN vehicle recovery warning for a rider with HIGH negative wallet balance.
+        const prompt = `Generate a STERN vehicle recovery warning for a rider with CRITICAL negative wallet balance (serious defaulter).
 Rider Name: ${name}
-Outstanding Amount: ${amountStr}
+Wallet Balance: ${amountStr} (CRITICAL NEGATIVE — this rider owes a large sum)
 
 INSTRUCTIONS:
 1. ${languageInstruction}
-2. Tone: Urgent and Authoritative.
-3. CRITICAL: Do NOT mention "legal action", "police", or "seizure". 
-4. INSTEAD, strictly say that the "**Hard Recovery Team**" (or "**हार्ड रिकवरी टीम**" in Hindi) will be assigned to recover the vehicle if dues are not cleared.
-5. The message MUST include the Rider Name ("${name}") and the Amount ("${amountStr}").
-6. VARIATION INSTRUCTION: ${randomFocus} (Ensure the message feels fresh/unique).
-7. Keep it concise (2 sentences max).
+2. Tone: Urgent, Authoritative, and VERY SERIOUS. This is a critical defaulter.
+3. CRITICAL: Always show the amount exactly as "*${amountStr}*" with the minus (−) sign. The negative sign conveys the seriousness.
+4. Do NOT mention "legal action", "police", or "seizure".
+5. INSTEAD, strictly say that the "**Hard Recovery Team**" (or "**हार्ड रिकवरी टीम**" in Hindi) will be assigned to recover the vehicle if dues are not cleared.
+6. The message MUST include the Rider Name ("${name}") and the exact Amount ("${amountStr}").
+7. VARIATION INSTRUCTION: ${randomFocus} (Ensure the message feels fresh/unique).
+8. Keep it concise (2 sentences max).
 
 Return ONLY the final message text ready to send.`;
 
@@ -401,9 +417,9 @@ Return ONLY the final message text ready to send.`;
         if (text) return cleanText(text);
 
         if (language === 'hindi') {
-            return `चेतावनी: *${name}*, आपके वॉलेट में *${amountStr}* का गंभीर बकाया है। तुरंत भुगतान करें अन्यथा वाहन जब्त करने के लिए **हार्ड रिकवरी टीम** को भेजा जाएगा।`;
+            return `🚨 चेतावनी: *${name}*, आपके वॉलेट में *${amountStr}* का गंभीर बकाया है। तुरंत भुगतान करें अन्यथा वाहन रिकवर करने के लिए **हार्ड रिकवरी टीम** को भेजा जाएगा।`;
         }
-        return `URGENT: *${name}*, your outstanding dues of *${amountStr}* are critical. Pay immediately or the **Hard Recovery Team** will be assigned to recover the vehicle.`;
+        return `🚨 URGENT: *${name}*, your wallet balance is *${amountStr}* — critically overdue. Pay immediately or the **Hard Recovery Team** will be assigned to recover the vehicle.`;
     },
 
     generateReactivationMessage: async (rider: any, language: 'hindi' | 'english'): Promise<string> => {
