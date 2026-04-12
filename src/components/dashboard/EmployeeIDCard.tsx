@@ -32,18 +32,30 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
     const position = 'Team Leader';
     const companyName = 'KONTINUUM GREEN MOBILITY PVT. LTD.';
 
-    // ─── QR Code payload ────────────────────────────────────────────
-    const qrPayload = useMemo(() => JSON.stringify({
-        name: fullName,
-        empCode,
-        department,
-        position,
-        location: jobLocation,
-        company: companyName,
-        email: userData.email || '',
-        mobile: userData.mobile || '',
-        verified: 'TriEv Digital Systems'
-    }), [fullName, empCode, jobLocation, userData.email, userData.mobile]);
+    // ─── QR Code payload (vCard format — universally scannable) ────
+    const hubAddress = 'Plot no. 134, Makanpur Village, Near Valmiki Chowk, Indirapuram, Ghaziabad, Uttar Pradesh 201014';
+    const mobile = userData.mobile || userData.mobileNumber || '';
+    const email = userData.email || '';
+
+    const qrPayload = useMemo(() => {
+        // vCard 3.0 format — works with every phone camera & QR scanner
+        // When scanned: shows formatted contact card + allows Save/Download
+        const lines = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            `FN:${fullName}`,
+            `N:${fullName.split(' ').reverse().join(';')};;;`,
+            `ORG:${companyName}`,
+            `TITLE:${position} - ${department}`,
+            `TEL;TYPE=CELL:${mobile}`,
+            `EMAIL:${email}`,
+            `ADR;TYPE=WORK:;;${hubAddress};;;;`,
+            `NOTE:EMP Code: ${empCode} | Location: ${jobLocation} | Verified by TriEv Digital Identity Systems`,
+            `URL:https://triev.in`,
+            'END:VCARD'
+        ];
+        return lines.join('\n');
+    }, [fullName, empCode, jobLocation, mobile, email]);
 
     // ─── Handlers ───────────────────────────────────────────────────
     const handleDownload = async () => {
@@ -241,11 +253,11 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
                         }}>
                             <QRCodeSVG
                                 value={qrPayload}
-                                size={70}
-                                level="M"
+                                size={80}
+                                level="L"
                                 bgColor="#ffffff"
                                 fgColor="#0f172a"
-                                includeMargin={false}
+                                includeMargin={true}
                             />
                         </div>
 
