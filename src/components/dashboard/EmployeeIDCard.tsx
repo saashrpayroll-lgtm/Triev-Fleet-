@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
-import { Download, Camera, Loader2, ShieldCheck } from 'lucide-react';
+import { Download, Camera, Loader2, ShieldCheck, MapPin, Briefcase } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '@/config/supabase';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -15,14 +16,29 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
     const { success, error } = useToast();
     const [isDownloading, setIsDownloading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    // Local state for immediate update without reload
     const [photoUrl, setPhotoUrl] = useState<string>(userData.profilePicUrl || '');
+    let rawName = typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Employee');
+    let parsedEmpCode = userData.id ? `KONTI/TL/${userData.id.substring(0, 4).toUpperCase()}` : 'KONTI/TL/0000';
+    let cleanName = rawName;
 
-    // Format Emp Code
-    const empCode = userData.id ? `KONTI/TL/${userData.id.substring(0, 4).toUpperCase()}` : 'KONTI/TL/0000';
-    const fullName = typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Employee');
-    const jobLocation = typeof userData.jobLocation === 'string' ? userData.jobLocation : 'Indrapuram (GZB)';
+    // Extract "(KONTI/205)" to use as EMP Code and remove from display name
+    const match = rawName.match(/\((KONTI\/[^)]+)\)/i);
+    if (match) {
+        parsedEmpCode = match[1].toUpperCase();
+        cleanName = rawName.replace(/\((KONTI\/[^)]+)\)/i, '').trim();
+    }
+
     const dept = 'Sales/Operations';
+    const position = 'Team Leader';
+    
+    // Default location expanded
+    let rawLoc = typeof userData.jobLocation === 'string' ? userData.jobLocation : '';
+    let jobLocation = rawLoc;
+    if (!jobLocation || jobLocation.toLowerCase() === 'indrapuram') {
+        jobLocation = 'Indrapuram(Ghaziabad)';
+    }
+
+    const qrData = `Name: ${cleanName}\nEMP Code: ${parsedEmpCode}\nRole: ${position}\nDept: ${dept}`;
 
     const handleDownload = async () => {
         if (!cardRef.current) return;
@@ -35,7 +51,7 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
                 style: { margin: '0' } // Ensure no outer margins bleed into image
             });
             const link = document.createElement('a');
-            link.download = `Employee_ID_Card_${fullName.replace(/\s+/g, '_')}.png`;
+            link.download = `Employee_ID_Card_${cleanName.replace(/\s+/g, '_')}.png`;
             link.href = dataUrl;
             link.click();
             success("ID Card downloaded successfully!");
@@ -100,75 +116,101 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
             {/* ID CARD RENDER TARGET */}
             <div 
                 ref={cardRef} 
-                className="w-full max-w-[340px] aspect-[2.1/3.4] rounded-[24px] overflow-hidden flex flex-col relative shadow-[0_20px_50px_-10px_rgba(249,115,22,0.3)] bg-white border border-slate-200"
+                className="w-full max-w-[340px] aspect-[2.1/3.4] rounded-[20px] overflow-hidden flex flex-col relative shadow-[0_20px_50px_-10px_rgba(249,115,22,0.3)] bg-white border border-slate-200"
                 style={{ background: '#ffffff', fontFamily: '"Inter", sans-serif' }}
             >
                 {/* 1. TOP BRANDING - ORANGE HEADER */}
-                <div className="bg-[#f97316] w-full pt-8 pb-16 flex flex-col items-center justify-center relative shadow-md z-10" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' }}>
+                <div className="bg-[#f97316] w-full pt-6 pb-[4.5rem] flex flex-col relative z-10" style={{ background: 'linear-gradient(135deg, #f97316 0%, #d94908 100%)' }}>
                     
                     {/* Dark/Pattern Overlay inside Header */}
                     <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
 
-                    <img 
-                        src="/triev_logo.png" 
-                        alt="TriEv" 
-                        className="h-10 object-contain relative z-20 mix-blend-screen brightness-0 invert" 
-                        crossOrigin="anonymous" 
-                    />
-                    <h2 className="text-white text-[9px] font-black tracking-[0.1em] mt-1 relative z-20 text-center uppercase opacity-90 leading-tight px-4">
-                        Kontinuum Green Mobility Private Limited
-                    </h2>
+                    <div className="relative z-20 px-5 flex items-center justify-between w-full">
+                        {/* Company Logo placed properly Top Left inside a white pill for contrast */}
+                        <div className="bg-white/95 px-2.5 py-1.5 rounded-lg shadow-sm border border-white/20">
+                            <img 
+                                src="/triev_logo.png" 
+                                alt="TriEv" 
+                                className="h-6 object-contain" 
+                                crossOrigin="anonymous" 
+                            />
+                        </div>
+                        <h2 className="text-white text-[8px] font-black tracking-[0.15em] text-right uppercase opacity-95 leading-tight max-w-[120px]">
+                            Kontinuum Green Mobility Pvt Ltd
+                        </h2>
+                    </div>
                 </div>
 
-                {/* 2. PHOTO SECTION */}
-                <div className="flex flex-col items-center relative z-20 -mt-12 bg-white flex-1 p-5 rounded-t-[24px]">
-                    <div className="w-32 h-32 rounded-2xl p-1 bg-white shadow-xl mb-4 border-2 border-slate-100 z-30">
-                        <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center">
-                            {photoUrl ? (
-                                <img 
-                                    src={photoUrl} 
-                                    alt="ID" 
-                                    className="w-full h-full object-cover" 
-                                    crossOrigin="anonymous" 
-                                />
-                            ) : (
-                                <span className="text-4xl text-slate-300 font-bold">
-                                    {fullName.charAt(0)}
-                                </span>
-                            )}
+                {/* 2. PHOTO & MAIN DETAILS SECTION */}
+                <div className="flex flex-col relative z-20 -mt-12 bg-white flex-1 px-6 rounded-t-[24px]">
+                    <div className="flex justify-between items-end w-full">
+                        {/* Photo */}
+                        <div className="w-[100px] h-[100px] rounded-2xl p-1 bg-white shadow-xl border border-slate-100 z-30">
+                            <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center relative">
+                                {photoUrl ? (
+                                    <img 
+                                        src={photoUrl} 
+                                        alt="ID" 
+                                        className="w-full h-full object-cover" 
+                                        crossOrigin="anonymous" 
+                                    />
+                                ) : (
+                                    <span className="text-4xl text-slate-300 font-bold">
+                                        {cleanName.charAt(0)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Small QR Code snippet */}
+                        <div className="p-1.5 bg-white border border-slate-100 shadow-sm rounded-xl mb-1 flex-shrink-0 z-30">
+                            <QRCodeSVG 
+                                value={qrData} 
+                                size={44} 
+                                level={"L"} 
+                                includeMargin={false} 
+                                fgColor={"#0f172a"} 
+                            />
                         </div>
                     </div>
 
-                    {/* DETAILS */}
-                    <div className="text-center w-full space-y-3">
-                        <div className="space-y-0.5">
-                            <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none">{fullName}</h1>
-                            <p className="text-[#ea580c] text-xs font-bold uppercase tracking-widest">{dept}</p>
-                        </div>
-                        
-                        <div className="w-8 h-1 bg-slate-200 mx-auto rounded-full" />
+                    {/* NAME & DEPT */}
+                    <div className="w-full mt-4 space-y-1">
+                        <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-none break-words pr-2">
+                            {cleanName}
+                        </h1>
+                        <p className="text-[#ea580c] text-[10px] font-black uppercase tracking-[0.2em]">{dept}</p>
+                    </div>
+                    
+                    <div className="w-full h-px bg-gradient-to-r from-slate-200 to-transparent mt-3 mb-4" />
 
-                        <div className="space-y-2 w-full text-left pt-1">
-                            <div className="flex flex-col">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">EMP Code</span>
-                                <span className="text-[13px] font-black text-slate-800 font-mono tracking-wider">{empCode}</span>
+                    {/* INFO GRID */}
+                    <div className="w-full grid grid-cols-2 gap-y-3 gap-x-2">
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">EMP Code</span>
+                            <span className="text-xs font-black text-slate-800 font-mono tracking-wider">{parsedEmpCode}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Position</span>
+                            <div className="flex items-center gap-1">
+                                <Briefcase size={12} className="text-[#ea580c] shrink-0" />
+                                <span className="text-[10px] font-black text-slate-700 capitalize leading-tight">{position}</span>
                             </div>
-                            <div className="flex flex-col py-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Work Base</span>
-                                <span className="text-[11px] font-bold text-slate-700 capitalize">{jobLocation}</span>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Blood Group</span>
-                                <span className="text-[11px] font-bold text-[#ea580c]">O+</span> {/* Fallback or static for aesthetic unless specified */}
+                        </div>
+                        <div className="flex flex-col col-span-2">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Work Base</span>
+                            <div className="flex items-start gap-1">
+                                <MapPin size={12} className="text-[#ea580c] shrink-0 mt-0.5" />
+                                <span className="text-[10px] font-black text-slate-700 capitalize leading-tight">{jobLocation}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* 3. BOTTOM FOOTER - BLACK */}
-                <div className="bg-slate-950 w-full p-3 flex items-center justify-center gap-2 mt-auto border-t-[8px] border-[#ea580c]">
+                <div className="bg-slate-950 w-full px-3 py-3.5 flex items-center justify-center gap-2 mt-auto border-t-4 border-[#ea580c]">
                     <ShieldCheck size={14} className="text-emerald-400" />
-                    <span className="text-[9px] font-bold text-white uppercase tracking-[0.2em]">Digitally Verified By TriEv</span>
+                    <span className="text-[9px] font-black text-white uppercase tracking-[0.25em]">Digitally Verified By TriEv</span>
                 </div>
             </div>
 
