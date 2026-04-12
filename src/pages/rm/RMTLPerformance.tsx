@@ -12,6 +12,7 @@ const RMTLPerformance: React.FC = () => {
     const [expandedTL, setExpandedTL] = useState<string | null>(null);
     const [inlineFilter, setInlineFilter] = useState<'all' | 'positive' | 'negative' | 'active' | 'inactive'>('all');
     const [collectionData, setCollectionData] = useState<Record<string, number>>({});
+    const [fleetSnapshotData, setFleetSnapshotData] = useState<Record<string, number>>({});
     const [loadingCollections, setLoadingCollections] = useState(false);
 
     React.useEffect(() => {
@@ -41,6 +42,7 @@ const RMTLPerformance: React.FC = () => {
             else if (period === 'custom') {
                 if (!customDate.start || !customDate.end) {
                     setCollectionData({});
+                    setFleetSnapshotData({});
                     setLoadingCollections(false);
                     return;
                 }
@@ -48,20 +50,33 @@ const RMTLPerformance: React.FC = () => {
                 endDate = customDate.end;
             }
 
+            // ✅ FIX: Fetch active_riders_count alongside total_collection for fleet snapshots
             const { data } = await supabase
                 .from('daily_collections')
-                .select('team_leader_id, total_collection, date')
+                .select('team_leader_id, total_collection, date, active_riders_count')
                 .in('team_leader_id', tlIds)
                 .gte('date', startDate)
                 .lte('date', endDate);
 
             if (data) {
-                const map: Record<string, number> = {};
+                const collMap: Record<string, number> = {};
+                // ✅ FIX: Build fleet snapshot — use the LATEST active_riders_count per TL within the period
+                const fleetMap: Record<string, number> = {};
+                const latestDatePerTL: Record<string, string> = {};
+
                 data.forEach((d: any) => {
                     const amt = Number(d.total_collection) || 0;
-                    map[d.team_leader_id] = (map[d.team_leader_id] || 0) + amt;
+                    const fleetCount = Number(d.active_riders_count) || 0;
+                    const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
+                    collMap[d.team_leader_id] = (collMap[d.team_leader_id] || 0) + amt;
+                    // Keep the latest snapshot (most recent date wins)
+                    if (fleetCount > 0 && (!latestDatePerTL[d.team_leader_id] || dDate > latestDatePerTL[d.team_leader_id])) {
+                        latestDatePerTL[d.team_leader_id] = dDate;
+                        fleetMap[d.team_leader_id] = fleetCount;
+                    }
                 });
-                setCollectionData(map);
+                setCollectionData(collMap);
+                setFleetSnapshotData(fleetMap);
             }
             setLoadingCollections(false);
         };
@@ -93,12 +108,22 @@ const RMTLPerformance: React.FC = () => {
     };
 
     const performanceData = useMemo(() => {
+        // ✅ FIX: Determine if we're viewing a historical period (not "today" or "total")
+        const isHistorical = period !== 'today' && period !== 'total';
+
         return teamLeaders
             .filter(tl => tl.status === 'active')
             .map(tl => {
                 const tlRiders = riders.filter(r => r.teamLeaderId === tl.id);
-                const activeRiders = tlRiders.filter(r => r.status === 'active').length;
-                const inactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
+                const liveActiveRiders = tlRiders.filter(r => r.status === 'active').length;
+                const liveInactiveRiders = tlRiders.filter(r => r.status === 'inactive').length;
+
+                // ✅ FIX: For historical periods, use fleet snapshot from daily_collections
+                // This gives us the actual active_riders_count recorded on that date
+                const activeRiders = (isHistorical && fleetSnapshotData[tl.id] !== undefined)
+                    ? fleetSnapshotData[tl.id]
+                    : liveActiveRiders;
+                const inactiveRiders = liveInactiveRiders;
                 
                 // Date specific leads filtering
                 const tlLeads = leads.filter(l => l.createdBy === tl.id && isDateInRange(l.createdAt));
@@ -114,9 +139,18 @@ const RMTLPerformance: React.FC = () => {
                 const criticalDebt = tlRiders.filter(r => r.status === 'active' && r.walletAmount < -3000).length;
                 const collection = collectionData[tl.id] || 0;
                 
-                // New metrics calculations
-                const allotment = tlRiders.filter(r => isDateInRange(r.allotmentDate || r.createdAt)).length;
-                const submission = tlRiders.filter(r => r.status === 'inactive' && isDateInRange(r.inactivatedAt || r.updatedAt)).length;
+                // ✅ FIX: A/S/N — Only count allotments where allotment_date is within range
+                // Submission — only count riders inactivated within the range
+                const allotment = tlRiders.filter(r => {
+                    const allotDate = r.allotmentDate || r.createdAt;
+                    return allotDate && isDateInRange(allotDate);
+                }).length;
+                const submission = tlRiders.filter(r => {
+                    // Must actually be inactive AND inactivated within the period
+                    if (r.status !== 'inactive' && r.status !== 'deleted') return false;
+                    const inactDate = r.inactivatedAt;
+                    return inactDate && isDateInRange(inactDate);
+                }).length;
                 const netGrowth = allotment - submission;
 
                 let totalActiveAgeDays = 0;
@@ -164,7 +198,7 @@ const RMTLPerformance: React.FC = () => {
                     default: return 0;
                 }
             });
-    }, [teamLeaders, riders, leads, collectionData, searchTerm, sortBy, period, customDate]);
+    }, [teamLeaders, riders, leads, collectionData, fleetSnapshotData, searchTerm, sortBy, period, customDate]);
 
     // Summary
     const summary = useMemo(() => ({

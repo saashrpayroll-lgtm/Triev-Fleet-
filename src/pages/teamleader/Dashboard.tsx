@@ -300,25 +300,7 @@ const Dashboard: React.FC = () => {
         isFetchingRef.current = true;
 
         try {
-            // 1. Fetch My Riders (for permission/context if needed, though mostly fetched in bulk below)
-            const { error: myRidersError } = await supabase
-                .from('riders')
-                .select('id')
-                .eq('team_leader_id', userData.id);
-
-            if (myRidersError) throw myRidersError;
-
-            // 2. Fetch My Leads
-            const { error: myLeadsError } = await supabase
-                .from('leads')
-                .select('id')
-                .eq('created_by', userData.id);
-
-            if (myLeadsError) throw myLeadsError;
-
-            // Calculate Stats is now handled by pure useMemo
-
-
+            // Stats are now handled by pure useMemo from leaderboard data
 
             // 3. Global Leaderboard Data
             const { data: tlsData } = await supabase.from('users').select('id, full_name, email, role, profile_pic_url').eq('role', 'teamLeader');
@@ -445,8 +427,10 @@ const Dashboard: React.FC = () => {
         // ✅ ENHANCED: Debounced realtime — prevents rapid re-renders on bulk updates
         let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
+            // Skip re-fetches while tab is hidden (saves CPU + network)
+            if (document.hidden) return;
             if (realtimeDebounce) clearTimeout(realtimeDebounce);
-            realtimeDebounce = setTimeout(() => fetchStats(), 2500);
+            realtimeDebounce = setTimeout(() => fetchStats(), 4000);
         };
 
         const channel = supabase

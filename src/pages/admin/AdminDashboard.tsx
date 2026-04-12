@@ -292,8 +292,10 @@ const Dashboard: React.FC = () => {
         // Debounce: avoid hammering fetchDashboardData on rapid ledger inserts
         let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
+            // Skip re-fetches while tab is hidden (saves CPU + network)
+            if (document.hidden) return;
             if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            ledgerDebounce = setTimeout(() => fetchDashboardData(), 2500);
+            ledgerDebounce = setTimeout(() => fetchDashboardData(), 4000);
         };
 
         const channel = supabase

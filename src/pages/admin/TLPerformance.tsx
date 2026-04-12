@@ -280,12 +280,21 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     useEffect(() => { fetchPeriodData(); }, [fetchPeriodData]);
 
     useEffect(() => {
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const debouncedFetch = () => {
+            if (document.hidden) return;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchData(), 4000);
+        };
         const channels = [
-            supabase.channel('tlp-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData).subscribe(),
-            supabase.channel('tlp-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData).subscribe(),
-            supabase.channel('tlp-coll').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData).subscribe(),
+            supabase.channel('tlp-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, debouncedFetch).subscribe(),
+            supabase.channel('tlp-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, debouncedFetch).subscribe(),
+            supabase.channel('tlp-coll').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, debouncedFetch).subscribe(),
         ];
-        return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            channels.forEach(ch => supabase.removeChannel(ch));
+        };
     }, [fetchData]);
 
     const daysInPeriod = useMemo(() => {
@@ -305,15 +314,16 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         const period = { start, end };
 
         return rawData.teamLeaders.map(tl => {
-            const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, rawData.todayMap[tl.id] || 0, period);
-
-            // Period collection
+            // Period collection — compute FIRST so it can feed into calculateAIScore
             const periodCol = (() => {
                 if (dateFilter === 'today') return rawData.todayMap[tl.id] || 0;
                 if (dateFilter === 'week') return rawData.weeklyMap[tl.id] || 0;
                 if (dateFilter === 'month') return rawData.monthlyMap[tl.id] || 0;
                 return rawData.periodMap[tl.id] || 0;
             })();
+
+            // ✅ FIX: Pass periodCol (not todayMap) so AI Score uses the selected period's collection
+            const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, periodCol, period);
 
             // Leads
             const tlLeads = rawData.leads.filter(l => l.createdBy === tl.id);
