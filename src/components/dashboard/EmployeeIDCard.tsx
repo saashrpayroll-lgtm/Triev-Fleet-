@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { Download, Camera, Loader2, ShieldCheck } from 'lucide-react';
@@ -84,9 +85,9 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
 
             setPhotoUrl(publicUrl);
             success("ID Card photo updated successfully!");
-        } catch (err: any) {
+        } catch (err) {
             console.error('Upload Error:', err);
-            error(err.message || "Failed to upload ID Card photo");
+            error((err as Error).message || "Failed to upload ID Card photo");
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { User, Rider, Lead } from '../types';
 import { getValidHistoricalDate, PerformancePeriod } from './dateUtils';
 
