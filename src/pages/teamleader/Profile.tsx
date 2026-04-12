@@ -66,12 +66,13 @@ const Profile: React.FC = () => {
 
             window.location.reload();
 
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const errMsg = err instanceof Error ? err.message : String(err);
             console.error('Avatar Upload Flow Failed:', err);
-            if (err.message && (err.message.includes('Bucket not found') || err.message.includes('The resource was not found'))) {
+            if (errMsg.includes('Bucket not found') || errMsg.includes('The resource was not found')) {
                 error("Storage bucket 'avatars' missing. Please create it in Supabase Dashboard.");
             } else {
-                error(err.message || "Failed to upload avatar");
+                error(errMsg || "Failed to upload avatar");
             }
         } finally {
             setLoading(false);
@@ -107,8 +108,8 @@ const Profile: React.FC = () => {
             success("Password updated successfully");
             setPasswordData({ newPassword: '', confirmPassword: '' });
             setIsPasswordModalOpen(false);
-        } catch (err: any) {
-            error(err.message || "Failed to update password");
+        } catch (err: unknown) {
+            error(err instanceof Error ? err.message : "Failed to update password");
         } finally {
             setLoading(false);
         }

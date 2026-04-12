@@ -100,6 +100,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mergePermissions = (current: any, defaults: any): any => {
         const result = { ...defaults };
         for (const key in current) {
@@ -134,6 +135,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
             color: 'bg-green-500',
             apply: () => {
                 const all = JSON.parse(JSON.stringify(defaultPermissions));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const enableAll = (obj: any): any => {
                     for (const key in obj) {
                         if (typeof obj[key] === 'boolean') obj[key] = true;
@@ -212,10 +214,12 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
     };
 
     // --- Helpers ---
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getNestedValue = (obj: any, path: string) => {
         return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setNestedValue = (obj: any, path: string, value: boolean) => {
         const newObj = JSON.parse(JSON.stringify(obj)); // Deep clone
         const parts = path.split('.');
@@ -771,6 +775,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                         <div className="text-right hidden sm:block">
                             <div className="text-xs font-bold text-foreground">
                                 {(() => {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     const countBooleans = (obj: any): number => {
                                         let count = 0;
                                         for (const key in obj) {
