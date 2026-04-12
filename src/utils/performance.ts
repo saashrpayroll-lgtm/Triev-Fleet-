@@ -173,14 +173,23 @@ export const calculateAIScore = (
     const collectionPerRider = activeRiders > 0 ? Math.round(collections / activeRiders) : 0;
 
     // Lead Stats
-    const convertedLeads = tlLeads.filter(l => getLeadStatus(l) === 'Convert').length;
-    const notConvertedLeads = tlLeads.filter(l => getLeadStatus(l) === 'Not Convert').length;
-    const conversionRate = tlLeads.length > 0 ? Math.round((convertedLeads / tlLeads.length) * 100) : 0;
+    let periodLeads = tlLeads;
+    if (period) {
+        periodLeads = tlLeads.filter(l => {
+            const lDateStr = getValidHistoricalDate(l.created_at || l.createdAt);
+            if (!lDateStr) return true;
+            return lDateStr >= period.start && lDateStr <= period.end;
+        });
+    }
+    const convertedLeads = periodLeads.filter(l => getLeadStatus(l) === 'Convert').length;
+    const notConvertedLeads = periodLeads.filter(l => getLeadStatus(l) === 'Not Convert').length;
+    const conversionRate = periodLeads.length > 0 ? Math.round((convertedLeads / periodLeads.length) * 100) : 0;
 
     // Retention/Tenure Stats
     const istDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
     const todayStr = istDateFormatter.format(now);
-    const todayIST = new Date(todayStr).getTime();
+    const targetDateStr = period ? period.end : todayStr;
+    const targetDateIST = new Date(targetDateStr).getTime();
 
     const riderAges = tlRiders
         .filter(r => getRiderStatus(r) === 'active' && getRiderAllotment(r))
@@ -189,7 +198,7 @@ export const calculateAIScore = (
             const validDateStr = getValidHistoricalDate(getRiderAllotment(r));
             const rDateStr = validDateStr ? istDateFormatter.format(new Date(validDateStr)) : istDateFormatter.format(new Date());
             const rDateIST = new Date(rDateStr).getTime();
-            return Math.max(0, Math.floor((todayIST - rDateIST) / 86400000));
+            return Math.max(0, Math.floor((targetDateIST - rDateIST) / 86400000));
         });
     const avgRiderAge = riderAges.length > 0 ? riderAges.reduce((a, b) => a + b, 0) / riderAges.length : 0;
 
@@ -291,7 +300,7 @@ export const calculateAIScore = (
         negativeWalletCount,
         collectionPerRider,
         convertedLeads,
-        leadsTotal: tlLeads.length,
+        leadsTotal: periodLeads.length,
         conversionRate,
         efficiency,
         avgRiderAge: Math.round(avgRiderAge),

@@ -303,29 +303,32 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
         const nowMs = new Date().getTime();
         const now = new Date(nowMs);
         const nowISTStr = formatter.format(now);
-        const [year, month, day] = nowISTStr.split('-').map(Number);
+        const [nYear, nMonth, nDay] = nowISTStr.split('-').map(Number);
         
-        const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
         let startDateStr = nowISTStr;
         let endDateStr = nowISTStr;
 
         if (dateFilter === 'yesterday') {
-            const yUTC = new Date(Date.UTC(year, month - 1, day - 1));
+            const yUTC = new Date(Date.UTC(nYear, nMonth - 1, nDay - 1));
             startDateStr = yUTC.toISOString().split('T')[0];
             endDateStr = startDateStr;
         } else if (dateFilter === 'week') {
+            const workingDateUTC = new Date(Date.UTC(nYear, nMonth - 1, nDay));
             const weekDay = workingDateUTC.getUTCDay();
             const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
             const weekStartUTC = new Date(workingDateUTC);
             weekStartUTC.setUTCDate(diff);
             startDateStr = weekStartUTC.toISOString().split('T')[0];
         } else if (dateFilter === 'month') {
-            startDateStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
+            startDateStr = new Date(Date.UTC(nYear, nMonth - 1, 1)).toISOString().split('T')[0];
         } else if (dateFilter === 'custom' && customDateRange.start && customDateRange.end) {
             startDateStr = customDateRange.start;
             endDateStr = customDateRange.end;
         }
 
+        const [year, month, day] = endDateStr.split('-').map(Number);
+        const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
+        
         const period: PerformancePeriod = { start: startDateStr, end: endDateStr };
         const monthStartStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
         const monthEndStr = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
@@ -338,39 +341,40 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
         const alwaysWeekStartStr = alwaysWeekStartUTC.toISOString().split('T')[0];
 
         const daysInPeriod = dateFilter === 'today' || dateFilter === 'yesterday' ? 1 
-            : dateFilter === 'week' ? (() => { const d = workingDateUTC.getUTCDay(); return d === 0 ? 7 : d; })()
-            : dateFilter === 'month' ? day 
+            : dateFilter === 'week' ? (() => { const d = new Date(Date.UTC(nYear, nMonth - 1, nDay)).getUTCDay(); return d === 0 ? 7 : d; })()
+            : dateFilter === 'month' ? nDay 
             : Math.max(1, Math.ceil((new Date(endDateStr).getTime() - new Date(startDateStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
         const tlMetrics = rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
-            const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
-            // ── STALE DATA GUARD ──────────────────────────────────────────────
-            // dailyCollectionsMap was built when fetchData ran (fetchedTodayStr).
-            // If the IST day has since changed (user kept tab open past midnight),
-            // the live maps are stale — they contain YESTERDAY's live amounts.
-            // Force todayLive = 0 until fetchData runs again with fresh data.
+            const targetEndDate = endDateStr;
             const fetchedDay = (rawData as any).fetchedTodayStr || '';
             const isDataFresh = fetchedDay === nowISTStr;
-            const todayCollectionTemp = isDataFresh ? ((rawData as any).dailyCollectionsMap?.[tlId] || 0) : 0;
+            const todayLiveAmount = isDataFresh ? ((rawData as any).dailyCollectionsMap?.[tlId] || 0) : 0;
+            
+            let targetDayCollection = 0;
+            if (endDateStr === nowISTStr) {
+                targetDayCollection = todayLiveAmount;
+            } else {
+                targetDayCollection = rawData.collections.filter(item => {
+                    if (item.team_leader_id !== tlId) return false;
+                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                    return dDateStr === endDateStr;
+                }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+            }
 
-            // Pure mathematical sum of daily_collections rows in the selected date range
-            // EXCLUDES today's date from daily_collections (handled by todayLive from ledger/map)
             const pastSum = rawData.collections.filter(item => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
                 return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
             }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
             
-            // Only include today's live amount if today falls within the selected period
-            const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
+            const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayLiveAmount : 0;
             const tlCollection = pastSum + todayLive;
 
-            // AI Evaluating Collection (uses week-level sample when 'today' to prevent 0% grades)
             const weeklyMapValue = isDataFresh ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : 0;
             const aiEvaluatingCollection = dateFilter === 'today' ? weeklyMapValue : tlCollection;
 
-            // Find best historical snapshot: closest date within [start..end] range (prefer latest)
             const periodSnapshots = rawData.collections
                 .filter(item => {
                     if (item.team_leader_id !== tlId) return false;
@@ -380,7 +384,7 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                 .sort((a: any, b: any) => {
                     const da = a.date && typeof a.date === 'string' ? a.date.split('T')[0].split(' ')[0] : a.date;
                     const db = b.date && typeof b.date === 'string' ? b.date.split('T')[0].split(' ')[0] : b.date;
-                    return db.localeCompare(da); // latest first
+                    return db.localeCompare(da);
                 });
             const bestSnapshot = periodSnapshots[0];
             const historicalFleet = (targetEndDate < nowISTStr && bestSnapshot && Number(bestSnapshot.active_riders_count) > 0)
@@ -388,22 +392,19 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
 
             const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, aiEvaluatingCollection, period, historicalFleet);
 
-            // ── ALWAYS-INDEPENDENT 3-TIER COLLECTIONS (not affected by filter) ──
-            // Weekly: Mon→Sun of current week
             const weeklyCollTL = rawData.collections.filter((item: any) => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                return dDateStr >= alwaysWeekStartStr && dDateStr <= nowISTStr && dDateStr !== nowISTStr;
-            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
+                return dDateStr >= alwaysWeekStartStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + (endDateStr === nowISTStr ? targetDayCollection : 0);
 
-            // Monthly: 1st→last of current month
             const monthlyCollTL = rawData.collections.filter((item: any) => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                return dDateStr >= monthStartStr && dDateStr <= monthEndStr && dDateStr !== nowISTStr;
-            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
+                return dDateStr >= monthStartStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + (endDateStr === nowISTStr ? targetDayCollection : 0);
             
-            return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
+            return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: targetDayCollection };
         });
 
         const rmNamesSet = new Set<string>();

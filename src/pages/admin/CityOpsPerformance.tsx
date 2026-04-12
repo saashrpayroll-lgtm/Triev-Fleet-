@@ -284,32 +284,37 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         const nowMs = new Date().getTime();
         const now = new Date(nowMs);
         const nowISTStr = formatter.format(now);
-        const [year, month, day] = nowISTStr.split('-').map(Number);
+        const [nYear, nMonth, nDay] = nowISTStr.split('-').map(Number);
         
-        const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
-        let startDateStr = nowISTStr; let endDateStr = nowISTStr;
+        let startDateStr = nowISTStr;
+        let endDateStr = nowISTStr;
 
         if (dateFilter === 'yesterday') {
-            const yUTC = new Date(Date.UTC(year, month - 1, day - 1));
+            const yUTC = new Date(Date.UTC(nYear, nMonth - 1, nDay - 1));
             startDateStr = yUTC.toISOString().split('T')[0];
             endDateStr = startDateStr;
         } else if (dateFilter === 'week') {
+            const workingDateUTC = new Date(Date.UTC(nYear, nMonth - 1, nDay));
             const weekDay = workingDateUTC.getUTCDay();
             const diff = workingDateUTC.getUTCDate() - weekDay + (weekDay === 0 ? -6 : 1);
             const weekStartUTC = new Date(workingDateUTC);
             weekStartUTC.setUTCDate(diff);
             startDateStr = weekStartUTC.toISOString().split('T')[0];
         } else if (dateFilter === 'month') {
-            startDateStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
+            startDateStr = new Date(Date.UTC(nYear, nMonth - 1, 1)).toISOString().split('T')[0];
         } else if (dateFilter === 'custom' && customDateRange.start && customDateRange.end) {
             startDateStr = customDateRange.start;
             endDateStr = customDateRange.end;
         }
 
-        const period = { start: startDateStr, end: endDateStr };
+        const [year, month, day] = endDateStr.split('-').map(Number);
+        const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
+        
+        const period: PerformancePeriod = { start: startDateStr, end: endDateStr };
         const monthStartStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
         const monthEndStr = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
 
+        // ── ALWAYS-COMPUTED week/month boundaries (independent of filter) ──
         const weekDayUTC = workingDateUTC.getUTCDay();
         const wDiff = workingDateUTC.getUTCDate() - weekDayUTC + (weekDayUTC === 0 ? -6 : 1);
         const alwaysWeekStartUTC = new Date(workingDateUTC);
@@ -317,16 +322,27 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         const alwaysWeekStartStr = alwaysWeekStartUTC.toISOString().split('T')[0];
 
         const daysInPeriod = dateFilter === 'today' || dateFilter === 'yesterday' ? 1 
-            : dateFilter === 'week' ? (() => { const d = workingDateUTC.getUTCDay(); return d === 0 ? 7 : d; })()
-            : dateFilter === 'month' ? day 
+            : dateFilter === 'week' ? (() => { const d = new Date(Date.UTC(nYear, nMonth - 1, nDay)).getUTCDay(); return d === 0 ? 7 : d; })()
+            : dateFilter === 'month' ? nDay 
             : Math.max(1, Math.ceil((new Date(endDateStr).getTime() - new Date(startDateStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
         const tlMetrics = rawData.teamLeaders.map(tl => {
             const tlId = tl.id;
-            const targetEndDate = endDateStr === nowISTStr ? nowISTStr : endDateStr;
-            const fetchedDay = (rawData).fetchedTodayStr || '';
+            const targetEndDate = endDateStr;
+            const fetchedDay = (rawData as any).fetchedTodayStr || '';
             const isDataFresh = fetchedDay === nowISTStr;
-            const todayCollectionTemp = isDataFresh ? ((rawData).dailyCollectionsMap?.[tlId] || 0) : 0;
+            const todayLiveAmount = isDataFresh ? ((rawData as any).dailyCollectionsMap?.[tlId] || 0) : 0;
+            
+            let targetDayCollection = 0;
+            if (endDateStr === nowISTStr) {
+                targetDayCollection = todayLiveAmount;
+            } else {
+                targetDayCollection = rawData.collections.filter(item => {
+                    if (item.team_leader_id !== tlId) return false;
+                    const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                    return dDateStr === endDateStr;
+                }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
+            }
 
             const pastSum = rawData.collections.filter(item => {
                 if (item.team_leader_id !== tlId) return false;
@@ -334,10 +350,10 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                 return dDateStr >= startDateStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
             }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0);
             
-            const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayCollectionTemp : 0;
+            const todayLive = (nowISTStr >= startDateStr && nowISTStr <= endDateStr) ? todayLiveAmount : 0;
             const tlCollection = pastSum + todayLive;
 
-            const weeklyMapValue = isDataFresh ? ((rawData).weeklyCollectionsMap?.[tlId] || 0) : 0;
+            const weeklyMapValue = isDataFresh ? ((rawData as any).weeklyCollectionsMap?.[tlId] || 0) : 0;
             const aiEvaluatingCollection = dateFilter === 'today' ? weeklyMapValue : tlCollection;
 
             const periodSnapshots = rawData.collections
@@ -346,7 +362,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
                     return dDateStr >= startDateStr && dDateStr <= endDateStr;
                 })
-                .sort((a, b) => {
+                .sort((a: any, b: any) => {
                     const da = a.date && typeof a.date === 'string' ? a.date.split('T')[0].split(' ')[0] : a.date;
                     const db = b.date && typeof b.date === 'string' ? b.date.split('T')[0].split(' ')[0] : b.date;
                     return db.localeCompare(da);
@@ -357,19 +373,19 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
 
             const metrics = calculateAIScore(tl, rawData.riders, rawData.leads, aiEvaluatingCollection, period, historicalFleet);
 
-            const weeklyCollTL = rawData.collections.filter((item) => {
+            const weeklyCollTL = rawData.collections.filter((item: any) => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                return dDateStr >= alwaysWeekStartStr && dDateStr <= nowISTStr && dDateStr !== nowISTStr;
-            }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
+                return dDateStr >= alwaysWeekStartStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + (endDateStr === nowISTStr ? targetDayCollection : 0);
 
-            const monthlyCollTL = rawData.collections.filter((item) => {
+            const monthlyCollTL = rawData.collections.filter((item: any) => {
                 if (item.team_leader_id !== tlId) return false;
                 const dDateStr = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
-                return dDateStr >= monthStartStr && dDateStr <= monthEndStr && dDateStr !== nowISTStr;
-            }).reduce((sum, item) => sum + (Number(item.total_collection) || 0), 0) + todayCollectionTemp;
+                return dDateStr >= monthStartStr && dDateStr <= endDateStr && dDateStr !== nowISTStr;
+            }).reduce((sum: number, item: any) => sum + (Number(item.total_collection) || 0), 0) + (endDateStr === nowISTStr ? targetDayCollection : 0);
             
-            return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: todayCollectionTemp };
+            return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: targetDayCollection };
         });
 
         const periodEndMs = new Date(endDateStr + 'T23:59:59').getTime();
