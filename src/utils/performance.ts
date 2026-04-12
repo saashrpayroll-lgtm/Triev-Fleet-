@@ -176,7 +176,7 @@ export const calculateAIScore = (
     let periodLeads = tlLeads;
     if (period) {
         periodLeads = tlLeads.filter(l => {
-            const lDateStr = getValidHistoricalDate(l.created_at || l.createdAt);
+            const lDateStr = getValidHistoricalDate((l as any).created_at || l.createdAt);
             if (!lDateStr) return true;
             return lDateStr >= period.start && lDateStr <= period.end;
         });

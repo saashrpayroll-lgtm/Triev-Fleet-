@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { toPng } from 'html-to-image';
 import { Download, Camera, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/config/supabase';
