@@ -5,6 +5,7 @@ import { supabase } from '@/config/supabase';
 import { logActivity } from '@/utils/activityLog';
 import { useToast } from '@/contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import EmployeeIDCard from '@/components/dashboard/EmployeeIDCard';
 
 const Profile: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -286,6 +287,19 @@ const Profile: React.FC = () => {
                     </div>
                 </div>
             </motion.div>
+
+            {/* Virtual ID Card Section */}
+            <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-1 bg-[#ea580c] rounded-full" />
+                    <h3 className="font-black text-xl text-slate-800 dark:text-slate-400 uppercase tracking-[0.3em] whitespace-nowrap">Virtual ID</h3>
+                    <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                </div>
+                
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-inner">
+                    <EmployeeIDCard userData={userData} />
+                </div>
+            </div>
 
             {/* Permissions Infrastructure */}
             <div className="space-y-6">
