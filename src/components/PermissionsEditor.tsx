@@ -71,7 +71,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         notifications: { view: false, broadcast: false, delete: false },
         requests: { view: false, resolve: false, delete: false },
         reports: { view: false, generate: false, export: false },
-        profile: { view: false, editPersonalDetails: false, editBankDetails: false, changePassword: false },
+        profile: { view: false, editPersonalDetails: false, editBankDetails: false, changePassword: false, idCard: false },
         system: { resetUserPassword: false },
         rmPanel: {
             dashboard: false, tlPerformance: false, leaderboard: false,
@@ -469,6 +469,7 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'prof_edit', label: 'Edit Personal Details', description: 'Change name, email, etc.', risk: 'medium', path: 'profile.editPersonalDetails' },
                 { id: 'prof_bank', label: 'Edit Bank Details', description: 'Update bank info', risk: 'high', path: 'profile.editBankDetails' },
                 { id: 'prof_pass', label: 'Change Password', description: 'Change own password', risk: 'medium', path: 'profile.changePassword' },
+                { id: 'prof_idcard', label: 'Employee ID Card', description: 'Enable Virtual Employee ID Card on TL Profile page (with photo upload & download)', risk: 'low', path: 'profile.idCard' },
             ]
         },
         {

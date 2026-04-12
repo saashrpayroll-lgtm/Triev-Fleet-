@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Mail, Shield, UserCog, Camera, LogOut, Settings, Key, MapPin, Loader2, Smartphone, ShieldCheck, ShieldAlert, KeyRound, ArrowRight, X, Lock } from 'lucide-react';
+import { Mail, Shield, UserCog, Camera, LogOut, Settings, Key, MapPin, Loader2, Smartphone, ShieldCheck, ShieldAlert, KeyRound, ArrowRight, X, Lock, ChevronDown } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { logActivity } from '@/utils/activityLog';
 import { useToast } from '@/contexts/ToastContext';
@@ -13,6 +13,7 @@ const Profile: React.FC = () => {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isIdCardOpen, setIsIdCardOpen] = useState(false);
 
     // Password State
     const [passwordData, setPasswordData] = useState({
@@ -288,18 +289,42 @@ const Profile: React.FC = () => {
                 </div>
             </motion.div>
 
-            {/* Virtual ID Card Section */}
-            <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-1 bg-[#ea580c] rounded-full" />
-                    <h3 className="font-black text-xl text-slate-800 dark:text-slate-400 uppercase tracking-[0.3em] whitespace-nowrap">Virtual ID</h3>
-                    <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+            {/* Virtual ID Card Section — Collapsible Dropdown + Permission Gated */}
+            {(userData?.permissions?.profile?.idCard ?? true) && (
+                <div className="space-y-0">
+                    <button
+                        onClick={() => setIsIdCardOpen(!isIdCardOpen)}
+                        className="w-full flex items-center gap-4 py-4 group cursor-pointer"
+                    >
+                        <div className="w-12 h-1 bg-[#ea580c] rounded-full" />
+                        <h3 className="font-black text-xl text-slate-800 dark:text-slate-400 uppercase tracking-[0.3em] whitespace-nowrap">Virtual ID</h3>
+                        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                        <motion.div
+                            animate={{ rotate: isIdCardOpen ? 180 : 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-orange-50 dark:group-hover:bg-orange-900/20 transition-colors"
+                        >
+                            <ChevronDown size={18} className="text-slate-500 group-hover:text-orange-500 transition-colors" />
+                        </motion.div>
+                    </button>
+                    
+                    <AnimatePresence>
+                        {isIdCardOpen && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                            >
+                                <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-inner">
+                                    <EmployeeIDCard userData={userData} />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
-                
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-inner">
-                    <EmployeeIDCard userData={userData} />
-                </div>
-            </div>
+            )}
 
             {/* Permissions Infrastructure */}
             <div className="space-y-6">

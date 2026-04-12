@@ -19,15 +19,18 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
     const [photoUrl, setPhotoUrl] = useState<string>(userData.profilePicUrl || '');
 
     // ─── Derive employee fields ─────────────────────────────────────
-    const fullName = typeof userData.fullName === 'string'
-        ? userData.fullName.replace(/\s*\(.*?\)\s*/g, '').trim()   // Strip any "(KONTI/xxx)" suffix
-        : String(userData.fullName || 'Employee');
-
-    const empCode = userData.userId || 'KONTI/000';  // The real unique EMP ID from profile
+    // Extract KONTI code from name if present like "Mohit Prajapati (KONTI/205)"
+    const rawName = typeof userData.fullName === 'string' ? userData.fullName : String(userData.fullName || 'Employee');
+    const nameMatch = rawName.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+    const fullName = nameMatch ? nameMatch[1].trim() : rawName.trim();
+    
+    // EMP Code priority: 1) Extracted from name parentheses  2) userData.userId  3) fallback 
+    const empCode = nameMatch ? nameMatch[2].trim() : (userData.userId || 'KONTI/000');
+    
     const jobLocation = typeof userData.jobLocation === 'string' ? userData.jobLocation : 'Indrapuram (Ghaziabad)';
     const department = 'Sales / Sourcing';
     const position = 'Team Leader';
-    const companyName = 'KONTINUUM GREEN MOBILITY PRIVATE LIMITED';
+    const companyName = 'KONTINUUM GREEN MOBILITY PVT. LTD.';
 
     // ─── QR Code payload ────────────────────────────────────────────
     const qrPayload = useMemo(() => JSON.stringify({
@@ -39,7 +42,7 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
         company: companyName,
         email: userData.email || '',
         mobile: userData.mobile || '',
-        verifiedBy: 'TriEv Digital Systems'
+        verified: 'TriEv Digital Systems'
     }), [fullName, empCode, jobLocation, userData.email, userData.mobile]);
 
     // ─── Handlers ───────────────────────────────────────────────────
@@ -103,136 +106,184 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
 
     // ─── Render ─────────────────────────────────────────────────────
     return (
-        <div className="w-full flex flex-col items-center gap-8 py-4">
+        <div className="w-full flex flex-col items-center gap-6 py-2">
 
-            {/* ═══════════════ ID CARD ═══════════════ */}
+            {/* ═══════════════ ID CARD (Standard CR80 Ratio ~3.375:2.125 ≈ 1.59:1) ═══════════════ */}
             <div
                 ref={cardRef}
-                className="w-full max-w-[360px] rounded-[20px] overflow-hidden flex flex-col relative"
                 style={{
+                    width: '400px',
+                    minHeight: '560px',
                     fontFamily: '"Inter", "Segoe UI", sans-serif',
-                    boxShadow: '0 24px 64px -12px rgba(234,88,12,0.25), 0 0 0 1px rgba(0,0,0,0.06)',
+                    background: '#ffffff',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    boxShadow: '0 20px 60px -15px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)',
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}
             >
-                {/* ── TOP HEADER ── */}
-                <div
-                    className="relative w-full px-5 pt-5 pb-14"
-                    style={{
-                        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%)',
-                    }}
-                >
-                    {/* Decorative circles */}
-                    <div className="absolute top-[-30px] right-[-30px] w-[120px] h-[120px] rounded-full bg-white/10 pointer-events-none" />
-                    <div className="absolute bottom-[-20px] left-[-20px] w-[80px] h-[80px] rounded-full bg-white/5 pointer-events-none" />
+                {/* ── HEADER STRIP - Orange Gradient ── */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%)',
+                    padding: '18px 20px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                }}>
+                    {/* Decorative dot pattern */}
+                    <div style={{
+                        position: 'absolute', top: 0, right: 0, width: '100px', height: '100px',
+                        borderRadius: '50%', background: 'rgba(255,255,255,0.08)',
+                        transform: 'translate(30px, -30px)',
+                    }} />
 
-                    {/* Top row: Logo + Company Name */}
-                    <div className="flex items-center gap-3 relative z-10">
+                    {/* Logo + Company */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 2 }}>
                         <img
                             src="/triev_logo.png"
                             alt="TriEv"
-                            className="h-9 w-9 object-contain rounded-lg bg-white/20 p-1 backdrop-blur-sm"
+                            style={{
+                                height: '38px', width: '38px', objectFit: 'contain',
+                                borderRadius: '10px', background: 'rgba(255,255,255,0.2)',
+                                padding: '4px', backdropFilter: 'blur(4px)',
+                            }}
                             crossOrigin="anonymous"
                         />
-                        <div className="flex flex-col">
-                            <span className="text-white text-[11px] font-extrabold tracking-wider leading-none">TriEv</span>
-                            <span className="text-white/80 text-[7px] font-bold tracking-[0.08em] uppercase leading-tight mt-0.5">
+                        <div>
+                            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 800, letterSpacing: '0.5px', lineHeight: 1.1 }}>TriEv</div>
+                            <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '7px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '2px' }}>
                                 {companyName}
-                            </span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* EMPLOYEE ID label */}
-                    <div className="mt-4 relative z-10">
-                        <span className="inline-block px-3 py-1 bg-white/15 backdrop-blur-sm rounded-full text-[8px] font-bold text-white uppercase tracking-[0.25em] border border-white/20">
-                            Employee Identity Card
+                    {/* Employee ID Badge */}
+                    <div style={{
+                        background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)',
+                        borderRadius: '20px', padding: '4px 14px',
+                        border: '1px solid rgba(255,255,255,0.25)',
+                        position: 'relative', zIndex: 2,
+                    }}>
+                        <span style={{ color: '#fff', fontSize: '8px', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase' }}>
+                            Employee ID
                         </span>
                     </div>
                 </div>
 
-                {/* ── BODY (White) ── */}
-                <div className="bg-white relative z-10 -mt-10 rounded-t-[20px] flex-1 flex flex-col">
+                {/* ── MAIN BODY ── */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0' }}>
 
-                    {/* Photo + Name block */}
-                    <div className="flex items-end gap-4 px-5 -mt-6">
-                        {/* Photo */}
-                        <div className="w-[88px] h-[88px] rounded-2xl p-[3px] bg-gradient-to-br from-orange-400 to-orange-600 shadow-xl shrink-0 relative z-20">
-                            <div className="w-full h-full rounded-[13px] overflow-hidden bg-slate-100 flex items-center justify-center">
+                    {/* Photo + Name Row */}
+                    <div style={{
+                        display: 'flex', alignItems: 'stretch', gap: '0',
+                        borderBottom: '1px solid #f1f5f9',
+                    }}>
+                        {/* Photo Panel */}
+                        <div style={{
+                            width: '145px', minHeight: '160px',
+                            background: 'linear-gradient(180deg, #fff7ed 0%, #ffffff 100%)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '16px',
+                            borderRight: '1px solid #f1f5f9',
+                        }}>
+                            <div style={{
+                                width: '110px', height: '130px', borderRadius: '12px',
+                                overflow: 'hidden', border: '3px solid #f97316',
+                                boxShadow: '0 4px 12px rgba(249,115,22,0.25)',
+                                background: '#f1f5f9',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
                                 {photoUrl ? (
-                                    <img src={photoUrl} alt="Employee" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                                    <img src={photoUrl} alt="Employee" style={{ width: '100%', height: '100%', objectFit: 'cover' }} crossOrigin="anonymous" />
                                 ) : (
-                                    <span className="text-3xl text-slate-300 font-black select-none">
+                                    <span style={{ fontSize: '36px', color: '#cbd5e1', fontWeight: 900 }}>
                                         {fullName.charAt(0).toUpperCase()}
                                     </span>
                                 )}
                             </div>
                         </div>
 
-                        {/* Name + Position */}
-                        <div className="pb-1 flex-1 min-w-0">
-                            <h1 className="text-[17px] font-black text-slate-900 leading-tight uppercase truncate">{fullName}</h1>
-                            <p className="text-[11px] font-bold text-orange-600 uppercase tracking-widest mt-0.5">{position}</p>
+                        {/* Name + Position Panel */}
+                        <div style={{ flex: 1, padding: '20px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', lineHeight: 1.15, letterSpacing: '-0.3px', marginBottom: '4px' }}>
+                                {fullName}
+                            </div>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                                {position}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
+                                <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Active Employee</span>
+                            </div>
                         </div>
                     </div>
 
                     {/* Details Grid */}
-                    <div className="px-5 pt-5 pb-4 space-y-0">
-                        {/* Row: EMP Code + Department */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <DetailField label="Emp Code" value={empCode} mono />
-                            <DetailField label="Department" value={department} />
-                        </div>
-
-                        {/* Divider */}
-                        <div className="w-full h-px bg-slate-100 my-3" />
-
-                        {/* Row: Location + Company */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <DetailField label="Job Location" value={jobLocation} />
-                            <DetailField label="Company" value="Kontinuum Green Mobility" small />
-                        </div>
+                    <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px' }}>
+                        <DetailBlock label="EMP CODE" value={empCode} highlight />
+                        <DetailBlock label="DEPARTMENT" value={department} />
+                        <DetailBlock label="JOB LOCATION" value={jobLocation} />
+                        <DetailBlock label="COMPANY" value="Kontinuum Green Mobility" small />
                     </div>
 
-                    {/* QR Code + Verified */}
-                    <div className="px-5 pb-4 flex items-center justify-between gap-3">
-                        {/* QR */}
-                        <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, #e2e8f0, transparent)', margin: '0 20px' }} />
+
+                    {/* QR + Verification */}
+                    <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+                        {/* QR Code */}
+                        <div style={{
+                            padding: '8px', background: '#fff', borderRadius: '12px',
+                            border: '2px solid #f1f5f9', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                            flexShrink: 0,
+                        }}>
                             <QRCodeSVG
                                 value={qrPayload}
-                                size={64}
+                                size={70}
                                 level="M"
                                 bgColor="#ffffff"
-                                fgColor="#1e293b"
+                                fgColor="#0f172a"
                                 includeMargin={false}
                             />
                         </div>
 
-                        {/* Verification Badge */}
-                        <div className="flex-1 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl px-4 py-3 border border-emerald-100">
-                            <div className="flex items-center gap-2 mb-1">
-                                <ShieldCheck size={14} className="text-emerald-600" />
-                                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-[0.15em]">Digitally Verified</span>
+                        {/* Verification Block */}
+                        <div style={{
+                            flex: 1, background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)',
+                            borderRadius: '12px', padding: '12px 14px',
+                            border: '1px solid #bbf7d0',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                <ShieldCheck size={13} color="#16a34a" />
+                                <span style={{ fontSize: '9px', fontWeight: 900, color: '#15803d', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                                    Digitally Verified
+                                </span>
                             </div>
-                            <p className="text-[8px] font-semibold text-emerald-600/70 leading-tight">
-                                Authenticated by TriEv Digital Identity Systems. Scan QR for full details.
+                            <p style={{ fontSize: '8px', fontWeight: 600, color: '#4ade80', lineHeight: 1.4, margin: 0 }}>
+                                Authenticated by TriEv Digital Identity Systems. Scan QR code for complete employee verification.
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* ── BOTTOM FOOTER ── */}
-                <div
-                    className="w-full py-2.5 flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 100%)' }}
-                >
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                        Property of {companyName}
+                {/* ── FOOTER ── */}
+                <div style={{
+                    background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 100%)',
+                    padding: '10px 20px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    borderTop: '3px solid #ea580c',
+                }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f97316' }} />
+                    <span style={{ fontSize: '7px', fontWeight: 700, color: '#94a3b8', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                        Property of {companyName} • Not Transferable
                     </span>
                 </div>
             </div>
 
             {/* ═══════════════ ACTION BUTTONS ═══════════════ */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-[360px]">
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-[400px]">
                 {/* Upload */}
                 <button
                     onClick={() => fileInputRef.current?.click()}
@@ -269,13 +320,22 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
     );
 };
 
-// ─── Small helper sub-component for detail fields ───────────────
-const DetailField: React.FC<{ label: string; value: string; mono?: boolean; small?: boolean }> = ({ label, value, mono, small }) => (
-    <div className="flex flex-col">
-        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">{label}</span>
-        <span className={`${small ? 'text-[10px]' : 'text-[12px]'} font-bold text-slate-800 leading-tight ${mono ? 'font-mono tracking-wider' : ''}`}>
+// ─── Detail block sub-component ─────────────────────────────────
+const DetailBlock: React.FC<{ label: string; value: string; highlight?: boolean; small?: boolean }> = ({ label, value, highlight, small }) => (
+    <div>
+        <div style={{ fontSize: '8px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '3px' }}>
+            {label}
+        </div>
+        <div style={{
+            fontSize: small ? '10px' : '13px',
+            fontWeight: 800,
+            color: highlight ? '#ea580c' : '#1e293b',
+            fontFamily: highlight ? '"JetBrains Mono", "Fira Code", monospace' : 'inherit',
+            letterSpacing: highlight ? '1px' : '0',
+            lineHeight: 1.2,
+        }}>
             {value}
-        </span>
+        </div>
     </div>
 );
 

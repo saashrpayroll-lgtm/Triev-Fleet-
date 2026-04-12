@@ -117,6 +117,7 @@ export interface UserPermissions {
         editPersonalDetails: boolean; // Name, Mobile, Email
         editBankDetails: boolean;
         changePassword: boolean; // Self
+        idCard: boolean; // Employee Virtual ID Card on Profile page
     };
     system: {
         resetUserPassword: boolean; // Admin action for others
