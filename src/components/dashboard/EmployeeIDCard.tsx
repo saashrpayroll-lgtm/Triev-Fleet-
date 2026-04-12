@@ -32,30 +32,25 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
     const position = 'Team Leader';
     const companyName = 'KONTINUUM GREEN MOBILITY PVT. LTD.';
 
-    // ─── QR Code payload (vCard format — universally scannable) ────
+    // ─── QR Code payload (Plain Text — works with ALL scanners) ────
     const hubAddress = 'Plot no. 134, Makanpur Village, Near Valmiki Chowk, Indirapuram, Ghaziabad, Uttar Pradesh 201014';
-    const mobile = userData.mobile || userData.mobileNumber || '';
-    const email = userData.email || '';
 
     const qrPayload = useMemo(() => {
-        // vCard 3.0 format — works with every phone camera & QR scanner
-        // When scanned: shows formatted contact card + allows Save/Download
-        const lines = [
-            'BEGIN:VCARD',
-            'VERSION:3.0',
-            `FN:${fullName}`,
-            `N:${fullName.split(' ').reverse().join(';')};;;`,
-            `ORG:${companyName}`,
-            `TITLE:${position} - ${department}`,
-            `TEL;TYPE=CELL:${mobile}`,
-            `EMAIL:${email}`,
-            `ADR;TYPE=WORK:;;${hubAddress};;;;`,
-            `NOTE:EMP Code: ${empCode} | Location: ${jobLocation} | Verified by TriEv Digital Identity Systems`,
-            `URL:https://triev.in`,
-            'END:VCARD'
-        ];
-        return lines.join('\n');
-    }, [fullName, empCode, jobLocation, mobile, email]);
+        // Plain text format — universally scannable by:
+        // ✅ Phone Camera app, ✅ Google Lens, ✅ WhatsApp scanner,
+        // ✅ Any third-party QR app, ✅ Desktop scanners
+        return [
+            `👤 Name: ${fullName}`,
+            `📝 EMP Code: ${empCode}`,
+            `💼 Title: ${position} - ${department}`,
+            `   Job Location: ${jobLocation}`,
+            `🏢 Company: ${companyName}`,
+            `📍 Address: ${hubAddress}`,
+            `🌐 URL: https://triev.in`,
+            ``,
+            `✅ Digitally Verified by TriEv`
+        ].join('\n');
+    }, [fullName, empCode, jobLocation]);
 
     // ─── Handlers ───────────────────────────────────────────────────
     const handleDownload = async () => {
