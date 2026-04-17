@@ -60,10 +60,10 @@ const AdminWalletBifurcation: React.FC = () => {
             const users = usersRes.data || [];
             const activeRiders = (ridersRes.data || []).filter(r => r.status === 'active');
 
-            const rms = users.filter((u: any) => u.role === 'reportingManager');
-            const tls = users.filter((u: any) => u.role === 'teamLeader');
+            const rms = users.filter((u: { role: string, id: string, full_name: string }) => u.role === 'reportingManager');
+            const tls = users.filter((u: { role: string, reporting_manager?: string, id: string, full_name: string }) => u.role === 'teamLeader');
             
-            const calculateBrackets = (riderList: any[]): BracketStats => {
+            const calculateBrackets = (riderList: { wallet_amount?: number }[]): BracketStats => {
                 let b100=0, b200=0, b500=0, b1000=0, bMax=0, totalDebt=0, negCount=0;
                 riderList.forEach(r => {
                     const w = r.wallet_amount || 0;
@@ -80,12 +80,12 @@ const AdminWalletBifurcation: React.FC = () => {
                 return { b100, b200, b500, b1000, bMax, totalAmountDebt: totalDebt, totalNegativeCount: negCount, totalActiveRiders: riderList.length };
             };
 
-            const computedRMs: RMBifurcation[] = rms.map((rm: any) => {
+            const computedRMs: RMBifurcation[] = rms.map((rm: { id: string, full_name: string }) => {
                 // Fix: reporting_manager stores the RM's full_name
                 const rmNameNorm = (rm.full_name || '').trim().toLowerCase();
-                const myTls = tls.filter((tl: any) => (tl.reporting_manager || '').trim().toLowerCase() === rmNameNorm);
+                const myTls = tls.filter((tl: { reporting_manager?: string, id: string, full_name: string }) => (tl.reporting_manager || '').trim().toLowerCase() === rmNameNorm);
                 
-                const tlStats: TLBifurcation[] = myTls.map((tl: any) => {
+                const tlStats: TLBifurcation[] = myTls.map((tl: { id: string, full_name: string }) => {
                     const tlRiders = activeRiders.filter(r => r.team_leader_id === tl.id);
                     
                     const negativeRiders = tlRiders
@@ -108,7 +108,7 @@ const AdminWalletBifurcation: React.FC = () => {
                     };
                 }).filter(t => t.totalActiveRiders > 0);
 
-                const validTlIds = new Set(myTls.map((t:any) => t.id));
+                const validTlIds = new Set(myTls.map((t: { id: string }) => t.id));
                 const rmRiders = activeRiders.filter(r => validTlIds.has(r.team_leader_id));
                 
                 return {
@@ -219,7 +219,7 @@ const AdminWalletBifurcation: React.FC = () => {
             "Total Debt Amount (INR)"
         ];
 
-        const rows: any[] = [];
+        const rows: (string | number)[][] = [];
         
         filteredData.forEach(rm => {
             // RM Level Row
@@ -284,7 +284,7 @@ const AdminWalletBifurcation: React.FC = () => {
         // Convert to CSV
         const csvContent = [
             headers.join(","),
-            ...rows.map(row => row.map(v => `"${v}"`).join(","))
+            ...rows.map(row => row.map((v: string | number) => `"${v}"`).join(","))
         ].join("\n");
 
         // Download logic
