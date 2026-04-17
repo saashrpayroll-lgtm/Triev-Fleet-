@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/config/supabase';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
-import { ChevronDown, ChevronRight, Activity, AlertTriangle, Search, Filter } from 'lucide-react';
+import { ChevronDown, ChevronRight, Activity, AlertTriangle, Search, Filter, Download, Maximize2, Minimize2 } from 'lucide-react';
 
 interface BracketStats {
     b100: number; // 0 to -100
@@ -183,6 +183,121 @@ const AdminWalletBifurcation: React.FC = () => {
         return result;
     }, [originalRmData, selectedRmFilter, searchQuery]);
 
+    const isAnyExpanded = expandedRms.size > 0 || expandedTls.size > 0;
+
+    const toggleExpandAll = () => {
+        if (isAnyExpanded) {
+            setExpandedRms(new Set());
+            setExpandedTls(new Set());
+        } else {
+            const newRms = new Set<string>();
+            const newTls = new Set<string>();
+            filteredData.forEach(rm => {
+                newRms.add(rm.rmId);
+                rm.tls.forEach(tl => newTls.add(tl.tlId));
+            });
+            setExpandedRms(newRms);
+            setExpandedTls(newTls);
+        }
+    };
+
+    const handleExport = () => {
+        const headers = [
+            "Level", 
+            "Reporting Manager", 
+            "Team Leader", 
+            "Rider Name", 
+            "Triev ID", 
+            "Mobile", 
+            "Active Riders", 
+            "(0 to -100)", 
+            "(-101 to -200)", 
+            "(-201 to -500)", 
+            "(-501 to -1000)", 
+            "(< -1000)", 
+            "Total Defaulters", 
+            "Total Debt Amount (INR)"
+        ];
+
+        const rows: any[] = [];
+        
+        filteredData.forEach(rm => {
+            // RM Level Row
+            rows.push([
+                "Reporting Manager Summary",
+                rm.rmName,
+                "-",
+                "-",
+                "-",
+                "-",
+                rm.totalActiveRiders,
+                rm.b100,
+                rm.b200,
+                rm.b500,
+                rm.b1000,
+                rm.bMax,
+                rm.totalNegativeCount,
+                rm.totalAmountDebt
+            ]);
+
+            rm.tls.forEach(tl => {
+                // TL Level Row
+                rows.push([
+                    "Team Leader Summary",
+                    rm.rmName,
+                    tl.tlName,
+                    "-",
+                    "-",
+                    "-",
+                    tl.totalActiveRiders,
+                    tl.b100,
+                    tl.b200,
+                    tl.b500,
+                    tl.b1000,
+                    tl.bMax,
+                    tl.totalNegativeCount,
+                    tl.totalAmountDebt
+                ]);
+
+                // Rider Level Rows
+                tl.negativeRiders.forEach(rider => {
+                    rows.push([
+                        "Defaulter Rider",
+                        rm.rmName,
+                        tl.tlName,
+                        rider.riderName,
+                        rider.trievId,
+                        rider.mobileNumber,
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        Math.abs(rider.walletAmount)
+                    ]);
+                });
+            });
+        });
+
+        // Convert to CSV
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(v => `"${v}"`).join(","))
+        ].join("\n");
+
+        // Download logic
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Wallet_Bifurcation_Report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (loading) return <div className="p-8 pb-[100px] text-center text-sm animate-pulse flex flex-col items-center justify-center"><Activity className="animate-pulse mb-3 text-indigo-500" />Loading Wallet Health Bifurcation...</div>;
 
     const renderBracket = (val: number, isCritical=false) => (
@@ -204,7 +319,7 @@ const AdminWalletBifurcation: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
                         <input 
@@ -226,6 +341,24 @@ const AdminWalletBifurcation: React.FC = () => {
                             {rmNamesDropdown.map(name => <option key={name} value={name}>{name}</option>)}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={14} />
+                    </div>
+                    
+                    <div className="flex items-center gap-2 border-l border-border pl-3 ml-1">
+                        <button 
+                            onClick={toggleExpandAll}
+                            className="p-1.5 bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors flex items-center justify-center border border-transparent hover:border-border"
+                            title={isAnyExpanded ? "Collapse All" : "Expand All Arrays"}
+                        >
+                            {isAnyExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                        </button>
+                        
+                        <button 
+                            onClick={handleExport}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm active:scale-95"
+                        >
+                            <Download size={14} />
+                            <span>Export CSV</span>
+                        </button>
                     </div>
                 </div>
             </div>
