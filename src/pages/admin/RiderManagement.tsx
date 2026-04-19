@@ -24,6 +24,11 @@ import { toast } from 'sonner';
 import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import StarRating from '@/components/StarRating';
+import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
+import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
+import { RiderRatingService } from '@/services/RiderRatingService';
+import { StarRatingResult } from '@/utils/starRatingEngine';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted' | 'zomato';
 
@@ -59,6 +64,10 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
     const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
     const [reminderType, setReminderType] = useState<ReminderType>('low_balance');
+
+    // AI Star Rating State
+    const [riderRatings, setRiderRatings] = useState<Map<string, StarRatingResult>>(new Map());
+    const [ratingDetailRider, setRatingDetailRider] = useState<Rider | null>(null);
 
     // Highlight Logic
     const [highlightedRiderId, setHighlightedRiderId] = useState<string | null>(null);
@@ -1057,10 +1066,36 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
 
 
 
+    // ── AI Star Rating: Compute ratings when paginated riders change ──
+    useEffect(() => {
+        const activeRiders = paginatedRidersRef.current;
+        if (!activeRiders.length) return;
+
+        // Only fetch for riders not already cached
+        const ridersToRate = activeRiders.filter(r => !riderRatings.has(r.id));
+        if (ridersToRate.length === 0) return;
+
+        let cancelled = false;
+        RiderRatingService.fetchRatingsForRiders(ridersToRate).then(newRatings => {
+            if (cancelled) return;
+            setRiderRatings(prev => {
+                const merged = new Map(prev);
+                for (const [id, rating] of newRatings) merged.set(id, rating);
+                return merged;
+            });
+        });
+
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredRiders, currentPage, pageSize]);
+
     // Sub-components helpers
     const totalPages = Math.ceil(filteredRiders.length / pageSize);
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedRiders = filteredRiders.slice(startIndex, startIndex + pageSize);
+    // Keep a ref for the effect above to avoid stale closures
+    const paginatedRidersRef = useRef(paginatedRiders);
+    paginatedRidersRef.current = paginatedRiders;
 
     if (loading) {
         return (
@@ -1315,6 +1350,27 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                     </div>
                 </div >
             )
+        },
+        {
+            header: <span className="tracking-widest">AI Rating</span>,
+            accessorKey: 'id' as keyof Rider,
+            className: 'text-center w-[120px]',
+            cell: (rider: Rider) => {
+                const rating = riderRatings.get(rider.id) || null;
+                return (
+                    <div className="flex flex-col items-center gap-1">
+                        <StarRating
+                            rating={rating}
+                            size="sm"
+                            showChurn
+                            onClick={() => setRatingDetailRider(rider)}
+                        />
+                        {rating && rating.churn.level !== 'stable' && (
+                            <ChurnPredictionBadge churn={rating.churn} size="sm" showPercentage={false} />
+                        )}
+                    </div>
+                );
+            }
         },
         {
             header: <span className="tracking-widest">Status</span>,
@@ -1873,6 +1929,14 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                     onClose={() => setSelectedReminderRider(null)}
                     rider={selectedReminderRider}
                     type={reminderType}
+                />
+            )}
+            {ratingDetailRider && (
+                <RiderRatingDetailModal
+                    isOpen={true}
+                    rider={ratingDetailRider}
+                    initialRating={riderRatings.get(ratingDetailRider.id) || null}
+                    onClose={() => setRatingDetailRider(null)}
                 />
             )}
         </div >

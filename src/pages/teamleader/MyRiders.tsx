@@ -17,6 +17,11 @@ import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/uti
 import { logActivity } from '@/utils/activityLog';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import RiskBadge from '@/components/RiskBadge';
+import StarRating from '@/components/StarRating';
+import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
+import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
+import { RiderRatingService } from '@/services/RiderRatingService';
+import { StarRatingResult } from '@/utils/starRatingEngine';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted' | 'zomato';
 
@@ -43,6 +48,10 @@ const MyRiders: React.FC = () => {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
+
+    // AI Star Rating State
+    const [riderRatings, setRiderRatings] = useState<Map<string, StarRatingResult>>(new Map());
+    const [ratingDetailRider, setRatingDetailRider] = useState<Rider | null>(null);
 
     // To track today's collections for the zero_collection filter
     const [todayCollections, setTodayCollections] = useState<Record<string, number>>({});
@@ -205,6 +214,25 @@ const MyRiders: React.FC = () => {
 
     useEffect(() => { filterRiders(); }, [filterRiders]);
     useEffect(() => { setCurrentPage(1); }, [filteredRiders.length]);
+
+    // AI Star Rating: Compute ratings when paginated riders change
+    useEffect(() => {
+        if (!paginatedRiders.length) return;
+        const ridersToRate = paginatedRiders.filter(r => !riderRatings.has(r.id));
+        if (ridersToRate.length === 0) return;
+
+        let cancelled = false;
+        RiderRatingService.fetchRatingsForRiders(ridersToRate).then(newRatings => {
+            if (cancelled) return;
+            setRiderRatings(prev => {
+                const merged = new Map(prev);
+                for (const [id, rating] of newRatings) merged.set(id, rating);
+                return merged;
+            });
+        });
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredRiders, currentPage, pageSize]);
 
     useEffect(() => {
         if (searchParams.get('action') === 'new' && canAddRider) {
@@ -638,6 +666,7 @@ const MyRiders: React.FC = () => {
                                             { label: 'Mobile', key: null },
                                             { label: 'Chassis No.', key: 'chassisNumber' },
                                             { label: 'Wallet', key: 'walletAmount' },
+                                            { label: 'AI Rating', key: null },
                                             { label: 'Allotment', key: 'allotmentDate' },
                                             { label: 'Status', key: 'status' },
                                         ].map(col => (
@@ -724,6 +753,19 @@ const MyRiders: React.FC = () => {
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Low Balance WhatsApp Reminder">
                                                             <MessageCircle size={16} /> Low Bal.
                                                         </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            {/* AI Rating Column */}
+                                            <td className="px-5 py-4">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <StarRating
+                                                        rating={riderRatings.get(rider.id) || null}
+                                                        size="sm"
+                                                        onClick={() => setRatingDetailRider(rider)}
+                                                    />
+                                                    {riderRatings.get(rider.id)?.churn.level !== 'stable' && riderRatings.get(rider.id) && (
+                                                        <ChurnPredictionBadge churn={riderRatings.get(rider.id)!.churn} size="sm" showPercentage={false} />
                                                     )}
                                                 </div>
                                             </td>
@@ -917,6 +959,14 @@ const MyRiders: React.FC = () => {
             {showBulkCommunicationModal && (
                 <BulkCommunicationModal riders={riders.filter(r => selectedRiders.has(r.id))}
                     onClose={() => setShowBulkCommunicationModal(false)} onSend={handleBulkCommunication} />
+            )}
+            {ratingDetailRider && (
+                <RiderRatingDetailModal
+                    isOpen={true}
+                    rider={ratingDetailRider}
+                    initialRating={riderRatings.get(ratingDetailRider.id) || null}
+                    onClose={() => setRatingDetailRider(null)}
+                />
             )}
         </div>
     );

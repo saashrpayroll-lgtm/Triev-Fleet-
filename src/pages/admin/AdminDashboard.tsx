@@ -18,6 +18,7 @@ import TeamLeaderPerformanceTable from '@/components/dashboard/TeamLeaderPerform
 import SystemHealthWidget from '@/components/dashboard/SystemHealthWidget';
 import LivePresenceDashboard from '@/components/dashboard/LivePresenceDashboard';
 import FleetHealthSummary from '@/components/dashboard/FleetHealthSummary';
+import FleetAIHealthWidget from '@/components/dashboard/FleetAIHealthWidget';
 import ZomatoVIPSection from '@/components/dashboard/ZomatoVIPSection';
 import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
 import PerformanceAlerts from '@/components/dashboard/PerformanceAlerts';
@@ -976,6 +977,11 @@ const Dashboard: React.FC = () => {
             {/* --- Wallet Watchlist --- */}
             <WalletWatchlist riders={rawData.riders} />
 
+            {/* --- Fleet AI Health --- */}
+            <FleetAIHealthWidget
+                riders={rawData.riders}
+                title="Fleet AI Health Overview"
+            />
             {/* ── Charts & Activity ── */}
             {renderPhase >= 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">

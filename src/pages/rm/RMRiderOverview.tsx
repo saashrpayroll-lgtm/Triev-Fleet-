@@ -4,6 +4,11 @@ import { Users, Search, Download, Filter, Activity, Wallet, AlertTriangle, Eye, 
 import { useLocation } from 'react-router-dom';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import { Rider } from '@/types';
+import StarRating from '@/components/StarRating';
+import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
+import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
+import { RiderRatingService } from '@/services/RiderRatingService';
+import { StarRatingResult } from '@/utils/starRatingEngine';
 
 const RMRiderOverview: React.FC = () => {
     const { teamLeaders, riders, loading, refresh } = useRMTeamData();
@@ -19,6 +24,10 @@ const RMRiderOverview: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
     const pageSize = 30;
+
+    // AI Star Rating State
+    const [riderRatings, setRiderRatings] = useState<Map<string, StarRatingResult>>(new Map());
+    const [ratingDetailRider, setRatingDetailRider] = useState<Rider | null>(null);
 
     // Unique client names for filter
     const uniqueClients = useMemo(() => {
@@ -65,7 +74,7 @@ const RMRiderOverview: React.FC = () => {
     const filteredRiders = useMemo(() => {
         return riders.filter(r => {
             if (filterStatus === 'zomato') {
-                if (!(r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'))) return false;
+                if (!(r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as Rider & { chassis_number?: string }).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP'))) return false;
                 if (r.status !== 'active') return false;
             } else if (filterStatus !== 'all' && r.status !== filterStatus) {
                 return false;
@@ -120,6 +129,25 @@ const RMRiderOverview: React.FC = () => {
         return filteredRiders.slice(start, start + pageSize);
     }, [filteredRiders, currentPage]);
 
+    // AI Star Rating: Compute ratings when paginated riders change
+    React.useEffect(() => {
+        if (!paginatedRiders.length) return;
+        const ridersToRate = paginatedRiders.filter((r: Rider) => !riderRatings.has(r.id));
+        if (ridersToRate.length === 0) return;
+
+        let cancelled = false;
+        RiderRatingService.fetchRatingsForRiders(ridersToRate).then(newRatings => {
+            if (cancelled) return;
+            setRiderRatings(prev => {
+                const merged = new Map(prev);
+                for (const [id, rating] of newRatings) merged.set(id, rating);
+                return merged;
+            });
+        });
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [paginatedRiders]);
+
     const totalPages = Math.ceil(filteredRiders.length / pageSize);
 
     const clearAllFilters = () => {
@@ -147,7 +175,7 @@ const RMRiderOverview: React.FC = () => {
         a.click();
     };
 
-    const handleRiderClick = (rider: any) => {
+    const handleRiderClick = (rider: Rider) => {
         // Map to Rider type for the modal
         setSelectedRider({
             ...rider,
@@ -301,7 +329,7 @@ const RMRiderOverview: React.FC = () => {
 
                         {/* Sort Dropdown */}
                         <div className="flex items-center gap-1">
-                            <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)}
+                            <select value={sortBy} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortBy(e.target.value as 'name' | 'trievId' | 'wallet' | 'allotmentDate')}
                                 className={`hidden md:block px-3 py-2.5 rounded-2xl text-sm font-bold border transition-all outline-none cursor-pointer bg-background border-border/60 hover:bg-muted text-foreground`}>
                                 <option value="name">Sort: Name</option>
                                 <option value="trievId">Sort: Triev ID</option>
@@ -367,7 +395,7 @@ const RMRiderOverview: React.FC = () => {
                                             <div>
                                                 <p className="text-[9px] font-black uppercase text-muted-foreground mb-2 tracking-wider">Sort By</p>
                                                 <div className="flex gap-2">
-                                                    <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)}
+                                                    <select value={sortBy} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSortBy(e.target.value as 'name' | 'trievId' | 'wallet' | 'allotmentDate')}
                                                         className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-muted border-0 outline-none cursor-pointer">
                                                         <option value="name">Name</option>
                                                         <option value="trievId">Triev ID</option>
@@ -440,6 +468,7 @@ const RMRiderOverview: React.FC = () => {
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Client</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Status</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Wallet</th>
+                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-center">AI Rating</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Allotment</th>
                                 <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest w-10"></th>
                             </tr>
@@ -468,6 +497,18 @@ const RMRiderOverview: React.FC = () => {
                                     </td>
                                     <td className={`p-3 text-right font-bold tabular-nums ${r.status === 'inactive' ? 'text-muted-foreground' : (r.walletAmount || 0) > 0 ? 'text-emerald-600' : (r.walletAmount || 0) < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
                                         ₹{r.status === 'inactive' ? '0' : (r.walletAmount || 0).toLocaleString()}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <StarRating
+                                                rating={riderRatings.get(r.id) || null}
+                                                size="sm"
+                                                onClick={() => setRatingDetailRider(r as Rider)}
+                                            />
+                                            {riderRatings.get(r.id)?.churn.level !== 'stable' && riderRatings.get(r.id) && (
+                                                <ChurnPredictionBadge churn={riderRatings.get(r.id)!.churn} size="sm" showPercentage={false} />
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="p-3 text-xs text-muted-foreground">
                                         {r.allotmentDate ? new Date(r.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}
@@ -546,6 +587,14 @@ const RMRiderOverview: React.FC = () => {
                     rider={selectedRider}
                     onClose={() => setSelectedRider(null)}
                     onUpdate={() => { refresh(); }}
+                />
+            )}
+            {ratingDetailRider && (
+                <RiderRatingDetailModal
+                    isOpen={true}
+                    rider={ratingDetailRider}
+                    initialRating={riderRatings.get(ratingDetailRider.id) || null}
+                    onClose={() => setRatingDetailRider(null)}
                 />
             )}
         </div>

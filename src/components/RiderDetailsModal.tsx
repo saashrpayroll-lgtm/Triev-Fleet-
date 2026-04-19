@@ -11,6 +11,11 @@ import { logActivity } from '@/utils/activityLog';
 import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
 import RiderIdCard from '@/components/RiderIdCard';
 import { Camera, Image as ImageIcon } from 'lucide-react';
+import StarRating from '@/components/StarRating';
+import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
+import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
+import { RiderRatingService } from '@/services/RiderRatingService';
+import { StarRatingResult } from '@/utils/starRatingEngine';
 
 interface RiderDetailsModalProps {
     rider: Rider;
@@ -109,6 +114,10 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [riderPhoto, setRiderPhoto] = useState<string | undefined>(rider.photoUrl);
 
+    // AI Star Rating State
+    const [starRating, setStarRating] = useState<StarRatingResult | null>(null);
+    const [showRatingModal, setShowRatingModal] = useState(false);
+
     useEffect(() => {
         setRiderPhoto(rider.photoUrl);
     }, [rider.photoUrl]);
@@ -121,6 +130,10 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
             if (activeTab === 'wallet') {
                 fetchWalletHistory();
             }
+            // Fetch AI Star Rating
+            RiderRatingService.fetchRatingForSingleRider(rider).then(result => {
+                setStarRating(result);
+            });
         }
     }, [rider, activeTab]);
 
@@ -495,8 +508,10 @@ ${new Date().toLocaleString('en-IN')}`;
                                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 backdrop-blur border-2 border-white/20 flex items-center justify-center text-3xl md:text-4xl font-black uppercase shadow-xl text-white">
                                     {rider.riderName.charAt(0)}
                                 </div>
-                                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-slate-900 shadow-lg ${score.score >= 70 ? 'bg-emerald-500' : score.score >= 40 ? 'bg-amber-500' : 'bg-red-500'}`}>
-                                    {score.score}
+                                <div className={`absolute -bottom-2 -right-2 flex items-center justify-center border-2 border-slate-900 shadow-lg rounded-full overflow-hidden cursor-pointer`}
+                                    onClick={() => setShowRatingModal(true)}
+                                >
+                                    <StarRating rating={starRating} size="sm" />
                                 </div>
                             </div>
 
@@ -696,13 +711,20 @@ ${new Date().toLocaleString('en-IN')}`;
                                     </p>
                                     <p className="text-[10px] text-muted-foreground mt-0.5">{walletBalance < 0 ? '⚠️ Negative' : walletBalance > 0 ? '✅ Positive' : '➖ Zero'}</p>
                                 </div>
-                                <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5">
+                                <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5 cursor-pointer hover:bg-primary/10 transition-colors" onClick={() => setShowRatingModal(true)}>
                                     <div className="flex items-center gap-1.5 mb-2">
                                         <ShieldCheck size={13} className="text-primary" />
-                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">AI Score</p>
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">AI Rating</p>
                                     </div>
-                                    <p className="text-2xl font-black text-primary">{score.score}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
-                                    <p className={`text-[10px] font-bold mt-0.5 ${score.color}`}>{score.label}</p>
+                                    <div className="flex items-center gap-2">
+                                        <StarRating rating={starRating} size="md" showLabel />
+                                    </div>
+                                    {starRating && starRating.churn.level !== 'stable' && (
+                                        <div className="mt-2">
+                                            <ChurnPredictionBadge churn={starRating.churn} size="sm" />
+                                        </div>
+                                    )}
+                                    <p className="text-[9px] text-muted-foreground/50 mt-1">Tap for details</p>
                                 </div>
                             </div>
 
@@ -927,6 +949,14 @@ ${new Date().toLocaleString('en-IN')}`;
                 rider={rider}
                 type={reminderModalType || 'warning'}
             />
+            {showRatingModal && (
+                <RiderRatingDetailModal
+                    isOpen={true}
+                    rider={rider}
+                    initialRating={starRating}
+                    onClose={() => setShowRatingModal(false)}
+                />
+            )}
         </div>
     );
 };

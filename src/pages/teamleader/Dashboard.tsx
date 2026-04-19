@@ -15,6 +15,7 @@ import { safeRender } from '@/utils/safeRender';
 import ComponentErrorBoundary from '@/components/ComponentErrorBoundary';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import DebtRecoveryTasks from '@/components/dashboard/DebtRecoveryTasks';
+import FleetAIHealthWidget from '@/components/dashboard/FleetAIHealthWidget';
 import TLZomatoVIPSection from '@/components/dashboard/TLZomatoVIPSection';
 import WalletWatchlist from '@/components/dashboard/WalletWatchlist';
 import CollectionTargetCard from '@/components/dashboard/CollectionTargetCard';
@@ -813,7 +814,13 @@ const Dashboard: React.FC = () => {
             {/* --- Wallet Watchlist --- */}
             <WalletWatchlist riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
 
-
+            {/* --- Fleet AI Health --- */}
+            <ComponentErrorBoundary name="Fleet AI Health">
+                <FleetAIHealthWidget
+                    riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                    title="My Fleet AI Health"
+                />
+            </ComponentErrorBoundary>
             {/* --- Debt Recovery Tasks --- */}
             {renderPhase >= 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
