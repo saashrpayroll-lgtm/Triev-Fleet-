@@ -3,8 +3,12 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
+import { injectSpeedInsights } from '@vercel/speed-insights'
 
 // console.log('Main.tsx executing');
+
+// Initialize Vercel Speed Insights
+injectSpeedInsights();
 
 try {
   const rootElement = document.getElementById('root');
