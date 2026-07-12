@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
+import { inject } from '@vercel/analytics'
+
+// Initialize Vercel Web Analytics
+inject();
 
 // console.log('Main.tsx executing');
 
