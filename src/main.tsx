@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
 import { inject } from '@vercel/analytics'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 // Initialize Vercel Web Analytics
 inject();
@@ -18,6 +19,7 @@ try {
     <StrictMode>
       <GlobalErrorBoundary>
         <App />
+        <SpeedInsights />
       </GlobalErrorBoundary>
     </StrictMode>,
   )
