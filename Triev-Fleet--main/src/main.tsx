@@ -1,15 +1,17 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+import App from './App'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
 import { inject } from '@vercel/analytics'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 
 // Initialize Vercel Web Analytics
-inject();
-
-// console.log('Main.tsx executing');
+try {
+  inject();
+} catch (e) {
+  // Ignore analytics init failure in non-Vercel env
+}
 
 try {
   const rootElement = document.getElementById('root');
@@ -22,7 +24,7 @@ try {
         <SpeedInsights />
       </GlobalErrorBoundary>
     </StrictMode>,
-  )
+  );
 } catch (error) {
   console.error('Failed to mount application:', error);
   document.body.innerHTML = `
