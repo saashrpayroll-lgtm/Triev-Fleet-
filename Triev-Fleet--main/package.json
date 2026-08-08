@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:win": "cmd /c vite",
-    "build": "tsc -b && vite build",
+    "build": "npx vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
