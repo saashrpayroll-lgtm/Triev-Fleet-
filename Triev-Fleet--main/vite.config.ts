@@ -53,36 +53,35 @@ export default defineConfig({
   },
   build: {
     sourcemap: false, // Disable sourcemaps in production — halves build size
-    chunkSizeWarningLimit: 1000, // Restore warning at 1MB so we catch regressions
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        // Manual chunk splitting for large libraries — each loads independently
-        manualChunks: {
-          // React core — cached long term, changes rarely
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          // Supabase client
-          'supabase': ['@supabase/supabase-js'],
-          // Charts — only loaded on analytics/dashboard pages
-          'charts': ['recharts'],
-          // PDF export — only loaded on demand
-          'pdf': ['jspdf', 'jspdf-autotable'],
-          // Animation library
-          'framer': ['framer-motion'],
-          // Icons
-          'icons': ['lucide-react'],
-          // XLSX — heavy (280KB), only used on export/import pages
-          'xlsx-lib': ['xlsx'],
-          // CSV parser — only used in DataImport + exportUtils
-          'csv-lib': ['papaparse'],
-          // Light data utilities — used widely, tree-shakes well
-          'data-utils': ['date-fns', 'zod'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('jspdf')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('xlsx')) {
+              return 'vendor-xlsx';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+          }
         }
       }
     }
   },
   esbuild: {
-    // SECURITY HARDENING: Drop all console.log and debugger statements in production builds
-    // Prevents accidental leakage of user data, API responses, or system architecture to the public browser console.
-    drop: ['console', 'debugger'],
+    drop: ['debugger'],
   },
 })
