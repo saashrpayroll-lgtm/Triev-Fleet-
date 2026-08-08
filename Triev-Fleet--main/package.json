@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:win": "cmd /c vite",
-    "build": "vite build",
-    "vercel-build": "vite build",
+    "build": "./node_modules/.bin/vite build",
+    "vercel-build": "./node_modules/.bin/vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
