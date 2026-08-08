@@ -1,0 +1,1114 @@
+import { Rider, User, Request } from '@/types';
+import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
+
+// Data Mappers (DB snake_case -> App camelCase)
+export const mapRiderFromDB = (data: any): Rider => ({
+    id: data.id,
+    trievId: data.triev_id || data.rider_id || '-', // Fallback for legacy
+    riderName: data.rider_name,
+    mobileNumber: data.mobile_number,
+    chassisNumber: data.chassis_number,
+    clientName: data.client_name,
+    clientId: data.client_id,
+    walletAmount: data.wallet_amount || 0,
+    allotmentDate: data.allotment_date,
+    remarks: data.remarks,
+    status: data.status,
+    teamLeaderId: data.team_leader_id,
+    teamLeaderName: data.team_leader_name,
+    comments: data.comments,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    deletedAt: data.deleted_at
+});
+
+export interface WalletTransactionSummary {
+    amount: number;
+    type: string;
+    team_leader_id: string;
+    timestamp: string;
+    client_name?: string;
+    mode?: string;
+    transaction_type?: string;
+}
+
+export const mapUserFromDB = (data: any): User => ({
+    id: data.id,
+    userId: data.user_id,
+    fullName: data.full_name,
+    mobile: data.mobile,
+    email: data.email,
+    username: data.username,
+    role: data.role,
+    reportingManager: data.reporting_manager,
+    jobLocation: data.job_location,
+    status: data.status,
+    suspendedUntil: data.suspended_until,
+    permissions: data.permissions || {},
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    remarks: data.remarks,
+    profilePicUrl: data.profile_pic_url,
+    currentLocation: data.current_location
+});
+
+export const mapRequestFromDB = (data: any): Request => ({
+    id: data.id,
+    ticketId: data.ticket_id,
+    type: data.type,
+    subject: data.subject,
+    description: data.description,
+    priority: data.priority,
+    userId: data.user_id,
+    userName: data.user_name,
+    email: data.email,
+    userRole: data.user_role,
+    relatedEntityId: data.related_entity_id,
+    relatedEntityName: data.related_entity_name,
+    relatedEntityType: data.related_entity_type,
+    status: data.status,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    resolvedAt: data.resolved_at,
+    resolvedBy: data.resolved_by,
+    adminResponse: data.admin_response,
+    internalNotes: data.internal_notes,
+    timeline: data.timeline,
+    attachments: data.attachments
+});
+
+// Create a loose interface for ActivityLog if not imported, or use 'any' for now to avoid circular deps if types are in another file that imports this.
+// Ideally types should be in @/types. Assuming ActivityLog is not yet strictly typed in @/types/index.ts based on previous context, using any or defining here.
+export interface ActivityLogEntry {
+    id: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    details: string;
+    performedBy?: string;
+    timestamp: any;
+    [key: string]: any;
+}
+
+/**
+ * Transform raw Rider object for safe report display
+ */
+export const transformRiderData = (rider: Rider) => ({
+    'Triev ID': rider.trievId || '-',
+    'Name': rider.riderName || 'N/A',
+    'Mobile': rider.mobileNumber || '-',
+    'Status': rider.status ? rider.status.charAt(0).toUpperCase() + rider.status.slice(1) : 'Unknown',
+    'Client': rider.clientName || 'Unassigned',
+    'Wallet Balance': `₹${(rider.walletAmount || 0).toFixed(2)}`,
+    'Date Added': rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN') : '-'
+});
+
+/**
+ * Report utility functions for data aggregation and analysis
+ */
+
+export interface ReportTemplate {
+    id: string;
+    name: string;
+    description: string;
+    parameters: string[];
+}
+
+export interface WalletSummary {
+    totalPositive: number;
+    totalNegative: number;
+    totalZero: number;
+    positiveCount: number;
+    negativeCount: number;
+    zeroCount: number;
+    averageWallet: number;
+}
+
+export interface ClientDistribution {
+    clientName: string;
+    riderCount: number;
+    totalWallet: number;
+    averageWallet: number;
+}
+
+export interface TeamLeaderPerformance {
+    teamLeaderId: string;
+    teamLeaderName: string;
+    totalRiders: number;
+    activeRiders: number;
+    inactiveRiders: number;
+    deletedRiders: number;
+    totalWallet: number;
+    averageWallet: number;
+}
+
+/**
+ * Pre-configured report templates
+ */
+export const REPORT_TEMPLATES: ReportTemplate[] = [
+    {
+        id: 'tl_daily_collection',
+        name: 'TL Daily Collection',
+        description: 'Matrix of daily collections per Team Leader',
+        parameters: ['dateRange', 'teamLeaderSelect'],
+    },
+    {
+        id: 'active_riders',
+        name: 'Active Riders Report',
+        description: 'List of all currently active riders',
+        parameters: ['dateRange', 'client'],
+    },
+    {
+        id: 'wallet_summary',
+        name: 'Wallet Summary Report',
+        description: 'Financial overview with positive/negative wallet analysis',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'client_distribution',
+        name: 'Client-wise Distribution',
+        description: 'Riders grouped by client with statistics',
+        parameters: ['status'],
+    },
+    {
+        id: 'inactive_riders',
+        name: 'Inactive Riders Report',
+        description: 'List of inactive riders requiring attention',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'negative_wallet',
+        name: 'Negative Wallet Report',
+        description: 'Riders with negative wallet balances',
+        parameters: ['threshold'],
+    },
+    {
+        id: 'positive_wallet',
+        name: 'Positive Wallet Report',
+        description: 'Riders with positive wallet balances',
+        parameters: ['threshold'],
+    },
+    {
+        id: 'team_leader_performance',
+        name: 'Team Leader Performance',
+        description: 'Performance metrics for all team leaders',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'request_history',
+        name: 'Request History',
+        description: 'Log of password resets and user requests',
+        parameters: ['status', 'dateRange'],
+    },
+    {
+        id: 'activity_log_report',
+        name: 'Activity Audit Log',
+        description: 'Detailed system activity and security audit trail',
+        parameters: ['dateRange', 'actionType'],
+    },
+    {
+        id: 'revenue_report',
+        name: 'Revenue Report (Billing vs Collection)',
+        description: 'Comparison of Daily Rent Charges (Billing) vs Actual Collections',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'defaulter_list',
+        name: 'Defaulter List (High Debt)',
+        description: 'List of riders with high negative wallet balance',
+        parameters: ['threshold'],
+    },
+    {
+        id: 'system_health',
+        name: 'System Health & Stats',
+        description: 'Overview of system counts and status distribution',
+        parameters: [],
+    },
+    {
+        id: 'fleet_health_report',
+        name: 'Fleet Health Report',
+        description: 'Active/Inactive/Churned breakdown per TL with wallet average',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'collection_summary',
+        name: 'Collection Summary (Authorized)',
+        description: 'Authorized collection totals from daily_collections table',
+        parameters: ['dateRange', 'teamLeaderSelect'],
+    },
+    {
+        id: 'rider_tenure_report',
+        name: 'Rider Tenure Report',
+        description: 'Active riders sorted by allotment date (oldest first)',
+        parameters: ['client'],
+    },
+    {
+        id: 'wallet_risk_report',
+        name: 'Wallet Risk Report',
+        description: 'Riders with negative wallet balances categorized by risk level',
+        parameters: ['teamLeaderSelect'],
+    },
+    {
+        id: 'payment_consistency',
+        name: 'Payment Consistency Report',
+        description: 'Analysis of rider payment frequency over the last 30 days',
+        parameters: ['client'],
+    },
+    {
+        id: 'client_performance',
+        name: 'Client Performance Matrix',
+        description: 'Detailed analysis of collections and recovery % per client',
+        parameters: ['dateRange'],
+    },
+    {
+        id: 'daily_growth_analysis',
+        name: 'Daily Growth & Churn',
+        description: 'Day-by-day breakdown of Allotments vs Submissions',
+        parameters: ['dateRange'],
+    }
+];
+
+/**
+ * Generate rider list report with filters
+ */
+export const generateRiderListReport = (
+    riders: Rider[],
+    filters?: {
+        status?: string;
+        client?: string;
+        startDate?: Date;
+        endDate?: Date;
+    }
+): Rider[] => {
+    let filteredRiders = [...riders];
+
+    if (filters?.status) {
+        filteredRiders = filteredRiders.filter(r => r.status === filters.status);
+    }
+
+    if (filters?.client) {
+        filteredRiders = filteredRiders.filter(r => r.clientName === filters.client);
+    }
+
+    if (filters?.startDate && filters?.endDate) {
+        filteredRiders = filteredRiders.filter(r => {
+            if (!r.allotmentDate) return false;
+            if (!r.allotmentDate) return false;
+            const riderDate = new Date(r.allotmentDate);
+            if (!filters.startDate || !filters.endDate) return false;
+            return isWithinInterval(riderDate, {
+                start: startOfDay(filters.startDate),
+                end: endOfDay(filters.endDate),
+            });
+        });
+    }
+
+    return filteredRiders;
+};
+
+/**
+ * Generate wallet summary statistics
+ */
+export const generateWalletSummaryReport = (riders: Rider[]): WalletSummary => {
+    const summary = riders.reduce(
+        (acc, rider) => {
+            const wallet = rider.walletAmount;
+
+            if (wallet > 0) {
+                acc.totalPositive += wallet;
+                acc.positiveCount += 1;
+            } else if (wallet < 0) {
+                acc.totalNegative += Math.abs(wallet);
+                acc.negativeCount += 1;
+            } else {
+                acc.zeroCount += 1;
+            }
+
+            return acc;
+        },
+        {
+            totalPositive: 0,
+            totalNegative: 0,
+            totalZero: 0,
+            positiveCount: 0,
+            negativeCount: 0,
+            zeroCount: 0,
+            averageWallet: 0,
+        }
+    );
+
+    const totalWallet = summary.totalPositive - summary.totalNegative;
+    summary.averageWallet = riders.length > 0 ? totalWallet / riders.length : 0;
+
+    return summary;
+};
+
+/**
+ * Generate client-wise distribution report
+ */
+export const generateClientDistributionReport = (riders: Rider[]): ClientDistribution[] => {
+    const clientMap = new Map<string, Rider[]>();
+
+    riders.forEach(rider => {
+        const clientRiders = clientMap.get(rider.clientName) || [];
+        clientRiders.push(rider);
+        clientMap.set(rider.clientName, clientRiders);
+    });
+
+    const distribution: ClientDistribution[] = [];
+
+    clientMap.forEach((clientRiders, clientName) => {
+        const totalWallet = clientRiders.reduce((sum, r) => sum + r.walletAmount, 0);
+        const averageWallet = clientRiders.length > 0 ? totalWallet / clientRiders.length : 0;
+
+        distribution.push({
+            clientName,
+            riderCount: clientRiders.length,
+            totalWallet,
+            averageWallet,
+        });
+    });
+
+    return distribution.sort((a, b) => b.riderCount - a.riderCount);
+};
+
+/**
+ * Calculate date range statistics
+ */
+export const calculateDateRangeStats = (
+    riders: Rider[],
+    startDate: Date,
+    endDate: Date
+): {
+    ridersInRange: Rider[];
+    totalAdded: number;
+    walletChange: number;
+} => {
+    const ridersInRange = riders.filter(r => {
+        if (!r.allotmentDate) return false;
+        const riderDate = new Date(r.allotmentDate);
+        return isWithinInterval(riderDate, {
+            start: startOfDay(startDate),
+            end: endOfDay(endDate),
+        });
+    });
+
+    const totalWallet = ridersInRange.reduce((sum, r) => sum + r.walletAmount, 0);
+
+    return {
+        ridersInRange,
+        totalAdded: ridersInRange.length,
+        walletChange: totalWallet,
+    };
+};
+
+/**
+ * Generate Team Leader performance report (Admin only)
+ */
+export const generateTeamLeaderPerformanceReport = (
+    riders: Rider[],
+    teamLeaders: User[]
+): Omit<TeamLeaderPerformance, 'teamLeaderId'>[] => {
+    const performanceMap = new Map<string, TeamLeaderPerformance>();
+
+    // Initialize with all team leaders
+    teamLeaders.forEach(tl => {
+        performanceMap.set(tl.id, {
+            teamLeaderId: tl.id,
+            teamLeaderName: tl.fullName,
+            totalRiders: 0,
+            activeRiders: 0,
+            inactiveRiders: 0,
+            deletedRiders: 0,
+            totalWallet: 0,
+            averageWallet: 0,
+        });
+    });
+
+    // Aggregate rider data
+    riders.forEach(rider => {
+        const performance = performanceMap.get(rider.teamLeaderId);
+        if (!performance) return;
+
+        performance.totalRiders += 1;
+        performance.totalWallet += rider.walletAmount;
+
+        if (rider.status === 'active') performance.activeRiders += 1;
+        else if (rider.status === 'inactive') performance.inactiveRiders += 1;
+        else if (rider.status === 'deleted') performance.deletedRiders += 1;
+    });
+
+    // Calculate averages
+    performanceMap.forEach(performance => {
+        if (performance.totalRiders > 0) {
+            performance.averageWallet = performance.totalWallet / performance.totalRiders;
+        }
+    });
+
+    return Array.from(performanceMap.values())
+        .map(({ teamLeaderId, ...rest }) => rest)
+        .sort((a, b) => b.totalRiders - a.totalRiders);
+};
+
+/**
+ * Get riders with positive wallet balance
+ */
+export const getPositiveWalletRiders = (riders: Rider[], threshold: number = 0): Rider[] => {
+    return riders
+        .filter(r => (r.walletAmount || 0) > threshold)
+        .sort((a, b) => b.walletAmount - a.walletAmount);
+};
+
+/**
+ * Generate request history report
+ */
+export const generateRequestReport = (
+    requests: Request[],
+    filters?: { status?: string; startDate?: Date; endDate?: Date }
+): any[] => {
+    let filtered = requests;
+
+    if (filters?.status && filters.status !== 'all') {
+        filtered = filtered.filter(r => r.status === filters.status);
+    }
+
+    if (filters?.startDate && filters?.endDate) {
+        filtered = filtered.filter(r => {
+            const date = new Date(r.createdAt);
+            return isWithinInterval(date, {
+                start: startOfDay(filters.startDate!),
+                end: endOfDay(filters.endDate!)
+            });
+        });
+    }
+
+    return filtered.map(r => ({
+        'Type': r.type === 'password_reset' ? 'Password Reset' : r.type,
+        'Email': r.email,
+        'User ID': r.userId || 'N/A',
+        'Status': r.status.charAt(0).toUpperCase() + r.status.slice(1),
+        'Date': new Date(r.createdAt).toLocaleString(),
+        'Resolved By': r.resolvedBy || '-',
+        'Resolved At': r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : '-'
+    }));
+};
+
+/**
+ * Generate activity log report
+ */
+export const generateActivityReport = (
+    logs: ActivityLogEntry[],
+    filters?: { startDate?: Date; endDate?: Date; actionType?: string }
+): any[] => {
+    let filtered = logs;
+
+    if (filters?.startDate && filters?.endDate) {
+        filtered = filtered.filter(l => {
+            const date = new Date(l.timestamp);
+            return isWithinInterval(date, {
+                start: startOfDay(filters.startDate!),
+                end: endOfDay(filters.endDate!)
+            });
+        });
+    }
+
+    // Optional action type filter logic could go here
+
+    return filtered.map(l => ({
+        'Action': l.action,
+        'Entity': l.entityType,
+        'Details': l.details,
+        'Performed By': l.performedBy || 'System',
+        'Date': new Date(l.timestamp).toLocaleString(),
+        'IP': l.metadata?.ip || '-'
+    }));
+};
+
+/**
+ * Generate System Health Report
+ */
+export const generateSystemHealthReport = (riders: Rider[], users: User[], requests: Request[]): any[] => {
+    const activeRiders = riders.filter(r => r.status === 'active').length;
+    const inactiveRiders = riders.filter(r => r.status === 'inactive').length;
+    const totalWallet = riders.reduce((sum, r) => sum + r.walletAmount, 0);
+    const pendingRequests = requests.filter(r => r.status === 'pending').length;
+
+    return [
+        { Metric: 'Total Users', Value: users.length, Status: 'Info' },
+        { Metric: 'Total Riders', Value: riders.length, Status: 'Info' },
+        { Metric: 'Active Riders', Value: activeRiders, Status: 'Good' },
+        { Metric: 'Inactive Riders', Value: inactiveRiders, Status: 'Warning' },
+        { Metric: 'Total Wallet Float', Value: `₹${totalWallet.toLocaleString()}`, Status: totalWallet > 0 ? 'Good' : 'Alert' },
+        { Metric: 'Pending Requests', Value: pendingRequests, Status: pendingRequests > 0 ? 'Warning' : 'Good' }
+    ];
+};
+
+/**
+ * Generate TL Daily Collection Matrix Report
+ */
+export const generateTLDailyCollectionReport = (
+    logs: (ActivityLogEntry | WalletTransactionSummary)[],
+    teamLeaders: User[],
+    startDate: Date,
+    endDate: Date,
+    selectedTLIds: string[] = [] // Empty = All
+): any[] => {
+    // 1. Setup Date Map (Columns)
+    const dateMap = new Map<string, number>();
+    const dateKeys: string[] = [];
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (currentDate <= end) {
+        // Change to dd/MM/yyyy
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const year = currentDate.getFullYear();
+        const dateStr = `${day}/${month}/${year}`;
+
+        dateKeys.push(dateStr);
+        dateMap.set(dateStr, 0);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // 2. Initialize TL Map (Rows)
+    const tlMap = new Map<string, any>();
+    teamLeaders.forEach(tl => {
+        if (selectedTLIds.length > 0 && !selectedTLIds.includes(tl.id)) return;
+
+        const row: any = {
+            'Team Leader': tl.fullName,
+            'Total': 0
+        };
+        dateKeys.forEach(date => {
+            row[date] = 0;
+        });
+        tlMap.set(tl.id, row);
+    });
+
+    // Handle "Unassigned" or "System" TLs if they exist in logs but not in user list?
+    // For now, strict mapping to existing TLs.
+
+    // 3. Process Logs (Now accepting wallet_transactions)
+    logs.forEach(log => {
+        // Adapt for both ActivityLog (legacy) and WalletTransaction (new)
+        // New Schema: amount, type, team_leader_id, timestamp
+        // Old Schema: metadata { amount, type, teamLeaderId }, timestamp
+
+        let amount = 0;
+        let type = '';
+        let tlId = '';
+        let timestamp = '';
+
+        if ('amount' in log && 'team_leader_id' in log) {
+            // New WalletTransaction Shape
+            amount = Number(log.amount);
+            type = log.type;
+            tlId = log.team_leader_id;
+            timestamp = log.timestamp;
+        } else if (log.metadata) {
+            // Legacy ActivityLog Shape
+            if (log.action !== 'wallet_transaction') return;
+            amount = Number(log.metadata.amount);
+            type = log.metadata.type;
+            tlId = log.metadata.teamLeaderId;
+            timestamp = log.timestamp;
+        } else {
+            return;
+        }
+
+        // Only count 'credit' (Collections)
+        if (type !== 'credit') return;
+
+        if (!tlId) return; // Skip if no TL attribution
+
+        // Check if TL is in our map (filtered or existing)
+        if (!tlMap.has(tlId)) {
+            // If we are showing ALL, and this TL is not in map (maybe deleted?), should we add them?
+            // Let's stick to active/known TLs passed in `teamLeaders` for now to avoid mess.
+            // OR: If selectedTLIds is empty, we act on all.
+            if (selectedTLIds.length === 0) {
+                // Try to find name from log if possible, or generic
+                const row: any = {
+                    'Team Leader': `Unknown (${tlId.substring(0, 4)}...)`,
+                    'Total': 0
+                };
+                dateKeys.forEach(date => { row[date] = 0; });
+                tlMap.set(tlId, row);
+            } else {
+                return; // Filtered out
+            }
+        }
+
+        const validDate = new Date(timestamp);
+        const day = String(validDate.getDate()).padStart(2, '0');
+        const month = String(validDate.getMonth() + 1).padStart(2, '0');
+        const year = validDate.getFullYear();
+        const logDate = `${day}/${month}/${year}`;
+
+
+        const row = tlMap.get(tlId);
+        if (row && dateKeys.includes(logDate)) {
+            row[logDate] += amount;
+            row['Total'] += amount;
+        }
+    });
+
+    // 4. Flatten to Array and Format
+    const result = Array.from(tlMap.values()).map(row => {
+        const formattedRow: any = { 'Team Leader': row['Team Leader'] };
+
+        dateKeys.forEach(date => {
+            // Format date header to be friendlier? e.g. "Oct 01"
+            // For CSV raw YYYY-MM-DD is better. Let's keep YYYY-MM-DD key for data, 
+            // but we might want to format values to currency string?
+            // Reports usually expect raw numbers for Excel math.
+            formattedRow[date] = row[date];
+        });
+        formattedRow['Total'] = row['Total'];
+        return formattedRow;
+    });
+
+    // Add Grand Total Row?
+    // Often useful.
+    if (result.length > 0) {
+        const totalRow: any = { 'Team Leader': 'GRAND TOTAL' };
+        let grandTotal = 0;
+        dateKeys.forEach(date => {
+            const sum = result.reduce((acc, r) => acc + (r[date] || 0), 0);
+            totalRow[date] = sum;
+            grandTotal += sum;
+        });
+        totalRow['Total'] = grandTotal;
+        result.push(totalRow);
+    }
+
+    return result;
+};
+
+/**
+ * Format report data for export
+ */
+export const formatReportForExport = (reportType: string, data: any[]): any[] => {
+    switch (reportType) {
+        case 'wallet_summary':
+            return data.map(item => ({
+                'Category': item.category,
+                'Count': item.count,
+                'Total Amount': `₹${item.total.toLocaleString('en-IN')}`,
+                'Average': `₹${item.average.toFixed(2)}`,
+            }));
+
+        case 'client_distribution':
+            return data.map(item => ({
+                'Client Name': item.clientName,
+                'Rider Count': item.riderCount,
+                'Total Wallet': `₹${item.totalWallet.toLocaleString('en-IN')}`,
+                'Average Wallet': `₹${item.averageWallet.toFixed(2)}`,
+            }));
+
+        case 'team_leader_performance':
+            return data.map(item => ({
+                'Team Leader': item.teamLeaderName,
+                'Total Riders': item.totalRiders,
+                'Active': item.activeRiders,
+                'Inactive': item.inactiveRiders,
+                'Deleted': item.deletedRiders,
+                'Total Wallet': `₹${item.totalWallet.toLocaleString('en-IN')}`,
+                'Average Wallet': `₹${item.averageWallet.toFixed(2)}`,
+            }));
+
+        case 'tl_daily_collection':
+            // Format currency for all number fields
+            return data.map(row => {
+                const newRow: any = { ...row };
+                Object.keys(newRow).forEach(key => {
+                    if (typeof newRow[key] === 'number') {
+                        newRow[key] = `₹${newRow[key].toLocaleString('en-IN')}`;
+                    }
+                });
+                return newRow;
+            });
+
+        // Use raw data for these as they are already formatted in generators or are flat
+        case 'request_history':
+        case 'activity_log_report':
+        case 'defaulter_list':
+        case 'system_health':
+        case 'rider_tenure_report':
+        case 'wallet_risk_report':
+        case 'collection_summary':
+        case 'fleet_health_report':
+            return data;
+
+        default:
+            return data;
+    }
+};
+
+
+
+// ... existing code ...
+
+/**
+ * Generate Revenue Report (Billing vs Collection)
+ */
+export const generateRevenueReport = (
+    ledgerEntries: any[],
+    startDate: Date,
+    endDate: Date
+): any[] => {
+    const dateMap = new Map<string, { billing: number; collection: number }>();
+    const dateKeys: string[] = [];
+
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Initialize dates
+    while (currentDate <= end) {
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const year = currentDate.getFullYear();
+        const dateStr = `${day}/${month}/${year}`; // DD/MM/YYYY
+
+        dateKeys.push(dateStr);
+        dateMap.set(dateStr, { billing: 0, collection: 0 });
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Process Ledger Entries
+    ledgerEntries.forEach(entry => {
+        // Safe date parsing
+        const txnDate = new Date(entry.transaction_date || entry.created_at);
+        if (isNaN(txnDate.getTime())) return;
+
+        const day = String(txnDate.getDate()).padStart(2, '0');
+        const month = String(txnDate.getMonth() + 1).padStart(2, '0');
+        const year = txnDate.getFullYear();
+        const dateStr = `${day}/${month}/${year}`;
+
+        if (dateMap.has(dateStr)) {
+            const current = dateMap.get(dateStr)!;
+            const amount = Number(entry.amount) || 0;
+
+            if (entry.transaction_type === 'SYSTEM_RENT_CHARGE' && entry.mode === 'SUBTRACT') {
+                current.billing += amount;
+            } else if (['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION'].includes(entry.transaction_type) && entry.mode === 'ADD') {
+                current.collection += amount;
+            }
+        }
+    });
+
+    const result = dateKeys.map(date => {
+        const data = dateMap.get(date)!;
+        return {
+            'Date': date,
+            'Billing (Rent)': data.billing,
+            'Collection': data.collection,
+            'Net Flow': data.collection - data.billing,
+            'Recovery %': data.billing > 0 ? ((data.collection / data.billing) * 100).toFixed(1) + '%' : 'N/A'
+        };
+    });
+
+    // Add Total Row
+    const totalBilling = result.reduce((sum, r) => sum + r['Billing (Rent)'], 0);
+    const totalCollection = result.reduce((sum, r) => sum + r['Collection'], 0);
+
+    result.push({
+        'Date': 'TOTAL',
+        'Billing (Rent)': totalBilling,
+        'Collection': totalCollection,
+        'Net Flow': totalCollection - totalBilling,
+        'Recovery %': totalBilling > 0 ? ((totalCollection / totalBilling) * 100).toFixed(1) + '%' : 'N/A'
+    });
+
+    return result;
+};
+
+/**
+ * Generate Client Performance Report
+ */
+export const generateClientPerformanceReport = (
+    riders: Rider[],
+    ledgerEntries: any[],
+    startDate: Date,
+    endDate: Date
+): any[] => {
+    const clientMap = new Map<string, {
+        active: number;
+        billed: number;
+        collected: number;
+    }>();
+
+    // Initialize clients from riders
+    riders.forEach(r => {
+        const client = r.clientName || 'Unknown';
+        if (!clientMap.has(client)) {
+            clientMap.set(client, { active: 0, billed: 0, collected: 0 });
+        }
+        if (r.status === 'active') {
+            clientMap.get(client)!.active += 1;
+        }
+    });
+
+    // Process Ledger
+    ledgerEntries.forEach(entry => {
+        const txnDate = new Date(entry.transaction_date || entry.created_at);
+        if (!isWithinInterval(txnDate, { start: startOfDay(startDate), end: endOfDay(endDate) })) return;
+
+        const client = entry.rider?.client_name || 'Unknown';
+        if (!clientMap.has(client)) {
+            clientMap.set(client, { active: 0, billed: 0, collected: 0 });
+        }
+
+        const data = clientMap.get(client)!;
+        const amount = Number(entry.amount) || 0;
+
+        if (entry.transaction_type === 'SYSTEM_RENT_CHARGE' && entry.mode === 'SUBTRACT') {
+            data.billed += amount;
+        } else if (['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'].includes(entry.transaction_type) && entry.mode === 'ADD') {
+            data.collected += amount;
+        }
+    });
+
+    return Array.from(clientMap.entries()).map(([name, data]) => ({
+        'Client Name': name,
+        'Active Riders': data.active,
+        'Billed Amount': data.billed,
+        'Collected Amount': data.collected,
+        'Outstanding': data.billed - data.collected,
+        'Recovery Rate': data.billed > 0 ? ((data.collected / data.billed) * 100).toFixed(1) + '%' : 'N/A'
+    })).sort((a, b) => b['Active Riders'] - a['Active Riders']);
+};
+
+/**
+ * Generate Daily Growth & Churn Report
+ */
+export const generateDailyGrowthReport = (
+    riders: Rider[],
+    startDate: Date,
+    endDate: Date
+): any[] => {
+    const dateMap = new Map<string, { allotments: number; submissions: number }>();
+    const dateKeys: string[] = [];
+
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (currentDate <= end) {
+        const d = formatISTDate(currentDate);
+        dateKeys.push(d);
+        dateMap.set(d, { allotments: 0, submissions: 0 });
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    riders.forEach(r => {
+        // Allotments
+        if (r.allotmentDate) {
+            const ad = formatISTDate(new Date(r.allotmentDate));
+            if (dateMap.has(ad)) dateMap.get(ad)!.allotments += 1;
+        }
+        // Submissions (Inactivations)
+        if (r.status === 'inactive' && r.updatedAt) {
+            const id = formatISTDate(new Date(r.updatedAt));
+            if (dateMap.has(id)) dateMap.get(id)!.submissions += 1;
+        }
+    });
+
+    return dateKeys.map(date => {
+        const data = dateMap.get(date)!;
+        return {
+            'Date': date,
+            'Allotments (New)': data.allotments,
+            'Submissions (Exit)': data.submissions,
+            'Net Growth': data.allotments - data.submissions
+        };
+    }).reverse();
+};
+
+const formatISTDate = (date: Date): string => {
+    return new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata'
+    }).format(date);
+};
+
+/**
+ * Generate Defaulter Report
+ */
+export const generateDefaulterReport = (riders: Rider[], threshold: number = -1000): any[] => {
+    return riders
+        .filter(r => (r.walletAmount || 0) <= threshold)
+        .sort((a, b) => a.walletAmount - b.walletAmount) // Ascending (Most negative first)
+        .map(r => ({
+            'Rider Name': r.riderName,
+            'Triev ID': r.trievId || '-',
+            'Mobile': r.mobileNumber,
+            'Wallet Balance': r.walletAmount,
+            'Status': r.status,
+            'Team Leader': r.teamLeaderName || 'Unassigned',
+            'Days Since Allotment': r.allotmentDate
+                ? Math.max(0, Math.floor((new Date().getTime() - new Date(getValidHistoricalDate(r.allotmentDate) || r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
+                : '-'
+        }));
+};
+
+/**
+ * Generate Collection Summary Report (based on daily_collections table)
+ */
+export const generateCollectionSummaryReport = (
+    collections: any[],
+    teamLeaders: User[]
+): any[] => {
+    const tlMap = new Map<string, string>();
+    teamLeaders.forEach(tl => tlMap.set(tl.id, tl.fullName));
+
+    const result = collections.map(c => ({
+        'Date': c.date,
+        'Team Leader': tlMap.get(c.team_leader_id) || 'Unknown',
+        'Total Collection': c.total_collection,
+        'Active Riders': c.active_riders_count,
+        'Average per Rider': c.active_riders_count > 0
+            ? (c.total_collection / c.active_riders_count).toFixed(2)
+            : 0
+    }));
+
+    // Add total row
+    if (result.length > 0) {
+        const totalColl = collections.reduce((sum, c) => sum + (c.total_collection || 0), 0);
+        result.push({
+            'Date': 'TOTAL',
+            'Team Leader': '-',
+            'Total Collection': totalColl,
+            'Active Riders': '-',
+            'Average per Rider': '-'
+        });
+    }
+
+    return result;
+};
+
+/**
+ * Generate Rider Tenure Report
+ */
+export const generateRiderTenureReport = (riders: Rider[]): any[] => {
+    return riders
+        .filter(r => r.status === 'active')
+        .sort((a, b) => {
+            const dateA = a.allotmentDate ? new Date(getValidHistoricalDate(a.allotmentDate) || a.allotmentDate).getTime() : 0;
+            const dateB = b.allotmentDate ? new Date(getValidHistoricalDate(b.allotmentDate) || b.allotmentDate).getTime() : 0;
+            return dateA - dateB; // Oldest first
+        })
+        .map(r => {
+            const days = r.allotmentDate
+                ? Math.max(0, Math.floor((new Date().getTime() - new Date(getValidHistoricalDate(r.allotmentDate) || r.allotmentDate).getTime()) / (1000 * 3600 * 24)))
+                : 0;
+            return {
+                'Triev ID': r.trievId,
+                'Rider Name': r.riderName,
+                'Client': r.clientName,
+                'TL Name': r.teamLeaderName || 'Unassigned',
+                'Allotment Date': r.allotmentDate ? new Date(r.allotmentDate).toLocaleDateString('en-IN') : '-',
+                'Tenure (Days)': days,
+                'Wallet Balance': r.walletAmount
+            };
+        });
+};
+
+/**
+ * Generate Wallet Risk Report
+ */
+export const generateWalletRiskReport = (riders: Rider[]): any[] => {
+    return riders
+        .filter(r => (r.walletAmount || 0) < 0)
+        .sort((a, b) => a.walletAmount - b.walletAmount) // Most debt first
+        .map(r => {
+            const amt = Math.abs(r.walletAmount);
+            let risk = 'Low';
+            if (amt > 5000) risk = 'Critical';
+            else if (amt > 2000) risk = 'High';
+            else if (amt > 1000) risk = 'Medium';
+
+            return {
+                'Rider Name': r.riderName,
+                'Triev ID': r.trievId,
+                'TL Name': r.teamLeaderName || 'Unassigned',
+                'Wallet Balance': r.walletAmount,
+                'Risk Level': risk,
+                'Mobile': r.mobileNumber
+            };
+        });
+};
+
+/**
+ * Generate Fleet Health Report
+ */
+export const generateFleetHealthReport = (riders: Rider[], teamLeaders: User[]): any[] => {
+    const tlStats = new Map<string, any>();
+
+    teamLeaders.forEach(tl => {
+        tlStats.set(tl.id, {
+            'Team Leader': tl.fullName,
+            'Active': 0,
+            'Inactive': 0,
+            'Deleted': 0,
+            'Total Fleet': 0,
+            'Wallet Float': 0
+        });
+    });
+
+    riders.forEach(r => {
+        const stats = tlStats.get(r.teamLeaderId);
+        if (!stats) return;
+
+        stats['Total Fleet'] += 1;
+        stats['Wallet Float'] += (r.walletAmount || 0);
+
+        if (r.status === 'active') stats['Active'] += 1;
+        else if (r.status === 'inactive') stats['Inactive'] += 1;
+        else if (r.status === 'deleted') stats['Deleted'] += 1;
+    });
+
+    return Array.from(tlStats.values()).map(s => ({
+        ...s,
+        'Wallet Float': `₹${s['Wallet Float'].toLocaleString('en-IN')}`,
+        'Avg Wallet': s['Active'] > 0 ? `₹${(parseFloat(s['Wallet Float'].replace(/[₹,]/g, '')) / s['Active']).toFixed(2)}` : '₹0.00'
+    })).sort((a, b) => b['Active'] - a['Active']);
+};
+
+/**
+ * Generate Payment Consistency Report
+ */
+export const generatePaymentConsistencyReport = (ledger: any[], riders: Rider[]): any[] => {
+    const riderPayments: Record<string, number> = {};
+    ledger.forEach(txn => {
+        const id = txn.rider_id || txn.rider?.id;
+        if (id) {
+            riderPayments[id] = (riderPayments[id] || 0) + 1;
+        }
+    });
+
+    return riders
+        .filter(r => r.status === 'active')
+        .map(r => {
+            const count = riderPayments[r.id] || 0;
+            return {
+                'Rider Name': r.riderName,
+                'Triev ID': r.trievId,
+                'Mobile': r.mobileNumber,
+                'Payments (Last 30D)': count,
+                'Consistency %': `${Math.min(100, Math.round((count / 26) * 100))}%`,
+                'Status': count > 20 ? 'Excellent' : count > 10 ? 'Average' : 'Poor'
+            };
+        });
+};
+
+export interface WalletTransactionSummary {
+    amount: number;
+    type: string;
+    team_leader_id: string;
+    timestamp: string;
+}

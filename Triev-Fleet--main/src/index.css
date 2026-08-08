@@ -1,0 +1,512 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  :root {
+    /* Vibrant Violet Theme - Light Mode */
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    /* Primary: Deep Violet */
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Secondary: Smooth Teal/Emerald */
+    --secondary: 160 84% 39%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Muted for subtle text */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    /* Accent for hover states */
+    --accent: 262.1 83.3% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    /* Destructive: Rose Red */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262.1 83.3% 57.8%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Vibrant Violet Theme - Dark Mode */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 6.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary: Lighter Violet for Dark Mode */
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 160 60% 45%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263.4 70% 50.4%;
+  }
+
+  .orange {
+    /* Light Orange Theme */
+    --background: 33 100% 98%;
+    /* Very Light Orange/Cream */
+    --foreground: 20 14% 4%;
+    /* Dark Brown-Black for high contrast */
+
+    --card: 0 0% 100%;
+    /* White Cards for cleanness */
+    --card-foreground: 20 14% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14% 4%;
+
+    /* Primary: Vibrant Orange */
+    --primary: 24.6 95% 53.1%;
+    /* Orange 500 */
+    --primary-foreground: 33 100% 98%;
+
+    /* Secondary: Warm Brown/Clay */
+    --secondary: 20 20% 90%;
+    --secondary-foreground: 20 14% 4%;
+
+    --muted: 33 30% 95%;
+    --muted-foreground: 25 10% 45%;
+
+    --accent: 33 30% 93%;
+    /* Light Orange Accent */
+    --accent-foreground: 20 14% 4%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 33 20% 90%;
+    --input: 33 20% 90%;
+    --ring: 24.6 95% 53.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom Utilities for Premium Feel */
+@layer utilities {
+  .glass {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20;
+  }
+
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border shadow-sm transition-all duration-300 hover:shadow-md;
+  }
+
+  /* Status Colors */
+  .status-active {
+    @apply text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400;
+  }
+
+  .status-inactive {
+    @apply text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400;
+  }
+
+  .status-deleted {
+    @apply text-rose-600 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-400;
+  }
+}
+
+/* Wallet specific styles (keeping legacy but enhancing) */
+.wallet-positive {
+  @apply text-emerald-600 dark:text-emerald-400 font-bold;
+}
+
+.wallet-negative {
+  @apply text-rose-600 dark:text-rose-400 font-bold;
+}
+
+.wallet-zero {
+  @apply text-gray-500 dark:text-gray-400 font-medium;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
+}
+
+/* Blob Animations */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Grid Pattern */
+.bg-grid-white\/\[0\.05\] {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Glassmorphism */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-morphism {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Safe Area Utilities for Mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.h-safe-screen {
+  height: 100vh;
+  /* Fallback */
+  height: 100dvh;
+}
+
+/* ─── Responsive Table Scroll Container ─── */
+.table-responsive {
+  @apply w-full overflow-x-auto -mx-1 px-1;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+.table-responsive table {
+  @apply min-w-[640px];
+}
+
+/* ─── Standardized Responsive Card Grids ─── */
+.card-grid-2 {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-3;
+}
+
+.card-grid-3 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3;
+}
+
+.card-grid-4 {
+  @apply grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3;
+}
+
+/* ─── Wallet Severity Colors (Gradient scale) ─── */
+.wallet-high {
+  @apply text-emerald-600 dark:text-emerald-400 font-bold;
+}
+
+.wallet-medium {
+  @apply text-yellow-600 dark:text-yellow-400 font-bold;
+}
+
+.wallet-low {
+  @apply text-orange-600 dark:text-orange-400 font-bold;
+}
+
+.wallet-critical {
+  @apply text-rose-600 dark:text-rose-400 font-bold;
+}
+
+/* ─── Semantic Color Utilities ─── */
+@layer utilities {
+  .text-success {
+    @apply text-emerald-600 dark:text-emerald-400;
+  }
+
+  .text-warning {
+    @apply text-amber-600 dark:text-amber-400;
+  }
+
+  .text-danger {
+    @apply text-rose-600 dark:text-rose-400;
+  }
+
+  .bg-success-soft {
+    @apply bg-emerald-50 dark:bg-emerald-950/30;
+  }
+
+  .bg-warning-soft {
+    @apply bg-amber-50 dark:bg-amber-950/30;
+  }
+
+  .bg-danger-soft {
+    @apply bg-rose-50 dark:bg-rose-950/30;
+  }
+}
+
+/* ─── Mobile Text Readability ─── */
+@media (max-width: 640px) {
+  .font-jakarta {
+    letter-spacing: -0.01em;
+  }
+}
+
+/* ─── Mobile-Friendly Scrollbar (Auto-Hide) ─── */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  .table-responsive::-webkit-scrollbar {
+    height: 3px;
+  }
+}
+
+/* ─── Prevent Horizontal Overflow Globally ─── */
+html,
+body,
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  TRIEV FLEET v2.0 — PREMIUM THEME ENHANCEMENTS          */
+/* ══════════════════════════════════════════════════════════ */
+
+/* ─── Enhanced Glassmorphism v2.0 ─── */
+.glass-v2 {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .glass-v2 {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* ─── Premium Card Hover Glow ─── */
+.card-glow {
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15), rgba(236, 72, 153, 0.1));
+  opacity: 0;
+  transition: opacity 0.4s;
+  z-index: -1;
+  filter: blur(1px);
+}
+
+.card-glow:hover::before {
+  opacity: 1;
+}
+
+.card-glow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Premium Scrollbar v2.0 ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.2));
+  border-radius: 100px;
+  border: 1px solid transparent;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.5), rgba(168, 85, 247, 0.4));
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.3));
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Gradient Text Utilities ─── */
+@layer utilities {
+  .gradient-text-primary {
+    @apply bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-success {
+    @apply bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-warning {
+    @apply bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-danger {
+    @apply bg-gradient-to-r from-rose-500 to-red-600 bg-clip-text text-transparent;
+  }
+
+  /* Animated shimmer effect */
+  .shimmer {
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer-sweep 2s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Subtle Pulse Glow ─── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.25); }
+}
+
+.pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* ─── Premium Focus Ring v2.0 ─── */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.3);
+}
+
+/* ─── Smooth Page Transitions ─── */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─── Enhanced Selection Colors ─── */
+::selection {
+  background: hsl(var(--primary) / 0.25);
+  color: hsl(var(--foreground));
+}
+
+/* ─── Mobile Scrollbar v2.0 ─── */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  .table-responsive::-webkit-scrollbar {
+    height: 3px;
+  }
+}
+
+/* ─── Print Styles ─── */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

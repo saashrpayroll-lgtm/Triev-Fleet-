@@ -1,0 +1,307 @@
+import React, { useState } from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import {
+    LayoutDashboard, Users, FileText, Activity, LogOut, Menu,
+    X, Wallet, User, Target, ShieldAlert, Bell
+} from 'lucide-react';
+import NotificationsDropdown from '@/components/NotificationsDropdown';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { safeRender } from '@/utils/safeRender';
+import BottomNav from '@/components/layout/BottomNav';
+import { supabase } from '@/config/supabase';
+import { toast } from 'sonner';
+
+interface NavItem {
+    path: string;
+    icon: any;
+    label: string;
+    visible?: boolean;
+    badge?: number;
+    badgeColor?: string;
+}
+
+interface NavGroup {
+    title: string;
+    items: NavItem[];
+}
+
+const TeamLeaderLayout: React.FC = () => {
+    const { userData, signOut } = useSupabaseAuth();
+    const location = useLocation();
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    // Live Badges State
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+    React.useEffect(() => {
+        if (!userData) return;
+        fetchCounts();
+
+        // Subscriptions
+        const reqChannel = supabase.channel('tl-requests-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `user_id=eq.${userData.id}` }, () => fetchCounts())
+            .subscribe();
+
+        const notifChannel = supabase.channel('tl-notifications-popup')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, (payload) => {
+                const n = payload.new;
+
+                // Check if this broadcast is meant for this Team Leader
+                const isForMe = n.target_role === 'all' ||
+                    n.target_role === 'teamLeader' ||
+                    (n.target_role === 'single_user' && n.target_id === userData.id);
+
+                if (isForMe) {
+                    toast.custom(() => (
+                        <div className={`p-4 rounded-xl border-l-4 shadow-2xl bg-background border whitespace-pre-wrap ${n.priority === 'high' ? 'border-l-red-500' : 'border-l-primary'}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                                {n.priority === 'high' ? <ShieldAlert size={16} className="text-red-500" /> : <Bell size={16} className="text-primary" />}
+                                <span className="font-bold text-sm text-foreground">{n.title}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground ml-6">{n.body}</p>
+                        </div>
+                    ), { duration: n.priority === 'high' ? 10000 : 6000, position: 'top-center' });
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(reqChannel);
+            supabase.removeChannel(notifChannel);
+        };
+    }, [userData]);
+
+    const fetchCounts = async () => {
+        if (!userData) return;
+        try {
+            const { count: reqCount } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).in('status', ['pending', 'open']); // Track their pending requests
+            setPendingRequestsCount(reqCount || 0);
+        } catch (e) {
+            console.error("Failed to fetch TL sidebar counts:", e);
+        }
+    };
+
+    // DEBUG: Monitor permissions
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    };
+
+    const navGroups: NavGroup[] = [
+        {
+            title: 'Overview',
+            items: [
+                { path: '/team-leader', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        },
+        {
+            title: 'Operations',
+            items: [
+                { path: '/team-leader/riders', icon: Users, label: 'My Riders', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/team-leader/leads', icon: Target, label: 'My Leads', visible: userData?.permissions?.modules?.leads ?? true },
+                { path: '/team-leader/forms', icon: FileText, label: 'Company Forms', visible: true },
+                {
+                    path: '/team-leader/requests',
+                    icon: ShieldAlert,
+                    label: 'Support Tickets',
+                    visible: userData?.permissions?.modules?.requests ?? true,
+                    badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+                    badgeColor: 'bg-orange-500 text-white'
+                },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        },
+        {
+            title: 'Logs & Reports',
+            items: [
+                { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet Logs', visible: userData?.permissions?.wallet?.viewHistory ?? true },
+                { path: '/team-leader/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
+                { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        },
+        {
+            title: 'Settings',
+            items: [
+                { path: '/team-leader/notifications', icon: Bell, label: 'Notifications', visible: userData?.permissions?.modules?.notifications ?? true },
+                { path: '/team-leader/profile', icon: User, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? true },
+            ].filter(item => { if (item.visible === undefined) return true; return item.visible; })
+        }
+    ].filter(group => group.items.length > 0);
+
+    // Flatten for BottomNav
+    const flatNavItems = navGroups.flatMap(g => g.items);
+
+    return (
+        <div className="flex h-screen bg-background">
+            {/* Sidebar - Hidden on Mobile */}
+            <aside
+                className={`hidden md:flex ${sidebarOpen ? 'w-64' : 'w-20'
+                    } bg-card border-r border-border transition-all duration-300 flex-col shadow-lg z-[10000]`}
+            >
+                <div className="p-4 border-b border-border flex items-center justify-between bg-primary/5">
+                    {sidebarOpen && (
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                            Triev Rider Pro
+                        </h1>
+                    )}
+                    <button
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        className="p-2 hover:bg-accent rounded-md transition-colors"
+                    >
+                        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+                    </button>
+                </div>
+
+                <nav className="flex-1 px-3 py-6 space-y-7 overflow-y-auto custom-scrollbar">
+                    {navGroups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="space-y-2 relative">
+                            {sidebarOpen && (
+                                <motion.h3
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="px-4 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/40 mb-3 flex items-center gap-2"
+                                >
+                                    {group.title}
+                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                                </motion.h3>
+                            )}
+                            {group.items.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = location.pathname === item.path;
+
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        to={item.path}
+                                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
+                                            ? 'text-primary font-bold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                    >
+                                        {/* Hover background effect */}
+                                        <div className={`absolute inset-0 transition-opacity duration-300 ${isActive
+                                            ? 'bg-primary/10 opacity-100'
+                                            : 'bg-primary/5 opacity-0 group-hover:opacity-100'
+                                            }`} />
+
+                                        {/* Activity Indicator */}
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="tl-active-pill"
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.5)]"
+                                            />
+                                        )}
+
+                                        <div className={`relative shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'}`}>
+                                            <Icon size={18} className={isActive ? 'text-primary' : 'transition-colors duration-300'} />
+                                            {!sidebarOpen && item.badge !== undefined && (
+                                                <span className={`absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black shadow-lg ${item.badgeColor}`}>
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {sidebarOpen && (
+                                            <span className="relative flex-1 text-sm tracking-tight whitespace-nowrap transition-all duration-300">
+                                                {item.label}
+                                            </span>
+                                        )}
+
+                                        {sidebarOpen && item.badge !== undefined && (
+                                            <span className={`relative px-2 py-0.5 rounded-lg text-[9px] font-black ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in shadow-sm`}>
+                                                {item.badge}
+                                            </span>
+                                        )}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </nav>
+
+                <div className="p-4 border-t border-border">
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 px-4 py-3 rounded-md bg-red-500/10 text-red-600 hover:bg-red-600 hover:text-white transition-all w-full text-left shadow-sm group"
+                    >
+                        <LogOut size={20} className="group-hover:rotate-180 transition-transform duration-500" />
+                        {sidebarOpen && <span className="font-bold">Logout</span>}
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col overflow-hidden mb-24 md:mb-0 max-w-full">
+                {/* Header */}
+                <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-[9990]">
+                    <div>
+                        <h2 className="text-lg md:text-2xl font-semibold flex items-center gap-2">
+                            {/* Mobile Logo */}
+                            <div className="md:hidden w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold shadow-sm">
+                                T
+                            </div>
+                            <span className="hidden md:inline">{sidebarOpen ? '' : 'Triev Rider Pro'}</span>
+                            <span className="md:hidden">Triev Rider Pro</span>
+                        </h2>
+                    </div>
+
+                    <div className="flex items-center gap-3 md:gap-4">
+                        <ThemeToggle />
+                        {/* Notifications */}
+                        {userData && (
+                            <NotificationsDropdown
+                                userId={userData.id}
+                                userRole={userData.role}
+                            />
+                        )}
+
+                        {/* User Info - Compact on Mobile */}
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <div className="text-right hidden md:block">
+                                <p className="font-medium text-sm">{safeRender(userData?.fullName, 'Leader')}</p>
+                                <p className="text-xs text-muted-foreground capitalize">{safeRender(userData?.role)}</p>
+                            </div>
+                            {/* Clickable avatar → Profile page (only if profile module enabled) */}
+                            {userData?.permissions?.modules?.profile ? (
+                                <Link
+                                    to="/team-leader/profile"
+                                    title="My Profile"
+                                    className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-primary/30 hover:border-primary transition-all flex items-center justify-center flex-shrink-0 relative group"
+                                >
+                                    {userData?.profilePicUrl ? (
+                                        <img src={userData.profilePicUrl} alt="avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
+                                            {safeRender(userData?.fullName || 'L').charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                    {/* Hover hint */}
+                                    <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold bg-foreground text-background px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Profile</span>
+                                </Link>
+                            ) : (
+                                <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold">
+                                    {safeRender(userData?.fullName || 'L').charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </header>
+
+                {/* Page Content */}
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
+                    <Outlet />
+                </main>
+            </div>
+
+            {/* Bottom Nav */}
+            <BottomNav items={flatNavItems} />
+        </div>
+    );
+};
+
+export default TeamLeaderLayout;

@@ -1,0 +1,806 @@
+import React, { useState } from 'react';
+import { X, CheckSquare, Layers, User, Wallet, MessageSquare, Shield, Brain, LayoutDashboard, Users, Settings, BarChart3, Radio, UserCog, Search, Zap } from 'lucide-react';
+import { UserPermissions } from '@/types';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+
+interface PermissionsEditorProps {
+    isOpen: boolean;
+    onClose: () => void;
+    currentPermissions: UserPermissions;
+    onSave: (permissions: UserPermissions) => Promise<void>;
+    userName: string;
+}
+
+type RiskLevel = 'low' | 'medium' | 'high';
+
+interface PermissionConfig {
+    id: string;
+    label: string;
+    description: string;
+    risk: RiskLevel;
+    path: string; // Dot notation path in UserPermissions object
+}
+
+interface TabConfig {
+    id: string;
+    label: string;
+    icon: React.ElementType;
+    permissions: PermissionConfig[];
+    badgeCount?: number;
+}
+
+const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
+    isOpen,
+    onClose,
+    currentPermissions,
+    onSave,
+    userName,
+}) => {
+
+    // --- State ---
+    const defaultPermissions: UserPermissions = {
+        dashboard: {
+            view: false,
+            statsCards: {
+                totalRiders: false, activeRiders: false, inactiveRiders: false, deletedRiders: false,
+                teamLeaders: false, revenue: false,
+                totalLeads: false, newLeads: false, convertedLeads: false, notConvertedLeads: false,
+                walletPositive: false, walletNegative: false, walletZero: false, walletAverage: false,
+                leaderboard: false
+            },
+            charts: { revenue: false, onboarding: false },
+            recentActivity: false
+        },
+        modules: {
+            leads: false, riders: false, users: false, notifications: false,
+            requests: false, dataManagement: false, activityLog: false, reports: false, profile: false
+        },
+        riders: {
+            view: false, create: false, edit: false, delete: false, hardDelete: false, statusChange: false, export: false,
+            call: false, whatsapp: false, // New defaults
+            bulkActions: { statusChange: false, delete: false, sendReminders: false, assignTeamLeader: false, export: false },
+            fields: { viewSensitive: false },
+            idCard: false
+        },
+        leads: {
+            view: false, create: false, edit: false, delete: false, statusChange: false, export: false,
+            bulkActions: { statusChange: false, delete: false, assign: false, export: false } // New defaults
+        },
+        users: { view: false, create: false, edit: false, delete: false, managePermissions: false, suspend: false },
+        wallet: { view: false, addFunds: false, deductFunds: false, viewHistory: false, bulkUpdate: false },
+        notifications: { view: false, broadcast: false, delete: false },
+        requests: { view: false, resolve: false, delete: false },
+        reports: { view: false, generate: false, export: false },
+        profile: { view: false, editPersonalDetails: false, editBankDetails: false, changePassword: false, idCard: false },
+        system: { resetUserPassword: false },
+        rmPanel: {
+            dashboard: false, tlPerformance: false, leaderboard: false,
+            riderOverview: false, leadOverview: false, reports: false,
+            collectionHistory: false, export: false
+        },
+        cityOpsPanel: {
+            view: false,
+            dashboard: {
+                view: false,
+                statsCards: {
+                    totalRiders: false, activeRiders: false, inactiveRiders: false, deletedRiders: false,
+                    teamLeaders: false, revenue: false,
+                    totalLeads: false, newLeads: false, convertedLeads: false, notConvertedLeads: false,
+                    walletPositive: false, walletNegative: false, walletZero: false, walletAverage: false,
+                    leaderboard: false,
+                    zomatoVpi: false
+                },
+                charts: { revenue: false, onboarding: false, weeklyCollection: false },
+                recentActivity: false
+            },
+            riderManagement: false, leadManagement: false, leaderboard: false,
+            dataManagement: { bulkRiderImport: false, bulkWalletUpdate: false, rentCollectionImport: false, auditSync: false, importHistory: false, googleSheets: false },
+            walletLedger: false, reports: false, activityLog: false, notifications: false, analytics: false, walletBifurcation: false,
+            companyForms: false, staffRoles: false, rmPerformance: false, tlPerformance: false, allotmentSystem: false, profile: false, export: false
+        }
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mergePermissions = (current: any, defaults: any): any => {
+        const result = { ...defaults };
+        for (const key in current) {
+            if (current[key] && typeof current[key] === 'object' && !Array.isArray(current[key])) {
+                result[key] = mergePermissions(current[key], defaults[key] || {});
+            } else {
+                result[key] = current[key];
+            }
+        }
+        return result;
+    };
+
+    const [permissions, setPermissions] = useState<UserPermissions>(() => {
+        return mergePermissions(currentPermissions, defaultPermissions);
+    });
+
+    // Auto-fix on mount: If a user has a feature enabled but module disabled, fix it visually
+    // (Optional, maybe too aggressive if they intentionally hid the module?)
+    // Let's stick to handleToggle for now.
+
+    const [isSaving, setIsSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showPresets, setShowPresets] = useState(false);
+
+    // --- Preset Templates ---
+    const presets = [
+        {
+            id: 'full',
+            label: 'Full Access',
+            description: 'All permissions enabled',
+            color: 'bg-green-500',
+            apply: () => {
+                const all = JSON.parse(JSON.stringify(defaultPermissions));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const enableAll = (obj: any): any => {
+                    for (const key in obj) {
+                        if (typeof obj[key] === 'boolean') obj[key] = true;
+                        else if (typeof obj[key] === 'object') enableAll(obj[key]);
+                    }
+                    return obj;
+                };
+                return enableAll(all);
+            }
+        },
+        {
+            id: 'readonly',
+            label: 'Read Only',
+            description: 'View-only access, no edits',
+            color: 'bg-blue-500',
+            apply: () => {
+                const ro = JSON.parse(JSON.stringify(defaultPermissions));
+                ro.dashboard.view = true;
+                ro.dashboard.recentActivity = true;
+                ro.modules = { leads: true, riders: true, users: true, notifications: true, requests: true, dataManagement: false, activityLog: true, reports: true, profile: true };
+                ro.riders.view = true;
+                ro.leads.view = true;
+                ro.users.view = true;
+                ro.wallet.view = true;
+                ro.wallet.viewHistory = true;
+                ro.notifications.view = true;
+                ro.requests.view = true;
+                ro.reports.view = true;
+                ro.profile.view = true;
+                return ro;
+            }
+        },
+        {
+            id: 'manager',
+            label: 'Manager',
+            description: 'Edit rights, no deletes',
+            color: 'bg-purple-500',
+            apply: () => {
+                const mgr = JSON.parse(JSON.stringify(defaultPermissions));
+                mgr.dashboard.view = true;
+                mgr.dashboard.recentActivity = true;
+                mgr.modules = { leads: true, riders: true, users: true, notifications: true, requests: true, dataManagement: true, activityLog: true, reports: true, profile: true };
+                mgr.riders = { ...mgr.riders, view: true, create: true, edit: true, statusChange: true, export: true, call: true, whatsapp: true, bulkActions: { statusChange: true, delete: false, sendReminders: true, assignTeamLeader: true, export: true }, fields: { viewSensitive: false }, idCard: true };
+                mgr.leads = { ...mgr.leads, view: true, create: true, edit: true, statusChange: true, export: true, bulkActions: { statusChange: true, delete: false, assign: true, export: true } };
+                mgr.users = { view: true, create: false, edit: true, delete: false, managePermissions: false, suspend: false };
+                mgr.wallet = { view: true, addFunds: true, deductFunds: true, viewHistory: true, bulkUpdate: false };
+                mgr.notifications = { view: true, broadcast: true, delete: false };
+                mgr.requests = { view: true, resolve: true, delete: false };
+                mgr.reports = { view: true, generate: true, export: true };
+                mgr.profile = { view: true, editPersonalDetails: true, editBankDetails: false, changePassword: true };
+                return mgr;
+            }
+        },
+        {
+            id: 'minimal',
+            label: 'Minimal',
+            description: 'Dashboard + Profile only',
+            color: 'bg-gray-500',
+            apply: () => {
+                const min = JSON.parse(JSON.stringify(defaultPermissions));
+                min.dashboard.view = true;
+                min.modules.profile = true;
+                min.profile.view = true;
+                min.profile.changePassword = true;
+                return min;
+            }
+        }
+    ];
+
+    const applyPreset = async (preset: typeof presets[0]) => {
+        const newPerms = preset.apply();
+        setPermissions(newPerms);
+        setShowPresets(false);
+        setIsSaving(true);
+        try { await onSave(newPerms); } catch (e) { console.error('Preset save error:', e); } finally { setIsSaving(false); }
+    };
+
+    // --- Helpers ---
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const getNestedValue = (obj: any, path: string) => {
+        return path.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setNestedValue = (obj: any, path: string, value: boolean) => {
+        const newObj = JSON.parse(JSON.stringify(obj)); // Deep clone
+        const parts = path.split('.');
+        let current = newObj;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!current[parts[i]]) current[parts[i]] = {};
+            current = current[parts[i]];
+        }
+        current[parts[parts.length - 1]] = value;
+        return newObj;
+    };
+
+    const handleToggle = async (path: string, currentValue: boolean) => {
+        const newValue = !currentValue;
+        let newPermissions = setNestedValue(permissions, path, newValue);
+
+        // Auto-Enable Logic: If enabling a feature, ensure the parent module is also enabled
+        if (newValue) {
+            const moduleMapping: Record<string, string> = {
+                'riders.': 'modules.riders',
+                'leads.': 'modules.leads',
+                'users.': 'modules.users',
+                'reports.': 'modules.reports',
+                'requests.': 'modules.requests',
+                'wallet.': 'modules.dataManagement',
+                'notifications.': 'modules.notifications',
+                'profile.': 'modules.profile',
+            };
+
+            for (const [prefix, modulePath] of Object.entries(moduleMapping)) {
+                if (path.startsWith(prefix)) {
+                    // Check if module is already enabled
+                    const isModuleEnabled = getNestedValue(newPermissions, modulePath);
+                    if (!isModuleEnabled) {
+                        newPermissions = setNestedValue(newPermissions, modulePath, true);
+                    }
+                    break;
+                }
+            }
+        }
+
+        setPermissions(newPermissions);
+
+        // Auto-save immediately
+        setIsSaving(true);
+        try {
+            await onSave(newPermissions);
+        } catch (error) {
+            console.error('Error auto-saving permissions:', error);
+            // Revert on error? For now just log
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleBulkToggle = async (targetValue: boolean) => {
+        const currentTabConfig = tabs.find(t => t.id === activeTab);
+        if (!currentTabConfig) return;
+
+        let newPermissions = { ...permissions };
+        const permsToToggle = searchQuery
+            ? currentTabConfig.permissions.filter(p => p.label.toLowerCase().includes(searchQuery.toLowerCase()) || p.description.toLowerCase().includes(searchQuery.toLowerCase()))
+            : currentTabConfig.permissions;
+
+        permsToToggle.forEach(perm => {
+            newPermissions = setNestedValue(newPermissions, perm.path, targetValue);
+        });
+
+        // Auto-Enable Modules for Bulk Actions (Only if enabling)
+        if (targetValue) {
+            const moduleMapping: Record<string, string> = {
+                'riders.': 'modules.riders',
+                'leads.': 'modules.leads',
+                'users.': 'modules.users',
+                'reports.': 'modules.reports',
+                'requests.': 'modules.requests',
+                'wallet.': 'modules.dataManagement',
+                'notifications.': 'modules.notifications',
+                'profile.': 'modules.profile',
+            };
+
+            // Check if any of the modified paths trigger a module enable
+            const pathsTouched = permsToToggle.map(p => p.path);
+            for (const [prefix, modulePath] of Object.entries(moduleMapping)) {
+                if (pathsTouched.some(p => p.startsWith(prefix))) {
+                    const isModuleEnabled = getNestedValue(newPermissions, modulePath);
+                    if (!isModuleEnabled) {
+                        newPermissions = setNestedValue(newPermissions, modulePath, true);
+                    }
+                }
+            }
+        }
+
+        setPermissions(newPermissions);
+
+        // Auto-save Bulk
+        setIsSaving(true);
+        try {
+            await onSave(newPermissions);
+        } catch (error) {
+            console.error('Error auto-saving bulk permissions:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // No longer needed manual save action, but keeping for reset/close check logic if needed
+
+    // --- Configuration ---
+    const { userData } = useSupabaseAuth();
+    const isCityOps = userData?.role === 'cityOps';
+
+    const baseTabs: TabConfig[] = [
+        {
+            id: 'dashboard',
+            label: 'Dashboard & Analytics',
+            icon: LayoutDashboard,
+            permissions: [
+                { id: 'dash_view', label: 'View Dashboard', description: 'Access the main dashboard overview', risk: 'low', path: 'dashboard.view' },
+                { id: 'dash_revenue', label: 'View Revenue Stats', description: 'See financial metrics and revenue charts', risk: 'medium', path: 'dashboard.statsCards.revenue' },
+                { id: 'dash_recent', label: 'Recent Activity', description: 'View latest system actions log', risk: 'low', path: 'dashboard.recentActivity' },
+                { id: 'dash_charts', label: 'View Growth Charts', description: 'Access rider onboarding and performance charts', risk: 'low', path: 'dashboard.charts.onboarding' },
+                { id: 'dash_leaderboard', label: 'Leaderboard Stats', description: 'View leaderboard toplist', risk: 'low', path: 'dashboard.statsCards.leaderboard' },
+
+                // Rider Stats
+                { id: 'dash_total_riders', label: 'Total Riders Card', description: 'View total riders count', risk: 'low', path: 'dashboard.statsCards.totalRiders' },
+                { id: 'dash_active_riders', label: 'Active Riders Card', description: 'View active riders count', risk: 'low', path: 'dashboard.statsCards.activeRiders' },
+                { id: 'dash_inactive_riders', label: 'Inactive Riders Card', description: 'View inactive riders count', risk: 'low', path: 'dashboard.statsCards.inactiveRiders' },
+                { id: 'dash_deleted_riders', label: 'Deleted Riders Card', description: 'View deleted riders count', risk: 'low', path: 'dashboard.statsCards.deletedRiders' },
+
+                // Lead Stats
+                { id: 'dash_total_leads', label: 'Total Leads Card', description: 'View total leads count', risk: 'low', path: 'dashboard.statsCards.totalLeads' },
+                { id: 'dash_new_leads', label: 'New Leads Card', description: 'View new leads count', risk: 'low', path: 'dashboard.statsCards.newLeads' },
+                { id: 'dash_conv_leads', label: 'Converted Leads Card', description: 'View converted leads count', risk: 'low', path: 'dashboard.statsCards.convertedLeads' },
+                { id: 'dash_nonconv_leads', label: 'Not Converted Leads Card', description: 'View not converted leads count', risk: 'low', path: 'dashboard.statsCards.notConvertedLeads' },
+
+                // Wallet Stats
+                { id: 'dash_wallet_pos', label: 'Positive Wallet Card', description: 'View positive wallet stats', risk: 'medium', path: 'dashboard.statsCards.walletPositive' },
+                { id: 'dash_wallet_neg', label: 'Negative Wallet Card', description: 'View negative wallet stats', risk: 'medium', path: 'dashboard.statsCards.walletNegative' },
+                { id: 'dash_wallet_zero', label: 'Zero Wallet Card', description: 'View zero wallet stats', risk: 'medium', path: 'dashboard.statsCards.walletZero' },
+                { id: 'dash_wallet_avg', label: 'Average Wallet Card', description: 'View average wallet stats', risk: 'medium', path: 'dashboard.statsCards.walletAverage' },
+            ]
+        },
+        {
+            id: 'modules',
+            label: 'Sidebar Modules',
+            icon: Layers,
+            permissions: [
+                { id: 'mod_leads', label: 'Leads Module', description: 'Show Leads in sidebar', risk: 'low', path: 'modules.leads' },
+                { id: 'mod_riders', label: 'Riders Module', description: 'Show Riders in sidebar', risk: 'low', path: 'modules.riders' },
+                { id: 'mod_users', label: 'Users Module', description: 'Show Users in sidebar', risk: 'low', path: 'modules.users' },
+                { id: 'mod_reports', label: 'Reports Module', description: 'Show Reports in sidebar', risk: 'low', path: 'modules.reports' },
+                { id: 'mod_data', label: 'Data/Wallet Module', description: 'Show Wallet/Data in sidebar', risk: 'low', path: 'modules.dataManagement' },
+                { id: 'mod_activity', label: 'Activity Module', description: 'Show Activity Log in sidebar', risk: 'low', path: 'modules.activityLog' },
+                { id: 'mod_notif', label: 'Notifications Module', description: 'Show Notifications in sidebar', risk: 'low', path: 'modules.notifications' },
+                { id: 'mod_req', label: 'Requests Module', description: 'Show Requests in sidebar', risk: 'low', path: 'modules.requests' },
+                { id: 'mod_profile', label: 'Profile Page', description: 'Show Profile page in TL sidebar (allows TL to view & update their profile)', risk: 'low', path: 'modules.profile' },
+            ]
+        },
+        {
+            id: 'riders',
+            label: 'Rider Management',
+            icon: Users,
+            permissions: [
+                { id: 'riders_view', label: 'View Rider List', description: 'See all registered riders', risk: 'low', path: 'riders.view' },
+                { id: 'riders_create', label: 'Add New Riders', description: 'Register new riders into the system', risk: 'medium', path: 'riders.create' },
+                { id: 'riders_edit', label: 'Edit Rider Details', description: 'Modify rider profiles and information', risk: 'medium', path: 'riders.edit' },
+                { id: 'riders_sensitive', label: 'View Sensitive Data', description: 'Access bank details and documents', risk: 'high', path: 'riders.fields.viewSensitive' },
+                { id: 'riders_delete', label: 'Delete Riders (Soft)', description: 'Mark riders as deleted (recoverable)', risk: 'high', path: 'riders.delete' },
+                { id: 'riders_hard_delete', label: 'Hard Delete Riders', description: 'Permanently remove rider data', risk: 'high', path: 'riders.hardDelete' },
+                { id: 'riders_export', label: 'Export Data', description: 'Download rider lists as CSV/Excel', risk: 'medium', path: 'riders.export' },
+                { id: 'riders_status', label: 'Change Status', description: 'Activate or deactivate riders', risk: 'medium', path: 'riders.statusChange' },
+
+                // New Granular Buttons
+                { id: 'riders_call', label: 'Call Button', description: 'Enable "Call" button on rider cards', risk: 'low', path: 'riders.call' },
+                { id: 'riders_whatsapp', label: 'WhatsApp Button', description: 'Enable "WhatsApp" button on rider cards', risk: 'low', path: 'riders.whatsapp' },
+
+                // Bulk Actions
+                { id: 'riders_bulk_status', label: 'Bulk Status Change', description: 'Change status for multiple riders at once', risk: 'medium', path: 'riders.bulkActions.statusChange' },
+                { id: 'riders_bulk_delete', label: 'Bulk Delete', description: 'Delete multiple riders at once', risk: 'high', path: 'riders.bulkActions.delete' },
+                { id: 'riders_bulk_remind', label: 'Bulk Reminders', description: 'Send payment reminders to multiple riders', risk: 'low', path: 'riders.bulkActions.sendReminders' },
+                { id: 'riders_bulk_assign', label: 'Bulk Assign TL', description: 'Assign Team Leaders to multiple riders', risk: 'medium', path: 'riders.bulkActions.assignTeamLeader' },
+                { id: 'riders_id_card', label: 'Rider ID Card', description: 'Enable ID card generation and photo upload', risk: 'medium', path: 'riders.idCard' },
+            ]
+        },
+        {
+            id: 'leads',
+            label: 'Lead Management',
+            icon: CheckSquare,
+            permissions: [
+                { id: 'leads_view', label: 'View Leads', description: 'Browse and search leads', risk: 'low', path: 'leads.view' },
+                { id: 'leads_create', label: 'Create Leads', description: 'Add new potential riders', risk: 'low', path: 'leads.create' },
+                { id: 'leads_status', label: 'Change Status', description: 'Update lead progress (e.g. New -> Contacted)', risk: 'medium', path: 'leads.statusChange' },
+                { id: 'leads_delete', label: 'Delete Leads', description: 'Remove leads from the system', risk: 'high', path: 'leads.delete' },
+
+                // New Bulk & Granular
+                { id: 'leads_bulk_status', label: 'Bulk Status Change', description: 'Change status for multiple leads', risk: 'medium', path: 'leads.bulkActions.statusChange' },
+                { id: 'leads_bulk_delete', label: 'Bulk Delete', description: 'Delete multiple leads at once', risk: 'high', path: 'leads.bulkActions.delete' },
+                { id: 'leads_bulk_assign', label: 'Bulk Assign', description: 'Assign leads to other users', risk: 'medium', path: 'leads.bulkActions.assign' },
+            ]
+        },
+        {
+            id: 'wallet',
+            label: 'Wallet & Finance',
+            icon: Wallet,
+            permissions: [
+                { id: 'wallet_view', label: 'View Wallets', description: 'See rider wallet balances', risk: 'medium', path: 'wallet.view' },
+                { id: 'wallet_history', label: 'View Wallet History', description: 'Access transaction history (TL restricted)', risk: 'medium', path: 'wallet.viewHistory' },
+                { id: 'wallet_add', label: 'Add Funds', description: 'Credit amounts to rider wallets', risk: 'high', path: 'wallet.addFunds' },
+                { id: 'wallet_deduct', label: 'Deduct Funds', description: 'Debit amounts from rider wallets', risk: 'high', path: 'wallet.deductFunds' },
+                { id: 'wallet_bulk', label: 'Bulk Update', description: 'Bulk wallet operations', risk: 'high', path: 'wallet.bulkUpdate' },
+            ]
+        },
+        {
+            id: 'users',
+            label: 'User Management',
+            icon: User,
+            permissions: [
+                { id: 'users_view', label: 'View Users', description: 'See list of admins and team leaders', risk: 'low', path: 'users.view' },
+                { id: 'users_create', label: 'Create Users', description: 'Add new staff members', risk: 'high', path: 'users.create' },
+                { id: 'users_perms', label: 'Manage Permissions', description: 'Grant or revoke system access', risk: 'high', path: 'users.managePermissions' },
+                { id: 'users_suspend', label: 'Suspend Users', description: 'Temporarily block access', risk: 'high', path: 'users.suspend' },
+                { id: 'system_pass', label: 'Reset Passwords', description: 'Force reset other users\' passwords', risk: 'high', path: 'system.resetUserPassword' },
+            ]
+        },
+        {
+            id: 'reports',
+            label: 'Reports & Export',
+            icon: BarChart3,
+            permissions: [
+                { id: 'reports_gen', label: 'Generate Reports', description: 'Create custom analytics reports', risk: 'low', path: 'reports.generate' },
+                { id: 'reports_export', label: 'Export Data', description: 'Download system-wide data', risk: 'medium', path: 'reports.export' },
+            ]
+        },
+        {
+            id: 'communication',
+            label: 'Communication',
+            icon: MessageSquare,
+            permissions: [
+                { id: 'notif_broadcast', label: 'Broadcast Messages', description: 'Send push notifications to all users', risk: 'high', path: 'notifications.broadcast' },
+                { id: 'requests_resolve', label: 'Resolve Requests', description: 'Mark tickets as completed', risk: 'medium', path: 'requests.resolve' },
+                { id: 'requests_delete', label: 'Delete Requests', description: 'Remove tickets', risk: 'medium', path: 'requests.delete' },
+            ]
+        },
+        {
+            id: 'profile',
+            label: 'Profile Permissions',
+            icon: UserCog,
+            permissions: [
+                { id: 'prof_view', label: 'View Profile Page', description: 'Access own profile page (requires Modules → Profile Page to be enabled)', risk: 'low', path: 'profile.view' },
+                { id: 'prof_edit', label: 'Edit Personal Details', description: 'Change name, email, etc.', risk: 'medium', path: 'profile.editPersonalDetails' },
+                { id: 'prof_bank', label: 'Edit Bank Details', description: 'Update bank info', risk: 'high', path: 'profile.editBankDetails' },
+                { id: 'prof_pass', label: 'Change Password', description: 'Change own password', risk: 'medium', path: 'profile.changePassword' },
+                { id: 'prof_idcard', label: 'Employee ID Card', description: 'Enable Virtual Employee ID Card on TL Profile page (with photo upload & download)', risk: 'low', path: 'profile.idCard' },
+            ]
+        },
+        {
+            id: 'system',
+            label: 'System Settings',
+            icon: Settings,
+            permissions: [
+                { id: 'data_module', label: 'Data Management Access', description: 'Access bulk data tools', risk: 'high', path: 'modules.dataManagement' },
+            ]
+        },
+        {
+            id: 'rmPanel',
+            label: 'RM Panel',
+            icon: UserCog,
+            permissions: [
+                { id: 'rm_dash', label: 'Dashboard', description: 'View RM Dashboard with team metrics', risk: 'low', path: 'rmPanel.dashboard' },
+                { id: 'rm_tl', label: 'TL Performance', description: 'View Team Leader performance table', risk: 'low', path: 'rmPanel.tlPerformance' },
+                { id: 'rm_leader', label: 'Leaderboard', description: 'View team leaderboard & rankings', risk: 'low', path: 'rmPanel.leaderboard' },
+                { id: 'rm_riders', label: 'Rider Overview', description: 'View all riders under their TLs', risk: 'low', path: 'rmPanel.riderOverview' },
+                { id: 'rm_leads', label: 'Lead Overview', description: 'View all leads created by their TLs', risk: 'low', path: 'rmPanel.leadOverview' },
+                { id: 'rm_reports', label: 'Reports', description: 'View weekly/monthly performance reports', risk: 'medium', path: 'rmPanel.reports' },
+                { id: 'rm_collection', label: 'Collection History', description: 'View date-wise collection tracking', risk: 'low', path: 'rmPanel.collectionHistory' },
+                { id: 'rm_export', label: 'Export Data', description: 'Download data from any RM panel page', risk: 'medium', path: 'rmPanel.export' },
+            ]
+        },
+        {
+            id: 'cityOpsPanel',
+            label: 'City Ops Panel',
+            icon: Users,
+            permissions: [
+                { id: 'co_view', label: 'View Panel', description: 'Access City Ops Panel', risk: 'low', path: 'cityOpsPanel.view' },
+                { id: 'co_dash_view', label: 'View Dashboard', description: 'Access City Ops Dashboard', risk: 'low', path: 'cityOpsPanel.dashboard.view' },
+                { id: 'co_dash_revenue', label: 'View Revenue Stats', description: 'See financial metrics', risk: 'medium', path: 'cityOpsPanel.dashboard.statsCards.revenue' },
+                { id: 'co_dash_recent', label: 'Recent Activity', description: 'View latest system actions log', risk: 'low', path: 'cityOpsPanel.dashboard.recentActivity' },
+                { id: 'co_dash_zomato', label: 'Zomato Intelligence', description: 'View Zomato specific metrics', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.zomatoVpi' },
+                { id: 'co_dash_leaderboard', label: 'Leaderboard Stats', description: 'View leaderboard toplist', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.leaderboard' },
+                
+                // Dashboard Cards
+                { id: 'co_dash_total_riders', label: 'Total Riders Card', description: 'View total riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.totalRiders' },
+                { id: 'co_dash_active_riders', label: 'Active Riders Card', description: 'View active riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.activeRiders' },
+                { id: 'co_dash_inactive_riders', label: 'Inactive Riders Card', description: 'View inactive riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.inactiveRiders' },
+                { id: 'co_dash_deleted_riders', label: 'Deleted Riders Card', description: 'View deleted riders count', risk: 'low', path: 'cityOpsPanel.dashboard.statsCards.deletedRiders' },
+                
+                { id: 'co_dash_wallet_pos', label: 'Positive Wallet Card', description: 'View positive wallet stats', risk: 'medium', path: 'cityOpsPanel.dashboard.statsCards.walletPositive' },
+                { id: 'co_dash_wallet_neg', label: 'Negative Wallet Card', description: 'View negative wallet stats', risk: 'medium', path: 'cityOpsPanel.dashboard.statsCards.walletNegative' },
+                
+                // Modules
+                { id: 'co_riders', label: 'Rider Management', description: 'Manage riders across city', risk: 'medium', path: 'cityOpsPanel.riderManagement' },
+                { id: 'co_leads', label: 'Lead Management', description: 'Manage leads across city', risk: 'medium', path: 'cityOpsPanel.leadManagement' },
+                { id: 'co_leaderboard', label: 'Leaderboard Page', description: 'View full leaderboard page', risk: 'low', path: 'cityOpsPanel.leaderboard' },
+                { id: 'co_rm_perf', label: 'RM Performance', description: 'View RM performance metrics', risk: 'low', path: 'cityOpsPanel.rmPerformance' },
+                { id: 'co_tl_perf', label: 'TL Performance', description: 'View TL performance metrics', risk: 'low', path: 'cityOpsPanel.tlPerformance' },
+                { id: 'co_allot', label: 'Allotment System', description: 'Access TL rider allotment system', risk: 'medium', path: 'cityOpsPanel.allotmentSystem' },
+                { id: 'co_forms', label: 'Company Forms', description: 'View company wide forms', risk: 'low', path: 'cityOpsPanel.companyForms' },
+                
+                // Data Hub
+                { id: 'co_data_rider', label: 'Data Hub: Import Riders', description: 'Bulk rider import', risk: 'high', path: 'cityOpsPanel.dataManagement.bulkRiderImport' },
+                { id: 'co_data_wallet', label: 'Data Hub: Bulk Wallet', description: 'Bulk wallet update', risk: 'high', path: 'cityOpsPanel.dataManagement.bulkWalletUpdate' },
+                { id: 'co_data_rent', label: 'Data Hub: Rent Collection', description: 'Rent collection import', risk: 'high', path: 'cityOpsPanel.dataManagement.rentCollectionImport' },
+                
+                { id: 'co_wallet_ledger', label: 'Wallet Logs', description: 'View comprehensive wallet ledger', risk: 'low', path: 'cityOpsPanel.walletLedger' },
+                { id: 'co_reports', label: 'Reports', description: 'Generate city reports', risk: 'low', path: 'cityOpsPanel.reports' },
+                { id: 'co_activity', label: 'Activity Logs', description: 'View city activity log', risk: 'low', path: 'cityOpsPanel.activityLog' },
+                { id: 'co_notif', label: 'Notifications Page', description: 'Manage notifications', risk: 'low', path: 'cityOpsPanel.notifications' },
+                { id: 'co_analytics', label: 'Analytics', description: 'Advanced analytics access', risk: 'low', path: 'cityOpsPanel.analytics' },
+                { id: 'co_roles', label: 'Staff & Roles', description: 'Create and manage RM/TL users', risk: 'high', path: 'cityOpsPanel.staffRoles' },
+                { id: 'co_profile', label: 'My Profile', description: 'Edit city ops profile', risk: 'low', path: 'cityOpsPanel.profile' },
+                { id: 'co_export', label: 'Export Data', description: 'Export City Ops reports', risk: 'medium', path: 'cityOpsPanel.export' },
+            ]
+        }
+    ];
+
+    const tabs = isCityOps ? baseTabs.filter(t => t.id !== 'cityOpsPanel') : baseTabs;
+
+    if (!isOpen) return null;
+
+    const currentTab = tabs.find(t => t.id === activeTab);
+    const displayedPermissions = currentTab?.permissions.filter(p =>
+        p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-background w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex flex-col border border-border overflow-hidden">
+
+                {/* --- Header --- */}
+                <div className="flex items-center justify-between p-5 border-b border-border bg-card">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
+                            <Shield className="text-white" size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-foreground relative flex items-center gap-2">
+                                Permission Manager
+                                {isSaving && <span className="text-xs font-normal text-muted-foreground animate-pulse bg-muted px-2 py-0.5 rounded">Saving changes...</span>}
+                            </h2>
+                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                Configuration for <span className="font-semibold text-foreground bg-accent/50 px-2 py-0.5 rounded">{userName}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        {/* Search Bar */}
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search permissions..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-64 bg-accent/20 border border-border rounded-xl text-sm focus:w-80 transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            />
+                        </div>
+
+                        {/* Preset Templates */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowPresets(!showPresets)}
+                                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-200 dark:border-indigo-800 rounded-xl text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:from-indigo-500/20 hover:to-purple-500/20 transition-all"
+                            >
+                                <Zap size={16} /> Presets
+                            </button>
+                            {showPresets && (
+                                <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider px-2 py-1">Quick Presets</p>
+                                    {presets.map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            onClick={() => applyPreset(preset)}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors text-left"
+                                        >
+                                            <span className={`w-2.5 h-2.5 rounded-full ${preset.color}`} />
+                                            <div>
+                                                <p className="text-sm font-semibold text-foreground">{preset.label}</p>
+                                                <p className="text-[10px] text-muted-foreground">{preset.description}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <button onClick={onClose} className="p-2 hover:bg-destructive/10 hover:text-destructive rounded-full transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* --- Main Content Layout --- */}
+                <div className="flex-1 flex overflow-hidden">
+
+                    {/* --- Sidebar Navigation --- */}
+                    <div className="w-64 bg-card border-r border-border flex flex-col overflow-y-auto py-4">
+                        <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Modules
+                        </div>
+                        {tabs.map(tab => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            // Calculate active count
+                            const activeCount = tab.permissions.filter(p => !!getNestedValue(permissions, p.path)).length;
+
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
+                                    className={`w-full text-left px-6 py-3 flex items-center gap-3 border-l-4 transition-all hover:bg-accent/50 group ${isActive
+                                        ? 'border-primary bg-primary/5 text-primary font-medium'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    <Icon size={18} className={isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'} />
+                                    <span className="flex-1 truncate">{tab.label}</span>
+                                    {activeCount > 0 && (
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                                            }`}>
+                                            {activeCount}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* --- Permission Content Area --- */}
+                    <div className="flex-1 flex flex-col bg-accent/5 relative">
+
+                        {/* AI Insight Banner */}
+                        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 flex items-center justify-between shadow-md z-10">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <Brain size={16} className="animate-pulse" />
+                                <span>AI Security Analysis Ready</span>
+                            </div>
+                            <button className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1 rounded-md transition-colors font-semibold backdrop-blur-sm">
+                                Analyze Permissions
+                            </button>
+                        </div>
+
+                        {/* Sticky Toolbar for Tab Actions */}
+                        <div className="bg-background border-b border-border p-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+                            <div>
+                                <h3 className="text-lg font-bold flex items-center gap-2">
+                                    {currentTab?.icon && <currentTab.icon size={20} className="text-primary" />}
+                                    {currentTab?.label}
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Manage access for {currentTab?.label} capabilities
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-accent/20 p-1.5 rounded-lg border border-border">
+                                <button
+                                    onClick={() => handleBulkToggle(true)}
+                                    className="px-3 py-1.5 rounded-md bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold border border-transparent hover:border-blue-200 transition-all shadow-sm flex items-center gap-1.5"
+                                >
+                                    <CheckSquare size={14} className="text-blue-600" /> ENABLE ALL
+                                </button>
+                                <div className="w-px h-6 bg-border mx-1" />
+                                <button
+                                    onClick={() => handleBulkToggle(false)}
+                                    className="px-3 py-1.5 rounded-md bg-white hover:bg-red-50 text-red-700 text-xs font-bold border border-transparent hover:border-red-200 transition-all shadow-sm flex items-center gap-1.5"
+                                >
+                                    <X size={14} className="text-red-600" /> DISABLE ALL
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Scrolling Content */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {displayedPermissions.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-50">
+                                    <Search size={48} className="mb-4" />
+                                    <p>No permissions match "{searchQuery}"</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {displayedPermissions.map(perm => {
+                                        const val = getNestedValue(permissions, perm.path);
+                                        const isChecked = !!val;
+                                        const badgeConfig = {
+                                            low: 'bg-green-100 text-green-700 border-green-200',
+                                            medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                                            high: 'bg-red-100 text-red-700 border-red-200',
+                                        }[perm.risk] || 'bg-gray-100 text-gray-700';
+
+                                        return (
+                                            <div key={perm.id} className={`bg-card rounded-xl p-4 border transition-all hover:shadow-md flex items-start gap-4 ${isChecked ? 'border-primary/40 shadow-sm' : 'border-border'}`}>
+                                                {/* Toggle Control Area */}
+                                                <div className="mt-1">
+                                                    {/* Robust Toggle Switch (Div based) */}
+                                                    <div
+                                                        className={`relative w-11 h-6 rounded-full cursor-pointer transition-colors duration-200 ease-in-out ${isChecked ? 'bg-blue-600' : 'bg-gray-300'}`}
+                                                        onClick={() => !isSaving && handleToggle(perm.path, isChecked)}
+                                                    >
+                                                        <div
+                                                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${isChecked ? 'translate-x-5' : 'translate-x-0'}`}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                        <span className={`font-semibold text-sm ${isChecked ? 'text-foreground' : 'text-muted-foreground'}`}>{perm.label}</span>
+                                                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0 rounded border ${badgeConfig}`}>
+                                                            {perm.risk}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground leading-relaxed">{perm.description}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* --- Footer --- */}
+                <div className="p-4 border-t border-border bg-card flex justify-between items-center z-30">
+                    <button
+                        onClick={async () => {
+                            if (window.confirm('Reset all permissions to their original values? This will save immediately.')) {
+                                const resetPerms = mergePermissions(currentPermissions, defaultPermissions);
+                                setPermissions(resetPerms);
+                                setIsSaving(true);
+                                try { await onSave(resetPerms); } catch (e) { console.error('Reset save error:', e); } finally { setIsSaving(false); }
+                            }
+                        }}
+                        className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-2 px-4 py-2 hover:bg-accent rounded-lg transition-colors"
+                    >
+                        <Radio size={16} /> Reset
+                    </button>
+
+                    <div className="flex items-center gap-4">
+                        <div className="text-right hidden sm:block">
+                            <div className="text-xs font-bold text-foreground">
+                                {(() => {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    const countBooleans = (obj: any): number => {
+                                        let count = 0;
+                                        for (const key in obj) {
+                                            if (typeof obj[key] === 'boolean' && obj[key]) count++;
+                                            else if (typeof obj[key] === 'object' && obj[key]) count += countBooleans(obj[key]);
+                                        }
+                                        return count;
+                                    };
+                                    return countBooleans(permissions);
+                                })()} Permissions Active
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">Changes saved automatically</div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2.5 rounded-lg font-bold shadow-lg shadow-primary/25 flex items-center gap-2 transition-all active:scale-95"
+                        >
+                            Done
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
+export default PermissionsEditor;

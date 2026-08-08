@@ -1,0 +1,161 @@
+import React, { useState, useEffect } from 'react';
+import { X, RefreshCw, MessageCircle, Sparkles } from 'lucide-react';
+import { Rider } from '@/types';
+import { AIService } from '@/services/AIService';
+
+interface PaymentReminderModalProps {
+    rider: Rider;
+    onClose: () => void;
+    onSend: (message: string) => void;
+}
+
+const PaymentReminderModal: React.FC<PaymentReminderModalProps> = ({ rider, onClose, onSend }) => {
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [regenerating, setRegenerating] = useState(false);
+    const [language, setLanguage] = useState<'hindi' | 'english'>('hindi');
+
+    const generateMessage = async () => {
+        setLoading(true);
+        // Randomize tone slightly to ensure variation on refresh
+        const tones: ('professional' | 'friendly' | 'urgent')[] = ['professional', 'friendly', 'urgent'];
+        const randomTone = tones[Math.floor(Math.random() * tones.length)];
+
+        try {
+            const aiMsg = await AIService.generatePaymentReminder(rider, language, randomTone);
+
+            // Hydrate parameters
+            const amountStr = rider.walletAmount < 0
+                ? `-₹${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
+                : `₹${rider.walletAmount.toLocaleString('en-IN')}`;
+
+            const hydratedMsg = aiMsg
+                .replace(/{name}/g, rider.riderName)
+                .replace(/{amount}/g, amountStr);
+
+            setMessage(hydratedMsg);
+        } catch (error) {
+            console.error("Error generating message:", error);
+            const amountStr = rider.walletAmount < 0
+                ? `-₹${Math.abs(rider.walletAmount).toLocaleString('en-IN')}`
+                : `₹${rider.walletAmount.toLocaleString('en-IN')}`;
+
+            setMessage(`Hello ${rider.riderName}, please clear your outstanding balance of ${amountStr}.`);
+        } finally {
+            setLoading(false);
+            setRegenerating(false);
+        }
+    };
+
+    useEffect(() => {
+        generateMessage();
+    }, [rider, language]);
+
+    const handleRegenerate = () => {
+        setRegenerating(true);
+        generateMessage();
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-border">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                    <div>
+                        <h2 className="text-xl font-bold text-foreground">Send Wallet Reminder</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">to {rider.riderName}</p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-6">
+                    <p className="text-sm text-muted-foreground">
+                        AI has generated a personalized reminder message based on the wallet balance of <span className="font-bold text-red-600">{-Math.abs(rider.walletAmount).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</span>. Review and send it via WhatsApp.
+                    </p>
+
+                    {/* AI Message Card */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-primary font-semibold">
+                                <Sparkles size={18} />
+                                <span>AI Generated Message</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <div className="flex bg-muted rounded-lg p-1">
+                                    <button
+                                        onClick={() => setLanguage('english')}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'english' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        English
+                                    </button>
+                                    <button
+                                        onClick={() => setLanguage('hindi')}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${language === 'hindi' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        Hindi
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={handleRegenerate}
+                                    disabled={regenerating || loading}
+                                    className={`p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors ${regenerating ? 'animate-spin' : ''}`}
+                                    title="Regenerate Message"
+                                >
+                                    <RefreshCw size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="relative">
+                            {loading ? (
+                                <div className="h-32 w-full bg-muted/50 rounded-xl border border-border flex items-center justify-center">
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                        <Sparkles className="animate-pulse" size={24} />
+                                        <span className="text-sm">Generating magic...</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <textarea
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    className="w-full h-32 p-4 bg-background border border-border rounded-xl text-foreground text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none placeholder:text-muted-foreground"
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground font-medium">
+                        Last reminder: <span className="text-foreground">None</span>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-muted/40 border-t border-border flex justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        className="px-5 py-2.5 text-sm font-medium text-foreground bg-background border border-border rounded-xl hover:bg-accent transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => onSend(message)}
+                        disabled={loading || !message}
+                        className="px-5 py-2.5 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl shadow-lg shadow-primary/20 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <MessageCircle size={18} />
+                        Send via WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default PaymentReminderModal;
