@@ -8,7 +8,6 @@
     "dev:win": "cmd /c vite",
     "build": "npx vite build",
     "vercel-build": "npx vite build",
-    "postinstall": "mkdir -p node_modules/.bin && cp node_modules/vite/bin/vite.js node_modules/.bin/vite 2>/dev/null || true",
     "lint": "eslint .",
     "preview": "vite preview"
   },
