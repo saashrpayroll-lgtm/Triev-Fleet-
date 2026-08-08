@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:win": "cmd /c vite",
-    "build": "npx vite build",
-    "vercel-build": "npx vite build",
+    "build": "npx --yes vite build",
+    "vercel-build": "npx --yes vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
