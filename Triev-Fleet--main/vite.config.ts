@@ -4,6 +4,7 @@ import path from 'path'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  root: path.resolve(__dirname, './'),
   plugins: [
     react(),
     VitePWA({
@@ -55,6 +56,7 @@ export default defineConfig({
     sourcemap: false, // Disable sourcemaps in production — halves build size
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
+      input: path.resolve(__dirname, 'index.html'),
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
