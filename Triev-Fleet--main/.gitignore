@@ -25,7 +25,28 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-. e n v  
- 
+
 .vercel
 tsconfig.tsbuildinfo
+
+# Debug/temp files (should not be deployed)
+check_versions.cjs
+check_collections_diagnostic.ts
+check_constraint.sql
+check_rm.cjs
+debug_gemini_models.cjs
+debug_gemini_models.js
+debug_requests.ts
+diagnose_collections.ts
+diagnose_rm.cjs
+inspect_leads_schema.cjs
+old_file.tsx
+probe_all_columns.cjs
+probe_score.cjs
+scratch.py
+setup-admin-user.js
+setup-test-data.js
+temp_check_errors.ts
+test_collections.mjs
+tmp_check.ts
+0
