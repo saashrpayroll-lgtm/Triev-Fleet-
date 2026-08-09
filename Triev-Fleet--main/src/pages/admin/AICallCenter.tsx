@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Bot, PhoneCall, History, Settings, Play, ShieldAlert, AlertTriangle, Search, Filter, RefreshCw, CheckCircle2, XCircle, Users, Clock, Zap } from 'lucide-react';
+import { Bot, PhoneCall, History, Settings, Play, ShieldAlert, AlertTriangle, Search, RefreshCw, CheckCircle2, XCircle, Zap } from 'lucide-react';
 import { OutboundCallService, CallScenario } from '@/services/OutboundCallService';
-import { AutoCallScheduler } from '@/services/AutoCallScheduler';
 import { AICallLog, AutoCallConfig, Rider, User } from '@/types';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -32,16 +30,19 @@ export const AICallCenter: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [logsData, ridersData, usersData] = await Promise.all([
+            const [logsData, ridersRes, usersRes] = await Promise.all([
                 OutboundCallService.fetchCallLogs(100),
                 fetchAllRidersPaginated(`id, trievId:triev_id, riderName:rider_name, mobileNumber:mobile_number, walletAmount:wallet_amount, status, teamLeaderId:team_leader_id`),
                 fetchTablePaginated('users', `id, fullName:full_name, username, role, status`)
             ]);
 
-            setCallLogs(logsData);
-            setRiders(ridersData || []);
+            setCallLogs(Array.isArray(logsData) ? logsData : []);
 
-            const tls = (usersData || []).filter((u: any) => u.role === 'teamLeader');
+            const rawRiders = Array.isArray(ridersRes?.data) ? ridersRes.data : [];
+            setRiders(rawRiders);
+
+            const rawUsers = Array.isArray(usersRes?.data) ? usersRes.data : [];
+            const tls = rawUsers.filter((u: any) => u.role === 'teamLeader');
             setTeamLeaders(tls);
 
             // Fetch auto call configs for all TLs
@@ -66,10 +67,11 @@ export const AICallCenter: React.FC = () => {
 
     // Filtered Call Logs
     const filteredLogs = useMemo(() => {
-        return callLogs.filter(log => {
-            const matchesSearch = log.riderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                log.mobileNumber.includes(searchQuery) ||
-                log.triggeredByName.toLowerCase().includes(searchQuery.toLowerCase());
+        const list = Array.isArray(callLogs) ? callLogs : [];
+        return list.filter(log => {
+            const matchesSearch = (log.riderName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (log.mobileNumber || '').includes(searchQuery) ||
+                (log.triggeredByName || '').toLowerCase().includes(searchQuery.toLowerCase());
             const matchesScenario = scenarioFilter === 'all' || log.callScenario === scenarioFilter;
             const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
             return matchesSearch && matchesScenario && matchesStatus;
@@ -78,8 +80,9 @@ export const AICallCenter: React.FC = () => {
 
     // Targeted Riders Analysis
     const targetedAnalysis = useMemo(() => {
-        const negativeRiders = riders.filter(r => r.walletAmount < 0 && r.status === 'active');
-        const lowBalanceRiders = riders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250 && r.status === 'active');
+        const list = Array.isArray(riders) ? riders : [];
+        const negativeRiders = list.filter(r => Number(r.walletAmount || 0) < 0 && r.status === 'active');
+        const lowBalanceRiders = list.filter(r => Number(r.walletAmount || 0) >= 0 && Number(r.walletAmount || 0) < 250 && r.status === 'active');
         return {
             negativeCount: negativeRiders.length,
             lowBalanceCount: lowBalanceRiders.length,
@@ -487,11 +490,11 @@ export const AICallCenter: React.FC = () => {
                                 <div key={tl.id} className="p-5 rounded-2xl bg-muted/30 border border-border flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
-                                            {tl.fullName.charAt(0)}
+                                            {(tl.fullName || tl.username || tl.email || 'T').charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <h4 className="font-extrabold text-sm text-foreground">{tl.fullName}</h4>
-                                            <p className="text-xs text-muted-foreground">@{tl.username} · Max {config.maxCallsPerDay || 20} calls/day</p>
+                                            <h4 className="font-extrabold text-sm text-foreground">{tl.fullName || tl.username || tl.email || 'Team Leader'}</h4>
+                                            <p className="text-xs text-muted-foreground">@{tl.username || 'user'} · Max {config.maxCallsPerDay || 20} calls/day</p>
                                         </div>
                                     </div>
 

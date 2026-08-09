@@ -1669,11 +1669,11 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                                                         >
                                                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 flex items-center justify-center flex-shrink-0">
                                                                 <span className="text-indigo-600 dark:text-indigo-400 text-[11px] font-black">
-                                                                    {tl.fullName.charAt(0).toUpperCase()}
+                                                                    {(tl.fullName || tl.username || tl.email || 'T').charAt(0).toUpperCase()}
                                                                 </span>
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <span className="block font-semibold whitespace-normal break-words leading-tight">{tl.fullName}</span>
+                                                                <span className="block font-semibold whitespace-normal break-words leading-tight">{tl.fullName || tl.username || tl.email || 'Team Leader'}</span>
                                                                 <span className="text-[10px] text-muted-foreground">
                                                                     {activeCount} active · {riderCount} total
                                                                 </span>

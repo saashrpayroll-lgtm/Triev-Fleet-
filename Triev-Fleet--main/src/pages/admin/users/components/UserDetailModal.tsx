@@ -82,7 +82,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({ user, onClose }) => {
                                 <img src={user.profilePicUrl} alt={user.fullName} className="w-full h-full object-cover" />
                             ) : (
                                 <span className="bg-gradient-to-br from-primary/20 to-primary/5 w-full h-full flex items-center justify-center text-primary">
-                                    {user.fullName.charAt(0).toUpperCase()}
+                                    {(user.fullName || user.email || 'U').charAt(0).toUpperCase()}
                                 </span>
                             )}
                         </div>

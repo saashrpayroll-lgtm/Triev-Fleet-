@@ -506,7 +506,7 @@ ${new Date().toLocaleString('en-IN')}`;
                             {/* ── Avatar + AI Score Badge ── */}
                             <div className="relative flex-shrink-0 mt-1">
                                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 backdrop-blur border-2 border-white/20 flex items-center justify-center text-3xl md:text-4xl font-black uppercase shadow-xl text-white">
-                                    {rider.riderName.charAt(0)}
+                                    {(rider.riderName || rider.trievId || 'R').charAt(0).toUpperCase()}
                                 </div>
                                 <div className={`absolute -bottom-2 -right-2 flex items-center justify-center border-2 border-slate-900 shadow-lg rounded-full overflow-hidden cursor-pointer`}
                                     onClick={() => setShowRatingModal(true)}
