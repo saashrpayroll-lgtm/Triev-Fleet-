@@ -112,15 +112,31 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
 
     // Photo Upload State
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-    const [riderPhoto, setRiderPhoto] = useState<string | undefined>(rider.photoUrl);
+    const [riderPhoto, setRiderPhoto] = useState<string | undefined>(rider.photoUrl || (rider as any).photo_url);
 
     // AI Star Rating State
     const [starRating, setStarRating] = useState<StarRatingResult | null>(null);
     const [showRatingModal, setShowRatingModal] = useState(false);
 
     useEffect(() => {
-        setRiderPhoto(rider.photoUrl);
-    }, [rider.photoUrl]);
+        const initialPhoto = rider.photoUrl || (rider as any).photo_url;
+        setRiderPhoto(initialPhoto);
+
+        if (rider?.id) {
+            supabase
+                .from('riders')
+                .select('photo_url')
+                .eq('id', rider.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                    if (data?.photo_url) {
+                        setRiderPhoto(data.photo_url);
+                        rider.photoUrl = data.photo_url;
+                        (rider as any).photo_url = data.photo_url;
+                    }
+                });
+        }
+    }, [rider]);
 
     useEffect(() => {
         if (rider) {

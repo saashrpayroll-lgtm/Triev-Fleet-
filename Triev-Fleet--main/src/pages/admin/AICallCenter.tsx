@@ -27,6 +27,126 @@ export const AICallCenter: React.FC = () => {
     const [selectedTargetGroup, setSelectedTargetGroup] = useState<'negative' | 'low' | 'all'>('negative');
     const [isTriggeringBulk, setIsTriggeringBulk] = useState(false);
 
+    // Single call trigger modal state
+    const [callingRider, setCallingRider] = useState<Rider | null>(null);
+    const [callScenarioModal, setCallScenarioModal] = useState<CallScenario>('negative_balance');
+    const [isTriggeringSingle, setIsTriggeringSingle] = useState(false);
+
+    // Multi-select state for Targeted Riders
+    const [selectedRiderIds, setSelectedRiderIds] = useState<Set<string>>(new Set());
+    const [targetedCategoryFilter, setTargetedCategoryFilter] = useState<'all' | 'negative' | 'low'>('all');
+    const [targetedTLFilter, setTargetedTLFilter] = useState<string>('all');
+    const [targetedSearchQuery, setTargetedSearchQuery] = useState<string>('');
+
+    // Single call dispatch
+    const handleTriggerSingleCall = async () => {
+        if (!callingRider) return;
+        setIsTriggeringSingle(true);
+
+        try {
+            const res = await OutboundCallService.triggerCall({
+                riderId: callingRider.id,
+                riderName: callingRider.riderName,
+                mobileNumber: callingRider.mobileNumber,
+                walletAmount: callingRider.walletAmount,
+                callScenario: callScenarioModal,
+                triggeredBy: userData?.fullName || 'Admin',
+                triggeredById: userData?.id
+            });
+
+            if (res.success) {
+                toast.success(`AI Call Dispatched to ${callingRider.riderName} (${res.callId})`);
+                setCallingRider(null);
+                await loadData();
+            } else {
+                toast.error(res.message || 'Call failed to dispatch');
+            }
+        } catch (err: any) {
+            toast.error('Failed to dispatch AI call: ' + (err.message || err));
+        } finally {
+            setIsTriggeringSingle(false);
+        }
+    };
+
+    // Filtered Targeted Riders List
+    const filteredTargetedRiders = useMemo(() => {
+        const list = Array.isArray(riders) ? riders : [];
+        return list.filter(r => {
+            const isNegative = Number(r.walletAmount || 0) < 0;
+            const isLow = Number(r.walletAmount || 0) >= 0 && Number(r.walletAmount || 0) < 250;
+            if (!isNegative && !isLow) return false;
+            if (r.status !== 'active') return false;
+
+            // Category filter
+            if (targetedCategoryFilter === 'negative' && !isNegative) return false;
+            if (targetedCategoryFilter === 'low' && !isLow) return false;
+
+            // TL filter
+            if (targetedTLFilter !== 'all' && r.teamLeaderId !== targetedTLFilter) return false;
+
+            // Search query
+            const q = targetedSearchQuery.toLowerCase();
+            const matchesSearch = !q || (r.riderName || '').toLowerCase().includes(q) ||
+                (r.mobileNumber || '').includes(q) ||
+                (r.trievId || '').toLowerCase().includes(q);
+
+            return matchesSearch;
+        });
+    }, [riders, targetedCategoryFilter, targetedTLFilter, targetedSearchQuery]);
+
+    // Toggle single rider selection
+    const toggleSelectRider = (id: string) => {
+        setSelectedRiderIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    // Toggle select all filtered riders
+    const toggleSelectAll = () => {
+        if (selectedRiderIds.size === filteredTargetedRiders.length) {
+            setSelectedRiderIds(new Set());
+        } else {
+            setSelectedRiderIds(new Set(filteredTargetedRiders.map(r => r.id)));
+        }
+    };
+
+    // Handle Bulk Call for Selected Riders
+    const handleTriggerSelectedBulk = async () => {
+        const selectedList = riders.filter(r => selectedRiderIds.has(r.id));
+        if (selectedList.length === 0) {
+            toast.warning('Please select at least one rider to call.');
+            return;
+        }
+
+        setIsTriggeringBulk(true);
+        toast.info(`Initiating bulk AI calls to ${selectedList.length} selected riders...`);
+
+        try {
+            const res = await OutboundCallService.triggerBulkCalls(
+                selectedList.map(r => ({
+                    id: r.id,
+                    riderName: r.riderName,
+                    mobileNumber: r.mobileNumber,
+                    walletAmount: r.walletAmount
+                })),
+                'negative_balance',
+                userData?.fullName || 'Admin',
+                userData?.id
+            );
+
+            toast.success(`Dispatched ${res.dispatched} of ${res.total} AI calls successfully.`);
+            setSelectedRiderIds(new Set());
+            await loadData();
+        } catch (e) {
+            toast.error('Bulk call dispatch encountered errors.');
+        } finally {
+            setIsTriggeringBulk(false);
+        }
+    };
+
     const loadData = async () => {
         setLoading(true);
         try {
@@ -266,7 +386,111 @@ export const AICallCenter: React.FC = () => {
                             : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                 >
-                    <Play size={16} /> Bulk AI Call Dispatch
+                    <Play size={16} /> Targeted Riders &amp; AI Dispatch ({filteredTargetedRiders.length})
+                </button>
+            </div>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-violet-900/90 via-indigo-900/90 to-slate-900 text-white shadow-2xl border border-white/10 relative overflow-hidden">
+                <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10 flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-inner">
+                        <Bot className="w-7 h-7 text-violet-300 animate-pulse" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-black tracking-tight">AI Outbound Call Center</h1>
+                            <GradientBadge variant="violet">v2.0 ElevenLabs + n8n</GradientBadge>
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1">
+                            Automated AI Voice Calling system targeting negative balance (&lt; ₹0) and low balance (&lt; ₹250) riders.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 relative z-10">
+                    <button
+                        onClick={loadData}
+                        disabled={loading}
+                        className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh Logs
+                    </button>
+                </div>
+            </div>
+
+            {/* Top Stat Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-4">
+                    <div className="p-3.5 rounded-2xl bg-violet-500/10 text-violet-600">
+                        <PhoneCall size={24} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Calls Made</p>
+                        <h3 className="text-2xl font-black text-foreground mt-0.5">
+                            <AnimatedCounter value={callLogs.length} />
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-4">
+                    <div className="p-3.5 rounded-2xl bg-red-500/10 text-red-600">
+                        <ShieldAlert size={24} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Negative Wallet Target (&lt;₹0)</p>
+                        <h3 className="text-2xl font-black text-foreground mt-0.5">
+                            <AnimatedCounter value={targetedAnalysis.negativeCount} />
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-4">
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 text-amber-600">
+                        <AlertTriangle size={24} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Low Balance Target (&lt;₹250)</p>
+                        <h3 className="text-2xl font-black text-foreground mt-0.5">
+                            <AnimatedCounter value={targetedAnalysis.lowBalanceCount} />
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-4">
+                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 text-emerald-600">
+                        <Zap size={24} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Auto-Call TLs</p>
+                        <h3 className="text-2xl font-black text-foreground mt-0.5">
+                            <AnimatedCounter value={Object.values(autoConfigs).filter(c => c.enabled).length} />
+                        </h3>
+                    </div>
+                </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-border gap-2">
+                <button
+                    onClick={() => setActiveTab('history')}
+                    className={`px-5 py-3 text-xs font-extrabold border-b-2 flex items-center gap-2 transition-all ${
+                        activeTab === 'history'
+                            ? 'border-primary text-primary bg-primary/5'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <History size={16} /> Call Execution History ({callLogs.length})
+                </button>
+
+                <button
+                    onClick={() => setActiveTab('bulk')}
+                    className={`px-5 py-3 text-xs font-extrabold border-b-2 flex items-center gap-2 transition-all ${
+                        activeTab === 'bulk'
+                            ? 'border-primary text-primary bg-primary/5'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Play size={16} /> Targeted Riders &amp; AI Dispatch ({filteredTargetedRiders.length})
                 </button>
 
                 <button
@@ -277,7 +501,7 @@ export const AICallCenter: React.FC = () => {
                             : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                 >
-                    <Settings size={16} /> TL Auto-Call Permissions & Rules
+                    <Settings size={16} /> TL Auto-Call Permissions &amp; Rules
                 </button>
             </div>
 
@@ -315,7 +539,7 @@ export const AICallCenter: React.FC = () => {
                                 className="px-3 py-2 border border-input rounded-xl text-xs bg-background font-semibold"
                             >
                                 <option value="all">All Statuses</option>
-                                <option value="completed">Completed</option>
+                                <option value="completed">Completed / Dispatched</option>
                                 <option value="initiated">Initiated</option>
                                 <option value="failed">Failed</option>
                             </select>
@@ -330,10 +554,10 @@ export const AICallCenter: React.FC = () => {
                                     <tr>
                                         <th className="p-4">Rider Info</th>
                                         <th className="p-4">Call Scenario</th>
-                                        <th className="p-4">Wallet Balance at Call</th>
+                                        <th className="p-4">Wallet Balance</th>
                                         <th className="p-4">Triggered By</th>
                                         <th className="p-4">Status</th>
-                                        <th className="p-4">Date & Time</th>
+                                        <th className="p-4">Date &amp; Time</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/60">
@@ -348,10 +572,10 @@ export const AICallCenter: React.FC = () => {
                                             <tr key={log.id} className="hover:bg-muted/20 transition-colors">
                                                 <td className="p-4">
                                                     <div className="font-extrabold text-foreground">{log.riderName}</div>
-                                                    <div className="text-[11px] text-muted-foreground font-mono">{log.mobileNumber}</div>
+                                                    <div className="text-[11px] font-mono text-indigo-500 font-bold">{log.mobileNumber}</div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className="font-bold capitalize">
+                                                    <span className="font-bold capitalize px-2 py-1 rounded-lg bg-primary/10 text-primary text-[11px]">
                                                         {log.callScenario.replace('_', ' ')}
                                                     </span>
                                                 </td>
@@ -364,12 +588,12 @@ export const AICallCenter: React.FC = () => {
                                                     <span className="font-semibold text-foreground">{log.triggeredByName}</span>
                                                 </td>
                                                 <td className="p-4">
-                                                    {log.status === 'completed' ? (
-                                                        <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold">
-                                                            <CheckCircle2 size={12} /> Dispatched
+                                                    {log.status === 'completed' || log.status === 'success' ? (
+                                                        <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full font-bold text-[11px]">
+                                                            <CheckCircle2 size={12} /> Dispatched &amp; Connected
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full font-bold">
+                                                        <span className="inline-flex items-center gap-1 text-red-600 bg-red-500/10 px-2.5 py-1 rounded-full font-bold text-[11px]">
                                                             <XCircle size={12} /> Failed
                                                         </span>
                                                     )}
@@ -387,88 +611,147 @@ export const AICallCenter: React.FC = () => {
                 </div>
             )}
 
-            {/* TAB 2: Bulk AI Call Dispatch */}
+            {/* TAB 2: Targeted Riders & AI Dispatch */}
             {activeTab === 'bulk' && (
-                <div className="p-6 rounded-3xl bg-card border border-border/80 space-y-6 shadow-sm">
-                    <div>
-                        <h3 className="text-lg font-black text-foreground">Bulk AI Call Dispatcher</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Target riders automatically using ElevenLabs AI Voice agent based on wallet thresholds.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <button
-                            type="button"
-                            onClick={() => setSelectedTargetGroup('negative')}
-                            className={`p-5 rounded-2xl border text-left transition-all ${
-                                selectedTargetGroup === 'negative'
-                                    ? 'border-red-500 bg-red-500/5 ring-2 ring-red-500/20'
-                                    : 'border-border bg-card hover:bg-muted/30'
-                            }`}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <ShieldAlert size={20} className="text-red-500" />
-                                <span className="text-xl font-black text-red-600">{targetedAnalysis.negativeCount}</span>
+                <div className="space-y-6">
+                    {/* Advance Filters Strip */}
+                    <div className="p-5 rounded-3xl bg-card border border-border/80 space-y-4 shadow-sm">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-base font-black text-foreground">Targeted Defaulter &amp; Low Balance Riders</h3>
+                                <p className="text-xs text-muted-foreground">Select individual riders or filter by category to trigger 1-on-1 or bulk AI voice calls.</p>
                             </div>
-                            <h4 className="font-extrabold text-sm text-foreground">Negative Balance Riders</h4>
-                            <p className="text-xs text-muted-foreground mt-1">Riders with wallet amount &lt; ₹0</p>
-                        </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setSelectedTargetGroup('low')}
-                            className={`p-5 rounded-2xl border text-left transition-all ${
-                                selectedTargetGroup === 'low'
-                                    ? 'border-amber-500 bg-amber-500/5 ring-2 ring-amber-500/20'
-                                    : 'border-border bg-card hover:bg-muted/30'
-                            }`}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <AlertTriangle size={20} className="text-amber-500" />
-                                <span className="text-xl font-black text-amber-600">{targetedAnalysis.lowBalanceCount}</span>
-                            </div>
-                            <h4 className="font-extrabold text-sm text-foreground">Low Balance Riders</h4>
-                            <p className="text-xs text-muted-foreground mt-1">Riders with wallet amount between ₹0 and ₹249</p>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setSelectedTargetGroup('all')}
-                            className={`p-5 rounded-2xl border text-left transition-all ${
-                                selectedTargetGroup === 'all'
-                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                                    : 'border-border bg-card hover:bg-muted/30'
-                            }`}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <Bot size={20} className="text-primary" />
-                                <span className="text-xl font-black text-primary">{targetedAnalysis.totalTargetedCount}</span>
-                            </div>
-                            <h4 className="font-extrabold text-sm text-foreground">All Target Criteria</h4>
-                            <p className="text-xs text-muted-foreground mt-1">Combined negative balance &amp; low balance riders</p>
-                        </button>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-muted/40 border border-border flex items-center justify-between">
-                        <div>
-                            <span className="text-xs text-muted-foreground font-semibold">Selected Target Pool:</span>
-                            <h4 className="text-sm font-extrabold text-foreground mt-0.5">
-                                {selectedTargetGroup === 'negative' ? `${targetedAnalysis.negativeCount} Negative Balance Riders` :
-                                    selectedTargetGroup === 'low' ? `${targetedAnalysis.lowBalanceCount} Low Balance Riders` :
-                                        `${targetedAnalysis.totalTargetedCount} Total Overdue & Low Balance Riders`}
-                            </h4>
+                            {/* Bulk trigger button for selected checkboxes */}
+                            <button
+                                type="button"
+                                onClick={handleTriggerSelectedBulk}
+                                disabled={isTriggeringBulk || selectedRiderIds.size === 0}
+                                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-extrabold text-xs shadow-lg shadow-violet-500/20 hover:opacity-95 disabled:opacity-50 flex items-center gap-2 transition-all shrink-0"
+                            >
+                                <PhoneCall size={15} />
+                                {isTriggeringBulk ? 'Dispatching...' : `Call Selected (${selectedRiderIds.size}) Riders`}
+                            </button>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={handleTriggerBulkCalls}
-                            disabled={isTriggeringBulk || targetedAnalysis.totalTargetedCount === 0}
-                            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-extrabold text-xs shadow-lg shadow-violet-500/20 hover:opacity-95 disabled:opacity-50 flex items-center gap-2 transition-all"
-                        >
-                            <PhoneCall size={16} />
-                            {isTriggeringBulk ? 'Dispatching Calls...' : 'Start Bulk AI Call Dispatch'}
-                        </button>
+                        {/* Search + Dropdowns */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                            {/* Search */}
+                            <div className="relative">
+                                <Search className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by rider name, mobile, Triev ID..."
+                                    value={targetedSearchQuery}
+                                    onChange={e => setTargetedSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-input rounded-xl text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                                />
+                            </div>
+
+                            {/* Category Filter */}
+                            <select
+                                value={targetedCategoryFilter}
+                                onChange={e => setTargetedCategoryFilter(e.target.value as any)}
+                                className="px-3 py-2 border border-input rounded-xl text-xs bg-background font-semibold"
+                            >
+                                <option value="all">All Target Criteria ({targetedAnalysis.totalTargetedCount})</option>
+                                <option value="negative">Negative Balance Only (&lt; ₹0) [{targetedAnalysis.negativeCount}]</option>
+                                <option value="low">Low Balance Only (₹0 - ₹249) [{targetedAnalysis.lowBalanceCount}]</option>
+                            </select>
+
+                            {/* TL Filter */}
+                            <select
+                                value={targetedTLFilter}
+                                onChange={e => setTargetedTLFilter(e.target.value)}
+                                className="px-3 py-2 border border-input rounded-xl text-xs bg-background font-semibold"
+                            >
+                                <option value="all">All Team Leaders</option>
+                                {teamLeaders.map(tl => (
+                                    <option key={tl.id} value={tl.id}>
+                                        {tl.fullName || tl.username || tl.email}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Table of Targeted Riders */}
+                    <div className="rounded-3xl bg-card border border-border/80 overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-muted/50 text-muted-foreground uppercase text-[10px] font-extrabold tracking-wider border-b border-border">
+                                    <tr>
+                                        <th className="p-4 w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={filteredTargetedRiders.length > 0 && selectedRiderIds.size === filteredTargetedRiders.length}
+                                                onChange={toggleSelectAll}
+                                                className="rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                                            />
+                                        </th>
+                                        <th className="p-4">Rider Details</th>
+                                        <th className="p-4">Mobile Number</th>
+                                        <th className="p-4">Wallet Balance</th>
+                                        <th className="p-4">Assigned Team Leader</th>
+                                        <th className="p-4 text-right">Quick AI Call</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border/60">
+                                    {filteredTargetedRiders.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="text-center p-12 text-muted-foreground">
+                                                No targeted riders match the current filter options.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredTargetedRiders.map(r => {
+                                            const isSelected = selectedRiderIds.has(r.id);
+                                            const tl = teamLeaders.find(t => t.id === r.teamLeaderId);
+                                            const isNeg = Number(r.walletAmount || 0) < 0;
+
+                                            return (
+                                                <tr key={r.id} className={`transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/20'}`}>
+                                                    <td className="p-4">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => toggleSelectRider(r.id)}
+                                                            className="rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                                                        />
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="font-extrabold text-foreground">{r.riderName}</div>
+                                                        <div className="text-[10px] text-muted-foreground font-mono">{r.trievId || r.id}</div>
+                                                    </td>
+                                                    <td className="p-4 font-mono font-bold text-indigo-500">
+                                                        {r.mobileNumber}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`inline-block px-2.5 py-1 rounded-lg font-mono font-extrabold text-xs ${
+                                                            isNeg ? 'bg-red-500/10 text-red-600 border border-red-500/20' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                                        }`}>
+                                                            ₹{Number(r.walletAmount || 0).toLocaleString('en-IN')}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 font-medium text-foreground">
+                                                        {tl ? (tl.fullName || tl.username || tl.email) : 'Unassigned'}
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setCallingRider(r)}
+                                                            className="px-3 py-1.5 rounded-xl bg-violet-600 text-white font-extrabold text-[11px] shadow hover:bg-violet-700 transition-all inline-flex items-center gap-1.5"
+                                                        >
+                                                            <PhoneCall size={12} /> Call AI Voice
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}
@@ -510,6 +793,65 @@ export const AICallCenter: React.FC = () => {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            )}
+
+            {/* 1-on-1 Call Scenario Modal */}
+            {callingRider && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md space-y-5 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+                                <Bot className="text-violet-600" size={20} /> Initiate AI Call
+                            </h3>
+                            <button
+                                onClick={() => setCallingRider(null)}
+                                className="text-muted-foreground hover:text-foreground text-sm font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                            <div className="font-extrabold text-sm text-foreground">{callingRider.riderName}</div>
+                            <div className="text-xs font-mono text-indigo-500 font-bold">{callingRider.mobileNumber}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                                Current Wallet: <span className="font-mono font-bold text-red-500">₹{callingRider.walletAmount}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-foreground">Select Call Scenario Script:</label>
+                            <select
+                                value={callScenarioModal}
+                                onChange={e => setCallScenarioModal(e.target.value as CallScenario)}
+                                className="w-full p-3 border border-input rounded-xl text-xs bg-background font-semibold"
+                            >
+                                <option value="negative_balance">Overdue Negative Balance Recovery (Hindi/Hinglish)</option>
+                                <option value="low_balance">Low Balance Warning (Below ₹250)</option>
+                                <option value="custom_reminder">Custom Urgent Payment Reminder</option>
+                            </select>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setCallingRider(null)}
+                                className="px-4 py-2.5 rounded-xl border border-input text-xs font-bold hover:bg-muted"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleTriggerSingleCall}
+                                disabled={isTriggeringSingle}
+                                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-xs font-extrabold shadow-lg hover:opacity-95 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <PhoneCall size={14} />
+                                {isTriggeringSingle ? 'Dispatching Call...' : 'Dispatch AI Voice Call'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

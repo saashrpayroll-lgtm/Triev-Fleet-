@@ -20,7 +20,8 @@ export const mapRiderFromDB = (data: any): Rider => ({
     comments: data.comments,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
-    deletedAt: data.deleted_at
+    deletedAt: data.deleted_at,
+    photoUrl: data.photo_url || data.photoUrl || data.photo
 });
 
 export interface WalletTransactionSummary {

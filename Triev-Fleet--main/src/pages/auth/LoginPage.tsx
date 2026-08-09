@@ -9,10 +9,10 @@ import AnimatedBackground from '@/components/auth/AnimatedBackground';
 import { toast } from 'sonner';
 
 const ROLE_CHIPS = [
-    { key: 'admin', label: 'Admin', icon: Shield, color: 'from-red-500 to-rose-600', shadow: 'shadow-red-500/30' },
-    { key: 'cityOps', label: 'City Ops', icon: BarChart3, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30' },
-    { key: 'reportingManager', label: 'RM', icon: Headphones, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/30' },
-    { key: 'teamLeader', label: 'Team Leader', icon: Users, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/30' },
+    { key: 'admin', label: 'Admin', icon: Shield, color: 'from-red-500 to-rose-600', shadow: 'shadow-red-500/30', bgVariant: 'admin' as const },
+    { key: 'cityOps', label: 'City Ops', icon: BarChart3, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30', bgVariant: 'login' as const },
+    { key: 'reportingManager', label: 'RM', icon: Headphones, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/30', bgVariant: 'rm' as const },
+    { key: 'teamLeader', label: 'Team Leader', icon: Users, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/30', bgVariant: 'login' as const },
 ];
 
 const LoginPage: React.FC = () => {
@@ -32,9 +32,11 @@ const LoginPage: React.FC = () => {
     useEffect(() => {
         const interval = setInterval(() => {
             setActiveRoleHint(prev => (prev + 1) % ROLE_CHIPS.length);
-        }, 3000);
+        }, 4000);
         return () => clearInterval(interval);
     }, []);
+
+    const activeVariant = ROLE_CHIPS[activeRoleHint]?.bgVariant || 'login';
 
     const { login } = useSupabaseAuth();
 
@@ -114,7 +116,7 @@ const LoginPage: React.FC = () => {
 
     return (
         <div className="min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30">
-            <AnimatedBackground variant="login" />
+            <AnimatedBackground variant={activeVariant} />
 
             <motion.div
                 className="w-full max-w-[420px] relative"

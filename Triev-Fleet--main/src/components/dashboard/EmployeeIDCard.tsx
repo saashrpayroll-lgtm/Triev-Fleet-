@@ -16,7 +16,25 @@ const EmployeeIDCard: React.FC<EmployeeIDCardProps> = ({ userData }) => {
     const { success, error } = useToast();
     const [isDownloading, setIsDownloading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [photoUrl, setPhotoUrl] = useState<string>(userData.profilePicUrl || '');
+    const [photoUrl, setPhotoUrl] = useState<string>(userData?.profilePicUrl || userData?.profile_pic_url || '');
+
+    React.useEffect(() => {
+        const initial = userData?.profilePicUrl || userData?.profile_pic_url || '';
+        setPhotoUrl(initial);
+
+        if (userData?.id) {
+            supabase
+                .from('users')
+                .select('profile_pic_url')
+                .eq('id', userData.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                    if (data?.profile_pic_url) {
+                        setPhotoUrl(data.profile_pic_url);
+                    }
+                });
+        }
+    }, [userData]);
 
     // ─── Derive employee fields ─────────────────────────────────────
     // Extract KONTI code from name if present like "Mohit Prajapati (KONTI/205)"

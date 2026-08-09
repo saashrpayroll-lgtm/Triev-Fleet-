@@ -362,7 +362,8 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 updatedAt:updated_at,
                 inactivatedAt:inactivated_at,
                 lastStatusChangeAt:last_status_change_at,
-                deletedAt:deleted_at
+                deletedAt:deleted_at,
+                photoUrl:photo_url
             `, riderFilter);
             if (ridersError) throw ridersError;
 

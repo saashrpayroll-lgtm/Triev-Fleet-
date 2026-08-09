@@ -1,6 +1,7 @@
 import { logActivity } from '@/utils/activityLog';
 import { supabase } from '@/config/supabase';
 import { AICallLog, AutoCallConfig, Rider } from '@/types';
+import { formatPhoneNumber } from '@/utils/validationUtils';
 
 export type CallScenario = 'negative_balance' | 'low_balance' | 'custom_reminder' | 'onboarding_followup';
 
@@ -52,9 +53,12 @@ export class OutboundCallService {
      */
     static async triggerCall(payload: OutboundCallPayload): Promise<CallResult> {
         const timestamp = new Date().toISOString();
-        const formattedMobile = payload.mobileNumber.replace(/\D/g, '');
+        
+        // E.164 Format: Ensures number is always +91XXXXXXXXXX without double 91 prefixes
+        const formattedMobile = formatPhoneNumber(payload.mobileNumber);
+        const digitsOnly = formattedMobile.replace(/\D/g, '');
 
-        if (!formattedMobile || formattedMobile.length < 10) {
+        if (!digitsOnly || digitsOnly.length < 10) {
             return {
                 success: false,
                 message: 'Invalid mobile number format. Minimum 10 digits required.',
