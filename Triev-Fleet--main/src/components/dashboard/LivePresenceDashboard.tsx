@@ -86,66 +86,83 @@ const LivePresenceDashboard: React.FC = () => {
     useEffect(() => {
         fetchInitialPresence();
 
-        const channel = supabase.channel('global-presence')
-            .on('presence', { event: 'sync' }, () => {
-                const newState = channel.presenceState();
+        const handleSyncState = (newState: any) => {
+            setUsers(cur => {
+                const newMap = new Map<string, PresenceUser>();
+                Object.values(newState).forEach((arr: any) => {
+                    const p = arr[0];
+                    if (p?.user_id) {
+                        newMap.set(p.user_id, {
+                            user_id: p.user_id,
+                            email: p.email || '',
+                            role: p.role || 'user',
+                            status: p.status || 'online',
+                            last_seen_at: p.online_at || new Date().toISOString(),
+                        });
+                    }
+                });
 
-                // newState contains only currently connected riders/admins.
-                // We should completely rebuild the active users map from this to ensure those who drop are removed.
+                const now = new Date().getTime();
+                cur.forEach((user, id) => {
+                    if (!newMap.has(id)) {
+                        const isStale = now - new Date(user.last_seen_at).getTime() > 15 * 60 * 1000;
+                        if (user.status !== 'offline' && !isStale) {
+                            newMap.set(id, user);
+                        }
+                    }
+                });
+
+                enrichWithNames(newMap);
+                return newMap;
+            });
+            setLastUpdated(new Date());
+        };
+
+        const handleDBRecord = (payload: any) => {
+            if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                const record = payload.new as PresenceUser;
                 setUsers(cur => {
-                    const newMap = new Map<string, PresenceUser>();
-
-                    // We can retain DB users that were recently active if needed, but PresenceState is the source of truth.
-                    // Let's populate from PresenceState first.
-                    Object.values(newState).forEach((arr: any) => {
-                        const p = arr[0];
-                        if (p?.user_id) {
-                            newMap.set(p.user_id, {
-                                user_id: p.user_id,
-                                email: p.email || '',
-                                role: p.role || 'user',
-                                status: p.status || 'online',
-                                last_seen_at: p.online_at || new Date().toISOString(),
-                            });
-                        }
-                    });
-
-                    // We can merge in DB users from `cur` ONLY IF they are not offline and seen within last 15 mins.
-                    // This handles users transitioning between pages who might drop from presence briefly.
-                    const now = new Date().getTime();
-                    cur.forEach((user, id) => {
-                        if (!newMap.has(id)) {
-                            const isStale = now - new Date(user.last_seen_at).getTime() > 15 * 60 * 1000;
-                            if (user.status !== 'offline' && !isStale) {
-                                newMap.set(id, user);
-                            }
-                        }
-                    });
-
-                    enrichWithNames(newMap);
-                    return newMap;
+                    const map = new Map(cur);
+                    if (record.status === 'offline') {
+                        map.delete(record.user_id);
+                    } else {
+                        map.set(record.user_id, record);
+                    }
+                    enrichWithNames(map);
+                    return map;
                 });
                 setLastUpdated(new Date());
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, payload => {
-                if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-                    const record = payload.new as PresenceUser;
-                    setUsers(cur => {
-                        const map = new Map(cur);
-                        if (record.status === 'offline') {
-                            map.delete(record.user_id);
-                        } else {
-                            map.set(record.user_id, record);
-                        }
-                        enrichWithNames(map);
-                        return map;
-                    });
-                    setLastUpdated(new Date());
-                }
-            })
-            .subscribe();
+            }
+        };
 
-        return () => { supabase.removeChannel(channel); };
+        let channel = supabase.getChannels().find(c => c.topic === 'realtime:global-presence');
+
+        if (!channel || (channel.state !== 'joined' && channel.state !== 'joining')) {
+            if (!channel) {
+                channel = supabase.channel('global-presence');
+            }
+            channel
+                .on('presence', { event: 'sync' }, () => {
+                    handleSyncState(channel!.presenceState());
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, payload => {
+                    handleDBRecord(payload);
+                });
+            channel.subscribe();
+        } else {
+            handleSyncState(channel.presenceState());
+        }
+
+        const onSyncEvent = (e: Event) => handleSyncState((e as CustomEvent).detail);
+        const onDBEvent = (e: Event) => handleDBRecord((e as CustomEvent).detail);
+
+        window.addEventListener('global-presence-sync', onSyncEvent);
+        window.addEventListener('global-presence-db-change', onDBEvent);
+
+        return () => {
+            window.removeEventListener('global-presence-sync', onSyncEvent);
+            window.removeEventListener('global-presence-db-change', onDBEvent);
+        };
     }, []);
 
     const userList = useMemo(() => {

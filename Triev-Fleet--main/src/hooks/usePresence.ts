@@ -32,35 +32,59 @@ export function usePresence(userId: string | undefined, email: string | undefine
         };
 
         // 2. Setup Realtime Channel for instant sub-second broadcasting
-        const channel = supabase.channel('global-presence', {
-            config: {
-                presence: {
-                    key: userId,
+        const getOrCreateGlobalChannel = () => {
+            const existing = supabase.getChannels().find(c => c.topic === 'realtime:global-presence');
+            if (existing) return existing;
+
+            const ch = supabase.channel('global-presence', {
+                config: {
+                    presence: {
+                        key: userId,
+                    },
                 },
-            },
-        });
+            });
+
+            ch.on('presence', { event: 'sync' }, () => {
+                window.dispatchEvent(new CustomEvent('global-presence-sync', { detail: ch.presenceState() }));
+            }).on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, (payload) => {
+                window.dispatchEvent(new CustomEvent('global-presence-db-change', { detail: payload }));
+            });
+
+            return ch;
+        };
+
+        const channel = getOrCreateGlobalChannel();
         channelRef.current = channel;
 
         const broadcastPresence = async (newStatus: PresenceStatus) => {
             setStatus(newStatus);
-            // Broadcast to all active listeners immediately
-            await channel.track({
-                user_id: userId,
-                email: email,
-                role: role,
-                status: newStatus,
-                online_at: new Date().toISOString(),
-            });
+            try {
+                if (channel.state === 'joined') {
+                    await channel.track({
+                        user_id: userId,
+                        email: email,
+                        role: role,
+                        status: newStatus,
+                        online_at: new Date().toISOString(),
+                    });
+                }
+            } catch (e) {
+                console.warn('Presence track warning:', e);
+            }
             // Also save to database for historical state when offline
             await updatePresenceDB(newStatus);
         };
 
-        // Subscribe to channel
-        channel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                await broadcastPresence('online');
-            }
-        });
+        // Subscribe to channel if not already subscribed/subscribing
+        if (channel.state !== 'joined' && channel.state !== 'joining') {
+            channel.subscribe(async (subStatus) => {
+                if (subStatus === 'SUBSCRIBED') {
+                    await broadcastPresence('online');
+                }
+            });
+        } else {
+            broadcastPresence('online');
+        }
 
         // 3. Activity Tracking for 'Idle' state
         // Throttle: only process activity events at most once per 10 seconds
