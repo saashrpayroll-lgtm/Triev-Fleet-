@@ -1,5 +1,5 @@
 import { OutboundCallService } from './OutboundCallService';
-import { Rider, AutoCallConfig } from '@/types';
+import { Rider } from '@/types';
 
 export class AutoCallScheduler {
     private static runningTLs: Set<string> = new Set();

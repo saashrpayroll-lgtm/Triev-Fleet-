@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap, Bot, PhoneCall } from 'lucide-react';
+import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap, Bot } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
