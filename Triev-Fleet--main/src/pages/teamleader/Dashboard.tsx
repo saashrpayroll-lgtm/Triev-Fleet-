@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X, Phone, MessageCircle } from 'lucide-react';
+import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X, Phone, MessageCircle, Bot } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
@@ -615,9 +615,25 @@ const Dashboard: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="px-4 py-2 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-400/20 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 shadow-inner">
-                    <Shield size={14} className="text-violet-500" />
-                    <span className="text-violet-600 dark:text-violet-400 uppercase tracking-widest">Team Leader</span>
+                <div className="flex items-center gap-2">
+                    {userData?.permissions?.aiCalling?.enabled && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const targetRider = leaderboardData.riders.find(r => r.teamLeaderId === userData.id && (r.walletAmount < 0 || r.walletAmount < 250));
+                                setSelectedCallRider(targetRider || leaderboardData.riders[0] || null);
+                                setShowElevenLabsModal(true);
+                            }}
+                            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-violet-500/20 hover:opacity-95 transition-all"
+                        >
+                            <Bot size={15} className="animate-pulse" />
+                            AI Voice Call
+                        </button>
+                    )}
+                    <div className="px-4 py-2 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-400/20 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 shadow-inner">
+                        <Shield size={14} className="text-violet-500" />
+                        <span className="text-violet-600 dark:text-violet-400 uppercase tracking-widest">Team Leader</span>
+                    </div>
                 </div>
             </motion.div>
 

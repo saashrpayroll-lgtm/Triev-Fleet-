@@ -14,6 +14,7 @@ import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/uti
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import WalletAdjustmentModal from '@/components/WalletAdjustmentModal';
 import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
+import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 
 import { notifyTeamLeader } from '@/utils/notificationUtils';
 import { logActivity } from '@/utils/activityLog';
@@ -62,6 +63,8 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
     const [reassigningRider, setReassigningRider] = useState<Rider | null>(null);
     const [showBulkAssignTL, setShowBulkAssignTL] = useState(false); // State for Bulk TL Modal
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
+    const [selectedCallRider, setSelectedCallRider] = useState<Rider | null>(null);
+    const [showElevenLabsModal, setShowElevenLabsModal] = useState(false);
     const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
     const [reminderType, setReminderType] = useState<ReminderType>('low_balance');
 
@@ -1803,6 +1806,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                         onPermanentDelete={() => handlePermanentDelete(rider)}
                         onReassign={() => setReassigningRider(rider)}
                         onAdjustWallet={() => setAdjustmentRider(rider)}
+                        onElevenLabsCall={() => { setSelectedCallRider(rider); setShowElevenLabsModal(true); }}
                         userRole="admin"
                     />
                 )}
@@ -1939,6 +1943,12 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                     onClose={() => setRatingDetailRider(null)}
                 />
             )}
+            <ElevenLabsCallModal
+                isOpen={showElevenLabsModal}
+                onClose={() => { setShowElevenLabsModal(false); setSelectedCallRider(null); }}
+                rider={selectedCallRider}
+                currentUserName={currentUser?.fullName || currentUser?.email}
+            />
         </div >
     );
 };

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap, Bot, PhoneCall } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
@@ -694,22 +694,32 @@ const Dashboard: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="flex w-full sm:w-auto p-1.5 bg-slate-100/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar relative z-10">
-                    {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
-                        <button
-                            key={filter}
-                            onClick={() => setDateFilter(filter)}
-                            className={`
-                                flex-1 sm:flex-none px-4 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap
-                                ${dateFilter === filter
-                                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md scale-100 ring-1 ring-black/5 dark:ring-white/5'
-                                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 scale-95 hover:scale-100'
-                                }
-                            `}
-                        >
-                            {filter === 'all' ? 'All Time' : filter === 'day' ? 'Today' : filter === 'month' ? 'Month' : 'Week'}
-                        </button>
-                    ))}
+                <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto relative z-10">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/portal/ai-calling')}
+                        className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20 hover:opacity-95 transition-all"
+                    >
+                        <Bot size={16} className="animate-pulse" />
+                        AI Call Center
+                    </button>
+                    <div className="flex w-full sm:w-auto p-1.5 bg-slate-100/80 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar">
+                        {(['all', 'day', 'week', 'month'] as DateFilterType[]).map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => setDateFilter(filter)}
+                                className={`
+                                    flex-1 sm:flex-none px-4 py-2 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap
+                                    ${dateFilter === filter
+                                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md scale-100 ring-1 ring-black/5 dark:ring-white/5'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 scale-95 hover:scale-100'
+                                    }
+                                `}
+                            >
+                                {filter === 'all' ? 'All Time' : filter === 'day' ? 'Today' : filter === 'month' ? 'Month' : 'Week'}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </motion.div>
 

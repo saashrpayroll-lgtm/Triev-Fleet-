@@ -193,7 +193,6 @@ export const ElevenLabsCallModal: React.FC<ElevenLabsCallModalProps> = ({
                                     placeholder="Enter custom prompt instructions for the AI Agent..."
                                     rows={3}
                                     className="w-full p-3 border border-input rounded-2xl text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                stroke-width="1.5"
                                 />
                             </div>
                         )}

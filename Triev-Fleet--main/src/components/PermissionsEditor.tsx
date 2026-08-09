@@ -73,6 +73,13 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
         reports: { view: false, generate: false, export: false },
         profile: { view: false, editPersonalDetails: false, editBankDetails: false, changePassword: false, idCard: false },
         system: { resetUserPassword: false },
+        aiCalling: {
+            enabled: false,
+            manualCall: false,
+            autoCall: false,
+            viewCallHistory: false,
+            bulkCall: false,
+        },
         rmPanel: {
             dashboard: false, tlPerformance: false, leaderboard: false,
             riderOverview: false, leadOverview: false, reports: false,
@@ -462,6 +469,18 @@ const PermissionsEditor: React.FC<PermissionsEditorProps> = ({
                 { id: 'notif_broadcast', label: 'Broadcast Messages', description: 'Send push notifications to all users', risk: 'high', path: 'notifications.broadcast' },
                 { id: 'requests_resolve', label: 'Resolve Requests', description: 'Mark tickets as completed', risk: 'medium', path: 'requests.resolve' },
                 { id: 'requests_delete', label: 'Delete Requests', description: 'Remove tickets', risk: 'medium', path: 'requests.delete' },
+            ]
+        },
+        {
+            id: 'aiCalling',
+            label: 'AI Calling System',
+            icon: Radio,
+            permissions: [
+                { id: 'ai_call_enable', label: 'Enable AI Calling System', description: 'Master permission: Grants access to ElevenLabs + n8n AI Outbound Voice Call feature', risk: 'medium', path: 'aiCalling.enabled' },
+                { id: 'ai_call_manual', label: 'Manual Trigger Calls', description: 'Allow triggering voice calls directly from rider cards/modals', risk: 'low', path: 'aiCalling.manualCall' },
+                { id: 'ai_call_auto', label: 'Auto-Call Scheduling', description: 'Allow setting up automated calling rules for negative balance / < ₹250 riders', risk: 'medium', path: 'aiCalling.autoCall' },
+                { id: 'ai_call_history', label: 'View Call Logs', description: 'Access call execution history and status reports', risk: 'low', path: 'aiCalling.viewCallHistory' },
+                { id: 'ai_call_bulk', label: 'Bulk AI Calls', description: 'Trigger batch calling for all overdue riders at once', risk: 'high', path: 'aiCalling.bulkCall' },
             ]
         },
         {

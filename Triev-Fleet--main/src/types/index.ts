@@ -122,6 +122,13 @@ export interface UserPermissions {
     system: {
         resetUserPassword: boolean; // Admin action for others
     };
+    aiCalling?: {
+        enabled: boolean;          // Master toggle (Admin controls per TL)
+        manualCall: boolean;       // Can manually trigger calls
+        autoCall: boolean;         // Can enable auto-call for their riders
+        viewCallHistory: boolean;  // Can see call logs
+        bulkCall: boolean;         // Can trigger bulk calls
+    };
     // Reporting Manager Panel permissions (only relevant for RM role)
     rmPanel?: {
         dashboard: boolean;
@@ -537,3 +544,35 @@ export interface ReconciliationItem {
     snapshot_date: string;
     difference: number;
 }
+
+// AI Calling System Types
+export interface AICallLog {
+    id: string;
+    riderId: string;
+    riderName: string;
+    mobileNumber: string;
+    callScenario: 'negative_balance' | 'low_balance' | 'custom_reminder' | 'onboarding_followup';
+    triggeredBy: string;       // User ID or 'auto_scheduler'
+    triggeredByName: string;
+    callId: string;            // ElevenLabs call ID
+    status: 'queued' | 'initiated' | 'completed' | 'failed';
+    walletAmountAtCall: number;
+    duration?: number;         // Seconds
+    notes?: string;
+    createdAt: string;
+}
+
+export interface AutoCallConfig {
+    id: string;
+    teamLeaderId: string;
+    enabled: boolean;
+    negativeBalanceThreshold: number;  // Default: 0
+    lowBalanceThreshold: number;       // Default: 250
+    maxCallsPerDay: number;            // Default: 20
+    callTimeStart: string;             // "10:00"
+    callTimeEnd: string;               // "18:00"
+    lastRunAt?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+

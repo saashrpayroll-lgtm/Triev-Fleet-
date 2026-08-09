@@ -13,6 +13,7 @@ import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import ExportModal, { ExportFormat } from '@/components/ExportModal';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import ActionDropdownMenu from '@/components/ActionDropdownMenu';
+import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
@@ -48,6 +49,8 @@ const MyRiders: React.FC = () => {
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<Set<string>>(new Set());
     const [showBulkCommunicationModal, setShowBulkCommunicationModal] = useState(false);
+    const [selectedCallRider, setSelectedCallRider] = useState<Rider | null>(null);
+    const [showElevenLabsModal, setShowElevenLabsModal] = useState(false);
 
     // AI Star Rating State
     const [riderRatings, setRiderRatings] = useState<Map<string, StarRatingResult>>(new Map());
@@ -788,6 +791,7 @@ const MyRiders: React.FC = () => {
                                                     onDelete={() => handleDeleteRider(rider)}
                                                     onRestore={() => handleRestoreRider(rider)}
                                                     onPermanentDelete={() => handlePermanentDelete(rider)}
+                                                    onElevenLabsCall={userData?.permissions?.aiCalling?.enabled !== false ? () => { setSelectedCallRider(rider); setShowElevenLabsModal(true); } : undefined}
                                                     userRole="teamLeader"
                                                     permissions={riderActionPermissions}
                                                 />
@@ -968,6 +972,12 @@ const MyRiders: React.FC = () => {
                     onClose={() => setRatingDetailRider(null)}
                 />
             )}
+            <ElevenLabsCallModal
+                isOpen={showElevenLabsModal}
+                onClose={() => { setShowElevenLabsModal(false); setSelectedCallRider(null); }}
+                rider={selectedCallRider}
+                currentUserName={userData?.fullName || userData?.email}
+            />
         </div>
     );
 };

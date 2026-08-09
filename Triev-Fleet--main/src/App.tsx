@@ -54,6 +54,7 @@ const TLAllotment = React.lazy(() => import('@/pages/admin/TLAllotment'));
 const AdminNotificationsPage = React.lazy(() => import('@/pages/admin/AdminNotificationsPage'));
 const AdminForms = React.lazy(() => import('@/pages/admin/AdminForms'));
 const AdminLeads = React.lazy(() => import('@/pages/admin/AdminLeads'));
+const AICallCenter = React.lazy(() => import('@/pages/admin/AICallCenter'));
 
 // Reporting Manager Pages
 const RMLayout = React.lazy(() => import('@/layouts/RMLayout'));
@@ -312,6 +313,7 @@ function AppRoutes() {
             <Route path="data" element={<DataManagement />} />
             <Route path="wallet-history" element={<WalletHistory />} />
             <Route path="activity-log" element={<AdminActivityLog />} />
+            <Route path="ai-calling" element={<AICallCenter />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="profile" element={<AdminProfile />} />
           </Route>

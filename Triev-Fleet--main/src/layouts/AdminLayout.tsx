@@ -18,7 +18,8 @@ import {
     Target,
     Trophy,
     TrendingUp,
-    Layout
+    Layout,
+    Bot
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -143,6 +144,7 @@ const AdminLayout: React.FC = () => {
         {
             title: 'System',
             items: [
+                { path: '/portal/ai-calling', icon: Bot, label: 'AI Call Center', visible: userData?.permissions?.aiCalling?.enabled ?? true },
                 { path: '/portal/users', icon: UserCog, label: 'Staff & Roles', visible: userData?.permissions?.modules?.users ?? true },
                 { path: '/portal/broadcast', icon: ShieldAlert, label: 'Broadcast Center', visible: userData?.permissions?.notifications?.broadcast ?? true },
                 { path: '/portal/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
