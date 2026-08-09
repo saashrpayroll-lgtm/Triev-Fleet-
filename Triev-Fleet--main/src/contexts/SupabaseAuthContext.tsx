@@ -138,8 +138,14 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                 .subscribe();
         };
 
+        // Safety Timeout: Force loading to false after 3.5 seconds max
+        const safetyTimer = setTimeout(() => {
+            setLoading(false);
+        }, 3500);
+
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
+            clearTimeout(safetyTimer);
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
@@ -148,6 +154,10 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             } else {
                 setLoading(false);
             }
+        }).catch((err) => {
+            console.error('Failed to get Supabase auth session:', err);
+            clearTimeout(safetyTimer);
+            setLoading(false);
         });
 
         // Listen for auth changes
@@ -170,6 +180,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         });
 
         return () => {
+            clearTimeout(safetyTimer);
             authListener.unsubscribe();
             if (subscription) supabase.removeChannel(subscription);
         };
