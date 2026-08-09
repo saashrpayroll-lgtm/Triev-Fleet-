@@ -556,10 +556,22 @@ export interface AICallLog {
     triggeredByName: string;
     callId: string;            // ElevenLabs call ID
     status: 'queued' | 'initiated' | 'completed' | 'failed';
+    connectedStatus?: 'connected' | 'unanswered' | 'busy' | 'failed' | 'in_progress';
     walletAmountAtCall: number;
     duration?: number;         // Seconds
+    transcript?: string;       // AI voice conversation transcript
+    summary?: string;          // AI outcome summary
+    recordingUrl?: string;     // ElevenLabs recording audio URL
     notes?: string;
     createdAt: string;
+}
+
+export interface GlobalCallingRules {
+    maxCallsPerRiderDaily: number;
+    autoRetryHours: number;
+    enableLoopSystem: boolean;
+    allowedTimeStart: string;
+    allowedTimeEnd: string;
 }
 
 export interface AutoCallConfig {

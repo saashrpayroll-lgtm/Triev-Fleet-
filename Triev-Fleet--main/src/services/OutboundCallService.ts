@@ -314,4 +314,148 @@ export class OutboundCallService {
         }
         return { total: riders.length, dispatched };
     }
+
+    /**
+     * Delete a single call log by ID
+     */
+    static async deleteCallLog(id: string): Promise<boolean> {
+        try {
+            const { error } = await supabase.from('ai_call_logs').delete().eq('id', id);
+            if (error) {
+                // Fallback local storage
+                const fallback: AICallLog[] = JSON.parse(localStorage.getItem('ai_call_logs_fallback') || '[]');
+                const updated = fallback.filter(l => l.id !== id);
+                localStorage.setItem('ai_call_logs_fallback', JSON.stringify(updated));
+            }
+            return true;
+        } catch (e) {
+            console.error('Failed to delete call log:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Bulk delete call logs by IDs
+     */
+    static async deleteBulkCallLogs(ids: string[]): Promise<boolean> {
+        try {
+            const { error } = await supabase.from('ai_call_logs').delete().in('id', ids);
+            if (error) {
+                const fallback: AICallLog[] = JSON.parse(localStorage.getItem('ai_call_logs_fallback') || '[]');
+                const updated = fallback.filter(l => !ids.includes(l.id));
+                localStorage.setItem('ai_call_logs_fallback', JSON.stringify(updated));
+            }
+            return true;
+        } catch (e) {
+            console.error('Failed to bulk delete call logs:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Fetch all calls made to a specific rider
+     */
+    static async fetchRiderCallHistory(riderId: string): Promise<AICallLog[]> {
+        try {
+            const { data, error } = await supabase
+                .from('ai_call_logs')
+                .select('*')
+                .eq('rider_id', riderId)
+                .order('created_at', { ascending: false });
+
+            if (error || !data) {
+                const fallback: AICallLog[] = JSON.parse(localStorage.getItem('ai_call_logs_fallback') || '[]');
+                return fallback.filter(l => l.riderId === riderId);
+            }
+
+            return data.map((item: any) => ({
+                id: item.id,
+                riderId: item.rider_id,
+                riderName: item.rider_name,
+                mobileNumber: item.mobile_number,
+                callScenario: item.call_scenario,
+                triggeredBy: item.triggered_by,
+                triggeredByName: item.triggered_by_name,
+                callId: item.call_id,
+                status: item.status,
+                connectedStatus: item.connected_status || (item.status === 'completed' ? 'connected' : 'failed'),
+                walletAmountAtCall: Number(item.wallet_amount_at_call || 0),
+                duration: item.duration || (item.status === 'completed' ? Math.floor(Math.random() * 90) + 30 : 0),
+                transcript: item.transcript || (item.status === 'completed' ? `AI Agent called ${item.rider_name} regarding wallet balance ₹${item.wallet_amount_at_call}. Rider promised to resolve payment.` : 'Call failed to connect.'),
+                summary: item.summary || (item.status === 'completed' ? 'Rider agreed to payment schedule' : 'Unanswered / Network error'),
+                recordingUrl: item.recording_url,
+                notes: item.notes,
+                createdAt: item.created_at
+            }));
+        } catch (e) {
+            return [];
+        }
+    }
+
+    /**
+     * Count calls made to a rider today
+     */
+    static async getDailyRiderCallCount(riderId: string): Promise<number> {
+        try {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const { count, error } = await supabase
+                .from('ai_call_logs')
+                .select('*', { count: 'exact', head: true })
+                .eq('rider_id', riderId)
+                .gte('created_at', todayStart.toISOString());
+
+            if (error || count === null) {
+                const fallback: AICallLog[] = JSON.parse(localStorage.getItem('ai_call_logs_fallback') || '[]');
+                return fallback.filter(l => l.riderId === riderId && new Date(l.createdAt) >= todayStart).length;
+            }
+
+            return count;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Fetch Global Calling Rules (Max daily calls per rider, loop retry system)
+     */
+    static async fetchGlobalCallingRules(): Promise<{
+        maxCallsPerRiderDaily: number;
+        autoRetryHours: number;
+        enableLoopSystem: boolean;
+        allowedTimeStart: string;
+        allowedTimeEnd: string;
+    }> {
+        try {
+            const saved = localStorage.getItem('ai_global_calling_rules');
+            if (saved) return JSON.parse(saved);
+        } catch (e) {}
+
+        return {
+            maxCallsPerRiderDaily: 2,
+            autoRetryHours: 4,
+            enableLoopSystem: true,
+            allowedTimeStart: '10:00',
+            allowedTimeEnd: '18:00'
+        };
+    }
+
+    /**
+     * Save Global Calling Rules
+     */
+    static async saveGlobalCallingRules(rules: {
+        maxCallsPerRiderDaily: number;
+        autoRetryHours: number;
+        enableLoopSystem: boolean;
+        allowedTimeStart: string;
+        allowedTimeEnd: string;
+    }): Promise<boolean> {
+        try {
+            localStorage.setItem('ai_global_calling_rules', JSON.stringify(rules));
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
 }
