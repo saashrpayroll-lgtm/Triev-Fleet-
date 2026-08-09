@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Bot, PhoneCall, History, Settings, Play, ShieldAlert, AlertTriangle, Search, RefreshCw, CheckCircle2, XCircle, Zap, Trash2, Eye, FileText, Repeat, Volume2, Clock, CheckSquare, Square, Shield } from 'lucide-react';
+import { Bot, PhoneCall, History, Settings, Play, ShieldAlert, AlertTriangle, Search, RefreshCw, CheckCircle2, XCircle, Zap, Trash2, Eye, FileText, Repeat, Volume2, Clock, Shield } from 'lucide-react';
 import { OutboundCallService, CallScenario } from '@/services/OutboundCallService';
 import { AICallLog, AutoCallConfig, GlobalCallingRules, Rider, User } from '@/types';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
@@ -45,7 +45,6 @@ export const AICallCenter: React.FC = () => {
     const [isSavingRules, setIsSavingRules] = useState(false);
 
     // Bulk Triggering state
-    const [selectedTargetGroup, setSelectedTargetGroup] = useState<'negative' | 'low' | 'all'>('negative');
     const [isTriggeringBulk, setIsTriggeringBulk] = useState(false);
 
     // Single call trigger modal state
@@ -312,52 +311,6 @@ export const AICallCenter: React.FC = () => {
             totalTargeted: [...negativeRiders, ...lowBalanceRiders]
         };
     }, [riders]);
-
-    // Handle Bulk Call Trigger
-    const handleTriggerBulkCalls = async () => {
-        let selectedRiders: Rider[] = [];
-        let scenario: CallScenario = 'negative_balance';
-
-        if (selectedTargetGroup === 'negative') {
-            selectedRiders = targetedAnalysis.negativeRiders;
-            scenario = 'negative_balance';
-        } else if (selectedTargetGroup === 'low') {
-            selectedRiders = targetedAnalysis.lowBalanceRiders;
-            scenario = 'low_balance';
-        } else {
-            selectedRiders = targetedAnalysis.totalTargeted;
-            scenario = 'negative_balance';
-        }
-
-        if (selectedRiders.length === 0) {
-            toast.warning('No eligible riders found for selected target group.');
-            return;
-        }
-
-        setIsTriggeringBulk(true);
-        toast.info(`Initiating bulk AI calls to ${selectedRiders.length} riders...`);
-
-        try {
-            const res = await OutboundCallService.triggerBulkCalls(
-                selectedRiders.map(r => ({
-                    id: r.id,
-                    riderName: r.riderName,
-                    mobileNumber: r.mobileNumber,
-                    walletAmount: r.walletAmount
-                })),
-                scenario,
-                userData?.fullName || 'Admin',
-                userData?.id
-            );
-
-            toast.success(`Dispatched ${res.dispatched} of ${res.total} AI calls successfully.`);
-            await loadData();
-        } catch (e) {
-            toast.error('Bulk call dispatch encountered errors.');
-        } finally {
-            setIsTriggeringBulk(false);
-        }
-    };
 
     // Toggle Auto Call for TL
     const handleToggleAutoConfig = async (tlId: string, enabled: boolean) => {

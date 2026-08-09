@@ -555,7 +555,7 @@ export interface AICallLog {
     triggeredBy: string;       // User ID or 'auto_scheduler'
     triggeredByName: string;
     callId: string;            // ElevenLabs call ID
-    status: 'queued' | 'initiated' | 'completed' | 'failed';
+    status: 'queued' | 'initiated' | 'completed' | 'failed' | 'success';
     connectedStatus?: 'connected' | 'unanswered' | 'busy' | 'failed' | 'in_progress';
     walletAmountAtCall: number;
     duration?: number;         // Seconds
