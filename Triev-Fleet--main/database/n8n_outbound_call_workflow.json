@@ -239,7 +239,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.elevenlabs.io/v1/convai/agents/YOUR_ELEVENLABS_AGENT_ID/calls",
+        "url": "https://api.elevenlabs.io/v1/convai/twilio/outbound-call",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -255,7 +255,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"agent_id\": \"YOUR_ELEVENLABS_AGENT_ID\",\n  \"phone_number\": \"={{ $json.mobile_number }}\",\n  \"dynamic_variables\": {\n    \"rider_name\": \"={{ $json.rider_name }}\",\n    \"wallet_balance\": \"={{ $json.wallet_amount }}\",\n    \"call_scenario\": \"={{ $json.call_scenario }}\"\n  }\n}",
+        "jsonBody": "{\n  \"agent_id\": \"={{ $json.agent_id || 'YOUR_ELEVENLABS_AGENT_ID' }}\",\n  \"agent_phone_number_id\": \"={{ $json.agent_phone_number_id || 'phnum_6701kzhbhr20frk8cdh5v3vvpkaz' }}\",\n  \"to_number\": \"={{ $json.to_number || $json.mobile_number }}\",\n  \"conversation_initiation_client_data\": {\n    \"dynamic_variables\": {\n      \"rider_name\": \"={{ $json.rider_name }}\",\n      \"wallet_balance\": \"={{ $json.wallet_amount }}\",\n      \"call_scenario\": \"={{ $json.call_scenario }}\"\n    }\n  }\n}",
         "options": {}
       },
       "id": "node-10-elevenlabs",

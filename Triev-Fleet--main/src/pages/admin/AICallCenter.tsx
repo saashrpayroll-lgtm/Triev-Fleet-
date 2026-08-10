@@ -461,11 +461,11 @@ export const AICallCenter: React.FC = () => {
                         <span className="font-bold text-muted-foreground">ElevenLabs Voice Agent:</span>
                         {webhookInfo.isAgentConfigured ? (
                             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-extrabold text-[11px] border border-emerald-500/20 flex items-center gap-1">
-                                <CheckCircle2 size={12} /> Configured
+                                <CheckCircle2 size={12} /> Configured ({webhookInfo.phoneNumberId})
                             </span>
                         ) : (
                             <span className="px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold text-[11px]">
-                                Default Agent ID
+                                Default Agent ID ({webhookInfo.phoneNumberId})
                             </span>
                         )}
                     </div>

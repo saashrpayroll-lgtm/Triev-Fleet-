@@ -76,11 +76,13 @@ export class OutboundCallService {
                 rider_id: payload.riderId,
                 rider_name: payload.riderName,
                 mobile_number: formattedMobile,
+                to_number: formattedMobile,
                 wallet_amount: payload.walletAmount,
                 call_scenario: payload.callScenario,
                 call_type: payload.callScenario,
                 custom_note: payload.customNote || '',
                 agent_id: this.ELEVENLABS_AGENT_ID,
+                agent_phone_number_id: import.meta.env.VITE_ELEVENLABS_PHONE_NUMBER_ID || 'phnum_6701kzhbhr20frk8cdh5v3vvpkaz',
                 triggered_by: payload.triggeredBy || 'System',
                 timestamp
             };
@@ -469,15 +471,17 @@ export class OutboundCallService {
     /**
      * Get Webhook and Agent ID Configuration Info
      */
-    static getWebhookInfo(): { webhookUrl: string; agentId: string; isWebhookConfigured: boolean; isAgentConfigured: boolean } {
+    static getWebhookInfo(): { webhookUrl: string; agentId: string; phoneNumberId: string; isWebhookConfigured: boolean; isAgentConfigured: boolean } {
         const webhookUrl = this.n8nWebhookUrl;
         const agentId = this.ELEVENLABS_AGENT_ID;
+        const phoneNumberId = import.meta.env.VITE_ELEVENLABS_PHONE_NUMBER_ID || 'phnum_6701kzhbhr20frk8cdh5v3vvpkaz';
         const isWebhookConfigured = Boolean(webhookUrl && !webhookUrl.includes('example.com'));
         const isAgentConfigured = Boolean(agentId && agentId !== 'default_agent_id');
 
         return {
             webhookUrl,
             agentId,
+            phoneNumberId,
             isWebhookConfigured,
             isAgentConfigured
         };
