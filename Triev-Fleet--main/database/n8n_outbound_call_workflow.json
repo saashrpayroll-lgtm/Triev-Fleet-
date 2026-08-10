@@ -186,23 +186,23 @@
           "fieldValues": [
             {
               "fieldId": "rider_id",
-              "value": "={{ $json.rider_id }}"
+              "value": "={{ $('Node 7: Prepare Call Data & Scenario').item.json.rider_id }}"
             },
             {
               "fieldId": "rider_name",
-              "value": "={{ $json.rider_name }}"
+              "value": "={{ $('Node 7: Prepare Call Data & Scenario').item.json.rider_name }}"
             },
             {
               "fieldId": "mobile_number",
-              "value": "={{ $json.mobile_number }}"
+              "value": "={{ $('Node 7: Prepare Call Data & Scenario').item.json.mobile_number }}"
             },
             {
               "fieldId": "call_scenario",
-              "value": "={{ $json.call_scenario }}"
+              "value": "={{ $('Node 7: Prepare Call Data & Scenario').item.json.call_scenario }}"
             },
             {
               "fieldId": "call_id",
-              "value": "={{ $json.call_id || $json.id }}"
+              "value": "={{ $json.call_id || $json.conversation_id || $('Node 7: Prepare Call Data & Scenario').item.json.call_id }}"
             },
             {
               "fieldId": "status",
@@ -210,7 +210,7 @@
             },
             {
               "fieldId": "wallet_amount_at_call",
-              "value": "={{ $json.wallet_amount }}"
+              "value": "={{ $('Node 7: Prepare Call Data & Scenario').item.json.wallet_amount }}"
             }
           ]
         }
