@@ -78,4 +78,51 @@ export class AutoCallScheduler {
             skipped: skippedCount + (totalTargeted.length - Math.min(totalTargeted.length, maxCalls))
         };
     }
+
+    /**
+     * Run Auto Call Campaign for ALL targeted riders across all Team Leaders
+     */
+    static async runAutoCallForAllTargetedRiders(
+        riders: Rider[],
+        triggeredByName = 'Admin Global Scheduler'
+    ): Promise<{ total: number; dispatched: number; skipped: number }> {
+        const { totalTargeted } = OutboundCallService.getEligibleTargetRiders(riders);
+
+        if (totalTargeted.length === 0) {
+            return { total: 0, dispatched: 0, skipped: 0 };
+        }
+
+        // Priority sort: most negative balance first
+        const sortedRiders = [...totalTargeted].sort((a, b) => a.walletAmount - b.walletAmount);
+
+        let dispatched = 0;
+        let skipped = 0;
+
+        for (const rider of sortedRiders) {
+            const scenario = rider.walletAmount < 0 ? 'negative_balance' : 'low_balance';
+            const res = await OutboundCallService.triggerCall({
+                riderId: rider.id,
+                riderName: rider.riderName,
+                mobileNumber: rider.mobileNumber,
+                walletAmount: rider.walletAmount,
+                callScenario: scenario,
+                customNote: `Global Campaign triggered for ${rider.riderName}`,
+                triggeredBy: triggeredByName
+            });
+
+            if (res.success) {
+                dispatched++;
+            } else {
+                skipped++;
+            }
+
+            await new Promise(r => setTimeout(r, 250));
+        }
+
+        return {
+            total: totalTargeted.length,
+            dispatched,
+            skipped
+        };
+    }
 }

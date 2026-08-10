@@ -462,4 +462,55 @@ export class OutboundCallService {
             return false;
         }
     }
+
+    /**
+     * Get Webhook and Agent ID Configuration Info
+     */
+    static getWebhookInfo(): { webhookUrl: string; agentId: string; isWebhookConfigured: boolean; isAgentConfigured: boolean } {
+        const webhookUrl = this.n8nWebhookUrl;
+        const agentId = this.ELEVENLABS_AGENT_ID;
+        const isWebhookConfigured = Boolean(webhookUrl && !webhookUrl.includes('example.com'));
+        const isAgentConfigured = Boolean(agentId && agentId !== 'default_agent_id');
+
+        return {
+            webhookUrl,
+            agentId,
+            isWebhookConfigured,
+            isAgentConfigured
+        };
+    }
+
+    /**
+     * Test n8n Webhook Ping Connectivity
+     */
+    static async testWebhookConnection(): Promise<{ success: boolean; message: string }> {
+        const info = this.getWebhookInfo();
+        if (!info.isWebhookConfigured) {
+            return {
+                success: false,
+                message: 'n8n Webhook URL is not configured in Vercel environment variables (VITE_N8N_OUTBOUND_CALL_WEBHOOK_URL).'
+            };
+        }
+
+        try {
+            const res = await fetch(info.webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    test_ping: true,
+                    timestamp: new Date().toISOString(),
+                    message: 'Admin Call Center Webhook Connectivity Test'
+                })
+            });
+
+            if (res.ok) {
+                return { success: true, message: `n8n Webhook Ping Successful! (Status ${res.status})` };
+            } else {
+                const text = await res.text().catch(() => '');
+                return { success: false, message: `Webhook responded with status ${res.status}: ${text || res.statusText}` };
+            }
+        } catch (e: any) {
+            return { success: false, message: `Webhook unreachable: ${e.message || e}` };
+        }
+    }
 }

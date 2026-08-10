@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Bot, PhoneCall, History, Settings, Play, ShieldAlert, AlertTriangle, Search, RefreshCw, CheckCircle2, XCircle, Zap, Trash2, Eye, FileText, Repeat, Volume2, Clock, Shield } from 'lucide-react';
+import { Bot, PhoneCall, History, Settings, Play, ShieldAlert, AlertTriangle, Search, RefreshCw, CheckCircle2, XCircle, Zap, Trash2, Eye, FileText, Repeat, Volume2, Clock, Shield, Activity, Radio, Sparkles, PhoneOutgoing } from 'lucide-react';
 import { OutboundCallService, CallScenario } from '@/services/OutboundCallService';
+import { AutoCallScheduler } from '@/services/AutoCallScheduler';
 import { AICallLog, AutoCallConfig, GlobalCallingRules, Rider, User } from '@/types';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -17,6 +18,13 @@ export const AICallCenter: React.FC = () => {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [teamLeaders, setTeamLeaders] = useState<User[]>([]);
     const [autoConfigs, setAutoConfigs] = useState<Record<string, AutoCallConfig>>({});
+
+    // Webhook & Integration status
+    const [webhookInfo, setWebhookInfo] = useState(OutboundCallService.getWebhookInfo());
+    const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+
+    // Global Manual Campaign Execution State
+    const [isExecutingCampaign, setIsExecutingCampaign] = useState(false);
 
     // Filter & Search states
     const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +58,7 @@ export const AICallCenter: React.FC = () => {
     // Single call trigger modal state
     const [callingRider, setCallingRider] = useState<Rider | null>(null);
     const [callScenarioModal, setCallScenarioModal] = useState<CallScenario>('negative_balance');
+    const [customPromptNote, setCustomPromptNote] = useState('');
     const [isTriggeringSingle, setIsTriggeringSingle] = useState(false);
 
     // Multi-select state for Targeted Riders
@@ -57,6 +66,92 @@ export const AICallCenter: React.FC = () => {
     const [targetedCategoryFilter, setTargetedCategoryFilter] = useState<'all' | 'negative' | 'low'>('all');
     const [targetedTLFilter, setTargetedTLFilter] = useState<string>('all');
     const [targetedSearchQuery, setTargetedSearchQuery] = useState<string>('');
+
+    // Load initial data
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [logsData, ridersRes, usersRes] = await Promise.all([
+                OutboundCallService.fetchCallLogs(150),
+                fetchAllRidersPaginated(`id, trievId:triev_id, riderName:rider_name, mobileNumber:mobile_number, walletAmount:wallet_amount, status, teamLeaderId:team_leader_id`),
+                fetchTablePaginated('users', `id, fullName:full_name, username, role, status`)
+            ]);
+
+            setCallLogs(Array.isArray(logsData) ? logsData : []);
+
+            const rawRiders = Array.isArray(ridersRes?.data) ? ridersRes.data : [];
+            setRiders(rawRiders);
+
+            const rawUsers = Array.isArray(usersRes?.data) ? usersRes.data : [];
+            const tls = rawUsers.filter((u: any) => u.role === 'teamLeader');
+            setTeamLeaders(tls);
+
+            // Fetch auto call configs for all TLs
+            const configMap: Record<string, AutoCallConfig> = {};
+            for (const tl of tls) {
+                const cfg = await OutboundCallService.fetchAutoCallConfig(tl.id);
+                if (cfg) configMap[tl.id] = cfg;
+            }
+            setAutoConfigs(configMap);
+
+            // Fetch Global Rules
+            const rules = await OutboundCallService.fetchGlobalCallingRules();
+            if (rules) setGlobalRules(rules);
+
+            // Refresh Webhook info
+            setWebhookInfo(OutboundCallService.getWebhookInfo());
+
+        } catch (e) {
+            console.error('Failed to load AI Call Center data:', e);
+            toast.error('Failed to load call logs');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Test Webhook Connection
+    const handleTestWebhook = async () => {
+        setIsTestingWebhook(true);
+        toast.info('Pinging n8n Outbound Webhook...');
+        try {
+            const res = await OutboundCallService.testWebhookConnection();
+            if (res.success) {
+                toast.success(res.message);
+            } else {
+                toast.error(res.message);
+            }
+        } catch (e: any) {
+            toast.error('Webhook ping failed: ' + e.message);
+        } finally {
+            setIsTestingWebhook(false);
+        }
+    };
+
+    // Run Manual Global Auto-Call Campaign
+    const handleRunManualCampaign = async () => {
+        const eligible = OutboundCallService.getEligibleTargetRiders(riders);
+        if (eligible.totalTargeted.length === 0) {
+            toast.warning('No eligible riders found for AI calling (Wallet balance ≥ ₹250 for all riders).');
+            return;
+        }
+
+        setIsExecutingCampaign(true);
+        toast.info(`Starting instant AI Call Campaign for ${eligible.totalTargeted.length} targeted riders...`);
+
+        try {
+            const res = await AutoCallScheduler.runAutoCallForAllTargetedRiders(
+                riders,
+                userData?.fullName || 'Admin Manual Trigger'
+            );
+
+            toast.success(`Campaign Completed! ${res.dispatched} of ${res.total} AI calls successfully dispatched to n8n.`);
+            await loadData();
+        } catch (e: any) {
+            toast.error('Campaign encountered an error: ' + (e.message || e));
+        } finally {
+            setIsExecutingCampaign(false);
+        }
+    };
 
     // Single call dispatch
     const handleTriggerSingleCall = async () => {
@@ -70,6 +165,7 @@ export const AICallCenter: React.FC = () => {
                 mobileNumber: callingRider.mobileNumber,
                 walletAmount: callingRider.walletAmount,
                 callScenario: callScenarioModal,
+                customNote: customPromptNote || undefined,
                 triggeredBy: userData?.fullName || 'Admin',
                 triggeredById: userData?.id
             });
@@ -77,6 +173,7 @@ export const AICallCenter: React.FC = () => {
             if (res.success) {
                 toast.success(`AI Call Dispatched to ${callingRider.riderName} (${res.callId})`);
                 setCallingRider(null);
+                setCustomPromptNote('');
                 await loadData();
             } else {
                 toast.error(res.message || 'Call failed to dispatch');
@@ -164,44 +261,6 @@ export const AICallCenter: React.FC = () => {
             toast.error('Bulk call dispatch encountered errors.');
         } finally {
             setIsTriggeringBulk(false);
-        }
-    };
-
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [logsData, ridersRes, usersRes] = await Promise.all([
-                OutboundCallService.fetchCallLogs(100),
-                fetchAllRidersPaginated(`id, trievId:triev_id, riderName:rider_name, mobileNumber:mobile_number, walletAmount:wallet_amount, status, teamLeaderId:team_leader_id`),
-                fetchTablePaginated('users', `id, fullName:full_name, username, role, status`)
-            ]);
-
-            setCallLogs(Array.isArray(logsData) ? logsData : []);
-
-            const rawRiders = Array.isArray(ridersRes?.data) ? ridersRes.data : [];
-            setRiders(rawRiders);
-
-            const rawUsers = Array.isArray(usersRes?.data) ? usersRes.data : [];
-            const tls = rawUsers.filter((u: any) => u.role === 'teamLeader');
-            setTeamLeaders(tls);
-
-            // Fetch auto call configs for all TLs
-            const configMap: Record<string, AutoCallConfig> = {};
-            for (const tl of tls) {
-                const cfg = await OutboundCallService.fetchAutoCallConfig(tl.id);
-                if (cfg) configMap[tl.id] = cfg;
-            }
-            setAutoConfigs(configMap);
-
-            // Fetch Global Rules
-            const rules = await OutboundCallService.fetchGlobalCallingRules();
-            if (rules) setGlobalRules(rules);
-
-        } catch (e) {
-            console.error('Failed to load AI Call Center data:', e);
-            toast.error('Failed to load call logs');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -302,10 +361,14 @@ export const AICallCenter: React.FC = () => {
         const list = Array.isArray(riders) ? riders : [];
         const negativeRiders = list.filter(r => Number(r.walletAmount || 0) < 0 && r.status === 'active');
         const lowBalanceRiders = list.filter(r => Number(r.walletAmount || 0) >= 0 && Number(r.walletAmount || 0) < 250 && r.status === 'active');
+        
+        const totalNegativeAmount = negativeRiders.reduce((acc, r) => acc + Math.abs(Number(r.walletAmount || 0)), 0);
+
         return {
             negativeCount: negativeRiders.length,
             lowBalanceCount: lowBalanceRiders.length,
             totalTargetedCount: negativeRiders.length + lowBalanceRiders.length,
+            totalNegativeAmount,
             negativeRiders,
             lowBalanceRiders,
             totalTargeted: [...negativeRiders, ...lowBalanceRiders]
@@ -330,7 +393,7 @@ export const AICallCenter: React.FC = () => {
 
         const ok = await OutboundCallService.saveAutoCallConfig(updated);
         if (ok) {
-            toast.success(`Auto-calling ${enabled ? 'ENABLED' : 'DISABLED'} for TL`);
+            toast.success(`Auto-calling ${enabled ? 'ENABLED' : 'DISABLED'} for Team Leader`);
         } else {
             toast.error('Failed to update config');
         }
@@ -338,12 +401,12 @@ export const AICallCenter: React.FC = () => {
 
     return (
         <PageTransition className="p-6 space-y-6 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-violet-900/90 via-indigo-900/90 to-slate-900 text-white shadow-2xl border border-white/10 relative overflow-hidden">
+            {/* Main Header Banner */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-violet-950 via-indigo-900 to-slate-900 text-white shadow-2xl border border-white/10 relative overflow-hidden">
                 <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="relative z-10 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-inner">
-                        <Bot className="w-7 h-7 text-violet-300 animate-pulse" />
+                    <div className="w-14 h-14 rounded-2xl bg-violet-600/20 backdrop-blur-xl border border-violet-400/30 flex items-center justify-center shadow-inner">
+                        <Bot className="w-8 h-8 text-violet-300 animate-pulse" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
@@ -351,12 +414,21 @@ export const AICallCenter: React.FC = () => {
                             <GradientBadge variant="violet">v2.0 ElevenLabs + n8n</GradientBadge>
                         </div>
                         <p className="text-xs text-slate-300 mt-1">
-                            Automated AI Voice Calling system targeting negative balance (&lt; ₹0) and low balance (&lt; ₹250) riders.
+                            Automated AI Voice Calling system for Overdue Debt Recovery (&lt; ₹0) and Low Balance Warnings (&lt; ₹250).
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 relative z-10">
+                <div className="flex flex-wrap items-center gap-3 relative z-10">
+                    <button
+                        onClick={handleRunManualCampaign}
+                        disabled={isExecutingCampaign}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-black flex items-center gap-2 shadow-lg shadow-violet-600/30 transition-all disabled:opacity-50"
+                    >
+                        <PhoneOutgoing size={15} className={isExecutingCampaign ? 'animate-bounce' : ''} />
+                        {isExecutingCampaign ? 'Executing Campaign...' : 'Launch Auto-Call Campaign'}
+                    </button>
+
                     <button
                         onClick={loadData}
                         disabled={loading}
@@ -367,14 +439,57 @@ export const AICallCenter: React.FC = () => {
                 </div>
             </div>
 
+            {/* Integration & Webhook Health Strip */}
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                    <div className="flex items-center gap-2">
+                        <Activity size={16} className="text-violet-500" />
+                        <span className="font-bold text-muted-foreground">n8n Webhook:</span>
+                        {webhookInfo.isWebhookConfigured ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-extrabold text-[11px] border border-emerald-500/20 flex items-center gap-1">
+                                <CheckCircle2 size={12} /> Active &amp; Connected
+                            </span>
+                        ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-extrabold text-[11px] border border-amber-500/20 flex items-center gap-1">
+                                <AlertTriangle size={12} /> Default / Fallback Mode
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Radio size={16} className="text-indigo-500" />
+                        <span className="font-bold text-muted-foreground">ElevenLabs Voice Agent:</span>
+                        {webhookInfo.isAgentConfigured ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-extrabold text-[11px] border border-emerald-500/20 flex items-center gap-1">
+                                <CheckCircle2 size={12} /> Configured
+                            </span>
+                        ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold text-[11px]">
+                                Default Agent ID
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={handleTestWebhook}
+                    disabled={isTestingWebhook}
+                    className="px-3.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0"
+                >
+                    <Sparkles size={14} className={isTestingWebhook ? 'animate-spin' : ''} />
+                    {isTestingWebhook ? 'Pinging Webhook...' : 'Test Webhook Ping'}
+                </button>
+            </div>
+
             {/* Top Stat Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm flex items-center gap-4">
                     <div className="p-3.5 rounded-2xl bg-violet-500/10 text-violet-600">
                         <PhoneCall size={24} />
                     </div>
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Calls Made</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Calls Initiated</p>
                         <h3 className="text-2xl font-black text-foreground mt-0.5">
                             <AnimatedCounter value={callLogs.length} />
                         </h3>
@@ -386,9 +501,10 @@ export const AICallCenter: React.FC = () => {
                         <ShieldAlert size={24} />
                     </div>
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Negative Wallet Target (&lt;₹0)</p>
-                        <h3 className="text-2xl font-black text-foreground mt-0.5">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Overdue Defaulters (&lt;₹0)</p>
+                        <h3 className="text-2xl font-black text-foreground mt-0.5 flex items-baseline gap-2">
                             <AnimatedCounter value={targetedAnalysis.negativeCount} />
+                            <span className="text-xs font-mono font-bold text-red-500">₹{targetedAnalysis.totalNegativeAmount.toLocaleString('en-IN')}</span>
                         </h3>
                     </div>
                 </div>
@@ -398,7 +514,7 @@ export const AICallCenter: React.FC = () => {
                         <AlertTriangle size={24} />
                     </div>
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Low Balance Target (&lt;₹250)</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Low Balance Targets (&lt;₹250)</p>
                         <h3 className="text-2xl font-black text-foreground mt-0.5">
                             <AnimatedCounter value={targetedAnalysis.lowBalanceCount} />
                         </h3>
@@ -488,7 +604,7 @@ export const AICallCenter: React.FC = () => {
                                 className="px-3 py-2 border border-input rounded-xl text-xs bg-background font-semibold"
                             >
                                 <option value="all">All Statuses</option>
-                                <option value="completed">Completed / Dispatched</option>
+                                <option value="completed">Completed / Connected</option>
                                 <option value="initiated">Initiated</option>
                                 <option value="failed">Failed</option>
                             </select>
@@ -897,7 +1013,7 @@ export const AICallCenter: React.FC = () => {
                     <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md space-y-5 shadow-2xl animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-black text-foreground flex items-center gap-2">
-                                <Bot className="text-violet-600" size={20} /> Initiate AI Call
+                                <Bot className="text-violet-600" size={20} /> Initiate ElevenLabs AI Call
                             </h3>
                             <button
                                 onClick={() => setCallingRider(null)}
@@ -924,9 +1040,22 @@ export const AICallCenter: React.FC = () => {
                             >
                                 <option value="negative_balance">Overdue Negative Balance Recovery (Hindi/Hinglish)</option>
                                 <option value="low_balance">Low Balance Warning (Below ₹250)</option>
-                                <option value="custom_reminder">Custom Urgent Payment Reminder</option>
+                                <option value="custom_reminder">Custom Prompt Instruction Scenario</option>
                             </select>
                         </div>
+
+                        {callScenarioModal === 'custom_reminder' && (
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-muted-foreground">Custom Prompt Instructions for Voice Agent</label>
+                                <textarea
+                                    value={customPromptNote}
+                                    onChange={(e) => setCustomPromptNote(e.target.value)}
+                                    placeholder="Enter custom instructions to pass to ElevenLabs agent..."
+                                    rows={3}
+                                    className="w-full p-3 border border-input rounded-2xl text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex items-center justify-end gap-3 pt-2">
                             <button
