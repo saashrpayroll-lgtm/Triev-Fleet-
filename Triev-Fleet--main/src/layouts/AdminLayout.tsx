@@ -1,30 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
-    LayoutDashboard,
-    Users,
-    UserCog,
-    Database,
-    FileText,
-    Activity,
-    User,
-    LogOut,
-    Menu,
-    X,
-    Bell,
-    ShieldAlert,
-    Target,
-    Trophy,
-    TrendingUp,
-    Layout,
-    Bot,
-    RefreshCw
+    LayoutDashboard, Users, UserCog, Database, FileText, Activity, User,
+    LogOut, Menu, X, Bell, ShieldAlert, Target, Trophy, TrendingUp,
+    Layout, Bot, RefreshCw, Search, ChevronRight
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import BottomNav from '@/components/layout/BottomNav';
+import GlobalSearch from '@/components/GlobalSearch';
 import { supabase } from '@/config/supabase';
 
 interface NavItem {
@@ -35,17 +21,20 @@ interface NavItem {
     visible?: boolean;
     badge?: number;
     badgeColor?: string;
+    emoji?: string;
 }
 
 interface NavGroup {
     title: string;
     items: NavItem[];
+    color?: string;
 }
 
 const AdminLayout: React.FC = () => {
     const { userData, signOut } = useSupabaseAuth();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [searchOpen, setSearchOpen] = useState(false);
 
     // Live Badges State
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
@@ -69,7 +58,6 @@ const AdminLayout: React.FC = () => {
         if (!userData) return;
         fetchCounts();
 
-        // Subscriptions
         const reqChannel = supabase.channel('requests-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, () => fetchCounts())
             .subscribe();
@@ -85,12 +73,17 @@ const AdminLayout: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userData]);
 
-    // DEBUG: Monitor permissions
-    // React.useEffect(() => {
-    //     if (userData) {
-    //          // console.log('AdminLayout Permissions:', userData.permissions);
-    //     }
-    // }, [userData]);
+    // Cmd+K shortcut
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                setSearchOpen(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -103,21 +96,24 @@ const AdminLayout: React.FC = () => {
     const navGroups: NavGroup[] = [
         {
             title: 'Overview',
+            color: 'text-indigo-400',
             items: [
-                { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/analytics', icon: TrendingUp, label: 'Analytics', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
-                { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal', icon: LayoutDashboard, label: 'Dashboard', emoji: '📊', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/analytics', icon: TrendingUp, label: 'Analytics', emoji: '📈', visible: userData?.permissions?.dashboard?.charts?.revenue ?? true },
+                { path: '/portal/leaderboard', icon: Trophy, label: 'Leaderboard', emoji: '🏆', visible: userData?.permissions?.dashboard?.view ?? true },
             ].filter(item => item.visible)
         },
         {
             title: 'Operations',
+            color: 'text-emerald-400',
             items: [
-                { path: '/portal/riders', icon: Users, label: 'Riders', visible: userData?.permissions?.modules?.riders ?? true },
-                { path: '/portal/leads', icon: Target, label: 'Leads', visible: userData?.permissions?.modules?.leads ?? true },
+                { path: '/portal/riders', icon: Users, label: 'Riders', emoji: '🛵', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/portal/leads', icon: Target, label: 'Leads', emoji: '🎯', visible: userData?.permissions?.modules?.leads ?? true },
                 {
                     path: '/portal/requests',
                     icon: ShieldAlert,
                     label: 'Requests',
+                    emoji: '📋',
                     visible: userData?.permissions?.modules?.requests ?? true,
                     badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
                     badgeColor: 'bg-orange-500 text-white'
@@ -126,38 +122,42 @@ const AdminLayout: React.FC = () => {
         },
         {
             title: 'Management',
+            color: 'text-violet-400',
             items: [
-                { path: '/portal/cityops-performance', icon: Activity, label: 'CityOps Performance', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/rm-performance', icon: Activity, label: 'RM Performance', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', visible: userData?.permissions?.dashboard?.view ?? true },
-                { path: '/portal/forms', icon: FileText, label: 'Company Forms', visible: userData?.permissions?.modules?.requests ?? true },
+                { path: '/portal/cityops-performance', icon: Activity, label: 'CityOps Performance', emoji: '🏙️', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/rm-performance', icon: Activity, label: 'RM Performance', emoji: '📡', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', emoji: '👥', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', emoji: '🗂️', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/forms', icon: FileText, label: 'Company Forms', emoji: '📄', visible: userData?.permissions?.modules?.requests ?? true },
             ].filter(item => item.visible)
         },
         {
             title: 'Financials',
+            color: 'text-amber-400',
             items: [
-                { path: '/portal/data', icon: Database, label: 'Data Hub', visible: userData?.permissions?.modules?.dataManagement ?? true },
-                { path: '/portal/wallet-history', icon: Database, label: 'Wallet Logs', visible: userData?.permissions?.modules?.riders ?? true },
-                { path: '/portal/reports', icon: FileText, label: 'Reports', visible: userData?.permissions?.modules?.reports ?? true },
+                { path: '/portal/data', icon: Database, label: 'Data Hub', emoji: '💾', visible: userData?.permissions?.modules?.dataManagement ?? true },
+                { path: '/portal/wallet-history', icon: Database, label: 'Wallet Logs', emoji: '💰', visible: userData?.permissions?.modules?.riders ?? true },
+                { path: '/portal/reports', icon: FileText, label: 'Reports', emoji: '📑', visible: userData?.permissions?.modules?.reports ?? true },
             ].filter(item => item.visible)
         },
         {
             title: 'System',
+            color: 'text-rose-400',
             items: [
-                { path: '/portal/ai-calling', icon: Bot, label: 'AI Call Center', visible: userData?.permissions?.aiCalling?.enabled ?? true },
-                { path: '/portal/users', icon: UserCog, label: 'Staff & Roles', visible: userData?.permissions?.modules?.users ?? true },
-                { path: '/portal/broadcast', icon: ShieldAlert, label: 'Broadcast Center', visible: userData?.permissions?.notifications?.broadcast ?? true },
-                { path: '/portal/activity-log', icon: Activity, label: 'Activity Logs', visible: userData?.permissions?.modules?.activityLog ?? true },
+                { path: '/portal/ai-calling', icon: Bot, label: 'AI Call Center', emoji: '🤖', visible: userData?.permissions?.aiCalling?.enabled ?? true },
+                { path: '/portal/users', icon: UserCog, label: 'Staff & Roles', emoji: '⚙️', visible: userData?.permissions?.modules?.users ?? true },
+                { path: '/portal/broadcast', icon: ShieldAlert, label: 'Broadcast Center', emoji: '📢', visible: userData?.permissions?.notifications?.broadcast ?? true },
+                { path: '/portal/activity-log', icon: Activity, label: 'Activity Logs', emoji: '🗒️', visible: userData?.permissions?.modules?.activityLog ?? true },
                 {
                     path: '/portal/notifications',
                     icon: Bell,
                     label: 'Notifications',
+                    emoji: '🔔',
                     visible: userData?.permissions?.modules?.notifications ?? true,
                     badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
                     badgeColor: 'bg-red-500 text-white'
                 },
-                { path: '/portal/profile', icon: User, label: 'My Profile', visible: userData?.permissions?.modules?.profile ?? true },
+                { path: '/portal/profile', icon: User, label: 'My Profile', emoji: '👤', visible: userData?.permissions?.modules?.profile ?? true },
             ].filter(item => item.visible)
         }
     ].filter(group => group.items.length > 0);
@@ -165,13 +165,22 @@ const AdminLayout: React.FC = () => {
     // Flatten for BottomNav
     const flatNavItems = navGroups.flatMap(g => g.items);
 
+    // Breadcrumb from pathname
+    const pathParts = location.pathname.replace('/portal', '').split('/').filter(Boolean);
+    const breadcrumb = pathParts.length === 0 ? ['Dashboard'] : pathParts.map(p => p.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
     return (
         <div className="flex h-screen bg-background">
-            {/* Sidebar - Hidden on Mobile, Visible on Desktop */}
-            <aside
-                className={`hidden md:flex ${sidebarOpen ? 'w-72' : 'w-20'} bg-card border-r border-border/50 transition-all duration-300 ease-in-out flex-col shadow-xl z-[10000] relative`}
-            >
-                {/* ... existing sidebar content ... */}
+            {/* Global Search */}
+            <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} portalBase="/portal" />
+
+            {/* ── Sidebar ──────────────────────────────────────────────────── */}
+            <aside className={`hidden md:flex ${sidebarOpen ? 'w-72' : 'w-20'} transition-all duration-300 ease-in-out flex-col shadow-xl z-[10000] relative`}
+                style={{ background: 'hsl(var(--card))', borderRight: '1px solid hsl(var(--border)/0.5)' }}>
+
+                {/* Gradient accent stripe on left edge */}
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-indigo-500 via-violet-500 to-pink-500 rounded-r-full" />
+
                 {/* Toggle Button */}
                 <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -180,26 +189,64 @@ const AdminLayout: React.FC = () => {
                     {sidebarOpen ? <X size={14} /> : <Menu size={14} />}
                 </button>
 
-                <div className={`p-6 flex items-center gap-3 ${sidebarOpen ? 'justify-start' : 'justify-center'} border-b border-border/50`}>
-                    <div className="w-8 h-8 bg-gradient-to-br from-primary to-violet-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">
+                {/* Brand Header */}
+                <div className={`p-5 flex items-center gap-3 ${sidebarOpen ? 'justify-start' : 'justify-center'} border-b border-border/40`}>
+                    <motion.div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-base shadow-lg shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)' }}
+                        animate={{ boxShadow: ['0 0 10px rgba(99,102,241,0.3)', '0 0 20px rgba(99,102,241,0.5)', '0 0 10px rgba(99,102,241,0.3)'] }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                    >
                         A
-                    </div>
-                    <h1 className={`font-bold text-lg bg-gradient-to-r from-primary to-violet-600 bg-clip-text text-transparent whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
-                        Admin Panel
-                    </h1>
+                    </motion.div>
+                    <AnimatePresence>
+                        {sidebarOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <h1 className="font-black text-base bg-gradient-to-r from-indigo-500 to-violet-500 bg-clip-text text-transparent whitespace-nowrap">Admin Panel</h1>
+                                <p className="text-[9px] text-muted-foreground/50 font-mono tracking-widest uppercase">v2.5.0 • Command Center</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
-                <nav className="flex-1 px-3 py-6 space-y-7 overflow-x-hidden overflow-y-auto custom-scrollbar">
+                {/* Search shortcut */}
+                {sidebarOpen && (
+                    <div className="px-4 pt-4 pb-1">
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all group text-sm"
+                        >
+                            <Search size={14} className="shrink-0" />
+                            <span className="flex-1 text-left text-[12px]">Search riders, pages...</span>
+                            <kbd className="hidden sm:inline-flex text-[9px] font-mono bg-background border border-border px-1.5 py-0.5 rounded-md">⌘K</kbd>
+                        </button>
+                    </div>
+                )}
+                {!sidebarOpen && (
+                    <div className="px-2 pt-4 pb-1">
+                        <button onClick={() => setSearchOpen(true)} className="w-full flex items-center justify-center p-2 rounded-xl hover:bg-muted/50 text-muted-foreground hover:text-primary transition-all" title="Search (Ctrl+K)">
+                            <Search size={18} />
+                        </button>
+                    </div>
+                )}
+
+                {/* Nav groups */}
+                <nav className="flex-1 px-3 py-4 space-y-6 overflow-x-hidden overflow-y-auto custom-scrollbar">
                     {navGroups.map((group, groupIndex) => (
-                        <div key={groupIndex} className="space-y-2">
+                        <div key={groupIndex} className="space-y-1">
                             {sidebarOpen && (
                                 <motion.h3
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    className="px-4 text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/40 mb-3 flex items-center gap-2"
+                                    className={`px-3 text-[9px] font-black uppercase tracking-[0.2em] mb-2 flex items-center gap-2 ${group.color || 'text-muted-foreground/40'}`}
                                 >
                                     {group.title}
-                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                                    <div className="h-[1px] flex-1 bg-gradient-to-r from-current to-transparent opacity-20" />
                                 </motion.h3>
                             )}
                             {group.items.map((item) => {
@@ -210,40 +257,47 @@ const AdminLayout: React.FC = () => {
                                     <Link
                                         key={item.path}
                                         to={item.path}
-                                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
+                                        title={!sidebarOpen ? item.label : undefined}
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive
                                             ? 'text-primary font-bold'
                                             : 'text-muted-foreground hover:text-foreground'
-                                            }`}
+                                        }`}
                                     >
-                                        {/* Hover background effect */}
-                                        <div className={`absolute inset-0 transition-opacity duration-300 ${isActive
-                                            ? 'bg-primary/10 opacity-100'
-                                            : 'bg-primary/5 opacity-0 group-hover:opacity-100'
-                                            }`} />
+                                        {/* Active / hover bg */}
+                                        <div className={`absolute inset-0 rounded-xl transition-all duration-200 ${isActive ? 'bg-primary/10' : 'opacity-0 group-hover:opacity-100 bg-muted/60'}`} />
 
-                                        {/* Activity Indicator */}
+                                        {/* Left accent pill */}
                                         {isActive && (
                                             <motion.div
-                                                layoutId="active-pill"
-                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--primary),0.5)]"
+                                                layoutId="admin-active-pill"
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-primary rounded-r-full shadow-[0_0_8px_rgba(99,102,241,0.6)]"
                                             />
                                         )}
 
-                                        <div className={`relative shrink-0 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:text-primary'}`}>
-                                            <Icon size={18} className={isActive ? 'text-primary' : 'transition-colors duration-300'} />
+                                        <div className={`relative shrink-0 transition-all duration-200 ${isActive ? 'text-primary scale-110' : 'group-hover:text-primary group-hover:scale-105'}`}>
+                                            <Icon size={17} />
                                             {!sidebarOpen && item.badge !== undefined && (
-                                                <span className={`absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black shadow-lg ${item.badgeColor}`}>
-                                                    {item.badge > 99 ? '99+' : item.badge}
+                                                <span className={`absolute -top-2 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[7px] font-black shadow-lg ${item.badgeColor}`}>
+                                                    {item.badge > 9 ? '9+' : item.badge}
                                                 </span>
                                             )}
                                         </div>
 
-                                        <span className={`relative flex-1 text-sm tracking-tight whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute left-12'}`}>
-                                            {item.label}
-                                        </span>
+                                        <AnimatePresence>
+                                            {sidebarOpen && (
+                                                <motion.span
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={{ opacity: 0 }}
+                                                    className="relative flex-1 text-[13px] font-medium whitespace-nowrap"
+                                                >
+                                                    {item.label}
+                                                </motion.span>
+                                            )}
+                                        </AnimatePresence>
 
                                         {sidebarOpen && item.badge !== undefined && (
-                                            <span className={`relative px-2 py-0.5 rounded-lg text-[9px] font-black ${item.badgeColor} ml-auto shrink-0 animate-in zoom-in shadow-sm`}>
+                                            <span className={`relative px-1.5 py-0.5 rounded-lg text-[9px] font-black ${item.badgeColor} ml-auto shrink-0 shadow-sm`}>
                                                 {item.badge > 99 ? '99+' : item.badge}
                                             </span>
                                         )}
@@ -254,74 +308,97 @@ const AdminLayout: React.FC = () => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-border/50 bg-muted/5">
+                {/* Logout footer */}
+                <div className="p-3 border-t border-border/40">
                     <button
                         onClick={handleLogout}
-                        className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-300 w-full text-left group relative overflow-hidden
-                            text-muted-foreground hover:bg-red-50 hover:text-red-600 hover:shadow-lg hover:shadow-red-500/10 hover:scale-[1.02] active:scale-95
-                            dark:hover:bg-red-900/20 dark:hover:text-red-400
-                        `}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full text-left group relative overflow-hidden text-muted-foreground hover:text-red-500 hover:bg-red-500/8`}
                     >
-                        <LogOut size={20} className="shrink-0 transition-transform duration-300 group-hover:rotate-12" />
-                        <span className={`font-medium whitespace-nowrap transition-all duration-300 ${sidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute left-12'}`}>
-                            Logout
-                        </span>
+                        <LogOut size={17} className="shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:text-red-500" />
+                        <AnimatePresence>
+                            {sidebarOpen && (
+                                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="font-medium text-[13px] whitespace-nowrap">
+                                    Logout
+                                </motion.span>
+                            )}
+                        </AnimatePresence>
                     </button>
 
                     {sidebarOpen && (
-                        <div className="mt-4 text-xs text-center text-muted-foreground/50 font-medium whitespace-nowrap overflow-hidden">
-                            v2.5.0 • Admin Console
+                        <div className="mt-3 text-[9px] text-center text-muted-foreground/30 font-mono tracking-widest uppercase">
+                            Triev Admin v2.5.0
                         </div>
                     )}
                 </div>
             </aside>
 
-            {/* Main Content */}
+            {/* ── Main Content ─────────────────────────────────────────────── */}
             <div className="flex-1 flex flex-col overflow-hidden mb-24 md:mb-0 max-w-full">
-                {/* Header - Make Sticky and Adjust Padding */}
-                <header className="bg-card border-b border-border px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-[9990]">
-                    <div>
-                        {/* Mobile Logo/Title since Sidebar is hidden */}
-                        <h2 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-                            <div className="md:hidden w-8 h-8 bg-gradient-to-br from-primary to-violet-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shrink-0">
-                                A
-                            </div>
-                            {sidebarOpen ? <span className="md:hidden">Admin Panel</span> : 'Admin Panel'}
-                        </h2>
+                {/* Header */}
+                <header className="bg-card/80 backdrop-blur-md border-b border-border/50 px-4 md:px-6 py-3.5 flex items-center justify-between sticky top-0 z-[9990]">
+                    {/* Left: Mobile logo + Breadcrumb */}
+                    <div className="flex items-center gap-3">
+                        <div className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-sm shadow shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)' }}>
+                            A
+                        </div>
+                        {/* Breadcrumb — desktop only */}
+                        <div className="hidden md:flex items-center gap-1.5 text-sm">
+                            <span className="text-muted-foreground/50 font-medium">Portal</span>
+                            {breadcrumb.map((crumb, i) => (
+                                <React.Fragment key={i}>
+                                    <ChevronRight size={13} className="text-muted-foreground/30" />
+                                    <span className={i === breadcrumb.length - 1 ? 'text-foreground font-semibold' : 'text-muted-foreground/60 font-medium'}>
+                                        {crumb}
+                                    </span>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                        <span className="md:hidden text-base font-semibold">Admin Panel</span>
                     </div>
 
-                    {/* Right Side Actions */}
-                    <div className="flex items-center gap-3 md:gap-6">
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => (window as any).forceAppUpdate?.()}
-                                className="p-2 rounded-xl border border-input hover:bg-accent text-muted-foreground hover:text-primary transition-all flex items-center gap-1.5 text-xs font-semibold"
-                                title="Force Sync Latest App Deployment & Clear Cache"
-                            >
-                                <RefreshCw size={15} />
-                                <span className="hidden sm:inline">Sync App</span>
-                            </button>
-                            <ThemeToggle />
-                            {/* Notifications */}
-                            {userData && (
-                                <NotificationsDropdown
-                                    userId={userData.id}
-                                    userRole={userData.role}
-                                />
-                            )}
-                        </div>
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-2 md:gap-3">
+                        {/* Search button */}
+                        <button
+                            onClick={() => setSearchOpen(true)}
+                            className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all text-xs group"
+                            title="Global Search (Ctrl+K)"
+                        >
+                            <Search size={14} />
+                            <span className="hidden lg:inline">Search</span>
+                            <kbd className="hidden lg:inline-flex text-[9px] font-mono bg-background border border-border px-1.5 py-0.5 rounded-md">⌘K</kbd>
+                        </button>
 
-                        {/* User Info - Simplified on Mobile */}
-                        <Link to="/portal/profile" className="flex items-center gap-3 pl-3 md:pl-6 border-l border-border hover:opacity-80 transition-opacity">
+                        <button
+                            onClick={() => (window as any).forceAppUpdate?.()}
+                            className="p-2 rounded-xl border border-border/50 hover:bg-muted/50 text-muted-foreground hover:text-primary transition-all flex items-center gap-1.5 text-xs font-semibold"
+                            title="Force Sync & Clear Cache"
+                        >
+                            <RefreshCw size={15} />
+                            <span className="hidden sm:inline">Sync</span>
+                        </button>
+
+                        <ThemeToggle />
+
+                        {userData && (
+                            <NotificationsDropdown userId={userData.id} userRole={userData.role} />
+                        )}
+
+                        {/* Avatar */}
+                        <Link to="/portal/profile" className="flex items-center gap-2.5 pl-2 md:pl-3 border-l border-border/40 hover:opacity-80 transition-opacity">
                             <div className="text-right hidden md:block">
-                                <p className="font-medium text-sm">{typeof userData?.fullName === 'string' ? userData.fullName : 'Admin'}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{typeof userData?.role === 'string' ? userData.role : String(userData?.role || 'admin')}</p>
+                                <p className="font-semibold text-sm leading-tight">{typeof userData?.fullName === 'string' ? userData.fullName : 'Admin'}</p>
+                                <p className="text-[10px] text-muted-foreground capitalize">{typeof userData?.role === 'string' ? userData.role : 'admin'}</p>
                             </div>
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold overflow-hidden border border-primary/20">
+                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden border-2 border-primary/30 flex items-center justify-center shrink-0"
+                                style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)' }}>
                                 {userData?.profilePicUrl ? (
                                     <img src={userData.profilePicUrl} alt="User" className="w-full h-full object-cover" />
                                 ) : (
-                                    typeof userData?.fullName === 'string' ? userData.fullName.charAt(0).toUpperCase() : String(userData?.fullName || 'A').charAt(0).toUpperCase()
+                                    <span className="text-white font-bold text-sm">
+                                        {(typeof userData?.fullName === 'string' ? userData.fullName : 'A').charAt(0).toUpperCase()}
+                                    </span>
                                 )}
                             </div>
                         </Link>
@@ -339,6 +416,5 @@ const AdminLayout: React.FC = () => {
         </div>
     );
 };
-
 
 export default AdminLayout;
