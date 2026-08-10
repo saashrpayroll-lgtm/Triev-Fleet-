@@ -7,63 +7,132 @@ import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 
 // ─── Aurora Animated Background ───────────────────────────────────────────────
 const AuroraBackground: React.FC = () => {
-    const nodes = Array.from({ length: 20 }, (_, i) => i);
+    const nodes = Array.from({ length: 24 }, (_, i) => i);
+    const orbitRings = [320, 480, 640];
+
     return (
-        <div className="fixed inset-0 -z-10 overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a0a1a 0%, #0d0d2b 40%, #0a0a1a 100%)' }}>
-            {/* Aurora layers */}
+        <div className="fixed inset-0 -z-10 overflow-hidden" style={{ background: 'linear-gradient(145deg, #06061a 0%, #0c0c2e 35%, #080818 70%, #03030f 100%)' }}>
+            {/* Deep aurora layers */}
             <motion.div
-                className="absolute -top-1/3 -left-1/4 w-[80vw] h-[80vh] rounded-full opacity-20"
-                style={{ background: 'radial-gradient(ellipse at center, #6366f1 0%, #4f46e5 30%, transparent 70%)', filter: 'blur(80px)' }}
-                animate={{ x: [0, 60, -20, 0], y: [0, -40, 30, 0], scale: [1, 1.1, 0.95, 1] }}
-                transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute -top-1/2 -left-1/4 w-[90vw] h-[90vh] rounded-full"
+                style={{ background: 'radial-gradient(ellipse at center, rgba(79,70,229,0.25) 0%, rgba(124,58,237,0.12) 40%, transparent 70%)', filter: 'blur(70px)' }}
+                animate={{ x: [0, 70, -30, 0], y: [0, -50, 40, 0], scale: [1, 1.15, 0.92, 1] }}
+                transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
             />
             <motion.div
-                className="absolute top-1/4 -right-1/4 w-[70vw] h-[70vh] rounded-full opacity-15"
-                style={{ background: 'radial-gradient(ellipse at center, #8b5cf6 0%, #7c3aed 30%, transparent 70%)', filter: 'blur(100px)' }}
-                animate={{ x: [0, -50, 30, 0], y: [0, 50, -30, 0], scale: [1, 0.9, 1.1, 1] }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
+                className="absolute top-1/3 -right-1/3 w-[80vw] h-[80vh] rounded-full"
+                style={{ background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.2) 0%, rgba(167,139,250,0.08) 40%, transparent 70%)', filter: 'blur(90px)' }}
+                animate={{ x: [0, -60, 40, 0], y: [0, 60, -40, 0], scale: [1, 0.88, 1.12, 1] }}
+                transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 5 }}
             />
             <motion.div
-                className="absolute -bottom-1/4 left-1/3 w-[60vw] h-[60vh] rounded-full opacity-10"
-                style={{ background: 'radial-gradient(ellipse at center, #06b6d4 0%, #0891b2 30%, transparent 70%)', filter: 'blur(120px)' }}
-                animate={{ x: [0, 40, -30, 0], y: [0, -50, 20, 0], scale: [1, 1.2, 0.9, 1] }}
-                transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut', delay: 8 }}
+                className="absolute -bottom-1/3 left-1/4 w-[70vw] h-[70vh] rounded-full"
+                style={{ background: 'radial-gradient(ellipse at center, rgba(6,182,212,0.15) 0%, rgba(8,145,178,0.06) 40%, transparent 70%)', filter: 'blur(100px)' }}
+                animate={{ x: [0, 50, -40, 0], y: [0, -60, 30, 0], scale: [1, 1.2, 0.9, 1] }}
+                transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut', delay: 10 }}
+            />
+            {/* Bright center accent glow */}
+            <motion.div
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full"
+                style={{ background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }}
+                animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
             />
 
-            {/* Mesh grid */}
-            <div className="absolute inset-0 opacity-[0.04]"
-                style={{ backgroundImage: 'linear-gradient(rgba(99,102,241,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,1) 1px, transparent 1px)', backgroundSize: '48px 48px' }}
-            />
-
-            {/* Floating nodes (network effect) */}
-            {nodes.map((i) => (
+            {/* ── Orbit rings (3D depth effect) ── */}
+            {orbitRings.map((size, i) => (
                 <motion.div
                     key={i}
-                    className="absolute w-1 h-1 rounded-full bg-indigo-400/50"
+                    className="absolute top-1/2 left-1/2 rounded-full border"
                     style={{
-                        left: `${(i * 5.7 + 10) % 90}%`,
-                        top: `${(i * 7.3 + 5) % 90}%`,
-                        boxShadow: '0 0 8px rgba(99,102,241,0.8)',
+                        width: size,
+                        height: size,
+                        marginLeft: -size / 2,
+                        marginTop: -size / 2,
+                        borderColor: `rgba(99,102,241,${0.12 - i * 0.03})`,
+                        transform: `perspective(800px) rotateX(${65 + i * 5}deg)`,
+                    }}
+                    animate={{ rotate: [0, 360] }}
+                    transition={{ duration: 20 + i * 8, repeat: Infinity, ease: 'linear' }}
+                >
+                    {/* Orbit dot */}
+                    <motion.div
+                        className="absolute w-2 h-2 rounded-full -top-1 left-1/2 -translate-x-1/2"
+                        style={{
+                            background: `rgba(${i === 0 ? '99,102,241' : i === 1 ? '139,92,246' : '6,182,212'},0.9)`,
+                            boxShadow: `0 0 12px rgba(${i === 0 ? '99,102,241' : i === 1 ? '139,92,246' : '6,182,212'},0.8)`,
+                        }}
+                    />
+                </motion.div>
+            ))}
+
+            {/* ── Floating diamond shapes ── */}
+            {[0, 1, 2, 3].map((i) => (
+                <motion.div
+                    key={`diamond-${i}`}
+                    className="absolute border border-indigo-500/15"
+                    style={{
+                        width: 40 + i * 20,
+                        height: 40 + i * 20,
+                        left: `${15 + i * 22}%`,
+                        top: `${10 + i * 20}%`,
+                        rotate: 45,
                     }}
                     animate={{
-                        opacity: [0.2, 0.8, 0.2],
-                        scale: [1, 1.5, 1],
-                        y: [0, -(10 + i * 2), 0],
+                        rotate: [45, 90, 45],
+                        opacity: [0.1, 0.3, 0.1],
+                        scale: [1, 1.1, 1],
+                        y: [0, -15, 0],
                     }}
-                    transition={{ duration: 3 + i * 0.3, repeat: Infinity, ease: 'easeInOut', delay: i * 0.2 }}
+                    transition={{ duration: 5 + i * 1.5, repeat: Infinity, ease: 'easeInOut', delay: i * 0.8 }}
                 />
             ))}
 
-            {/* Top shimmer line */}
+            {/* ── Fine mesh grid ── */}
             <motion.div
-                className="absolute top-0 left-0 right-0 h-[1px] opacity-30"
-                style={{ background: 'linear-gradient(90deg, transparent, #6366f1, #8b5cf6, #06b6d4, transparent)' }}
-                animate={{ opacity: [0.1, 0.4, 0.1] }}
-                transition={{ duration: 4, repeat: Infinity }}
+                className="absolute inset-0"
+                style={{
+                    backgroundImage: 'linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px)',
+                    backgroundSize: '60px 60px',
+                    maskImage: 'radial-gradient(ellipse at center, white 20%, transparent 75%)',
+                }}
+                animate={{ backgroundPosition: ['0px 0px', '60px 60px'] }}
+                transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
             />
 
-            {/* Bottom vignette */}
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 40%, rgba(10,10,26,0.8) 100%)' }} />
+            {/* ── Floating nodes (network particles) ── */}
+            {nodes.map((i) => (
+                <motion.div
+                    key={i}
+                    className="absolute rounded-full"
+                    style={{
+                        width: i % 3 === 0 ? 2.5 : 1.5,
+                        height: i % 3 === 0 ? 2.5 : 1.5,
+                        left: `${(i * 4.3 + 8) % 88}%`,
+                        top: `${(i * 6.7 + 5) % 90}%`,
+                        background: i % 4 === 0 ? '#818cf8' : i % 4 === 1 ? '#a78bfa' : i % 4 === 2 ? '#22d3ee' : '#6366f1',
+                        boxShadow: `0 0 ${i % 3 === 0 ? 10 : 6}px currentColor`,
+                    }}
+                    animate={{
+                        opacity: [0.15, 0.9, 0.15],
+                        scale: [1, 1.8, 1],
+                        y: [0, -(12 + i * 2), 0],
+                        x: [0, i % 2 === 0 ? 8 : -8, 0],
+                    }}
+                    transition={{ duration: 4 + i * 0.35, repeat: Infinity, ease: 'easeInOut', delay: i * 0.18 }}
+                />
+            ))}
+
+            {/* ── Horizontal scanline glitch ── */}
+            <motion.div
+                className="absolute left-0 right-0 h-[1px] pointer-events-none"
+                style={{ background: 'linear-gradient(90deg, transparent 5%, rgba(99,102,241,0.25) 30%, rgba(139,92,246,0.35) 50%, rgba(6,182,212,0.25) 70%, transparent 95%)' }}
+                animate={{ top: ['-2%', '102%'] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
+            />
+
+            {/* Vignette */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(4,4,20,0.85) 100%)' }} />
         </div>
     );
 };
@@ -166,7 +235,7 @@ const AdminLogin: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-indigo-500/30">
+        <div className="min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-indigo-500/30">
             <AuroraBackground />
 
             {/* ── Two-column Layout ─────────────────────────────────────── */}

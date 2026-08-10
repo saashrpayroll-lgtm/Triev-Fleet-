@@ -1,20 +1,142 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Eye, EyeOff, LogIn, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
-import AnimatedBackground from '@/components/auth/AnimatedBackground';
 import { toast } from 'sonner';
 
+// ─── Role chips data ──────────────────────────────────────────────────────────
 const ROLE_CHIPS = [
-    { key: 'admin', label: 'Admin', icon: Shield, color: 'from-red-500 to-rose-600', shadow: 'shadow-red-500/30', bgVariant: 'admin' as const },
-    { key: 'cityOps', label: 'City Ops', icon: BarChart3, color: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/30', bgVariant: 'login' as const },
-    { key: 'reportingManager', label: 'RM', icon: Headphones, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/30', bgVariant: 'rm' as const },
-    { key: 'teamLeader', label: 'Team Leader', icon: Users, color: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/30', bgVariant: 'login' as const },
+    { key: 'admin', label: 'Admin', icon: Shield, gradient: 'from-red-500 to-rose-600', glow: 'rgba(239,68,68,0.4)' },
+    { key: 'cityOps', label: 'City Ops', icon: BarChart3, gradient: 'from-blue-500 to-indigo-600', glow: 'rgba(99,102,241,0.4)' },
+    { key: 'rm', label: 'Rep. Manager', icon: Headphones, gradient: 'from-emerald-500 to-teal-600', glow: 'rgba(16,185,129,0.4)' },
+    { key: 'teamLeader', label: 'Team Leader', icon: Users, gradient: 'from-amber-500 to-orange-600', glow: 'rgba(245,158,11,0.4)' },
 ];
 
+// ─── Cyber Grid + Warp Background ────────────────────────────────────────────
+const CyberBackground: React.FC = () => {
+    const hexagons = Array.from({ length: 18 }, (_, i) => i);
+    const beams = Array.from({ length: 6 }, (_, i) => i);
+    return (
+        <div className="fixed inset-0 -z-10 overflow-hidden"
+            style={{ background: 'linear-gradient(160deg, #050510 0%, #090924 30%, #06061a 60%, #020210 100%)' }}>
+            {/* Primary aurora blobs */}
+            <motion.div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full"
+                style={{ background: 'radial-gradient(ellipse, rgba(249,115,22,0.18) 0%, rgba(234,88,12,0.08) 45%, transparent 70%)', filter: 'blur(80px)' }}
+                animate={{ x: [0, 80, -30, 0], y: [0, -50, 60, 0], scale: [1, 1.2, 0.9, 1] }}
+                transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }} />
+            <motion.div className="absolute top-1/2 -right-40 w-[600px] h-[600px] rounded-full"
+                style={{ background: 'radial-gradient(ellipse, rgba(217,70,239,0.18) 0%, rgba(168,85,247,0.08) 45%, transparent 70%)', filter: 'blur(90px)' }}
+                animate={{ x: [0, -70, 50, 0], y: [0, 60, -40, 0], scale: [1, 0.85, 1.15, 1] }}
+                transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut', delay: 6 }} />
+            <motion.div className="absolute -bottom-60 left-1/4 w-[800px] h-[500px] rounded-full"
+                style={{ background: 'radial-gradient(ellipse, rgba(6,182,212,0.12) 0%, rgba(8,145,178,0.05) 45%, transparent 70%)', filter: 'blur(100px)' }}
+                animate={{ x: [0, 60, -40, 0], y: [0, -60, 30, 0], scale: [1, 1.1, 0.95, 1] }}
+                transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut', delay: 12 }} />
+
+            {/* Perspective grid floor */}
+            <div className="absolute bottom-0 left-0 right-0 h-[45vh]"
+                style={{
+                    backgroundImage: 'linear-gradient(rgba(249,115,22,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(249,115,22,0.15) 1px, transparent 1px)',
+                    backgroundSize: '60px 60px',
+                    transform: 'perspective(400px) rotateX(55deg)',
+                    transformOrigin: 'bottom center',
+                    maskImage: 'linear-gradient(to top, white 0%, transparent 100%)',
+                }} />
+
+            {/* Light beams from top */}
+            {beams.map((i) => (
+                <motion.div key={i}
+                    className="absolute top-0 w-[1px]"
+                    style={{
+                        left: `${10 + i * 15}%`,
+                        height: `${30 + i * 10}%`,
+                        background: `linear-gradient(to bottom, rgba(${i % 2 === 0 ? '249,115,22' : '217,70,239'},0.3), transparent)`,
+                    }}
+                    animate={{ opacity: [0, 0.6, 0], scaleY: [0.5, 1, 0.5] }}
+                    transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: 'easeInOut', delay: i * 0.4 }} />
+            ))}
+
+            {/* Hexagonal grid elements */}
+            {hexagons.map((i) => (
+                <motion.div key={i}
+                    className="absolute border border-orange-500/10 rounded-xl"
+                    style={{
+                        width: 30 + (i % 4) * 15,
+                        height: 30 + (i % 4) * 15,
+                        left: `${(i * 5.8 + 5) % 90}%`,
+                        top: `${(i * 7.1 + 5) % 85}%`,
+                        rotate: `${i * 20}deg`,
+                    }}
+                    animate={{ rotate: [`${i * 20}deg`, `${i * 20 + 180}deg`, `${i * 20 + 360}deg`], opacity: [0.05, 0.2, 0.05], scale: [1, 1.05, 1] }}
+                    transition={{ duration: 8 + i * 0.8, repeat: Infinity, ease: 'linear', delay: i * 0.3 }} />
+            ))}
+
+            {/* Floating particles */}
+            {Array.from({ length: 30 }).map((_, i) => (
+                <motion.div key={`p-${i}`}
+                    className="absolute rounded-full"
+                    style={{
+                        width: i % 5 === 0 ? 3 : 1.5,
+                        height: i % 5 === 0 ? 3 : 1.5,
+                        left: `${(i * 3.7) % 95}%`,
+                        top: `${(i * 4.3) % 95}%`,
+                        background: i % 3 === 0 ? '#fb923c' : i % 3 === 1 ? '#d946ef' : '#22d3ee',
+                        boxShadow: `0 0 8px currentColor`,
+                    }}
+                    animate={{ opacity: [0.1, 0.8, 0.1], scale: [1, 2, 1], y: [0, -(10 + i * 1.5), 0] }}
+                    transition={{ duration: 3 + i * 0.28, repeat: Infinity, ease: 'easeInOut', delay: i * 0.15 }} />
+            ))}
+
+            {/* Diagonal scanline */}
+            <motion.div className="absolute inset-0 pointer-events-none"
+                style={{ background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(249,115,22,0.012) 3px, rgba(249,115,22,0.012) 4px)' }} />
+
+            {/* Vignette */}
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 40%, transparent 25%, rgba(4,4,16,0.9) 100%)' }} />
+        </div>
+    );
+};
+
+// ─── Magnetic Card Wrapper ────────────────────────────────────────────────────
+const MagneticCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const cardRef = useRef<HTMLDivElement>(null);
+    const rotateX = useSpring(useMotionValue(0), { stiffness: 120, damping: 20 });
+    const rotateY = useSpring(useMotionValue(0), { stiffness: 120, damping: 20 });
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!cardRef.current) return;
+        const rect = cardRef.current.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = (e.clientX - cx) / (rect.width / 2);
+        const dy = (e.clientY - cy) / (rect.height / 2);
+        rotateX.set(-dy * 6);
+        rotateY.set(dx * 6);
+    };
+
+    const handleMouseLeave = () => {
+        rotateX.set(0);
+        rotateY.set(0);
+    };
+
+    return (
+        <motion.div
+            ref={cardRef}
+            style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: 1000 }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            animate={{ y: [0, -8, 0] }}
+            transition={{ y: { duration: 5, repeat: Infinity, ease: 'easeInOut' } }}
+        >
+            {children}
+        </motion.div>
+    );
+};
+
+// ─── Main Login Page ──────────────────────────────────────────────────────────
 const LoginPage: React.FC = () => {
     const [loginInput, setLoginInput] = useState('');
     const [password, setPassword] = useState('');
@@ -28,15 +150,12 @@ const LoginPage: React.FC = () => {
     const [focusedField, setFocusedField] = useState<string | null>(null);
     const [activeRoleHint, setActiveRoleHint] = useState<number>(0);
 
-    // Auto-cycle role hint chips
     useEffect(() => {
         const interval = setInterval(() => {
             setActiveRoleHint(prev => (prev + 1) % ROLE_CHIPS.length);
-        }, 4000);
+        }, 3500);
         return () => clearInterval(interval);
     }, []);
-
-    const activeVariant = ROLE_CHIPS[activeRoleHint]?.bgVariant || 'login';
 
     const { login } = useSupabaseAuth();
 
@@ -104,288 +223,79 @@ const LoginPage: React.FC = () => {
         }
     };
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.12, delayChildren: 0.05 } },
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 28, filter: 'blur(6px)' },
-        visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const } },
-    };
+    const activeChip = ROLE_CHIPS[activeRoleHint];
 
     return (
         <div className="min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30">
-            <AnimatedBackground variant={activeVariant} />
+            <CyberBackground />
 
-            <motion.div
-                className="w-full max-w-[420px] relative"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-            >
-                {/* v2.0 Badge */}
+            <div className="w-full max-w-[440px] relative">
+                {/* ── Top badge ─── */}
                 <motion.div
-                    variants={itemVariants}
-                    className="flex justify-center mb-4"
+                    className="flex justify-center mb-5"
+                    initial={{ opacity: 0, y: -16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
                 >
-                    <motion.div
-                        className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] shadow-lg"
-                        whileHover={{ scale: 1.05, borderColor: 'rgba(249,115,22,0.3)' }}
-                    >
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full backdrop-blur-xl border"
+                        style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
                         <motion.div
                             className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-fuchsia-500"
-                            animate={{ scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.7, 1, 0.7] }}
                             transition={{ duration: 2, repeat: Infinity }}
                         />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] bg-gradient-to-r from-orange-300 to-fuchsia-300 bg-clip-text text-transparent">
-                            Version 2.0 — PWA Ready
+                            Triev Fleet v2.5 — PWA Ready
                         </span>
-                    </motion.div>
+                    </div>
                 </motion.div>
 
-                {/* Brand Header */}
-                <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8 space-y-4 sm:space-y-5">
-                    {/* Logo */}
+                {/* ── Logo ─── */}
+                <motion.div
+                    className="text-center mb-7"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                >
                     <div className="relative inline-block">
-                        {/* Glow rings */}
-                        <motion.div
-                            className="absolute inset-0 rounded-[40px] bg-orange-500/30 blur-2xl"
-                            animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.7, 0.3] }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                        {/* Multi-ring glow */}
+                        <motion.div className="absolute -inset-8 rounded-full"
+                            style={{ background: `radial-gradient(ellipse, ${activeChip.glow} 0%, transparent 70%)`, filter: 'blur(20px)' }}
+                            animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.4, 0.8, 0.4] }}
+                            transition={{ duration: 3, repeat: Infinity }}
                         />
-                        <motion.div
-                            className="absolute -inset-4 rounded-[48px] border border-orange-500/10"
-                            animate={{ opacity: [0.1, 0.3, 0.1], scale: [0.96, 1.04, 0.96] }}
-                            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                        />
-                        <motion.div
-                            className="relative w-24 h-24 sm:w-28 sm:h-28 bg-white/8 backdrop-blur-3xl rounded-[28px] sm:rounded-[36px] border border-white/15 shadow-2xl flex items-center justify-center p-4 sm:p-5 ring-1 ring-white/10"
-                            whileHover={{ scale: 1.08, rotate: [0, -3, 3, 0] }}
+                        <motion.div className="relative w-24 h-24 rounded-[28px] flex items-center justify-center p-5 shadow-2xl"
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(30px)' }}
+                            whileHover={{ scale: 1.08, rotate: [0, -4, 4, 0] }}
                             transition={{ duration: 0.5 }}
                         >
-                            <img
-                                src="/triev_logo.png"
-                                alt="Triev Logo"
-                                className="w-full h-full object-contain drop-shadow-2xl"
-                            />
+                            <img src="/triev_logo.png" alt="Triev Logo" className="w-full h-full object-contain drop-shadow-2xl" />
                         </motion.div>
-                        {/* Status dot */}
                         <motion.div
-                            className="absolute top-1 -right-1 w-3 h-3 bg-green-500 rounded-full shadow-[0_0_12px_#22c55e] ring-2 ring-slate-950"
-                            animate={{ scale: [1, 1.3, 1], opacity: [0.8, 1, 0.8] }}
+                            className="absolute top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-black/50"
+                            animate={{ scale: [1, 1.3, 1], boxShadow: ['0 0 8px #22c55e', '0 0 16px #22c55e', '0 0 8px #22c55e'] }}
                             transition={{ duration: 2, repeat: Infinity }}
                         />
                     </div>
 
-                    <div className="space-y-1.5">
-                        <motion.h1
-                            className="text-3xl sm:text-4xl font-black text-white tracking-tighter"
-                            initial={{ opacity: 0, letterSpacing: '0.3em' }}
-                            animate={{ opacity: 1, letterSpacing: '-0.03em', y: [0, -3, 0] }}
-                            transition={{ duration: 0.8, delay: 0.3, y: { duration: 4, repeat: Infinity, ease: "easeInOut" } }}
-                        >
-                            TRIEV{' '}
-                            <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                                Rider's
-                            </span>
-                        </motion.h1>
-                        <motion.p
-                            className="text-orange-200/40 text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em]"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.5, duration: 0.6 }}
-                        >
-                            Fleet Management Portal
-                        </motion.p>
-                    </div>
-                </motion.div>
-
-                {/* Login Card */}
-                <motion.div
-                    variants={itemVariants}
-                    className="relative"
-                    animate={{ y: [0, -6, 0] }}
-                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                >
-                    {/* Card glow border */}
-                    <motion.div
-                        className="absolute -inset-[1px] rounded-[28px] sm:rounded-[36px] bg-gradient-to-br from-orange-500/40 via-fuchsia-500/20 to-blue-600/25 shadow-[0_0_15px_rgba(249,115,22,0.2)]"
-                        animate={{ opacity: [0.5, 0.9, 0.5] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                    />
-
-                    <motion.div 
-                        className="relative bg-slate-900/55 backdrop-blur-[40px] border border-white/[0.08] rounded-[26px] sm:rounded-[34px] p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden"
-                        whileHover={{ boxShadow: "0 25px 60px rgba(0,0,0,0.7)", borderColor: "rgba(255,255,255,0.12)" }}
-                        transition={{ duration: 0.3 }}
+                    <motion.h1
+                        className="text-3xl sm:text-4xl font-black text-white tracking-tighter mt-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
                     >
-                        {/* Top shimmer */}
-                        <div className="absolute top-0 left-1/4 right-1/4 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-                        {/* Inner glow */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-orange-500/[0.02] pointer-events-none rounded-[34px]" />
-
-                        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 relative z-10">
-                            {/* Error Alert */}
-                            <AnimatePresence>
-                                {error && (
-                                    <motion.div
-                                        initial={{ opacity: 0, height: 0, y: -10 }}
-                                        animate={{ opacity: 1, height: 'auto', y: 0 }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="bg-red-500/10 border border-red-500/25 p-3.5 rounded-2xl"
-                                    >
-                                        <div className="flex items-start gap-2.5">
-                                            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                                            <p className="text-sm text-red-200 font-medium leading-snug">{error}</p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            <div className="space-y-4">
-                                {/* Identifier Input */}
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-orange-300/60 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
-                                        <Mail size={9} className="text-orange-500/60" />
-                                        Secure ID
-                                    </label>
-                                    <div className="relative group">
-                                        <motion.div
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-500/40 transition-colors duration-300"
-                                            animate={{ color: focusedField === 'id' ? '#fb923c' : 'rgba(249,115,22,0.4)' }}
-                                        >
-                                            <Mail size={17} />
-                                        </motion.div>
-                                        <input
-                                            type="text"
-                                            value={loginInput}
-                                            onChange={(e) => setLoginInput(e.target.value)}
-                                            onFocus={() => setFocusedField('id')}
-                                            onBlur={() => setFocusedField(null)}
-                                            className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-slate-900/60 border border-white/10 rounded-xl sm:rounded-2xl text-white placeholder-white/40 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:bg-slate-900/80 transition-all duration-300 font-medium text-sm sm:text-base shadow-inner"
-                                            placeholder="Email, Mobile or Username"
-                                            required
-                                            autoComplete="username"
-                                        />
-                                        {/* Focus glow underline */}
-                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
-                                    </div>
-                                </div>
-
-                                {/* Password Input */}
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-orange-300/60 uppercase tracking-[0.2em] ml-1 flex items-center gap-1.5">
-                                        <Lock size={9} className="text-orange-500/60" />
-                                        Passkey
-                                    </label>
-                                    <div className="relative group">
-                                        <motion.div
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-500/40 transition-colors duration-300"
-                                            animate={{ color: focusedField === 'pass' ? '#fb923c' : 'rgba(249,115,22,0.4)' }}
-                                        >
-                                            <Lock size={17} />
-                                        </motion.div>
-                                        <input
-                                            type={showPassword ? 'text' : 'password'}
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            onFocus={() => setFocusedField('pass')}
-                                            onBlur={() => setFocusedField(null)}
-                                            className="w-full pl-12 pr-12 py-3.5 sm:py-4 bg-slate-900/60 border border-white/10 rounded-xl sm:rounded-2xl text-white placeholder-white/40 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 focus:bg-slate-900/80 transition-all duration-300 font-medium tracking-widest text-lg shadow-inner [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
-                                            placeholder="••••••••"
-                                            required
-                                            autoComplete="current-password"
-                                        />
-                                        {/* Eye toggle */}
-                                        <button
-                                            type="button"
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                setShowPassword(!showPassword);
-                                            }}
-                                            className="absolute right-3 top-1/2 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-orange-500/20 text-white/60 hover:text-orange-100 transition-all duration-300 border border-transparent hover:border-orange-500/30 group-hover:bg-white/10"
-                                            title={showPassword ? 'Hide password' : 'Show password'}
-                                            style={{ transform: 'translateY(-50%)' }}
-                                        >
-                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                        </button>
-                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Options Row */}
-                            <div className="flex items-center justify-between px-0.5">
-                                <label className="flex items-center gap-2 text-orange-100/50 cursor-pointer group/chk select-none">
-                                    <div className="relative flex items-center justify-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={rememberMe}
-                                            onChange={(e) => setRememberMe(e.target.checked)}
-                                            className="peer w-4 h-4 opacity-0 absolute cursor-pointer"
-                                        />
-                                        <motion.div
-                                            className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${rememberMe ? 'bg-orange-600 border-orange-600 shadow-[0_0_8px_rgba(234,88,12,0.4)]' : 'border-white/20 group-hover/chk:border-white/40'}`}
-                                            whileTap={{ scale: 0.8 }}
-                                        >
-                                            {rememberMe && <CheckCircle className="w-2.5 h-2.5 text-white" />}
-                                        </motion.div>
-                                    </div>
-                                    <span className="text-[11px] font-bold uppercase tracking-wider group-hover/chk:text-orange-200 transition-colors">Stay Active</span>
-                                </label>
-                                <motion.button
-                                    type="button"
-                                    onClick={() => setShowForgotPassword(true)}
-                                    className="text-[11px] font-black text-orange-500 hover:text-orange-300 transition-colors uppercase tracking-wider"
-                                    whileHover={{ x: 2 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Recover Passkey →
-                                </motion.button>
-                            </div>
-
-                            {/* Submit Button */}
-                            <motion.button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full relative bg-gradient-to-r from-orange-600 to-orange-500 text-white font-black py-3.5 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-300 flex items-center justify-center gap-2.5 shadow-[0_6px_20px_rgba(234,88,12,0.4)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group/btn"
-                                whileHover={!loading ? { scale: 1.02, y: -2, boxShadow: "0 12px 35px rgba(234,88,12,0.6)" } : {}}
-                                whileTap={!loading ? { scale: 0.98 } : {}}
-                            >
-                                {/* Background glow effect on button hover */}
-                                <motion.div 
-                                    className="absolute inset-0 bg-orange-400/20 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300 blur-xl"
-                                />
-                                {/* Shimmer sweep */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out" />
-                                {/* Top highlight */}
-                                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-
-                                {loading ? (
-                                    <>
-                                        <motion.div
-                                            className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full z-10 relative"
-                                            animate={{ rotate: 360 }}
-                                            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                                        />
-                                        <span className="tracking-[0.12em] text-sm font-black uppercase z-10 relative">Verifying...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <LogIn size={17} className="group-hover/btn:translate-x-0.5 transition-transform z-10 relative" />
-                                        <span className="tracking-[0.12em] text-sm font-black uppercase z-10 relative">Access Portal</span>
-                                    </>
-                                )}
-                            </motion.button>
-                        </form>
-                    </motion.div>
+                        TRIEV <span className="bg-gradient-to-r from-orange-400 via-rose-400 to-fuchsia-400 bg-clip-text text-transparent">Portal</span>
+                    </motion.h1>
+                    <p className="text-slate-500 text-[11px] font-mono tracking-widest uppercase mt-1">Fleet Management System</p>
                 </motion.div>
 
-                {/* Role Hint Chips — animated carousel */}
-                <motion.div variants={itemVariants} className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+                {/* ── Role Chip Switcher ─── */}
+                <motion.div
+                    className="flex items-center justify-center gap-1.5 flex-wrap mb-5"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                >
                     {ROLE_CHIPS.map((chip, idx) => {
                         const Icon = chip.icon;
                         const isActive = activeRoleHint === idx;
@@ -394,12 +304,15 @@ const LoginPage: React.FC = () => {
                                 key={chip.key}
                                 type="button"
                                 onClick={() => setActiveRoleHint(idx)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all duration-500 ${
-                                    isActive
-                                        ? `bg-gradient-to-r ${chip.color} text-white border-transparent shadow-lg ${chip.shadow}`
-                                        : 'bg-white/[0.04] border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
-                                }`}
-                                animate={isActive ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all duration-400`}
+                                style={{
+                                    background: isActive ? `linear-gradient(135deg, var(--from), var(--to))` : 'rgba(255,255,255,0.04)',
+                                    backgroundImage: isActive ? `linear-gradient(135deg, ${chip.gradient.includes('red') ? '#ef4444,#e11d48' : chip.gradient.includes('blue') ? '#3b82f6,#4f46e5' : chip.gradient.includes('emerald') ? '#10b981,#0d9488' : '#f59e0b,#ea580c'})` : undefined,
+                                    borderColor: isActive ? 'transparent' : 'rgba(255,255,255,0.08)',
+                                    color: isActive ? 'white' : 'rgba(255,255,255,0.35)',
+                                    boxShadow: isActive ? `0 4px 16px ${chip.glow}` : 'none',
+                                }}
+                                animate={isActive ? { scale: [1, 1.06, 1] } : { scale: 1 }}
                                 transition={{ duration: 0.5 }}
                             >
                                 <Icon size={10} />
@@ -409,9 +322,197 @@ const LoginPage: React.FC = () => {
                     })}
                 </motion.div>
 
-                {/* Footer */}
-                <motion.div variants={itemVariants} className="mt-6 sm:mt-8 text-center space-y-2.5">
-                    <p className="text-white/15 text-[10px] font-bold tracking-[0.25em] uppercase">
+                {/* ── 3D Magnetic Login Card ─── */}
+                <MagneticCard>
+                    <motion.div
+                        className="relative"
+                        initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+                    >
+                        {/* Multi-layer glow border */}
+                        <motion.div
+                            className="absolute -inset-[1px] rounded-[28px]"
+                            style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.4), rgba(217,70,239,0.25), rgba(6,182,212,0.2))' }}
+                            animate={{ opacity: [0.5, 0.85, 0.5] }}
+                            transition={{ duration: 4, repeat: Infinity }}
+                        />
+                        <div className="absolute -inset-[3px] rounded-[30px] blur-md"
+                            style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.15), rgba(217,70,239,0.1), rgba(6,182,212,0.08))' }} />
+
+                        <div className="relative rounded-[26px] p-6 sm:p-8 overflow-hidden"
+                            style={{
+                                background: 'rgba(8, 8, 24, 0.88)',
+                                backdropFilter: 'blur(50px)',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                boxShadow: '0 32px 100px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.06)',
+                                transformStyle: 'preserve-3d',
+                            }}
+                        >
+                            {/* Top shimmer */}
+                            <div className="absolute top-0 left-1/4 right-1/4 h-[1px]"
+                                style={{ background: 'linear-gradient(90deg, transparent, rgba(249,115,22,0.5), rgba(217,70,239,0.5), transparent)' }} />
+
+                            {/* Moving scanline */}
+                            <motion.div
+                                className="absolute left-0 right-0 h-[2px] pointer-events-none"
+                                style={{ background: 'linear-gradient(90deg, transparent, rgba(249,115,22,0.12), rgba(217,70,239,0.12), transparent)' }}
+                                animate={{ top: ['0%', '100%'] }}
+                                transition={{ duration: 5, repeat: Infinity, ease: 'linear', repeatDelay: 2 }}
+                            />
+
+                            <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+                                {/* Error */}
+                                <AnimatePresence>
+                                    {error && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="bg-red-950/40 border border-red-500/30 rounded-xl p-3.5 flex items-start gap-2.5">
+                                                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                                <p className="text-sm text-red-300 font-medium leading-snug">{error}</p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Identity Field */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-orange-400/60 uppercase tracking-[0.2em] flex items-center gap-1.5">
+                                        <Mail size={9} /> Secure Identity
+                                    </label>
+                                    <div className="relative group">
+                                        <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-300 ${focusedField === 'id' ? 'text-orange-400' : 'text-slate-600'}`}>
+                                            <Mail size={16} />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={loginInput}
+                                            onChange={(e) => setLoginInput(e.target.value)}
+                                            onFocus={() => setFocusedField('id')}
+                                            onBlur={() => setFocusedField(null)}
+                                            className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white placeholder-slate-600 text-sm focus:outline-none transition-all duration-300"
+                                            style={{
+                                                background: focusedField === 'id' ? 'rgba(249,115,22,0.07)' : 'rgba(255,255,255,0.03)',
+                                                border: `1px solid ${focusedField === 'id' ? 'rgba(249,115,22,0.5)' : 'rgba(255,255,255,0.06)'}`,
+                                                boxShadow: focusedField === 'id' ? '0 0 0 3px rgba(249,115,22,0.1), 0 0 20px rgba(249,115,22,0.05)' : 'none',
+                                            }}
+                                            placeholder="Email, Mobile or Username"
+                                            required
+                                            autoComplete="username"
+                                        />
+                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
+                                    </div>
+                                </div>
+
+                                {/* Password Field */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-orange-400/60 uppercase tracking-[0.2em] flex items-center gap-1.5">
+                                        <Lock size={9} /> Passkey
+                                    </label>
+                                    <div className="relative group">
+                                        <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-300 ${focusedField === 'pass' ? 'text-orange-400' : 'text-slate-600'}`}>
+                                            <Lock size={16} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            onFocus={() => setFocusedField('pass')}
+                                            onBlur={() => setFocusedField(null)}
+                                            className="w-full pl-11 pr-14 py-3.5 rounded-xl text-white placeholder-slate-600 font-mono tracking-widest text-lg focus:outline-none transition-all duration-300 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
+                                            style={{
+                                                background: focusedField === 'pass' ? 'rgba(249,115,22,0.07)' : 'rgba(255,255,255,0.03)',
+                                                border: `1px solid ${focusedField === 'pass' ? 'rgba(249,115,22,0.5)' : 'rgba(255,255,255,0.06)'}`,
+                                                boxShadow: focusedField === 'pass' ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
+                                            }}
+                                            placeholder="••••••••"
+                                            required
+                                            autoComplete="current-password"
+                                        />
+                                        <button
+                                            type="button"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={(e) => { e.preventDefault(); setShowPassword(!showPassword); }}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 hover:bg-orange-500/20 text-slate-500 hover:text-orange-300 transition-all duration-300"
+                                        >
+                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                        <div className="absolute bottom-0 left-4 right-4 h-[1px] bg-gradient-to-r from-transparent via-orange-500/60 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500" />
+                                    </div>
+                                </div>
+
+                                {/* Options row */}
+                                <div className="flex items-center justify-between">
+                                    <label className="flex items-center gap-2 text-slate-500 cursor-pointer group/chk select-none">
+                                        <div className="relative flex items-center justify-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={rememberMe}
+                                                onChange={(e) => setRememberMe(e.target.checked)}
+                                                className="peer w-4 h-4 opacity-0 absolute cursor-pointer"
+                                            />
+                                            <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${rememberMe ? 'bg-orange-500 border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'border-white/15 group-hover/chk:border-white/30'}`}>
+                                                {rememberMe && <CheckCircle className="w-2.5 h-2.5 text-white" />}
+                                            </div>
+                                        </div>
+                                        <span className="text-[11px] font-bold uppercase tracking-wider group-hover/chk:text-orange-300 transition-colors">Stay Active</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowForgotPassword(true)}
+                                        className="text-[11px] font-black text-orange-500 hover:text-orange-300 transition-colors uppercase tracking-wider hover:underline underline-offset-2"
+                                    >
+                                        Recover Passkey →
+                                    </button>
+                                </div>
+
+                                {/* Submit */}
+                                <motion.button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full relative rounded-xl py-4 font-black text-sm tracking-wide text-white overflow-hidden group/btn disabled:opacity-60 disabled:cursor-not-allowed"
+                                    style={{ background: 'linear-gradient(135deg, #f97316, #ea580c, #dc2626)', boxShadow: '0 8px 24px rgba(249,115,22,0.4)' }}
+                                    whileHover={!loading ? { scale: 1.02, y: -1, boxShadow: '0 12px 36px rgba(249,115,22,0.6)' } : {}}
+                                    whileTap={!loading ? { scale: 0.98 } : {}}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                                    <div className="relative z-10 flex items-center justify-center gap-2.5">
+                                        {loading ? (
+                                            <>
+                                                <motion.div
+                                                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                    animate={{ rotate: 360 }}
+                                                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                                                />
+                                                <span>Verifying Identity...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles size={16} className="group-hover/btn:rotate-12 transition-transform" />
+                                                <span>Access Fleet Portal</span>
+                                                <ArrowRight size={15} className="group-hover/btn:translate-x-1 transition-transform" />
+                                            </>
+                                        )}
+                                    </div>
+                                </motion.button>
+                            </form>
+                        </div>
+                    </motion.div>
+                </MagneticCard>
+
+                {/* ── Footer ─── */}
+                <motion.div
+                    className="mt-6 text-center space-y-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                >
+                    <p className="text-white/10 text-[10px] font-bold tracking-[0.25em] uppercase">
                         © 2026 Triev Rider Technologies
                     </p>
                     <div className="flex items-center justify-center gap-2">
@@ -421,13 +522,12 @@ const LoginPage: React.FC = () => {
                             transition={{ duration: 2, repeat: Infinity }}
                         />
                         <span className="text-[9px] font-mono uppercase tracking-widest text-green-500/40 flex items-center gap-1">
-                            <Zap size={8} /> Systems Online · v2.0
+                            <Zap size={8} /> All Systems Online · v2.5
                         </span>
                     </div>
                 </motion.div>
-            </motion.div>
+            </div>
 
-            {/* Modals */}
             {showForgotPassword && (
                 <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />
             )}
