@@ -19,7 +19,8 @@ import {
     Trophy,
     TrendingUp,
     Layout,
-    Bot
+    Bot,
+    RefreshCw
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -292,6 +293,14 @@ const AdminLayout: React.FC = () => {
                     {/* Right Side Actions */}
                     <div className="flex items-center gap-3 md:gap-6">
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => (window as any).forceAppUpdate?.()}
+                                className="p-2 rounded-xl border border-input hover:bg-accent text-muted-foreground hover:text-primary transition-all flex items-center gap-1.5 text-xs font-semibold"
+                                title="Force Sync Latest App Deployment & Clear Cache"
+                            >
+                                <RefreshCw size={15} />
+                                <span className="hidden sm:inline">Sync App</span>
+                            </button>
                             <ThemeToggle />
                             {/* Notifications */}
                             {userData && (

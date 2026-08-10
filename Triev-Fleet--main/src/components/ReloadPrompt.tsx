@@ -38,20 +38,41 @@ const ReloadPrompt = () => {
     useEffect(() => {
         if (needRefresh) {
             toast.info('🚀 New Version Deployed!', {
-                description: 'Updating app automatically to latest build...',
-                duration: 1500,
+                description: 'Purging cache & updating app automatically...',
+                duration: 2000,
             });
+
+            // Delete browser caches and reload immediately
+            if ('caches' in window) {
+                caches.keys().then((names) => {
+                    names.forEach((name) => caches.delete(name));
+                }).catch(console.error);
+            }
 
             const timer = setTimeout(() => {
                 updateServiceWorker(true);
-            }, 1200);
+                window.location.reload();
+            }, 500);
 
             return () => clearTimeout(timer);
         }
     }, [needRefresh, updateServiceWorker]);
 
-    // This component renders nothing — it's purely for side-effects
-    return null;
+    // Expose global manual update trigger for stuck mobile browsers
+    useEffect(() => {
+        (window as any).forceAppUpdate = async () => {
+            toast.loading('Purging app cache and checking for updates...');
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(k => caches.delete(k)));
+            }
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(r => r.unregister()));
+            }
+            window.location.href = window.location.origin + '?v=' + Date.now();
+        };
+    }, []);
 };
 
 export default ReloadPrompt;
