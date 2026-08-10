@@ -31,10 +31,11 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Only cache JS/CSS/HTML — not large API responses
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB limit
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4MB limit
         // ✅ FIX: Do NOT cache Supabase API calls — the app relies on real-time data.
-        // Caching API responses causes stale data on slow mobile connections.
         runtimeCaching: [
           {
             // Static assets only — cache-first for speed

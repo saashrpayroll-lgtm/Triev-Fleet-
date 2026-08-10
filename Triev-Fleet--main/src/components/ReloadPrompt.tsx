@@ -14,12 +14,20 @@ const ReloadPrompt = () => {
         needRefresh: [needRefresh],
         updateServiceWorker,
     } = useRegisterSW({
-        // Check for SW updates every 60 seconds
+        // Check for SW updates every 25 seconds & on visibility change
         onRegisteredSW(_swUrl: string, registration: ServiceWorkerRegistration | undefined) {
             if (registration) {
+                // Interval check
                 setInterval(() => {
-                    registration.update();
-                }, 60 * 1000);
+                    registration.update().catch(console.error);
+                }, 25 * 1000);
+
+                // Immediate check when app comes back to foreground on mobile PWA
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        registration.update().catch(console.error);
+                    }
+                });
             }
         },
         onRegisterError(error: Error) {
@@ -29,15 +37,14 @@ const ReloadPrompt = () => {
 
     useEffect(() => {
         if (needRefresh) {
-            toast.info('A new version is available!', {
-                description: 'Updating automatically...',
-                duration: 2000,
+            toast.info('🚀 New Version Deployed!', {
+                description: 'Updating app automatically to latest build...',
+                duration: 1500,
             });
 
-            // Auto-reload after a short delay so the toast is visible
             const timer = setTimeout(() => {
                 updateServiceWorker(true);
-            }, 2000);
+            }, 1200);
 
             return () => clearTimeout(timer);
         }

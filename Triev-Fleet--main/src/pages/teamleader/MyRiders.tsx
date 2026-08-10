@@ -615,19 +615,62 @@ const MyRiders: React.FC = () => {
                 />
             )}
 
-            {/* ── Quick Stats ── */}
+            {/* ── Quick Stats & TL Defaulter Alert ── */}
             {!loading && riders.length > 0 && (
-                <div className="grid grid-cols-3 gap-3">
-                    {[
-                        { label: 'Active', count: riders.filter(r => r.status === 'active').length, cls: 'border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/10', txt: 'text-emerald-600 dark:text-emerald-400' },
-                        { label: 'Inactive', count: riders.filter(r => r.status === 'inactive').length, cls: 'border-l-amber-500 bg-amber-50/60 dark:bg-amber-900/10', txt: 'text-amber-600 dark:text-amber-400' },
-                        { label: 'Deleted', count: riders.filter(r => r.status === 'deleted').length, cls: 'border-l-rose-500 bg-rose-50/60 dark:bg-rose-900/10', txt: 'text-rose-600 dark:text-rose-400' },
-                    ].map(s => (
-                        <div key={s.label} className={`rounded-2xl border-l-4 px-4 py-3 border border-border/50 ${s.cls}`}>
-                            <p className={`text-xl font-black ${s.txt}`}>{s.count}</p>
-                            <p className="text-xs text-muted-foreground font-semibold">{s.label}</p>
-                        </div>
-                    ))}
+                <div className="space-y-3">
+                    {(() => {
+                        const defaulters = riders.filter(r => r.status === 'active' && r.walletAmount <= -699);
+                        const totalDebt = defaulters.reduce((acc, r) => acc + Math.abs(r.walletAmount), 0);
+
+                        if (defaulters.length === 0) return null;
+
+                        return (
+                            <div className="bg-gradient-to-r from-red-500/15 via-rose-500/10 to-orange-500/15 border border-red-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-500 flex items-center justify-center font-black flex-shrink-0 animate-pulse">
+                                        🚨
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black text-red-600 dark:text-red-400 flex items-center gap-2">
+                                            {defaulters.length} Defaulter Riders Detected
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white font-mono">
+                                                ₹{totalDebt.toLocaleString('en-IN')} Total Outstanding
+                                            </span>
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Riders with negative balance &le; -₹699 needing immediate payment follow-up.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setAdvancedFilters(p => ({ ...p, walletRange: 'defaulter' }));
+                                        setShowAdvancedFilters(true);
+                                        const defaulterIds = new Set(defaulters.map(r => r.id));
+                                        setSelectedRiders(defaulterIds);
+                                        setShowBulkCommunicationModal(true);
+                                    }}
+                                    className="w-full sm:w-auto px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
+                                >
+                                    <MessageCircle size={15} /> 1-Click WhatsApp Reminders
+                                </button>
+                            </div>
+                        );
+                    })()}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                            { label: 'Active', count: riders.filter(r => r.status === 'active').length, cls: 'border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/10', txt: 'text-emerald-600 dark:text-emerald-400' },
+                            { label: 'Low Balance (0-250)', count: riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length, cls: 'border-l-orange-500 bg-orange-50/60 dark:bg-orange-900/10', txt: 'text-orange-600 dark:text-orange-400' },
+                            { label: 'Inactive', count: riders.filter(r => r.status === 'inactive').length, cls: 'border-l-amber-500 bg-amber-50/60 dark:bg-amber-900/10', txt: 'text-amber-600 dark:text-amber-400' },
+                            { label: 'Deleted', count: riders.filter(r => r.status === 'deleted').length, cls: 'border-l-rose-500 bg-rose-50/60 dark:bg-rose-900/10', txt: 'text-rose-600 dark:text-rose-400' },
+                        ].map(s => (
+                            <div key={s.label} className={`rounded-2xl border-l-4 px-4 py-3 border border-border/50 ${s.cls}`}>
+                                <p className={`text-xl font-black ${s.txt}`}>{s.count}</p>
+                                <p className="text-xs text-muted-foreground font-semibold truncate">{s.label}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -755,6 +798,19 @@ const MyRiders: React.FC = () => {
                                                     {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Low Balance WhatsApp Reminder">
                                                             <MessageCircle size={16} /> Low Bal.
+                                                        </button>
+                                                    )}
+                                                    {rider.status === 'active' && rider.walletAmount < 250 && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedCallRider(rider);
+                                                                setShowElevenLabsModal(true);
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                                                            title="Trigger AI Voice Call"
+                                                        >
+                                                            <Phone size={14} /> AI Call
                                                         </button>
                                                     )}
                                                 </div>
@@ -888,6 +944,11 @@ const MyRiders: React.FC = () => {
                                                             <MessageCircle size={18} /> Low Bal.
                                                         </button>
                                                     )}
+                                                    {rider.status === 'active' && rider.walletAmount < 250 && (
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedCallRider(rider); setShowElevenLabsModal(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold shadow-md transition-colors active:scale-95">
+                                                            <Phone size={15} /> AI Call
+                                                        </button>
+                                                    )}
                                                     <ActionDropdownMenu
                                                         rider={rider}
                                                         onView={() => setViewingRider(rider)}
@@ -896,6 +957,7 @@ const MyRiders: React.FC = () => {
                                                         onDelete={() => handleDeleteRider(rider)}
                                                         onRestore={() => handleRestoreRider(rider)}
                                                         onPermanentDelete={() => handlePermanentDelete(rider)}
+                                                        onElevenLabsCall={userData?.permissions?.aiCalling?.enabled !== false ? () => { setSelectedCallRider(rider); setShowElevenLabsModal(true); } : undefined}
                                                         userRole="teamLeader"
                                                         permissions={riderActionPermissions}
                                                     />
