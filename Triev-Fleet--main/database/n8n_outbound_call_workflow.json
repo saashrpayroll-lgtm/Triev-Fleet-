@@ -107,7 +107,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  let data = item.json;\n  \n  // Phone formatting to E.164 (+91XXXXXXXXXX) format\n  let rawPhone = String(data.mobileNumber || data.mobile_number || '');\n  let cleanPhone = rawPhone.replace(/\\D/g, '');\n  \n  if (cleanPhone.length === 10) {\n    cleanPhone = '+91' + cleanPhone;\n  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {\n    cleanPhone = '+' + cleanPhone;\n  } else if (!cleanPhone.startsWith('+')) {\n    cleanPhone = '+' + cleanPhone;\n  }\n  return {\n    json: {\n      rider_id: data.id || data.rider_id,\n      rider_name: data.riderName || data.rider_name || 'Rider',\n      mobile_number: cleanPhone,\n      wallet_amount: Number(data.walletAmount || data.wallet_amount || 0)\n    }\n  };\n});"
+        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  let data = item.json;\n  let rawPhone = String(data.mobileNumber || data.mobile_number || data.to_number || '');\n  let cleanPhone = rawPhone.replace(/\\D/g, '');\n  \n  if (cleanPhone.length === 10) {\n    cleanPhone = '+91' + cleanPhone;\n  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {\n    cleanPhone = '+' + cleanPhone;\n  } else if (!cleanPhone.startsWith('+')) {\n    cleanPhone = '+' + cleanPhone;\n  }\n  return {\n    json: {\n      ...data,\n      rider_id: data.id || data.rider_id,\n      rider_name: data.riderName || data.rider_name || 'Rider',\n      mobile_number: cleanPhone,\n      to_number: cleanPhone,\n      wallet_amount: Number(data.walletAmount || data.wallet_amount || 0)\n    }\n  };\n});"
       },
       "id": "node-6-format-data",
       "name": "Node 6: Format Phone & Data",
@@ -120,106 +120,16 @@
     },
     {
       "parameters": {
-        "dataType": "number",
-        "value1": "={{ $json.wallet_amount }}",
-        "rules": {
-          "rules": [
-            {
-              "value2": 0,
-              "operator": "less"
-            },
-            {
-              "value2": 0,
-              "operator": "gte"
-            }
-          ]
-        }
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  const d = item.json;\n  const w = Number(d.wallet_amount || d.walletAmount || 0);\n  const scenario = d.call_scenario || d.call_type || (w < 0 ? 'negative_balance' : 'low_balance');\n  \n  return {\n    json: {\n      rider_id: d.rider_id,\n      rider_name: d.rider_name,\n      mobile_number: d.mobile_number,\n      to_number: d.to_number || d.mobile_number,\n      wallet_amount: w,\n      call_scenario: scenario,\n      agent_id: d.agent_id,\n      agent_phone_number_id: d.agent_phone_number_id || 'phnum_6701kzhbhr20frk8cdh5v3vvpkaz'\n    }\n  };\n});"
       },
-      "id": "node-7-route-category",
-      "name": "Node 7: Route Wallet Category",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
+      "id": "node-7-prepare-data",
+      "name": "Node 7: Prepare Call Data & Scenario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1200,
         300
-      ]
-    },
-    {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "call_scenario",
-              "value": "negative_balance"
-            },
-            {
-              "name": "rider_id",
-              "value": "={{ $json.rider_id }}"
-            },
-            {
-              "name": "rider_name",
-              "value": "={{ $json.rider_name }}"
-            },
-            {
-              "name": "mobile_number",
-              "value": "={{ $json.mobile_number }}"
-            }
-          ],
-          "number": [
-            {
-              "name": "wallet_amount",
-              "value": "={{ $json.wallet_amount }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-8a-edit-negative",
-      "name": "Node 8a: Edit Fields - Negative",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 2,
-      "position": [
-        1420,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "call_scenario",
-              "value": "low_balance"
-            },
-            {
-              "name": "rider_id",
-              "value": "={{ $json.rider_id }}"
-            },
-            {
-              "name": "rider_name",
-              "value": "={{ $json.rider_name }}"
-            },
-            {
-              "name": "mobile_number",
-              "value": "={{ $json.mobile_number }}"
-            }
-          ],
-          "number": [
-            {
-              "name": "wallet_amount",
-              "value": "={{ $json.wallet_amount }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "node-8b-edit-low",
-      "name": "Node 8b: Edit Fields1 - Low",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 2,
-      "position": [
-        1420,
-        400
       ]
     },
     {
@@ -232,7 +142,7 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        1640,
+        1420,
         300
       ]
     },
@@ -263,7 +173,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        1860,
+        1640,
         300
       ]
     },
@@ -310,7 +220,7 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        2080,
+        1860,
         300
       ]
     }
@@ -376,43 +286,14 @@
       "main": [
         [
           {
-            "node": "Node 7: Route Wallet Category",
+            "node": "Node 7: Prepare Call Data & Scenario",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Node 7: Route Wallet Category": {
-      "main": [
-        [
-          {
-            "node": "Node 8a: Edit Fields - Negative",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Node 8b: Edit Fields1 - Low",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Node 8a: Edit Fields - Negative": {
-      "main": [
-        [
-          {
-            "node": "Node 9: Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Node 8b: Edit Fields1 - Low": {
+    "Node 7: Prepare Call Data & Scenario": {
       "main": [
         [
           {
