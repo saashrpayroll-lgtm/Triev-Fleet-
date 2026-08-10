@@ -8,18 +8,35 @@
   <title>Triev Fleet Manager</title>
   <meta name="description"
     content="The ultimate EV fleet management solution — rider tracking, wallet management, collection analytics, and team leader performance." />
-  <meta name="theme-color" content="#7c3aed" />
+  <meta name="theme-color" content="#6366f1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Triev Fleet" />
+
+  <!-- Icons & PWA -->
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <link rel="apple-touch-icon" href="/pwa-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- Critical DNS Prefetch & Preconnect for speed -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-  <!-- html2canvas for card image export -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <link rel="dns-prefetch" href="https://api.elevenlabs.io" />
+  <link rel="dns-prefetch" href="https://supabase.co" />
+
+  <!-- html2canvas loaded DEFERRED (only when export is used, not blocking) -->
+  <script>
+    window.loadHtml2Canvas = function() {
+      return new Promise(function(resolve) {
+        if (window.html2canvas) { resolve(window.html2canvas); return; }
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        s.onload = function() { resolve(window.html2canvas); };
+        document.head.appendChild(s);
+      });
+    };
+  </script>
 </head>
 
 <body>

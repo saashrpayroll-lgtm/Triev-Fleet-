@@ -1103,10 +1103,43 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading riders...</p>
+            <div className="space-y-6">
+                {/* Header skeleton */}
+                <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                        <div className="h-9 w-64 rounded-xl bg-muted animate-pulse" />
+                        <div className="h-4 w-48 rounded-lg bg-muted animate-pulse" />
+                    </div>
+                    <div className="h-11 w-36 rounded-xl bg-muted animate-pulse" />
+                </div>
+                {/* Tab skeleton */}
+                <div className="flex gap-2">
+                    {[80, 100, 90, 80, 70].map((w, i) => (
+                        <div key={i} className="h-10 rounded-full bg-muted animate-pulse" style={{ width: w }} />
+                    ))}
+                </div>
+                {/* Table skeleton */}
+                <div className="rounded-2xl border border-border/50 overflow-hidden bg-card shadow-sm">
+                    <div className="h-12 bg-muted/40 animate-pulse border-b border-border/50" />
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-border/30"
+                            style={{ animationDelay: `${i * 80}ms` }}>
+                            <div className="w-4 h-4 rounded bg-muted animate-pulse flex-shrink-0" />
+                            <div className="w-20 h-3 rounded bg-muted animate-pulse" />
+                            <div className="flex-1 space-y-1.5">
+                                <div className="h-3.5 w-40 rounded bg-muted animate-pulse" />
+                                <div className="h-2.5 w-24 rounded bg-muted animate-pulse opacity-60" />
+                            </div>
+                            <div className="w-24 h-3 rounded bg-muted animate-pulse" />
+                            <div className="w-20 h-7 rounded-full bg-muted animate-pulse" />
+                            <div className="flex gap-1.5">
+                                {[0,1,2,3,4].map(s => <div key={s} className="w-3 h-3 rounded-full bg-amber-400/20 animate-pulse" />)}
+                            </div>
+                            <div className="w-16 h-6 rounded-lg bg-muted animate-pulse" />
+                            <div className="w-24 h-3 rounded bg-muted animate-pulse" />
+                            <div className="w-8 h-8 rounded-lg bg-muted animate-pulse" />
+                        </div>
+                    ))}
                 </div>
             </div>
         );
@@ -1279,12 +1312,36 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
         {
             header: <span className="cursor-pointer tracking-widest" onClick={() => handleSort('riderName')}>Full Name</span>,
             accessorKey: 'riderName',
-            cell: (rider) => (
-                <div className="flex flex-col">
-                    <span className="font-bold text-slate-700 dark:text-slate-200">{rider.riderName}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{rider.clientName || 'Standalone'}</span>
-                </div>
-            )
+            cell: (rider) => {
+                const initials = rider.riderName?.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || '?';
+                const hue = (rider.riderName?.charCodeAt(0) || 0) * 47 % 360;
+                const balance = Number(rider.walletAmount || 0);
+                const borderColor = balance < 0 ? '#ef4444' : balance < 250 ? '#f59e0b' : '#22c55e';
+                return (
+                    <div className="flex items-center gap-3">
+                        <div className="relative flex-shrink-0">
+                            <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-black shadow-sm"
+                                style={{ background: `hsl(${hue}, 65%, 45%)`, boxShadow: `0 0 0 2px ${borderColor}40` }}
+                            >
+                                {initials}
+                            </div>
+                            <div
+                                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card"
+                                style={{ background: rider.status === 'active' ? '#22c55e' : rider.status === 'inactive' ? '#f59e0b' : '#ef4444' }}
+                            />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-foreground text-sm truncate">{rider.riderName}</span>
+                            {rider.clientName && (
+                                <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded-md w-fit mt-0.5">
+                                    {rider.clientName}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
         },
         {
             header: <span className="tracking-widest">Contact Info</span>,
@@ -1414,23 +1471,45 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
 
             {/* Header */}
             <div className="flex flex-col gap-6 mb-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                            Rider Management
-                        </h1>
-                        <p className="text-muted-foreground mt-2 text-lg">
-                            Manage your fleet, track performance, and organize teams efficiently.
-                        </p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-indigo-950 via-violet-950 to-slate-900 text-white shadow-2xl border border-white/10 relative overflow-hidden">
+                    <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute top-0 left-1/3 right-1/3 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center">
+                                <Users className="w-5 h-5 text-indigo-300" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-black tracking-tight">Rider Management</h1>
+                                <p className="text-xs text-slate-400 mt-0.5">Manage fleet, track performance, organize teams efficiently.</p>
+                            </div>
+                        </div>
+                        {/* Quick stats chips */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            <span className="px-3 py-1 rounded-full bg-white/10 text-white text-[11px] font-bold border border-white/10">
+                                {riders.filter(r => r.status !== 'deleted').length} Total Riders
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-bold border border-emerald-500/20">
+                                {riders.filter(r => r.status === 'active').length} Active
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-red-500/15 text-red-300 text-[11px] font-bold border border-red-500/20">
+                                {riders.filter(r => Number(r.walletAmount || 0) < 0).length} Negative Balance
+                            </span>
+                            <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 text-[11px] font-bold border border-amber-500/20">
+                                {riders.filter(r => Number(r.walletAmount || 0) >= 0 && Number(r.walletAmount || 0) < 250 && r.status === 'active').length} Low Balance
+                            </span>
+                        </div>
                     </div>
                     {(currentUser?.permissions?.riders?.create ?? true) && (
-                        <button
-                            onClick={() => setShowAddModal(true)}
-                            className="bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/25 flex items-center gap-2 font-semibold group"
-                        >
-                            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                            Add New Rider
-                        </button>
+                        <div className="relative z-10 flex items-center gap-3">
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="bg-white text-indigo-900 px-5 py-3 rounded-2xl hover:bg-indigo-50 transition-all shadow-lg flex items-center gap-2 font-black text-sm group"
+                            >
+                                <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+                                Add New Rider
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
