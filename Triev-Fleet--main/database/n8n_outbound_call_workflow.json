@@ -1,0 +1,464 @@
+{
+  "name": "ElevenLabs AI Outbound Call Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-1-schedule",
+      "name": "Node 1: Schedule - Daily 10 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outbound-call",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-2-webhook",
+      "name": "Node 2: Webhook - App Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        420
+      ],
+      "webhookId": "outbound-call-webhook"
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "getAll",
+        "tableId": "auto_call_config",
+        "returnAll": false,
+        "limit": 1
+      },
+      "id": "node-3-check-config",
+      "name": "Node 3: Check Admin Config",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        320,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.enabled }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-4-is-enabled",
+      "name": "Node 4: Is Auto-Call Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "getAll",
+        "tableId": "riders",
+        "filters": {
+          "conditions": [
+            {
+              "field": "status",
+              "operator": "equals",
+              "value": "active"
+            },
+            {
+              "field": "walletAmount",
+              "operator": "lessThan",
+              "value": 250
+            }
+          ]
+        }
+      },
+      "id": "node-5-fetch-riders",
+      "name": "Node 5: Fetch Low & Negative Riders",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        760,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nreturn items.map(item => {\n  let data = item.json;\n  \n  // Phone formatting to E.164 (+91XXXXXXXXXX) format\n  let rawPhone = String(data.mobileNumber || data.mobile_number || '');\n  let cleanPhone = rawPhone.replace(/\\D/g, '');\n  \n  if (cleanPhone.length === 10) {\n    cleanPhone = '+91' + cleanPhone;\n  } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {\n    cleanPhone = '+' + cleanPhone;\n  } else if (!cleanPhone.startsWith('+')) {\n    cleanPhone = '+' + cleanPhone;\n  }\n  return {\n    json: {\n      rider_id: data.id || data.rider_id,\n      rider_name: data.riderName || data.rider_name || 'Rider',\n      mobile_number: cleanPhone,\n      wallet_amount: Number(data.walletAmount || data.wallet_amount || 0)\n    }\n  };\n});"
+      },
+      "id": "node-6-format-data",
+      "name": "Node 6: Format Phone & Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "number",
+        "value1": "={{ $json.wallet_amount }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": 0,
+              "operator": "less"
+            },
+            {
+              "value2": 0,
+              "operator": "gte"
+            }
+          ]
+        }
+      },
+      "id": "node-7-route-category",
+      "name": "Node 7: Route Wallet Category",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "call_scenario",
+              "value": "negative_balance"
+            },
+            {
+              "name": "rider_id",
+              "value": "={{ $json.rider_id }}"
+            },
+            {
+              "name": "rider_name",
+              "value": "={{ $json.rider_name }}"
+            },
+            {
+              "name": "mobile_number",
+              "value": "={{ $json.mobile_number }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "wallet_amount",
+              "value": "={{ $json.wallet_amount }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-8a-edit-negative",
+      "name": "Node 8a: Edit Fields - Negative",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "call_scenario",
+              "value": "low_balance"
+            },
+            {
+              "name": "rider_id",
+              "value": "={{ $json.rider_id }}"
+            },
+            {
+              "name": "rider_name",
+              "value": "={{ $json.rider_name }}"
+            },
+            {
+              "name": "mobile_number",
+              "value": "={{ $json.mobile_number }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "wallet_amount",
+              "value": "={{ $json.wallet_amount }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-8b-edit-low",
+      "name": "Node 8b: Edit Fields1 - Low",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "node-9-loop",
+      "name": "Node 9: Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/convai/agents/YOUR_ELEVENLABS_AGENT_ID/calls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "YOUR_ELEVENLABS_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"agent_id\": \"YOUR_ELEVENLABS_AGENT_ID\",\n  \"phone_number\": \"={{ $json.mobile_number }}\",\n  \"dynamic_variables\": {\n    \"rider_name\": \"={{ $json.rider_name }}\",\n    \"wallet_balance\": \"={{ $json.wallet_amount }}\",\n    \"call_scenario\": \"={{ $json.call_scenario }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "node-10-elevenlabs",
+      "name": "Node 10: HTTP Request ElevenLabs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "create",
+        "tableId": "ai_call_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "rider_id",
+              "value": "={{ $json.rider_id }}"
+            },
+            {
+              "fieldId": "rider_name",
+              "value": "={{ $json.rider_name }}"
+            },
+            {
+              "fieldId": "mobile_number",
+              "value": "={{ $json.mobile_number }}"
+            },
+            {
+              "fieldId": "call_scenario",
+              "value": "={{ $json.call_scenario }}"
+            },
+            {
+              "fieldId": "call_id",
+              "value": "={{ $json.call_id || $json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "value": "initiated"
+            },
+            {
+              "fieldId": "wallet_amount_at_call",
+              "value": "={{ $json.wallet_amount }}"
+            }
+          ]
+        }
+      },
+      "id": "node-11-save-log",
+      "name": "Node 11: Save Call Log",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Node 1: Schedule - Daily 10 AM": {
+      "main": [
+        [
+          {
+            "node": "Node 3: Check Admin Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 2: Webhook - App Trigger": {
+      "main": [
+        [
+          {
+            "node": "Node 6: Format Phone & Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 3: Check Admin Config": {
+      "main": [
+        [
+          {
+            "node": "Node 4: Is Auto-Call Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 4: Is Auto-Call Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Node 5: Fetch Low & Negative Riders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Node 5: Fetch Low & Negative Riders": {
+      "main": [
+        [
+          {
+            "node": "Node 6: Format Phone & Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 6: Format Phone & Data": {
+      "main": [
+        [
+          {
+            "node": "Node 7: Route Wallet Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 7: Route Wallet Category": {
+      "main": [
+        [
+          {
+            "node": "Node 8a: Edit Fields - Negative",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Node 8b: Edit Fields1 - Low",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 8a: Edit Fields - Negative": {
+      "main": [
+        [
+          {
+            "node": "Node 9: Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 8b: Edit Fields1 - Low": {
+      "main": [
+        [
+          {
+            "node": "Node 9: Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 9: Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Node 10: HTTP Request ElevenLabs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 10: HTTP Request ElevenLabs": {
+      "main": [
+        [
+          {
+            "node": "Node 11: Save Call Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Node 11: Save Call Log": {
+      "main": [
+        [
+          {
+            "node": "Node 9: Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": true
+}

@@ -24,7 +24,10 @@ export interface CallResult {
 }
 
 export class OutboundCallService {
-    private static N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_OUTBOUND_CALL_WEBHOOK_URL || 'https://n8n.example.com/webhook/outbound-call';
+    private static get n8nWebhookUrl(): string {
+        const url = import.meta.env.VITE_N8N_OUTBOUND_CALL_WEBHOOK_URL;
+        return (url && url.trim() !== '') ? url.trim() : 'https://n8n.example.com/webhook/outbound-call';
+    }
     private static ELEVENLABS_AGENT_ID = import.meta.env.VITE_ELEVENLABS_AGENT_ID || 'default_agent_id';
 
     /**
@@ -74,6 +77,7 @@ export class OutboundCallService {
                 rider_name: payload.riderName,
                 mobile_number: formattedMobile,
                 wallet_amount: payload.walletAmount,
+                call_scenario: payload.callScenario,
                 call_type: payload.callScenario,
                 custom_note: payload.customNote || '',
                 agent_id: this.ELEVENLABS_AGENT_ID,
@@ -87,7 +91,7 @@ export class OutboundCallService {
 
             // Call n8n Outbound Webhook if configured
             try {
-                const response = await fetch(this.N8N_WEBHOOK_URL, {
+                const response = await fetch(this.n8nWebhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(webhookPayload)
