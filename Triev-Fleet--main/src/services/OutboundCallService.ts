@@ -100,16 +100,19 @@ export class OutboundCallService {
                 if (!response.ok) {
                     const errText = await response.text().catch(() => 'Network error');
                     console.warn('[ElevenLabs + n8n] Webhook non-200 response:', errText);
-                    callId = `SIM_${Date.now()}`;
-                    resultMsg = `AI Call dispatched to n8n Webhook for ${payload.riderName}`;
+                    callSuccess = false;
+                    callId = `ERR_${Date.now()}`;
+                    resultMsg = `n8n Webhook Error (HTTP ${response.status}): ${errText.substring(0, 120)}`;
                 } else {
                     const resData = await response.json().catch(() => ({}));
                     callId = resData.call_id || resData.id || `CALL_${Date.now()}`;
+                    resultMsg = `AI Call dispatched to n8n Webhook for ${payload.riderName}`;
                 }
-            } catch (netErr) {
-                console.warn('[ElevenLabs + n8n] Fetch error, queuing fallback simulation:', netErr);
-                callId = `SIM_${Date.now()}`;
-                resultMsg = `AI Call request queued via n8n for ${payload.riderName}`;
+            } catch (netErr: any) {
+                console.warn('[ElevenLabs + n8n] Fetch error:', netErr);
+                callSuccess = false;
+                callId = `ERR_${Date.now()}`;
+                resultMsg = `Failed to reach n8n Webhook: ${netErr.message || 'Network error'}`;
             }
 
             // Save log to Supabase ai_call_logs table
@@ -121,9 +124,9 @@ export class OutboundCallService {
                 triggeredBy: payload.triggeredById || 'system',
                 triggeredByName: payload.triggeredBy || 'System',
                 callId,
-                status: callSuccess ? 'completed' : 'failed',
+                status: callSuccess ? 'initiated' : 'failed',
                 walletAmountAtCall: payload.walletAmount,
-                notes: payload.customNote || '',
+                notes: payload.customNote || resultMsg,
                 createdAt: timestamp
             });
 
@@ -132,12 +135,12 @@ export class OutboundCallService {
                 actionType: 'sent_reminder',
                 targetType: 'rider',
                 targetId: payload.riderId,
-                details: `Triggered ElevenLabs AI Voice Call (${payload.callScenario.replace('_', ' ')}) to ${payload.riderName} (${formattedMobile})`,
+                details: `Triggered ElevenLabs AI Voice Call (${payload.callScenario.replace('_', ' ')}) to ${payload.riderName} (${formattedMobile}) - ${callSuccess ? 'Initiated' : 'Failed'}`,
                 performedBy: payload.triggeredBy || 'System'
             }).catch(console.error);
 
             return {
-                success: true,
+                success: callSuccess,
                 callId,
                 message: resultMsg,
                 timestamp
