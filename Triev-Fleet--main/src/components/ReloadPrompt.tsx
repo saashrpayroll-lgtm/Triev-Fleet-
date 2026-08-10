@@ -73,6 +73,8 @@ const ReloadPrompt = () => {
             window.location.href = window.location.origin + '?v=' + Date.now();
         };
     }, []);
+
+    return null;
 };
 
 export default ReloadPrompt;
