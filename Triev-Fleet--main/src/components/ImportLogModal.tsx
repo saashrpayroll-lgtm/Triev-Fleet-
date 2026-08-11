@@ -14,9 +14,11 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
     if (!isOpen || !record) return null;
 
     const errors = record.errors || [];
-    const skips = record.skipped_details || [];
+    const rawSkips = record.skipped_details || [];
+    const metaObj = (Array.isArray(rawSkips) && rawSkips.find((s: any) => s._meta)?._meta) || {};
+    const skips = Array.isArray(rawSkips) ? rawSkips.filter((s: any) => !s._meta) : [];
 
-    const detailedChanges = record.detailed_changes || record.metadata?.summary?.detailedChanges || {
+    const detailedChanges = record.detailed_changes || metaObj.detailedChanges || record.metadata?.summary?.detailedChanges || {
         added: [],
         inactivated: [],
         reactivated: [],
@@ -68,11 +70,11 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     </div>
                     <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
                         <div className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">Inactivated</div>
-                        <div className="text-lg font-black text-rose-600 dark:text-rose-400">{inactivated.length || record.inactivated_count || 0}</div>
+                        <div className="text-lg font-black text-rose-600 dark:text-rose-400">{inactivated.length || metaObj.inactivated || record.inactivated_count || 0}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
                         <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase">Reactivated</div>
-                        <div className="text-lg font-black text-purple-600 dark:text-purple-400">{reactivated.length || record.reactivated_count || 0}</div>
+                        <div className="text-lg font-black text-purple-600 dark:text-purple-400">{reactivated.length || metaObj.reactivated || record.reactivated_count || 0}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
                         <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Skipped</div>

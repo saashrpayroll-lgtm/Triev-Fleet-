@@ -76,6 +76,17 @@ const logImportHistory = async (
     totalRows: number
 ) => {
     try {
+        const skippedWithMeta = [
+            {
+                _meta: {
+                    inactivated: summary.inactivated || 0,
+                    reactivated: summary.reactivated || 0,
+                    detailedChanges: summary.detailedChanges || null
+                }
+            },
+            ...((summary.skippedDetails || []).slice(0, 100))
+        ];
+
         await supabase.from('import_history').insert({
             admin_id: adminId,
             admin_name: adminName,
@@ -85,12 +96,9 @@ const logImportHistory = async (
             failure_count: summary.failed,
             skipped_count: summary.skipped || 0,
             updated_count: summary.updated || 0,
-            inactivated_count: summary.inactivated || 0,
-            reactivated_count: summary.reactivated || 0,
             status: summary.failed === 0 ? 'success' : (summary.success === 0 ? 'failed' : 'partial'),
             errors: summary.errors.slice(0, 50),
-            skipped_details: (summary.skippedDetails || []).slice(0, 100),
-            detailed_changes: summary.detailedChanges || null,
+            skipped_details: skippedWithMeta,
             timestamp: new Date().toISOString()
         });
     } catch (e) {

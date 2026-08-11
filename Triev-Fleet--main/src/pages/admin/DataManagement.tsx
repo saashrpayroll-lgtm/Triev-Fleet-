@@ -185,10 +185,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                     failureCount:failure_count,
                     updated_count,
                     skipped_count,
-                    inactivated_count,
-                    reactivated_count,
                     skipped_details,
-                    detailed_changes,
                     status,
                     timestamp,
                     errors
