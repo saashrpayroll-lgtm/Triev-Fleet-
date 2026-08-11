@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Users, UserCheck, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Zap, Bot } from 'lucide-react';
+import { Users, Wallet, Inbox, UserPlus, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, Trophy, ArrowRight, ShieldCheck, Bot, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead, Request } from '@/types';
@@ -38,10 +38,19 @@ const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const [dateFilter, setDateFilter] = useState<DateFilterType>('day');
     const [loading, setLoading] = useState(true);
+    // Active Tab for Dashboard V2 Architecture
+    const [activeTab, setActiveTab] = useState<'overview' | 'financials' | 'risk' | 'performance'>(() => {
+        return (localStorage.getItem('admin_dashboard_v2_tab') as any) || 'overview';
+    });
     // Progressive rendering: defer heavy sections to avoid blocking sidebar/header
     const [renderPhase, setRenderPhase] = useState(0); // 0=stats only, 1=charts, 2=tables, 3=leaderboard
     // Fetch lock: prevent concurrent fetches that pile up and freeze UI
     const isFetchingRef = useRef(false);
+
+    const handleTabChange = (tab: 'overview' | 'financials' | 'risk' | 'performance') => {
+        setActiveTab(tab);
+        localStorage.setItem('admin_dashboard_v2_tab', tab);
+    };
 
 
     // Raw Data State
@@ -752,313 +761,206 @@ const Dashboard: React.FC = () => {
             {/* Live Alert Center — Negative & Low Balance Riders */}
             <LiveAlertCenter portalBase="/portal" />
 
-            {/* --- Fleet & Operations --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2.5 sm:gap-3 px-1">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
-                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
+            {/* V2 Dashboard Tab Navigation */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-card/60 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar my-4 shadow-sm">
+                {[
+                    { id: 'overview', label: 'Overview', icon: Activity },
+                    { id: 'financials', label: 'Financials & Revenue', icon: Wallet, badge: `₹${(stats.totalCollection || 0).toLocaleString('en-IN')}` },
+                    { id: 'risk', label: 'Fleet & Risk', icon: ShieldAlert, badge: stats.negativeWalletCount > 0 ? `${stats.negativeWalletCount} Risk` : undefined },
+                    { id: 'performance', label: 'Team & Champions', icon: Trophy, badge: `${stats.totalTLs} TLs` }
+                ].map(tab => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id as any)}
+                            className={`
+                                flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-300 whitespace-nowrap select-none
+                                ${isActive
+                                    ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                }
+                            `}
+                        >
+                            <Icon size={15} />
+                            <span>{tab.label}</span>
+                            {tab.badge && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                                    {tab.badge}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* TAB 1: OVERVIEW */}
+            {activeTab === 'overview' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    {/* Fleet & Operations */}
+                    <div className="space-y-3 sm:space-y-4">
+                        <div className="flex items-center gap-2.5 sm:gap-3 px-1">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
+                                <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
+                                    <Activity size={12} className="text-white sm:w-4 sm:h-4" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
+                            <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                            <SmartMetricCard
+                                title="System Health"
+                                value={`${stats.activeRiders}/${stats.totalRiders}`}
+                                icon={Activity}
+                                color="emerald"
+                                trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'uptime', direction: 'up' }}
+                                subtitle="Active Riders Ratio"
+                                className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
+                                progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Team Strength"
+                                value={stats.totalTLs.toString()}
+                                icon={Users}
+                                color="violet"
+                                subtitle={`${stats.activeTLs} Active Leaders`}
+                                onClick={() => navigate('/portal/users?role=teamLeader')}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Pending Ops"
+                                value={stats.pendingRequests}
+                                icon={Inbox}
+                                color="blue"
+                                aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
+                                subtitle={`${stats.criticalRequests} High Priority`}
+                                onClick={() => navigate('/portal/requests?status=pending')}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Growth Engine"
+                                value={`${stats.conversionRate}%`}
+                                icon={UserPlus}
+                                color="fuchsia"
+                                trend={{ value: 5, label: 'velocity', direction: 'up' }}
+                                subtitle={`${stats.newLeadsToday} New Leads Today`}
+                                progress={stats.conversionRate}
+                                onClick={() => navigate('/portal/leads?status=New')}
+                                isCurrency={false}
+                            />
                         </div>
                     </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
-                    {/* BLACK: System Health — premium dark card */}
-                    <SmartMetricCard
-                        title="System Health"
-                        value={`${stats.activeRiders}/${stats.totalRiders}`}
-                        icon={Activity}
-                        color="emerald"
-                        trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'uptime', direction: 'up' }}
-                        subtitle="Active Riders Ratio"
-                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
-                        progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'active' } })}
-                        isCurrency={false}
-                    />
 
-                    <SmartMetricCard
-                        title="Team Strength"
-                        value={stats.totalTLs.toString()}
-                        icon={Users}
-                        color="violet"
-                        subtitle={`${stats.activeTLs} Active Leaders`}
-                        onClick={() => navigate('/portal/users?role=teamLeader')}
-                        isCurrency={false}
-                    />
+                    {/* Zomato VIP Section */}
+                    <ZomatoVIPSection stats={stats} />
 
-                    <SmartMetricCard
-                        title="Pending Ops"
-                        value={stats.pendingRequests}
-                        icon={Inbox}
-                        color="blue"
-                        aiInsight={stats.criticalRequests > 0 ? `${stats.criticalRequests} critical tickets open.` : undefined}
-                        subtitle={`${stats.criticalRequests} High Priority`}
-                        onClick={() => navigate('/portal/requests?status=pending')}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Growth Engine"
-                        value={`${stats.conversionRate}%`}
-                        icon={UserPlus}
-                        color="fuchsia"
-                        trend={{ value: 5, label: 'velocity', direction: 'up' }}
-                        subtitle={`${stats.newLeadsToday} New Leads Today`}
-                        progress={stats.conversionRate}
-                        onClick={() => navigate('/portal/leads?status=New')}
-                        isCurrency={false}
-                    />
-                </div>
-            </motion.div>
-
-            {/* --- Zomato VIP Intelligence --- */}
-            <ZomatoVIPSection stats={stats} />
-
-            {/* --- Financial Performance --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-indigo-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30 border border-white/20">
-                            <TrendingUp size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-indigo-200">Financial Performance</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/40 via-indigo-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
-                    {/* --- ROW 2: FINANCIAL PERFORMANCE --- */}
-                    <SmartMetricCard
-                        title="Total Collections"
-                        value={stats.totalCollection}
-                        icon={Wallet}
-                        color="indigo"
-                        trend={{ value: 12, label: 'revenue', direction: 'up' }}
-                        subtitle={`${stats.positiveWalletCount} Positive Wallets`}
-                        progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
-                    />
-
-                    <TodaysCollectionCard />
-
-                    {/* NEW Projected vs Actual Revenue Card */}
-                    <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-500/20 rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg transition-all shadow-sm">
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <h3 className="text-xs font-black uppercase text-indigo-600/80 dark:text-indigo-400 tracking-wider">Revenue Projection (Daily)</h3>
-                                <p className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1 drop-shadow-sm">
-                                    ₹{stats.totalCollection.toLocaleString('en-IN')}
-                                </p>
-                            </div>
-                            <div className="p-2 sm:p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400">
-                                <TrendingUp size={16} className="sm:w-5 sm:h-5" />
-                            </div>
-                        </div>
-                        <div className="mt-auto">
-                            <div className="flex justify-between items-end mb-1">
-                                <span className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center gap-1">
-                                    Target: ₹{(stats.activeRiders * 500).toLocaleString('en-IN')}
-                                </span>
-                                <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400">
-                                    {stats.activeRiders > 0 ? Math.min(100, Math.round((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}% Formed
-                                </span>
-                            </div>
-                            <div className="h-1.5 w-full bg-border rounded-full overflow-hidden flex">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${stats.activeRiders > 0 ? Math.min(100, ((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}%` }}
-                                    transition={{ duration: 1, ease: "easeOut" }}
-                                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                    {/* Charts & Activity */}
+                    {renderPhase >= 1 && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            <div className="lg:col-span-2">
+                                <DashboardCharts
+                                    riderData={chartData.riders}
+                                    walletData={chartData.wallet.filter(d => d.value !== 0)}
+                                    leadData={chartData.leads}
                                 />
                             </div>
-                            <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
-                                <Activity size={10} /> Based on approx. ₹500/day per active rider
-                            </p>
+                            <div className="lg:col-span-1 flex flex-col gap-3">
+                                <div>
+                                    <WeeklyCollectionChart />
+                                </div>
+                                <div className="flex-grow">
+                                    <RecentActivity />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <SmartMetricCard
-                        title="Net Liquidity"
-                        value={stats.netBalance}
-                        icon={Smartphone}
-                        color="violet"
-                        subtitle="Total System Value"
-                        onClick={() => navigate('/portal/riders')}
-                    />
-
-                    <SmartMetricCard
-                        title="Avg Wallet"
-                        value={stats.avgBalance}
-                        icon={TrendingUp}
-                        color="cyan"
-                        subtitle="Mean Fleet Balance"
-                        onClick={() => navigate('/portal/riders')}
-                    />
+                    )}
                 </div>
-            </motion.div>
-
-            {/* --- Wallet Health & Risk --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-amber-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30 border border-white/20">
-                            <ShieldCheck size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent dark:from-amber-400 dark:to-amber-200">Wallet Health & Risk</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/40 via-amber-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
-                    {/* --- ROW 3: RIDER WALLET HEALTH --- */}
-                    <SmartMetricCard
-                        title="Positive Riders"
-                        value={stats.positiveWalletCount}
-                        icon={TrendingUp}
-                        color="emerald"
-                        subtitle="Wallet > 0"
-                        trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
-                        progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Negative Riders"
-                        value={stats.negativeWalletCount}
-                        icon={TrendingDown}
-                        color="rose"
-                        subtitle="Wallet < 0"
-                        trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
-                        progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Zero Balance"
-                        value={stats.zeroWalletCount}
-                        icon={Coins}
-                        color="amber"
-                        subtitle="Dormant Wallets"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Low Balance (0-250)"
-                        value={stats.lowBalanceCount}
-                        icon={AlertTriangle}
-                        color="orange"
-                        className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
-                        subtitle="At-Risk of Rejection"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Highly Indebted"
-                        value={stats.highDebtCount}
-                        icon={TrendingDown}
-                        color="red"
-                        className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
-                        subtitle="Debt > ₹3000"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
-                        isCurrency={false}
-                    />
-
-                    {/* BLACK: Outstanding Risk — premium dark card */}
-                    <SmartMetricCard
-                        title="Outstanding Risk"
-                        value={stats.outstandingDues}
-                        icon={AlertTriangle}
-                        color="rose"
-                        aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
-                        subtitle={`${stats.negativeWalletCount} Negative Wallets`}
-                        className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
-                        isCurrency={true}
-                    />
-                </div>
-            </motion.div>
-
-            {/* --- Growth & Retention --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18 }} className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-lime-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-lime-500/30 border border-white/20">
-                            <Zap size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-lime-600 to-emerald-500 bg-clip-text text-transparent dark:from-lime-400 dark:to-emerald-300">Growth & Retention</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-lime-500/40 via-lime-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-2 font-jakarta">
-                    <SmartMetricCard
-                        title="Lead Conversion"
-                        value={stats.convertedLeads}
-                        icon={Sparkles}
-                        color="lime"
-                        trend={{ value: stats.conversionRate, label: 'rate', direction: 'up' }}
-                        subtitle={`${stats.totalLeads} Total Leads`}
-                        progress={stats.conversionRate}
-                        onClick={() => navigate('/portal/leads?status=Convert')}
-                        isCurrency={false}
-                    />
-
-                    <SmartMetricCard
-                        title="Churn Monitor"
-                        value={stats.inactiveRiders}
-                        icon={UserCheck}
-                        color="slate"
-                        trend={{ value: stats.totalRiders > 0 ? Math.round((stats.inactiveRiders / stats.totalRiders) * 100) : 0, label: 'churn rate', direction: 'down' }}
-                        subtitle={`${stats.deletedRiders} Permanently Deleted`}
-                        onClick={() => navigate('/portal/riders', { state: { filter: 'inactive' } })}
-                        isCurrency={false}
-                    />
-                </div>
-            </motion.div>
-
-            {/* --- Wallet Watchlist --- */}
-            <WalletWatchlist riders={rawData.riders} />
-
-            {/* --- Fleet AI Health --- */}
-            <FleetAIHealthWidget
-                riders={rawData.riders}
-                title="Fleet AI Health Overview"
-            />
-            {/* ── Charts & Activity ── */}
-            {renderPhase >= 1 && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-300">
-                {/* Charts Area (2/3 width) */}
-                <div className="lg:col-span-2">
-                    <DashboardCharts
-                        riderData={chartData.riders}
-                        walletData={chartData.wallet.filter(d => d.value !== 0)}
-                        leadData={chartData.leads}
-                    />
-                </div>
-
-                {/* Activity Feed (1/3 width) */}
-                <div className="lg:col-span-1 flex flex-col gap-3">
-                    <div>
-                        <WeeklyCollectionChart />
-                    </div>
-                    <div className="flex-grow">
-                        <RecentActivity />
-                    </div>
-                </div>
-            </div>
             )}
 
-            {/* TL Performance Table & System Health (Admin Only) */}
-            {!isTL && renderPhase >= 2 && (
-                <>
-                    {/* Admin Quick Insight Strip */}
+            {/* TAB 2: FINANCIALS */}
+            {activeTab === 'financials' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    <div className="space-y-3 sm:space-y-4">
+                        <div className="flex items-center gap-2.5 sm:gap-3 px-1">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-indigo-500 blur-md opacity-40 rounded-full" />
+                                <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30 border border-white/20">
+                                    <TrendingUp size={12} className="text-white sm:w-4 sm:h-4" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-indigo-200">Financial Performance & Revenue</span>
+                            <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/40 via-indigo-500/10 to-transparent" />
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                            <SmartMetricCard
+                                title="Total Collections"
+                                value={stats.totalCollection}
+                                icon={Wallet}
+                                color="indigo"
+                                trend={{ value: 12, label: 'revenue', direction: 'up' }}
+                                subtitle={`${stats.positiveWalletCount} Positive Wallets`}
+                                progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                                onClick={() => navigate('/portal/data', { state: { tab: 'import' } })}
+                            />
+                            <TodaysCollectionCard />
+                            <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-500/20 rounded-2xl p-4 flex flex-col justify-between hover:shadow-lg transition-all shadow-sm">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h3 className="text-xs font-black uppercase text-indigo-600/80 dark:text-indigo-400 tracking-wider">Revenue Projection (Daily)</h3>
+                                        <p className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1 drop-shadow-sm">
+                                            ₹{stats.totalCollection.toLocaleString('en-IN')}
+                                        </p>
+                                    </div>
+                                    <div className="p-2 sm:p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400">
+                                        <TrendingUp size={16} className="sm:w-5 sm:h-5" />
+                                    </div>
+                                </div>
+                                <div className="mt-auto">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-[10px] sm:text-xs font-bold text-muted-foreground flex items-center gap-1">
+                                            Target: ₹{(stats.activeRiders * 500).toLocaleString('en-IN')}
+                                        </span>
+                                        <span className="text-[10px] sm:text-xs font-black text-indigo-600 dark:text-indigo-400">
+                                            {stats.activeRiders > 0 ? Math.min(100, Math.round((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}% Formed
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-border rounded-full overflow-hidden flex">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.activeRiders > 0 ? Math.min(100, ((stats.totalCollection / (stats.activeRiders * 500)) * 100)) : 0}%` }}
+                                            transition={{ duration: 1, ease: "easeOut" }}
+                                            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                        />
+                                    </div>
+                                    <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
+                                        <Activity size={10} /> Based on approx. ₹500/day per active rider
+                                    </p>
+                                </div>
+                            </div>
+                            <SmartMetricCard
+                                title="Net Liquidity"
+                                value={stats.netBalance}
+                                icon={Smartphone}
+                                color="violet"
+                                subtitle="Total System Value"
+                                onClick={() => navigate('/portal/riders')}
+                            />
+                            <SmartMetricCard
+                                title="Avg Wallet"
+                                value={stats.avgBalance}
+                                icon={TrendingUp}
+                                color="cyan"
+                                subtitle="Mean Fleet Balance"
+                                onClick={() => navigate('/portal/riders')}
+                            />
+                        </div>
+                    </div>
+
                     <QuickInsightStrip
                         insights={[
                             { label: 'Fleet', value: stats.activeRiders, suffix: ' riders' },
@@ -1069,9 +971,101 @@ const Dashboard: React.FC = () => {
                         ]}
                     />
 
-                    {/* Fleet Health + Performance Alerts + Revenue Forecast */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-350 mb-4">
-                        <FleetHealthSummary riders={rawData.riders} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <RevenueForecast
+                            riders={rawData.riders}
+                            currentMonthCollection={periodRentTotal}
+                            dailyCollectionsRaw={rawData.dailyCollectionsRaw}
+                        />
+                        <WeeklyCollectionChart />
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 3: FLEET & RISK */}
+            {activeTab === 'risk' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    <div className="space-y-3 sm:space-y-4">
+                        <div className="flex items-center gap-2.5 sm:gap-3 px-1">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-amber-500 blur-md opacity-40 rounded-full" />
+                                <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30 border border-white/20">
+                                    <ShieldCheck size={12} className="text-white sm:w-4 sm:h-4" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent dark:from-amber-400 dark:to-amber-200">Wallet Health & Risk</span>
+                            <div className="flex-1 h-px bg-gradient-to-r from-amber-500/40 via-amber-500/10 to-transparent" />
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-jakarta">
+                            <SmartMetricCard
+                                title="Positive Riders"
+                                value={stats.positiveWalletCount}
+                                icon={TrendingUp}
+                                color="emerald"
+                                subtitle="Wallet > 0"
+                                trend={{ value: Math.round((stats.positiveWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'up' }}
+                                progress={stats.totalRiders > 0 ? (stats.positiveWalletCount / stats.totalRiders) * 100 : 0}
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'positive_wallet' } })}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Negative Riders"
+                                value={stats.negativeWalletCount}
+                                icon={TrendingDown}
+                                color="rose"
+                                subtitle="Wallet < 0"
+                                trend={{ value: Math.round((stats.negativeWalletCount / stats.totalRiders) * 100), label: 'of fleet', direction: 'down' }}
+                                progress={stats.totalRiders > 0 ? (stats.negativeWalletCount / stats.totalRiders) * 100 : 0}
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Zero Balance"
+                                value={stats.zeroWalletCount}
+                                icon={Coins}
+                                color="amber"
+                                subtitle="Dormant Wallets"
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'zero_balance' } })}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Low Balance (0-250)"
+                                value={stats.lowBalanceCount}
+                                icon={AlertTriangle}
+                                color="orange"
+                                className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
+                                subtitle="At-Risk of Rejection"
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'low_balance' } })}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Highly Indebted"
+                                value={stats.highDebtCount}
+                                icon={TrendingDown}
+                                color="red"
+                                className={stats.highDebtCount > 5 ? 'animate-pulse ring-2 ring-red-500/50' : ''}
+                                subtitle="Debt > ₹3000"
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'high_debt' } })}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Outstanding Risk"
+                                value={stats.outstandingDues}
+                                icon={AlertTriangle}
+                                color="rose"
+                                aiInsight={stats.highDebtCount > 0 ? `${stats.highDebtCount} riders need immediate collection.` : undefined}
+                                subtitle={`${stats.negativeWalletCount} Negative Wallets`}
+                                className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
+                                onClick={() => navigate('/portal/riders', { state: { filter: 'negative_wallet' } })}
+                                isCurrency={true}
+                            />
+                        </div>
+                    </div>
+
+                    <WalletWatchlist riders={rawData.riders} />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <FleetAIHealthWidget riders={rawData.riders} title="Fleet AI Health Overview" />
                         <PerformanceAlerts
                             teamLeaders={rawData.teamLeaders}
                             riders={rawData.riders}
@@ -1079,26 +1073,27 @@ const Dashboard: React.FC = () => {
                             tlCollections={tlCollections}
                             onViewTL={(_tlId) => navigate('/portal/leaderboard')}
                         />
-                        <RevenueForecast
-                            riders={rawData.riders}
-                            currentMonthCollection={periodRentTotal}
-                            dailyCollectionsRaw={rawData.dailyCollectionsRaw}
-                        />
                     </div>
+                </div>
+            )}
 
-                    {/* Rider Tenure + TL Comparison + Fleet Growth */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 animate-in slide-in-from-bottom duration-700 delay-375 mb-4">
+            {/* TAB 4: TEAM & CHAMPIONS */}
+            {activeTab === 'performance' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                        <FleetHealthSummary riders={rawData.riders} />
                         <RiderTenure riders={rawData.riders} />
-                        <TLComparisonCard
-                            teamLeaders={rawData.teamLeaders}
-                            riders={rawData.riders}
-                            leads={rawData.leads}
-                            tlCollections={tlCollections}
-                        />
                         <FleetGrowthIndicator riders={rawData.riders} />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 animate-in slide-in-from-bottom duration-700 delay-400 mb-4">
+                    <TLComparisonCard
+                        teamLeaders={rawData.teamLeaders}
+                        riders={rawData.riders}
+                        leads={rawData.leads}
+                        tlCollections={tlCollections}
+                    />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
                         <div className="lg:col-span-3">
                             <TeamLeaderPerformanceTable data={tlStats} />
                         </div>
@@ -1107,70 +1102,64 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* V4 Admin Live Presence Dashboard */}
                     {renderPhase >= 3 && (
-                    <div className="animate-in slide-in-from-bottom duration-700 delay-500 mb-4">
-                        <LivePresenceDashboard />
-                    </div>
-                    )}
-                </>
-            )}
+                        <div className="space-y-6">
+                            <LivePresenceDashboard />
 
-            {/* Premium AI Leaderboard Section */}
-            {renderPhase >= 3 && (
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="relative rounded-2xl sm:rounded-3xl p-[3px] bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 shadow-2xl overflow-hidden"
-            >
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-                <div className="bg-card/80 dark:bg-slate-950/70 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-white/10">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-                        <div className="flex items-center gap-3">
                             <motion.div
-                                whileHover={{ rotate: [0, -8, 8, 0] }}
-                                className="p-2.5 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-xl border border-yellow-500/30"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6 }}
+                                className="relative rounded-2xl sm:rounded-3xl p-[3px] bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 shadow-2xl overflow-hidden"
                             >
-                                <Trophy size={24} className="text-yellow-500" />
+                                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                                <div className="bg-card/80 dark:bg-slate-950/70 backdrop-blur-2xl rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-white/10">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <motion.div
+                                                whileHover={{ rotate: [0, -8, 8, 0] }}
+                                                className="p-2.5 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-xl border border-yellow-500/30"
+                                            >
+                                                <Trophy size={24} className="text-yellow-500" />
+                                            </motion.div>
+                                            <div>
+                                                <h2 className="text-xl sm:text-2xl font-black tracking-tight bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
+                                                    Fleet Champions
+                                                </h2>
+                                                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 mt-0.5">
+                                                    Live Performance Network
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/90 border border-white/20 rounded-full shadow-xl w-fit">
+                                            <span className="relative flex h-1.5 w-1.5">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                                            </span>
+                                            <span className="text-[9px] font-black tracking-widest text-white uppercase">Neural Realtime Sync</span>
+                                        </div>
+                                        <button
+                                            onClick={() => navigate('/portal/leaderboard')}
+                                            className="group relative flex items-center gap-2 px-5 py-2.5 bg-slate-900 dark:bg-white rounded-xl font-black text-xs uppercase tracking-widest text-white dark:text-slate-950 shadow-xl hover:scale-105 active:scale-95 transition-all self-start sm:self-auto"
+                                        >
+                                            <span className="relative z-10">Expand Rankings</span>
+                                            <ArrowRight size={18} className="relative z-10 group-hover:translate-x-1 transition-transform" />
+                                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                                        </button>
+                                    </div>
+
+                                    <Leaderboard
+                                        teamLeaders={rawData.teamLeaders}
+                                        riders={rawData.riders}
+                                        leads={rawData.leads}
+                                        collections={tlCollections}
+                                        period={period || undefined}
+                                    />
+                                </div>
                             </motion.div>
-                            <div>
-                                <h2 className="text-xl sm:text-2xl font-black tracking-tight bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-200 dark:to-slate-400 bg-clip-text text-transparent">
-                                    Fleet Champions
-                                </h2>
-                                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 mt-0.5">
-                                    Live Performance Network
-                                </p>
-                            </div>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/90 border border-white/20 rounded-full shadow-xl w-fit">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-                            </span>
-                            <span className="text-[9px] font-black tracking-widest text-white uppercase">Neural Realtime Sync</span>
-                        </div>
-
-                        <button
-                            onClick={() => navigate('/portal/leaderboard')}
-                            className="group relative flex items-center gap-2 px-5 py-2.5 bg-slate-900 dark:bg-white rounded-xl font-black text-xs uppercase tracking-widest text-white dark:text-slate-950 shadow-xl hover:scale-105 active:scale-95 transition-all self-start sm:self-auto"
-                        >
-                            <span className="relative z-10">Expand Rankings</span>
-                            <ArrowRight size={18} className="relative z-10 group-hover:translate-x-1 transition-transform" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                        </button>
-                    </div>
-
-                    <Leaderboard
-                        teamLeaders={rawData.teamLeaders}
-                        riders={rawData.riders}
-                        leads={rawData.leads}
-                        collections={tlCollections}
-                        period={period || undefined}
-                    />
+                    )}
                 </div>
-            </motion.div>
             )}
         </div>
     );

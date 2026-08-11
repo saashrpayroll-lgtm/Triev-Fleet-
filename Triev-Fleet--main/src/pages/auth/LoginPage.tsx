@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Eye, EyeOff, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones, Sparkles, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones, Sparkles, ArrowRight, ArrowLeft, Globe, Home } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
@@ -228,6 +229,23 @@ const LoginPage: React.FC = () => {
     return (
         <div className="min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-orange-500/30">
             <CyberBackground />
+
+            {/* ── Top Left Back to Landing Page Button ── */}
+            <motion.div
+                className="fixed top-4 left-4 sm:top-6 sm:left-6 z-30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+            >
+                <Link
+                    to="/"
+                    className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl backdrop-blur-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
+                    title="Back to Landing Page"
+                >
+                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform text-orange-400" />
+                    <span>Back to Home</span>
+                </Link>
+            </motion.div>
 
             <div className="w-full max-w-[440px] relative">
                 {/* ── Top badge ─── */}
@@ -501,6 +519,17 @@ const LoginPage: React.FC = () => {
                                     </div>
                                 </motion.button>
                             </form>
+
+                            {/* Back to Landing Page Link */}
+                            <div className="mt-4 pt-3 border-t border-white/10 text-center">
+                                <Link
+                                    to="/"
+                                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-orange-400 transition-colors font-medium group/link"
+                                >
+                                    <Globe size={13} className="text-orange-400 group-hover/link:rotate-45 transition-transform" />
+                                    <span>Back to Landing Page</span>
+                                </Link>
+                            </div>
                         </div>
                     </motion.div>
                 </MagneticCard>

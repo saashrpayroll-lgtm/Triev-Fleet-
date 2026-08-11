@@ -1,25 +1,33 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRMTeamData } from '@/hooks/useRMTeamData';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, TrendingUp, Target, BarChart3,
     Trophy, ArrowRight, Activity, Shield, AlertTriangle,
-    Zap, Calendar, X, ExternalLink, UserCheck, Sparkles
+    Zap, Calendar, X, ExternalLink, UserCheck, Sparkles, ShieldAlert
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
+import LiveAlertCenter from '@/components/LiveAlertCenter';
 
 const RMDashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
     const { teamLeaders, riders, leads, loading } = useRMTeamData();
+    const navigate = useNavigate();
 
-    // Progressive rendering: defer heavy sections to avoid blocking sidebar/header
-    const [renderPhase, setRenderPhase] = useState(0);
+    // Active Tab for Dashboard V2 Architecture
+    const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'watchlist'>(() => {
+        return (localStorage.getItem('rm_dashboard_v2_tab') as any) || 'overview';
+    });
 
-    
+    const handleTabChange = (tab: 'overview' | 'performance' | 'watchlist') => {
+        setActiveTab(tab);
+        localStorage.setItem('rm_dashboard_v2_tab', tab);
+    };
+
     // Heavy Defaulters & Recovery Form
     const [recoveryFormUrl, setRecoveryFormUrl] = React.useState<string | null>(null);
     const [showRecoveryPopup, setShowRecoveryPopup] = React.useState(false);
@@ -33,8 +41,6 @@ const RMDashboard: React.FC = () => {
     const [selectedBracket, setSelectedBracket] = React.useState<string | null>(null);
     const [bifurcationTlFilter, setBifurcationTlFilter] = React.useState<string>('all');
 
-    const navigate = useNavigate();
-
     // Zomato Alert State
     const [showZomatoAlert, setShowZomatoAlert] = React.useState(false);
     const [hasShownZomatoAlert, setHasShownZomatoAlert] = React.useState(false);
@@ -47,15 +53,6 @@ const RMDashboard: React.FC = () => {
         };
         fetchHRForm();
     }, []);
-
-    // Progressive rendering: stagger heavy sections so sidebar stays responsive
-    useEffect(() => {
-        if (loading) return;
-        const t1 = setTimeout(() => setRenderPhase(1), 50);
-        const t2 = setTimeout(() => setRenderPhase(2), 200);
-        const t3 = setTimeout(() => setRenderPhase(3), 400);
-        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }, [loading]);
 
     const heavyDefaulters = useMemo(() => {
         return riders.filter(r => r.status === 'active' && r.walletAmount <= -1500);
@@ -157,6 +154,7 @@ const RMDashboard: React.FC = () => {
         const positiveWallet = activeRidersList.filter(r => r.walletAmount > 0).reduce((s, r) => s + r.walletAmount, 0);
         const negativeWallet = activeRidersList.filter(r => r.walletAmount < 0).reduce((s, r) => s + r.walletAmount, 0);
         const positiveCount = activeRidersList.filter(r => r.walletAmount > 0).length;
+        const negativeCount = activeRidersList.filter(r => r.walletAmount < 0).length;
 
         const todayCollection = Object.values(dailyCollections).reduce((s, v) => s + v, 0);
 
@@ -178,7 +176,7 @@ const RMDashboard: React.FC = () => {
 
         return {
             activeTLs, totalRiders, activeRiders, inactiveRiders,
-            positiveWallet, negativeWallet,
+            positiveWallet, negativeWallet, positiveCount, negativeCount,
             todayCollection, todayLeads, convertedLeads, conversionRate, criticalDebt,
             fleetHealth,
             zomatoTotal, zomatoPosCount, zomatoNegCount
@@ -436,318 +434,327 @@ const RMDashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* ── KEY METRICS ── */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3">
-                <div className="flex items-center gap-2.5 px-1 mt-3">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-teal-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-teal-500/30 border border-white/20">
-                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent dark:from-teal-400 dark:to-teal-200">Fleet Overview</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-teal-500/40 via-teal-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                    <SmartMetricCard
-                        title="Zomato VIP"
-                        value={String(metrics.zomatoTotal)}
-                        icon={Sparkles}
-                        color="orange"
-                        trend={{ value: 100, label: 'Active', direction: 'up' }}
-                        subtitle={`${metrics.zomatoPosCount} healthy • ${metrics.zomatoNegCount} neg`}
-                        isCurrency={false}
-                        onClick={() => navigate('/rm-panel/riders', { state: { filter: 'zomato' } })}
-                    />
-                    <SmartMetricCard
-                        title="Team Leaders"
-                        value={String(metrics.activeTLs)}
-                        icon={Users}
-                        color="cyan"
-                        subtitle="Active supervisors"
-                        isCurrency={false}
-                    />
-                    <SmartMetricCard
-                        title="Active Fleet"
-                        value={`${metrics.activeRiders}/${metrics.totalRiders}`}
-                        icon={UserCheck}
-                        color="indigo"
-                        trend={{ value: metrics.totalRiders > 0 ? Math.round((metrics.activeRiders / metrics.totalRiders) * 100) : 0, label: 'utilization', direction: 'up' }}
-                        subtitle={`${metrics.inactiveRiders} inactive`}
-                        progress={metrics.totalRiders > 0 ? (metrics.activeRiders / metrics.totalRiders) * 100 : 0}
-                        isCurrency={false}
-                    />
-                    <SmartMetricCard
-                        title="Today's Collection"
-                        value={metrics.todayCollection}
-                        icon={TrendingUp}
-                        color="emerald"
-                        subtitle="Across all TLs"
-                        isCurrency={true}
-                    />
-                    <SmartMetricCard
-                        title="Outstanding Risk"
-                        value={Math.abs(metrics.negativeWallet)}
-                        icon={AlertTriangle}
-                        color="rose"
-                        aiInsight={metrics.criticalDebt > 0 ? `${metrics.criticalDebt} critical debt riders` : undefined}
-                        subtitle={`+₹${metrics.positiveWallet.toLocaleString()} positive`}
-                        isCurrency={true}
-                    />
-                </div>
-            </motion.div>
+            {/* Live Alert Center */}
+            <LiveAlertCenter portalBase="/rm-panel" />
 
-            {/* ── SECOND ROW METRICS ── */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3">
-                <div className="flex items-center gap-2.5 px-1 mt-3">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-violet-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30 border border-white/20">
-                            <Target size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-violet-600 to-violet-400 bg-clip-text text-transparent dark:from-violet-400 dark:to-violet-200">Leads & Quick Access</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-violet-500/40 via-violet-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {/* Leads */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="p-2 bg-violet-500/10 rounded-xl group-hover:scale-110 transition-transform"><Target size={17} className="text-violet-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Leads</span>
-                    </div>
-                    <p className="text-2xl font-black">{leads.length}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold text-indigo-500">+{metrics.todayLeads} today</span>
-                        <span className="text-muted-foreground text-[10px]">•</span>
-                        <span className="text-[10px] font-bold text-emerald-500">{metrics.conversionRate}% conversion</span>
-                    </div>
-                </div>
-
-                {/* Conversion */}
-                <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
-                    <div className="flex items-center gap-2 mb-2.5">
-                        <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 transition-transform"><BarChart3 size={17} className="text-emerald-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Converted</span>
-                    </div>
-                    <p className="text-2xl font-black text-emerald-600">{metrics.convertedLeads}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">From {leads.length} total leads</p>
-                </div>
-
-                {/* Quick Links */}
-                <div className="col-span-2 md:col-span-1 bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-teal-500/10 rounded-xl"><Zap size={17} className="text-teal-500" /></div>
-                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Quick Links</span>
-                    </div>
-                    <div className="space-y-2">
-                        {[
-                            { to: '/rm-panel/riders', label: 'Rider Overview', icon: Users },
-                            { to: '/rm-panel/tl-performance', label: 'TL Performance', icon: BarChart3 },
-                            { to: '/rm-panel/leaderboard', label: 'Leaderboard', icon: Trophy },
-                            { to: '/rm-panel/reports', label: 'Reports', icon: Shield },
-                        ].map(({ to, label, icon: Icon }) => (
-                            <Link key={to} to={to} className="flex items-center justify-between text-sm hover:text-teal-600 transition-colors group/link py-1">
-                                <span className="flex items-center gap-2">
-                                    <Icon size={13} className="text-muted-foreground group-hover/link:text-teal-500 transition-colors" />
-                                    {label}
-                                </span>
-                                <ArrowRight size={14} className="opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-                </div>
-            </motion.div>
-
-            {/* ── RM WALLET RISK BIFURCATION ── */}
-            {renderPhase >= 1 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3">
-                <div className="flex items-center gap-2.5 px-1 mt-3">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-rose-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-rose-500/30 border border-white/20">
-                            <Activity size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-rose-600 to-rose-400 bg-clip-text text-transparent dark:from-rose-400 dark:to-rose-200">Wallet Risk Bifurcation</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-rose-500/40 via-rose-500/10 to-transparent" />
-                </div>
-            <div className="bg-card border border-border/40 rounded-2xl p-4 sm:p-5 shadow-sm animate-in fade-in slide-in-from-bottom-2">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={16} className="text-rose-500" /></div>
-                        <h3 className="font-black text-sm text-foreground/90">RM Fleet Wallet Bifurcation</h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={bifurcationTlFilter}
-                            onChange={(e) => setBifurcationTlFilter(e.target.value)}
-                            className="bg-transparent text-[11px] font-bold border border-border/60 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-rose-500/50 cursor-pointer text-muted-foreground"
+            {/* V2 Dashboard Tab Navigation */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-card/60 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar my-4 shadow-sm">
+                {[
+                    { id: 'overview', label: 'Portfolio Overview', icon: Activity },
+                    { id: 'performance', label: 'TL Performance & Rankings', icon: Trophy, badge: `${metrics.activeTLs} TLs` },
+                    { id: 'watchlist', label: 'Fleet Risk & Bifurcation', icon: ShieldAlert, badge: metrics.negativeCount > 0 ? `${metrics.negativeCount} Debt` : undefined }
+                ].map(tab => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id as any)}
+                            className={`
+                                flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-300 whitespace-nowrap select-none
+                                ${isActive
+                                    ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                }
+                            `}
                         >
-                            <option value="all">All Team Leaders</option>
-                            {teamLeaders.map(tl => (
-                                <option key={tl.id} value={tl.id}>{tl.fullName}</option>
-                            ))}
-                        </select>
-                        <span className="text-[9px] hidden sm:inline-block font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 shadow-sm' : 'opacity-80'}`}>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
-                        <span className="text-2xl font-black text-slate-700 dark:text-slate-300">{rmWalletBifurcation.b100}</span>
-                    </motion.div>
-                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 shadow-sm' : 'opacity-80'}`}>
-                        <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
-                        <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{rmWalletBifurcation.b200}</span>
-                    </motion.div>
-                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 shadow-sm' : 'opacity-80'}`}>
-                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
-                        <span className="text-2xl font-black text-rose-600 dark:text-rose-400">{rmWalletBifurcation.b500}</span>
-                    </motion.div>
-                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${rmWalletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 shadow-sm' : 'opacity-80'}`}>
-                        <div className="absolute top-0 right-0 w-12 h-12 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                        <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
-                        <span className="text-2xl font-black text-red-600 dark:text-red-400 relative z-10">{rmWalletBifurcation.b1000}</span>
-                    </motion.div>
-                    <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-4 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_15px_rgba(0,0,0,0.02)] ${rmWalletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500' : 'opacity-80'}`}>
-                        <div className="absolute -top-4 -right-4 w-16 h-16 bg-rose-500/20 rounded-full blur-md" />
-                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={12} /> &lt; ₹-1000</span>
-                        <span className="text-3xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{rmWalletBifurcation.bMax}</span>
-                    </motion.div>
-                </div>
+                            <Icon size={15} />
+                            <span>{tab.label}</span>
+                            {tab.badge && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                                    {tab.badge}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
             </div>
-            </motion.div>
+
+            {/* TAB 1: PORTFOLIO OVERVIEW */}
+            {activeTab === 'overview' && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3">
+                        <div className="flex items-center gap-2.5 px-1 mt-3">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-teal-500 blur-md opacity-40 rounded-full" />
+                                <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-teal-500/30 border border-white/20">
+                                    <Activity size={12} className="text-white sm:w-4 sm:h-4" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent dark:from-teal-400 dark:to-teal-200">Fleet Overview</span>
+                            <div className="flex-1 h-px bg-gradient-to-r from-teal-500/40 via-teal-500/10 to-transparent" />
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                            <SmartMetricCard
+                                title="Zomato VIP"
+                                value={String(metrics.zomatoTotal)}
+                                icon={Sparkles}
+                                color="orange"
+                                trend={{ value: 100, label: 'Active', direction: 'up' }}
+                                subtitle={`${metrics.zomatoPosCount} healthy • ${metrics.zomatoNegCount} neg`}
+                                isCurrency={false}
+                                onClick={() => navigate('/rm-panel/riders', { state: { filter: 'zomato' } })}
+                            />
+                            <SmartMetricCard
+                                title="Team Leaders"
+                                value={String(metrics.activeTLs)}
+                                icon={Users}
+                                color="cyan"
+                                subtitle="Active supervisors"
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Active Fleet"
+                                value={`${metrics.activeRiders}/${metrics.totalRiders}`}
+                                icon={UserCheck}
+                                color="indigo"
+                                trend={{ value: metrics.totalRiders > 0 ? Math.round((metrics.activeRiders / metrics.totalRiders) * 100) : 0, label: 'utilization', direction: 'up' }}
+                                subtitle={`${metrics.inactiveRiders} inactive`}
+                                progress={metrics.totalRiders > 0 ? (metrics.activeRiders / metrics.totalRiders) * 100 : 0}
+                                isCurrency={false}
+                            />
+                            <SmartMetricCard
+                                title="Today's Collection"
+                                value={metrics.todayCollection}
+                                icon={TrendingUp}
+                                color="emerald"
+                                subtitle="Across all TLs"
+                                isCurrency={true}
+                            />
+                            <SmartMetricCard
+                                title="Outstanding Risk"
+                                value={Math.abs(metrics.negativeWallet)}
+                                icon={AlertTriangle}
+                                color="rose"
+                                aiInsight={metrics.criticalDebt > 0 ? `${metrics.criticalDebt} critical debt riders` : undefined}
+                                subtitle={`+₹${metrics.positiveWallet.toLocaleString()} positive`}
+                                isCurrency={true}
+                            />
+                        </div>
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3">
+                        <div className="flex items-center gap-2.5 px-1 mt-3">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-violet-500 blur-md opacity-40 rounded-full" />
+                                <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30 border border-white/20">
+                                    <Target size={12} className="text-white sm:w-4 sm:h-4" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-violet-600 to-violet-400 bg-clip-text text-transparent dark:from-violet-400 dark:to-violet-200">Leads & Quick Access</span>
+                            <div className="flex-1 h-px bg-gradient-to-r from-violet-500/40 via-violet-500/10 to-transparent" />
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
+                                <div className="flex items-center gap-2 mb-2.5">
+                                    <div className="p-2 bg-violet-500/10 rounded-xl group-hover:scale-110 transition-transform"><Target size={17} className="text-violet-500" /></div>
+                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Leads</span>
+                                </div>
+                                <p className="text-2xl font-black">{leads.length}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-bold text-indigo-500">+{metrics.todayLeads} today</span>
+                                    <span className="text-muted-foreground text-[10px]">•</span>
+                                    <span className="text-[10px] font-bold text-emerald-500">{metrics.conversionRate}% conversion</span>
+                                </div>
+                            </div>
+                            <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group">
+                                <div className="flex items-center gap-2 mb-2.5">
+                                    <div className="p-2 bg-emerald-500/10 rounded-xl group-hover:scale-110 transition-transform"><BarChart3 size={17} className="text-emerald-500" /></div>
+                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Converted</span>
+                                </div>
+                                <p className="text-2xl font-black text-emerald-600">{metrics.convertedLeads}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">From {leads.length} total leads</p>
+                            </div>
+                            <div className="col-span-2 md:col-span-1 bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="p-2 bg-teal-500/10 rounded-xl"><Zap size={17} className="text-teal-500" /></div>
+                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Quick Links</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {[
+                                        { to: '/rm-panel/riders', label: 'Rider Overview', icon: Users },
+                                        { to: '/rm-panel/tl-performance', label: 'TL Performance', icon: BarChart3 },
+                                        { to: '/rm-panel/leaderboard', label: 'Leaderboard', icon: Trophy },
+                                        { to: '/rm-panel/reports', label: 'Reports', icon: Shield },
+                                    ].map(({ to, label, icon: Icon }) => (
+                                        <Link key={to} to={to} className="flex items-center justify-between text-sm hover:text-teal-600 transition-colors group/link py-1">
+                                            <span className="flex items-center gap-2">
+                                                <Icon size={13} className="text-muted-foreground group-hover/link:text-teal-500 transition-colors" />
+                                                {label}
+                                            </span>
+                                            <ArrowRight size={14} className="opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
             )}
 
-            {/* ── TABLES GRID ── */}
-            {renderPhase >= 2 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-3">
-                <div className="flex items-center gap-2.5 px-1 mt-3">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-amber-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30 border border-white/20">
-                            <Trophy size={12} className="text-white sm:w-4 sm:h-4" />
+            {/* TAB 2: TL PERFORMANCE & RANKINGS */}
+            {activeTab === 'performance' && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                    <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-amber-500/5 via-transparent to-teal-500/5">
+                            <div>
+                                <h3 className="font-black text-lg flex items-center gap-2">
+                                    <div className="p-1.5 bg-amber-500/10 rounded-lg"><Trophy size={16} className="text-amber-500" /></div>
+                                    Top Performers Today
+                                </h3>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Ranked by today's collection</p>
+                            </div>
+                            <Link to="/rm-panel/tl-performance" className="text-sm font-bold text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 px-4 py-2 rounded-xl border border-teal-100 dark:border-teal-900/30 transition-all flex items-center gap-1.5">
+                                View All <ArrowRight size={14} />
+                            </Link>
                         </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent dark:from-amber-400 dark:to-amber-200">Performance & Risk Tables</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/40 via-amber-500/10 to-transparent" />
-                </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {/* ── TOP PERFORMERS TABLE ── */}
-                <div className="bg-card border border-border/40 rounded-2xl shadow-sm overflow-hidden h-full flex flex-col">
-                <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-amber-500/5 via-transparent to-teal-500/5">
-                    <div>
-                        <h3 className="font-black text-lg flex items-center gap-2">
-                            <div className="p-1.5 bg-amber-500/10 rounded-lg"><Trophy size={16} className="text-amber-500" /></div>
-                            Top Performers Today
-                        </h3>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Ranked by today's collection</p>
-                    </div>
-                    <Link to="/rm-panel/tl-performance" className="text-sm font-bold text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 px-4 py-2 rounded-xl border border-teal-100 dark:border-teal-900/30 transition-all flex items-center gap-1.5">
-                        View All <ArrowRight size={14} />
-                    </Link>
-                </div>
-                <div className="overflow-auto">
-                    <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.08)]">
-                            <tr className="text-left border-b">
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest w-10">#</th>
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Active Riders</th>
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Avg/Rider</th>
-                                <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Today's Collection</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {topTLs.map((tl, i) => (
-                                <tr key={tl.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                                    <td className="p-3">
-                                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black ${
-                                            i === 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-2 ring-amber-300/50'
-                                            : i === 1 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                                            : i === 2 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
-                                            : 'bg-muted text-muted-foreground'
-                                        }`}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
-                                    </td>
-                                    <td className="p-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-sm border border-teal-200 dark:border-teal-800/30">
-                                                {tl.fullName.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold">{tl.fullName}</p>
-                                                <p className="text-[10px] text-muted-foreground">{tl.email}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="p-3">
-                                        <span className="font-bold">{tl.activeRiders}</span>
-                                        <span className="text-xs font-normal text-muted-foreground"> / {tl.totalRiders}</span>
-                                    </td>
-                                    <td className="p-3 font-bold text-indigo-600 dark:text-indigo-400">₹{tl.avgPerRider.toLocaleString()}</td>
-                                    <td className="p-3 text-right font-black text-emerald-600 dark:text-emerald-400">₹{tl.todayCollection.toLocaleString()}</td>
-                                </tr>
-                            ))}
-                            {topTLs.length === 0 && (
-                                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No active team leaders found</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                </div>
-
-                {/* ── TL WALLET RISK ALERTS ── */}
-                <div className="bg-card border border-rose-500/20 rounded-2xl shadow-sm overflow-hidden h-full flex flex-col">
-                    <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-rose-500/5 via-transparent to-transparent">
-                        <div>
-                            <h3 className="font-black text-lg flex items-center gap-2 text-rose-500">
-                                <div className="p-1.5 bg-rose-500/10 rounded-lg"><AlertTriangle size={16} /></div>
-                                TL Wallet Risk
-                            </h3>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">Ranked by maximum negative wallet exposure</p>
-                        </div>
-                    </div>
-                    <div className="overflow-auto flex-1">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.08)]">
-                                <tr className="text-left border-b">
-                                    <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
-                                    <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-center">Defaulters</th>
-                                    <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Total Debit</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {tlRiskOverview.map((tl) => (
-                                    <tr 
-                                        key={tl.id} 
-                                        className="border-b last:border-0 hover:bg-muted/30 transition-all cursor-pointer group"
-                                        onClick={() => { setSelectedRiskTl(tl); setShowRiskModal(true); }}
-                                    >
-                                        <td className="p-3">
-                                            <p className="font-semibold group-hover:text-teal-500 transition-colors flex items-center gap-1.5">
-                                                {tl.fullName}
-                                                <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-teal-500" />
-                                            </p>
-                                            <p className="text-[10px] text-muted-foreground">{tl.email}</p>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            <span className="font-bold text-rose-500">{tl.negativeCount}</span>
-                                            {tl.criticalCount > 0 && <span className="ml-2 text-[9px] font-black text-white bg-rose-500 px-1.5 py-0.5 rounded-full">{tl.criticalCount} severe</span>}
-                                        </td>
-                                        <td className="p-3 text-right font-black text-rose-500">-₹{Math.abs(tl.totalNegative).toLocaleString()}</td>
+                        <div className="overflow-auto">
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.08)]">
+                                    <tr className="text-left border-b">
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest w-10">#</th>
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Active Riders</th>
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Avg/Rider</th>
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Today's Collection</th>
                                     </tr>
-                                ))}
-                                {tlRiskOverview.length === 0 && (
-                                    <tr><td colSpan={3} className="p-8 text-center text-muted-foreground">No wallet risks identified</td></tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {topTLs.map((tl, i) => (
+                                        <tr key={tl.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                                            <td className="p-3">
+                                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black ${
+                                                    i === 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-2 ring-amber-300/50'
+                                                    : i === 1 ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                                    : i === 2 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                                                    : 'bg-muted text-muted-foreground'
+                                                }`}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-sm border border-teal-200 dark:border-teal-800/30">
+                                                        {tl.fullName.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold">{tl.fullName}</p>
+                                                        <p className="text-[10px] text-muted-foreground">{tl.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <span className="font-bold">{tl.activeRiders}</span>
+                                                <span className="text-xs font-normal text-muted-foreground"> / {tl.totalRiders}</span>
+                                            </td>
+                                            <td className="p-3 font-bold text-indigo-600 dark:text-indigo-400">₹{tl.avgPerRider.toLocaleString()}</td>
+                                            <td className="p-3 text-right font-black text-emerald-600 dark:text-emerald-400">₹{tl.todayCollection.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                    {topTLs.length === 0 && (
+                                        <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No active team leaders found</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
-            </motion.div>
+            )}
+
+            {/* TAB 3: FLEET RISK & BIFURCATION */}
+            {activeTab === 'watchlist' && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                    <div className="bg-card border border-border/40 rounded-2xl p-4 sm:p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={16} className="text-rose-500" /></div>
+                                <h3 className="font-black text-sm text-foreground/90">RM Fleet Wallet Bifurcation</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <select
+                                    value={bifurcationTlFilter}
+                                    onChange={(e) => setBifurcationTlFilter(e.target.value)}
+                                    className="bg-transparent text-[11px] font-bold border border-border/60 rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-rose-500/50 cursor-pointer text-muted-foreground"
+                                >
+                                    <option value="all">All Team Leaders</option>
+                                    {teamLeaders.map(tl => (
+                                        <option key={tl.id} value={tl.id}>{tl.fullName}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                            <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 shadow-sm' : 'opacity-80'}`}>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
+                                <span className="text-2xl font-black text-slate-700 dark:text-slate-300">{rmWalletBifurcation.b100}</span>
+                            </motion.div>
+                            <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 shadow-sm' : 'opacity-80'}`}>
+                                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
+                                <span className="text-2xl font-black text-orange-600 dark:text-orange-400">{rmWalletBifurcation.b200}</span>
+                            </motion.div>
+                            <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${rmWalletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 shadow-sm' : 'opacity-80'}`}>
+                                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
+                                <span className="text-2xl font-black text-rose-600 dark:text-rose-400">{rmWalletBifurcation.b500}</span>
+                            </motion.div>
+                            <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${rmWalletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 shadow-sm' : 'opacity-80'}`}>
+                                <div className="absolute top-0 right-0 w-12 h-12 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
+                                <span className="text-2xl font-black text-red-600 dark:text-red-400 relative z-10">{rmWalletBifurcation.b1000}</span>
+                            </motion.div>
+                            <motion.div whileHover={{ y: -3, scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => rmWalletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-4 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_15px_rgba(0,0,0,0.02)] ${rmWalletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500' : 'opacity-80'}`}>
+                                <div className="absolute -top-4 -right-4 w-16 h-16 bg-rose-500/20 rounded-full blur-md" />
+                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={12} /> &lt; ₹-1000</span>
+                                <span className="text-3xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{rmWalletBifurcation.bMax}</span>
+                            </motion.div>
+                        </div>
+                    </div>
+
+                    <div className="bg-card border border-rose-500/20 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-border/40 flex items-center justify-between bg-gradient-to-r from-rose-500/5 via-transparent to-transparent">
+                            <div>
+                                <h3 className="font-black text-lg flex items-center gap-2 text-rose-500">
+                                    <div className="p-1.5 bg-rose-500/10 rounded-lg"><AlertTriangle size={16} /></div>
+                                    TL Wallet Risk
+                                </h3>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Ranked by maximum negative wallet exposure</p>
+                            </div>
+                        </div>
+                        <div className="overflow-auto flex-1">
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-card z-10 shadow-[0_4px_10px_-4px_rgba(0,0,0,0.08)]">
+                                    <tr className="text-left border-b">
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest">Team Leader</th>
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-center">Defaulters</th>
+                                        <th className="p-3 font-black text-[10px] text-muted-foreground uppercase tracking-widest text-right">Total Debit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tlRiskOverview.map((tl) => (
+                                        <tr 
+                                            key={tl.id} 
+                                            className="border-b last:border-0 hover:bg-muted/30 transition-all cursor-pointer group"
+                                            onClick={() => { setSelectedRiskTl(tl); setShowRiskModal(true); }}
+                                        >
+                                            <td className="p-3">
+                                                <p className="font-semibold group-hover:text-teal-500 transition-colors flex items-center gap-1.5">
+                                                    {tl.fullName}
+                                                    <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-teal-500" />
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground">{tl.email}</p>
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <span className="font-bold text-rose-500">{tl.negativeCount}</span>
+                                                {tl.criticalCount > 0 && <span className="ml-2 text-[9px] font-black text-white bg-rose-500 px-1.5 py-0.5 rounded-full">{tl.criticalCount} severe</span>}
+                                            </td>
+                                            <td className="p-3 text-right font-black text-rose-500">-₹{Math.abs(tl.totalNegative).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                    {tlRiskOverview.length === 0 && (
+                                        <tr><td colSpan={3} className="p-8 text-center text-muted-foreground">No wallet risks identified</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             )}
             {/* ── FLEET BIFURCATION RIDER MODAL ── */}
             <AnimatePresence>

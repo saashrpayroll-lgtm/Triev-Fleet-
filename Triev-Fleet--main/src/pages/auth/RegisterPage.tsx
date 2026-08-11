@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, UserPlus, Sparkles, Mail, Lock, User, Phone, MapPin, Check, X } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Eye, EyeOff, UserPlus, Sparkles, Mail, Lock, User, Phone, MapPin, Check, X, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import AnimatedBackground from '@/components/auth/AnimatedBackground';
 
@@ -130,6 +130,18 @@ const RegisterPage: React.FC = () => {
     return (
         <>
             <AnimatedBackground variant="register" />
+
+            {/* ── Top Left Back to Landing Page Button ── */}
+            <div className="fixed top-4 left-4 sm:top-6 sm:left-6 z-30">
+                <Link
+                    to="/"
+                    className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl backdrop-blur-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
+                    title="Back to Landing Page"
+                >
+                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform text-amber-400" />
+                    <span>Back to Home</span>
+                </Link>
+            </div>
 
             <div className="min-h-screen flex items-center justify-center p-4 relative z-10 py-12">
                 <div className="w-full max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-700">

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
-import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X, Phone, MessageCircle, Bot } from 'lucide-react';
+import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X, Phone, MessageCircle, Bot, Trophy } from 'lucide-react';
 import { Rider, User, Lead } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
@@ -36,6 +36,7 @@ import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
 import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 import BulkCollectionModal from '@/components/BulkCollectionModal';
 import FieldCheckInModal from '@/components/FieldCheckInModal';
+import LiveAlertCenter from '@/components/LiveAlertCenter';
 
 interface DashboardStats {
     // Riders
@@ -497,6 +498,15 @@ const Dashboard: React.FC = () => {
         }
     }, [loading, stats.zomatoNegCount, hasShownZomatoAlert]);
 
+    const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'analytics'>(() => {
+        return (localStorage.getItem('tl_dashboard_v2_tab') as any) || 'overview';
+    });
+
+    const handleTabChange = (tab: 'overview' | 'watchlist' | 'analytics') => {
+        setActiveTab(tab);
+        localStorage.setItem('tl_dashboard_v2_tab', tab);
+    };
+
     const handleNavigate = (path: string, state?: any) => {
         navigate(path, { state });
     };
@@ -649,208 +659,208 @@ const Dashboard: React.FC = () => {
                 </motion.div>
             )}
 
-            {/* ─── Quick Insight Strip ─── */}
-            <QuickInsightStrip
-                insights={[
-                    { label: 'Fleet', value: stats.activeRiders, suffix: ' active' },
-                    { label: 'Collected', value: `₹${(computedPeriodData.collections[userData.id] || 0).toLocaleString('en-IN')}` },
-                    { label: 'Leads', value: stats.totalLeads },
-                    { label: 'Debt', value: stats.negativeWallet, suffix: ' riders' },
-                    { label: 'AI Score', value: `${computedLeaderStats?.score ?? 0}%` },
-                ]}
-            />
+            {/* Live Alert Center */}
+            <LiveAlertCenter teamLeaderId={userData.id} portalBase="/team-leader" />
 
-            {/* ── Fleet & Operations ── */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-2">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
-                            <UserCheck size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
-                    </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 animate-in slide-in-from-bottom duration-700 font-jakarta">
-                    {/* BLACK: Fleet Strength — premium dark card */}
-                    {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
-                        <SmartMetricCard
-                            title="Fleet Strength"
-                            value={String(stats.activeRiders)}
-                            icon={UserCheck}
-                            color="emerald"
-                            trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'health', direction: 'up' }}
-                            subtitle={`${stats.totalRiders} Total Assigned`}
-                            className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
-                            progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
-                            onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
-                            isCurrency={false}
-                        />
-                    )}
-                    <SmartMetricCard
-                        title="Churn Rider Monitor"
-                        value={String(stats.inactiveRiders + stats.deletedRiders)}
-                        icon={UserX}
-                        color="slate"
-                        trend={{ value: Math.round(((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100) || 0, label: 'churn rate', direction: 'down' }}
-                        subtitle={`${stats.inactiveRiders} Inactive | ${stats.deletedRiders} Deleted`}
-                        progress={stats.totalRiders > 0 ? ((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100 : 0}
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'inactive' })}
-                        isCurrency={false}
+            {/* V2 Dashboard Tab Navigation */}
+            <div className="flex items-center gap-1.5 p-1.5 bg-card/60 backdrop-blur-md rounded-2xl border border-border/50 overflow-x-auto hide-scrollbar my-4 shadow-sm">
+                {[
+                    { id: 'overview', label: 'Daily Tasks & Recovery', icon: Activity, badge: stats.negativeWallet > 0 ? `${stats.negativeWallet} Debt` : undefined },
+                    { id: 'watchlist', label: 'Fleet & Wallet Watchlist', icon: Wallet, badge: `${stats.activeRiders} Active` },
+                    { id: 'analytics', label: 'Performance & Leaderboard', icon: Trophy, badge: `${computedLeaderStats?.score ?? 0}% AI` }
+                ].map(tab => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id as any)}
+                            className={`
+                                flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all duration-300 whitespace-nowrap select-none
+                                ${isActive
+                                    ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                }
+                            `}
+                        >
+                            <Icon size={15} />
+                            <span>{tab.label}</span>
+                            {tab.badge && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                                    {tab.badge}
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* TAB 1: DAILY TASKS & RECOVERY */}
+            {activeTab === 'overview' && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                    <QuickInsightStrip
+                        insights={[
+                            { label: 'Fleet', value: stats.activeRiders, suffix: ' active' },
+                            { label: 'Collected', value: `₹${(computedPeriodData.collections[userData.id] || 0).toLocaleString('en-IN')}` },
+                            { label: 'Leads', value: stats.totalLeads },
+                            { label: 'Debt', value: stats.negativeWallet, suffix: ' riders' },
+                            { label: 'AI Score', value: `${computedLeaderStats?.score ?? 0}%` },
+                        ]}
                     />
-                    {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
-                        <SmartMetricCard
-                            title="Lead Pipeline"
-                            value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}% `}
-                            icon={Sparkles}
-                            color="fuchsia"
-                            trend={{ value: stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0, label: 'conversion', direction: 'up' }}
-                            subtitle={`${stats.convertedLeads} Successful Converts`}
-                            progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
-                            onClick={() => handleNavigate('/team-leader/leads?status=New')}
-                            isCurrency={false}
-                        />
-                    )}
-                    {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
-                        <SmartMetricCard
-                            title="Positive Wallet Balance"
-                            value={stats.totalPositiveAmount}
-                            icon={Wallet}
-                            color="indigo"
-                            trend={{ value: stats.totalRiders > 0 ? Math.round((stats.positiveWallet / stats.totalRiders) * 100) : 0, label: 'of fleet', direction: 'up' }}
-                            subtitle={`${stats.positiveWallet} Riders in Positive`}
-                            progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
-                            onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
-                        />
-                    )}
-                </div>
-            </motion.div>
 
-            {/* --- Zomato VIP Intelligence --- */}
-            <TLZomatoVIPSection stats={stats} onNavigate={handleNavigate} />
-
-            {/* --- Wallet Health --- */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-4">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-indigo-500 blur-md opacity-40 rounded-full" />
-                        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30 border border-white/20">
-                            <Wallet size={12} className="text-white sm:w-4 sm:h-4" />
-                        </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <TodaysCollectionCard teamLeaderId={userData.id} />
+                        {userData.monthlyTarget && userData.monthlyTarget > 0 ? (
+                            <ComponentErrorBoundary name="Collection Target">
+                                <CollectionTargetCard
+                                    collected={computedPeriodData.collections[userData.id] || 0}
+                                    target={userData.monthlyTarget}
+                                    daysElapsed={new Date().getDate()}
+                                    totalDays={new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}
+                                />
+                            </ComponentErrorBoundary>
+                        ) : (
+                            <ComponentErrorBoundary name="Defaulter Alerts">
+                                <DefaulterAlertCard
+                                    riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                                    onViewRider={(rider) => handleNavigate(`/team-leader/riders?filter=all&search=${encodeURIComponent(rider.mobileNumber || rider.trievId)}`, { highlight: rider.mobileNumber })}
+                                    onSendReminder={(rider) => {
+                                        const msg = `Hi ${rider.riderName}, your Triev wallet balance is ₹${rider.walletAmount.toLocaleString('en-IN')}. Please recharge at the earliest to avoid service disruption.`;
+                                        window.open(`https://wa.me/${rider.mobileNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+                                    }}
+                                />
+                            </ComponentErrorBoundary>
+                        )}
                     </div>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent dark:from-indigo-400 dark:to-indigo-200">Wallet Health</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-indigo-500/40 via-indigo-500/10 to-transparent" />
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
-                    <TodaysCollectionCard teamLeaderId={userData.id} />
-                    <SmartMetricCard
-                        title="Positive Riders"
-                        value={String(stats.positiveWallet)}
-                        icon={Users}
-                        color="emerald"
-                        trend={{ value: Math.round((stats.positiveWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'up' }}
-                        subtitle="Wallet > 0"
-                        progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'positive_wallet' })}
-                        isCurrency={false}
-                    />
-                    <SmartMetricCard
-                        title="Negative Riders"
-                        value={String(stats.negativeWallet)}
-                        icon={Users}
-                        color="rose"
-                        trend={{ value: Math.round((stats.negativeWallet / stats.totalRiders) * 100) || 0, label: 'of team', direction: 'down' }}
-                        subtitle="Wallet < 0"
-                        progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
-                        isCurrency={false}
-                    />
-                    <SmartMetricCard
-                        title="Low Balance (0-250)"
-                        value={String(stats.lowBalanceCount)}
-                        icon={AlertTriangle}
-                        color="orange"
-                        className={stats.lowBalanceCount > 0 ? 'animate-pulse ring-1 ring-orange-500/30' : ''}
-                        subtitle="At-Risk of Rejection"
-                        onClick={() => handleNavigate('/team-leader/riders', { filter: 'low_balance' })}
-                        isCurrency={false}
-                    />
-                    {(userData.permissions?.dashboard?.statsCards?.walletNegative ?? true) && (
-                        <SmartMetricCard
-                            title="Payment Dues"
-                            value={Math.abs(stats.totalNegativeAmount)}
-                            icon={AlertTriangle}
-                            color="rose"
-                            aiInsight={stats.negativeWallet > 0 ? `${stats.negativeWallet} riders owe payments.` : undefined}
-                            subtitle={`${stats.negativeWallet} Riders in Debt`}
-                            className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-rose-500/30 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
-                            progress={stats.totalRiders > 0 ? (stats.negativeWallet / stats.totalRiders) * 100 : 0}
-                            onClick={() => handleNavigate('/team-leader/riders', { filter: 'negative_wallet' })}
+
+                    <ComponentErrorBoundary name="Debt Recovery Tasks">
+                        <DebtRecoveryTasks
+                            riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                            todayCollections={tlTodayCollectionsByRider}
                         />
-                    )}
+                    </ComponentErrorBoundary>
                 </div>
+            )}
 
-                {/* ─── Wallet Risk Bifurcation ─── */}
-                <div className="mt-3 bg-card border border-border/40 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={14} className="text-rose-500" /></div>
-                            <h3 className="font-black text-sm text-foreground/90">Negative Wallet Bifurcation</h3>
+            {/* TAB 2: FLEET & WALLET WATCHLIST */}
+            {activeTab === 'watchlist' && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                    {/* Fleet & Operations */}
+                    <div className="space-y-3 sm:space-y-4">
+                        <div className="flex items-center gap-2.5 sm:gap-3 px-1 mt-2">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-emerald-500 blur-md opacity-40 rounded-full" />
+                                <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30 border border-white/20">
+                                    <UserCheck size={12} className="text-white sm:w-4 sm:h-4" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent dark:from-emerald-400 dark:to-emerald-200">Fleet & Operations</span>
+                            <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-emerald-500/10 to-transparent" />
                         </div>
-                        <span className="text-[9px] font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
-                    </div>
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                        <div onClick={() => walletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${walletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 transition-all shadow-sm' : 'opacity-80'}`}>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
-                            <span className="text-xl font-black text-slate-700 dark:text-slate-300">{walletBifurcation.b100}</span>
-                        </div>
-                        <div onClick={() => walletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${walletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 transition-all shadow-sm' : 'opacity-80'}`}>
-                            <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
-                            <span className="text-xl font-black text-orange-600 dark:text-orange-400">{walletBifurcation.b200}</span>
-                        </div>
-                        <div onClick={() => walletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${walletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 transition-all shadow-sm' : 'opacity-80'}`}>
-                            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
-                            <span className="text-xl font-black text-rose-600 dark:text-rose-400">{walletBifurcation.b500}</span>
-                        </div>
-                        <div onClick={() => walletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${walletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 transition-all shadow-sm' : 'opacity-80'}`}>
-                            <div className="absolute top-0 right-0 w-8 h-8 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
-                            <span className="text-xl font-black text-red-600 dark:text-red-400 relative z-10">{walletBifurcation.b1000}</span>
-                        </div>
-                        <div onClick={() => walletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] ${walletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500 transition-all' : 'opacity-80'}`}>
-                            <div className="absolute -top-4 -right-4 w-12 h-12 bg-rose-500/20 rounded-full blur-md" />
-                            <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={10} /> &lt; ₹-1000</span>
-                            <span className="text-2xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{walletBifurcation.bMax}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ─── Collection Target ─── */}
-                {userData.monthlyTarget && userData.monthlyTarget > 0 && (
-                    <div className="mt-3">
-                        <ComponentErrorBoundary name="Collection Target">
-                            <CollectionTargetCard
-                                collected={computedPeriodData.collections[userData.id] || 0}
-                                target={userData.monthlyTarget}
-                                daysElapsed={new Date().getDate()}
-                                totalDays={new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-jakarta">
+                            {(userData.permissions?.dashboard?.statsCards?.activeRiders ?? true) && (
+                                <SmartMetricCard
+                                    title="Fleet Strength"
+                                    value={String(stats.activeRiders)}
+                                    icon={UserCheck}
+                                    color="emerald"
+                                    trend={{ value: stats.totalRiders > 0 ? Math.round((stats.activeRiders / stats.totalRiders) * 100) : 0, label: 'health', direction: 'up' }}
+                                    subtitle={`${stats.totalRiders} Total Assigned`}
+                                    className="!bg-gradient-to-br !from-slate-950 !via-slate-900 !to-slate-950 dark:!from-slate-950 dark:!via-slate-900 dark:!to-slate-950 !border-slate-700/40 !text-white ring-1 !ring-emerald-500/20 shadow-xl shadow-slate-950/40 [&_p]:!text-slate-300 [&_span]:!text-slate-200"
+                                    progress={stats.totalRiders > 0 ? (stats.activeRiders / stats.totalRiders) * 100 : 0}
+                                    onClick={() => handleNavigate('/team-leader/riders', { filter: 'active' })}
+                                    isCurrency={false}
+                                />
+                            )}
+                            <SmartMetricCard
+                                title="Churn Rider Monitor"
+                                value={String(stats.inactiveRiders + stats.deletedRiders)}
+                                icon={UserX}
+                                color="slate"
+                                trend={{ value: Math.round(((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100) || 0, label: 'churn rate', direction: 'down' }}
+                                subtitle={`${stats.inactiveRiders} Inactive | ${stats.deletedRiders} Deleted`}
+                                progress={stats.totalRiders > 0 ? ((stats.inactiveRiders + stats.deletedRiders) / stats.totalRiders) * 100 : 0}
+                                onClick={() => handleNavigate('/team-leader/riders', { filter: 'inactive' })}
+                                isCurrency={false}
                             />
-                        </ComponentErrorBoundary>
+                            {(userData.permissions?.dashboard?.statsCards?.totalLeads ?? true) && (
+                                <SmartMetricCard
+                                    title="Lead Pipeline"
+                                    value={`${stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}% `}
+                                    icon={Sparkles}
+                                    color="fuchsia"
+                                    trend={{ value: stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0, label: 'conversion', direction: 'up' }}
+                                    subtitle={`${stats.convertedLeads} Successful Converts`}
+                                    progress={stats.totalLeads > 0 ? Math.round((stats.convertedLeads / stats.totalLeads) * 100) : 0}
+                                    onClick={() => handleNavigate('/team-leader/leads?status=New')}
+                                    isCurrency={false}
+                                />
+                            )}
+                            {(userData.permissions?.dashboard?.statsCards?.revenue ?? true) && (
+                                <SmartMetricCard
+                                    title="Positive Wallet Balance"
+                                    value={stats.totalPositiveAmount}
+                                    icon={Wallet}
+                                    color="indigo"
+                                    trend={{ value: stats.totalRiders > 0 ? Math.round((stats.positiveWallet / stats.totalRiders) * 100) : 0, label: 'of fleet', direction: 'up' }}
+                                    subtitle={`${stats.positiveWallet} Riders in Positive`}
+                                    progress={stats.totalRiders > 0 ? (stats.positiveWallet / stats.totalRiders) * 100 : 0}
+                                    onClick={() => handleNavigate('/team-leader/reports', { template: 'wallet_summary' })}
+                                />
+                            )}
+                        </div>
                     </div>
-                )}
-            </motion.div>
 
-            {/* --- Wallet Watchlist --- */}
-            <WalletWatchlist riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
+                    <TLZomatoVIPSection stats={stats} onNavigate={handleNavigate} />
 
-            {/* --- Fleet AI Health --- */}
-            <ComponentErrorBoundary name="Fleet AI Health">
-                <FleetAIHealthWidget
-                    riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
-                    title="My Fleet AI Health"
-                />
-            </ComponentErrorBoundary>
+                    {/* Wallet Risk Bifurcation */}
+                    <div className="bg-card border border-border/40 rounded-2xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-rose-500/10 rounded-lg"><Activity size={14} className="text-rose-500" /></div>
+                                <h3 className="font-black text-sm text-foreground/90">Negative Wallet Bifurcation</h3>
+                            </div>
+                            <span className="text-[9px] font-black px-2 py-1 bg-muted rounded-full text-muted-foreground uppercase tracking-widest">Active Riders</span>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                            <div onClick={() => walletBifurcation.b100 > 0 && setSelectedBracket('b100')} className={`bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center ${walletBifurcation.b100 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-slate-400 transition-all shadow-sm' : 'opacity-80'}`}>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">₹-1 to ₹-100</span>
+                                <span className="text-xl font-black text-slate-700 dark:text-slate-300">{walletBifurcation.b100}</span>
+                            </div>
+                            <div onClick={() => walletBifurcation.b200 > 0 && setSelectedBracket('b200')} className={`bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl border border-orange-200 dark:border-orange-900/30 flex flex-col items-center justify-center text-center ${walletBifurcation.b200 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-orange-400 transition-all shadow-sm' : 'opacity-80'}`}>
+                                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">₹-101 to ₹-200</span>
+                                <span className="text-xl font-black text-orange-600 dark:text-orange-400">{walletBifurcation.b200}</span>
+                            </div>
+                            <div onClick={() => walletBifurcation.b500 > 0 && setSelectedBracket('b500')} className={`bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl border border-rose-200 dark:border-rose-900/30 flex flex-col items-center justify-center text-center ${walletBifurcation.b500 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-400 transition-all shadow-sm' : 'opacity-80'}`}>
+                                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">₹-201 to ₹-500</span>
+                                <span className="text-xl font-black text-rose-600 dark:text-rose-400">{walletBifurcation.b500}</span>
+                            </div>
+                            <div onClick={() => walletBifurcation.b1000 > 0 && setSelectedBracket('b1000')} className={`bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-center relative overflow-hidden ${walletBifurcation.b1000 > 0 ? 'cursor-pointer hover:ring-2 hover:ring-red-500 transition-all shadow-sm' : 'opacity-80'}`}>
+                                <div className="absolute top-0 right-0 w-8 h-8 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">₹-501 to ₹-1000</span>
+                                <span className="text-xl font-black text-red-600 dark:text-red-400 relative z-10">{walletBifurcation.b1000}</span>
+                            </div>
+                            <div onClick={() => walletBifurcation.bMax > 0 && setSelectedBracket('bMax')} className={`bg-rose-100 dark:bg-rose-950/40 p-3 rounded-xl border border-rose-300 dark:border-rose-900/50 flex flex-col items-center justify-center text-center relative overflow-hidden lg:col-span-1 col-span-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] ${walletBifurcation.bMax > 0 ? 'cursor-pointer hover:ring-2 hover:ring-rose-500 transition-all' : 'opacity-80'}`}>
+                                <div className="absolute -top-4 -right-4 w-12 h-12 bg-rose-500/20 rounded-full blur-md" />
+                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle size={10} /> &lt; ₹-1000</span>
+                                <span className="text-2xl font-black text-rose-700 dark:text-rose-300 relative z-10 drop-shadow-sm">{walletBifurcation.bMax}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <WalletWatchlist riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)} />
+                </div>
+            )}
+
+            {/* TAB 3: PERFORMANCE & LEADERBOARD */}
+            {activeTab === 'analytics' && (
+                <div className="space-y-5 animate-in fade-in duration-300">
+                    <ComponentErrorBoundary name="Fleet AI Health">
+                        <FleetAIHealthWidget
+                            riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                            title="My Fleet AI Health"
+                        />
+                    </ComponentErrorBoundary>
             {/* --- Debt Recovery Tasks --- */}
             {renderPhase >= 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="space-y-3 sm:space-y-4">
@@ -1229,6 +1239,8 @@ const Dashboard: React.FC = () => {
 
             {/* renderPhase >= 3 closing bracket */}
             </>)}
+            </div>
+            )}
 
             {selectedReminderRider && (
                 <AIReminderModal

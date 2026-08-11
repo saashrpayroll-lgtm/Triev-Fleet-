@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
-import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle, User, Fingerprint, Cpu, Activity, Zap, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle, User, Fingerprint, Cpu, Activity, Zap, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
 
@@ -237,6 +238,23 @@ const AdminLogin: React.FC = () => {
     return (
         <div className="min-h-[100dvh] relative flex items-center justify-center p-4 sm:p-6 selection:bg-indigo-500/30">
             <AuroraBackground />
+
+            {/* ── Top Left Back to Landing Page Button ── */}
+            <motion.div
+                className="fixed top-4 left-4 sm:top-6 sm:left-6 z-30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+            >
+                <Link
+                    to="/"
+                    className="group inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl backdrop-blur-2xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
+                    title="Back to Landing Page"
+                >
+                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform text-indigo-400" />
+                    <span>Back to Home</span>
+                </Link>
+            </motion.div>
 
             {/* ── Two-column Layout ─────────────────────────────────────── */}
             <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
