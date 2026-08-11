@@ -41,17 +41,31 @@ export const parseCurrency = (value: any): number => {
     return Number(str.replace(/[^0-9.-]/g, ''));
 };
 
-// Helper: Normalize mobile to last 10 digits (handles +91, 91, 0 prefixes)
+const formatScientificNumber = (val: any): string => {
+    if (val === undefined || val === null) return '';
+    const str = String(val).trim();
+    if (str.includes('e') || str.includes('E')) {
+        const num = Number(str);
+        if (!isNaN(num)) {
+            return num.toFixed(0);
+        }
+    }
+    return str;
+};
+
+// Helper: Normalize mobile to last 10 digits (handles +91, 91, 0 prefixes & scientific notation)
 const normalizeMobile = (raw: string): string => {
-    const digits = String(raw || '').replace(/[^0-9]/g, '');
+    const cleanStr = formatScientificNumber(raw);
+    const digits = cleanStr.replace(/[^0-9]/g, '');
     if (!digits) return '';
-    // Always use last 10 digits as canonical form
     return digits.length > 10 ? digits.slice(-10) : digits;
 };
 
 // Helper: Normalize Triev ID (strip whitespace, Excel .0 float suffix, lowercase trim)
-const normalizeTrievId = (raw: string): string =>
-    String(raw || '').trim().replace(/\.0+$/, '').trim();
+const normalizeTrievId = (raw: string): string => {
+    const cleanStr = formatScientificNumber(raw);
+    return cleanStr.replace(/[\uFEFF\u00A0\r\n]/g, '').trim().replace(/\.0+$/, '').trim().toLowerCase();
+};
 
 // Helper: Log History
 const logImportHistory = async (
@@ -71,9 +85,12 @@ const logImportHistory = async (
             failure_count: summary.failed,
             skipped_count: summary.skipped || 0,
             updated_count: summary.updated || 0,
+            inactivated_count: summary.inactivated || 0,
+            reactivated_count: summary.reactivated || 0,
             status: summary.failed === 0 ? 'success' : (summary.success === 0 ? 'failed' : 'partial'),
-            errors: summary.errors.slice(0, 50), // Limit errors stored
-            skipped_details: (summary.skippedDetails || []).slice(0, 100), // Limit skips stored
+            errors: summary.errors.slice(0, 50),
+            skipped_details: (summary.skippedDetails || []).slice(0, 100),
+            detailed_changes: summary.detailedChanges || null,
             timestamp: new Date().toISOString()
         });
     } catch (e) {
@@ -142,7 +159,7 @@ export const processRiderImport = async (
     } catch (err) { console.error('Error pre-fetching users:', err); }
 
     // Staff Filter Helper
-    const isStaffSelected = (tlId: string | null, tlNameRaw: string): boolean => {
+    const isStaffSelected = (tlId: string | null, tlNameRaw: string, existingRiderTLId?: string | null): boolean => {
         if (!staffFilter || staffFilter.syncAllStaff) return true;
         const selectedTLs = staffFilter.teamLeaderIds || [];
         const selectedRMs = staffFilter.reportingManagerIds || [];
@@ -160,16 +177,27 @@ export const processRiderImport = async (
             }
         }
 
+        if (existingRiderTLId) {
+            if (selectedTLs.includes(existingRiderTLId)) return true;
+            const existingTLUser = userByIdMap.get(existingRiderTLId);
+            if (existingTLUser) {
+                if (existingTLUser.reporting_manager && selectedRMs.includes(existingTLUser.reporting_manager)) return true;
+                if (existingTLUser.city_ops_id && selectedCityOps.includes(existingTLUser.city_ops_id)) return true;
+            }
+        }
+
         if (tlNameRaw) {
             const cleanRaw = tlNameRaw.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
-            const matchedUser = users.find(u => {
-                const un = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
-                return un && (un.includes(cleanRaw) || cleanRaw.includes(un));
-            });
-            if (matchedUser) {
-                if (selectedTLs.includes(matchedUser.id)) return true;
-                if (matchedUser.reporting_manager && selectedRMs.includes(matchedUser.reporting_manager)) return true;
-                if (matchedUser.city_ops_id && selectedCityOps.includes(matchedUser.city_ops_id)) return true;
+            if (cleanRaw && cleanRaw !== 'n/a' && cleanRaw !== 'unassigned' && cleanRaw !== '-') {
+                const matchedUser = users.find(u => {
+                    const un = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
+                    return un && (un.includes(cleanRaw) || cleanRaw.includes(un));
+                });
+                if (matchedUser) {
+                    if (selectedTLs.includes(matchedUser.id)) return true;
+                    if (matchedUser.reporting_manager && selectedRMs.includes(matchedUser.reporting_manager)) return true;
+                    if (matchedUser.city_ops_id && selectedCityOps.includes(matchedUser.city_ops_id)) return true;
+                }
             }
         }
 
@@ -199,6 +227,13 @@ export const processRiderImport = async (
 
     // Set of matched rider IDs present in sheet
     const matchedSheetRiderIds = new Set<string>();
+
+    // Track detailed change arrays
+    const addedList: any[] = [];
+    const inactivatedList: any[] = [];
+    const reactivatedList: any[] = [];
+    const walletUpdatesList: any[] = [];
+    const dataUpdatesList: any[] = [];
 
     // ── 3. PASS 1: Classify rows ─────────────────────────────────────────────
     const pendingInserts: any[] = [];
@@ -244,6 +279,10 @@ export const processRiderImport = async (
             if (!trievId && !mobile) throw new Error('Missing Unique Identifier (TriEVRiderID/RiderId or MobileNo required)');
             if (!currentRiderName) throw new Error('Missing Rider Name');
 
+            // Lookup existing rider in DB
+            const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
+                ?? (mobile ? riderMobileMap.get(mobile) : null);
+
             // Resolve Team Leader
             let teamLeaderId: string | null = null;
             let finalTLName = teamLeaderName || 'Unassigned';
@@ -266,7 +305,7 @@ export const processRiderImport = async (
             }
 
             // Staff Filter Check: Skip if TL/RM/CityOps not in selected list
-            if (!isStaffSelected(teamLeaderId, teamLeaderName)) {
+            if (!isStaffSelected(teamLeaderId, teamLeaderName, existingRider?.team_leader_id)) {
                 summary.skipped = (summary.skipped || 0) + 1;
                 summary.skippedDetails!.push({ 
                     row: rowNum, 
@@ -284,59 +323,83 @@ export const processRiderImport = async (
                 if (parsed) allotmentDate = parsed;
             }
 
-            // Lookup existing rider
-            const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
-                ?? (mobile ? riderMobileMap.get(mobile) : null);
-
             if (existingRider) {
                 matchedSheetRiderIds.add(existingRider.id);
 
                 const updatePayload: any = {};
-                const addIfDiff = (dbProp: string, newVal: any, dbVal: any = existingRider[dbProp]) => {
+                const changedFields: string[] = [];
+
+                const addIfDiff = (dbProp: string, newVal: any, label: string, dbVal: any = existingRider[dbProp]) => {
                     const cleanNew = String(newVal || '').trim();
                     const cleanDb = String(dbVal || '').trim();
                     if (cleanNew && cleanNew !== cleanDb) {
                         updatePayload[dbProp] = cleanNew;
+                        changedFields.push(label);
                     }
                 };
 
-                addIfDiff('rider_name', currentRiderName);
-                addIfDiff('chassis_number', chassis);
-                addIfDiff('remarks', remarks);
-                addIfDiff('client_name', clientName);
-                if (clientId) addIfDiff('client_id', clientId);
+                addIfDiff('rider_name', currentRiderName, 'Rider Name');
+                addIfDiff('chassis_number', chassis, 'Chassis Number');
+                addIfDiff('remarks', remarks, 'Remarks');
+                addIfDiff('client_name', clientName, 'Client Name');
+                if (clientId) addIfDiff('client_id', clientId, 'Client ID');
 
-                // Auto Reactivation Logic: If rider was inactive in DB but is active in Live Sheet, restore to Active!
+                // Auto Reactivation Logic
                 if (existingRider.status === 'inactive') {
                     updatePayload.status = 'active';
                     updatePayload.inactivated_at = null;
                     summary.reactivated = (summary.reactivated || 0) + 1;
+                    reactivatedList.push({
+                        trievId: trievId || existingRider.triev_id || '',
+                        riderName: currentRiderName || existingRider.rider_name || '',
+                        mobileNumber: mobile || existingRider.mobile_number || '',
+                        teamLeaderName: finalTLName
+                    });
                 }
 
-                // Wallet balance sync if mapped
+                // Wallet balance sync
                 if (walletValRaw !== '') {
                     const walletParsed = parseCurrency(walletValRaw);
-                    if (!isNaN(walletParsed) && Number(existingRider.wallet_amount) !== walletParsed) {
+                    const oldW = Number(existingRider.wallet_amount || 0);
+                    if (!isNaN(walletParsed) && oldW !== walletParsed) {
                         updatePayload.wallet_amount = walletParsed;
+                        walletUpdatesList.push({
+                            trievId: trievId || existingRider.triev_id || '',
+                            riderName: currentRiderName || existingRider.rider_name || '',
+                            mobileNumber: mobile || existingRider.mobile_number || '',
+                            teamLeaderName: finalTLName,
+                            oldWallet: oldW,
+                            newWallet: walletParsed,
+                            diff: walletParsed - oldW
+                        });
                     }
                 }
 
                 if (teamLeaderId !== existingRider.team_leader_id || finalTLName !== existingRider.team_leader_name) {
                     updatePayload.team_leader_id = teamLeaderId;
                     updatePayload.team_leader_name = finalTLName;
+                    changedFields.push('Team Leader');
                 }
 
                 if (Object.keys(updatePayload).length > 0) {
                     updatePayload.updated_at = new Date().toISOString();
                     pendingUpdates.push({ id: existingRider.id, payload: updatePayload, rowNum });
+                    dataUpdatesList.push({
+                        trievId: trievId || existingRider.triev_id || '',
+                        riderName: currentRiderName || existingRider.rider_name || '',
+                        mobileNumber: mobile || existingRider.mobile_number || '',
+                        teamLeaderName: finalTLName,
+                        changes: changedFields
+                    });
                 } else {
+                    summary.unchanged = (summary.unchanged || 0) + 1;
                     summary.skipped = (summary.skipped || 0) + 1;
-                    summary.skippedDetails!.push({ row: rowNum, identifier: trievId || mobile, reason: 'No changes detected (identical data)', data: row });
+                    summary.skippedDetails!.push({ row: rowNum, identifier: trievId || mobile, reason: 'Identical active rider already synced (no changes required)', data: row });
                 }
             } else {
                 // Brand new rider
                 const initialWallet = walletValRaw !== '' ? parseCurrency(walletValRaw) : 0;
-                pendingInserts.push({
+                const newRiderItem = {
                     rider_name: currentRiderName,
                     triev_id: trievId || null,
                     mobile_number: mobile || null,
@@ -352,6 +415,14 @@ export const processRiderImport = async (
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     _rowNum: rowNum
+                };
+                pendingInserts.push(newRiderItem);
+                addedList.push({
+                    trievId: trievId || '',
+                    riderName: currentRiderName,
+                    mobileNumber: mobile || '',
+                    teamLeaderName: finalTLName,
+                    newWallet: isNaN(initialWallet) ? 0 : initialWallet
                 });
             }
         } catch (err: any) {
@@ -401,7 +472,6 @@ export const processRiderImport = async (
     }
 
     // ── 6. Auto Active/Inactive Reconciliation Engine ────────────────────────
-    // If strictMirror OR sheet reconciliation is active, mark riders as inactive if missing from live sheet
     if (strictMirror || fileData.length > 0) {
         try {
             const ridersToInactivate = allDbRiders.filter(r => {
@@ -421,6 +491,14 @@ export const processRiderImport = async (
 
                 if (!inactErr) {
                     summary.inactivated = ids.length;
+                    ridersToInactivate.forEach(r => {
+                        inactivatedList.push({
+                            trievId: r.triev_id || '',
+                            riderName: r.rider_name || '',
+                            mobileNumber: r.mobile_number || '',
+                            teamLeaderName: r.team_leader_name || ''
+                        });
+                    });
                 } else {
                     console.error("Failed auto-inactivation of riders missing in live sheet:", inactErr);
                 }
@@ -429,6 +507,14 @@ export const processRiderImport = async (
             console.error("Active/Inactive reconciliation failed:", e);
         }
     }
+
+    summary.detailedChanges = {
+        added: addedList,
+        inactivated: inactivatedList,
+        reactivated: reactivatedList,
+        walletUpdates: walletUpdatesList,
+        dataUpdates: dataUpdatesList
+    };
 
     await logActivity({
         actionType: 'bulkImport',

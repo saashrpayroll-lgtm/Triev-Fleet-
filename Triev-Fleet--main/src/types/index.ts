@@ -454,17 +454,36 @@ export interface ImportError {
 }
 
 
+export interface DetailedSyncChange {
+    trievId: string;
+    riderName: string;
+    mobileNumber: string;
+    teamLeaderName?: string;
+    oldWallet?: number;
+    newWallet?: number;
+    diff?: number;
+    changes?: string[];
+}
+
 export interface ImportSummary {
     total: number;
     success: number;
     failed: number;
-    updated?: number; // Added for tracking updates
-    skipped?: number; // Added for duplicate checks
+    updated?: number; // Count of existing riders updated
+    skipped?: number; // Count of rows skipped
+    unchanged?: number; // Count of identical active riders already up-to-date
     inactivated?: number; // Count of riders auto-set to inactive
     reactivated?: number; // Count of riders restored to active
     errors: ImportError[];
     skippedDetails?: ImportError[]; // Reusing ImportError type since structure is identical
     successfulDetails?: unknown[]; // Array to temporarily hold successful transaction info
+    detailedChanges?: {
+        added: DetailedSyncChange[];
+        inactivated: DetailedSyncChange[];
+        reactivated: DetailedSyncChange[];
+        walletUpdates: DetailedSyncChange[];
+        dataUpdates: DetailedSyncChange[];
+    };
 }
 
 // Request Management Types

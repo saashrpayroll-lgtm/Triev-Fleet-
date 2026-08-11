@@ -19,6 +19,8 @@ import ColumnMappingModal from '@/components/ColumnMappingModal';
 import StaffFilterSelectorModal from '@/components/StaffFilterSelectorModal';
 import { RiderColumnMapping, LiveSyncStaffFilter, RiderImportConfig } from '@/types';
 
+import liveSheetAutoSync, { LiveSyncEngineStatus } from '@/services/LiveSheetAutoSyncService';
+
 interface DataManagementProps {
     scopedCityOpsId?: string;
 }
@@ -75,6 +77,27 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
     const [showStaffFilterModal, setShowStaffFilterModal] = useState(false);
     const [selectedLogRecord, setSelectedLogRecord] = useState<any | null>(null);
     const [nextSyncCountdown, setNextSyncCountdown] = useState<number>(0);
+    const [engineStatus, setEngineStatus] = useState<LiveSyncEngineStatus>(liveSheetAutoSync.getStatus());
+
+    // Subscribe to Global Live Sheet Auto Sync Service
+    useEffect(() => {
+        const unsubscribe = liveSheetAutoSync.subscribe(status => {
+            setEngineStatus(status);
+            setIsSyncing(status.isSyncing);
+            setLastSyncTime(status.lastSyncTime);
+            setNextSyncCountdown(status.nextSyncCountdown);
+            setSyncError(status.syncError);
+            if (status.config) {
+                setRiderConfig(prev => ({
+                    ...prev,
+                    ...status.config,
+                    columnMapping: status.config?.columnMapping || DEFAULT_COLUMN_MAPPING,
+                    staffFilter: status.config?.staffFilter || DEFAULT_STAFF_FILTER
+                }));
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
     // Refs for interval safety
     const riderConfigRef = useRef(riderConfig);
@@ -128,7 +151,13 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
 
     // Save Settings Helper
     const saveSettings = async (type: 'rider' | 'wallet' | 'rent_collection', newConfig: any) => {
-        const key = type === 'rider' ? 'rider_import_config' : type === 'wallet' ? 'wallet_update_config' : 'rent_collection_sync_config';
+        if (type === 'rider') {
+            const success = await liveSheetAutoSync.saveConfig(newConfig);
+            if (success) toast.success("Rider Live Sync Settings Saved & Background Service Updated!");
+            else toast.error("Failed to save settings to database.");
+            return;
+        }
+        const key = type === 'wallet' ? 'wallet_update_config' : 'rent_collection_sync_config';
         try {
             await supabase.from('system_settings').upsert({
                 key,
@@ -141,52 +170,6 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
             toast.error("Failed to save settings to database.");
         }
     };
-
-    // Auto-Sync Manager Interval (Dynamic Frequency - e.g. 1m, 2m, 3m, 5m, 10m)
-    useEffect(() => {
-        let timer: NodeJS.Timeout | null = null;
-        let countdownTimer: NodeJS.Timeout | null = null;
-
-        const intervalMs = (riderConfig.syncIntervalMinutes || 2) * 60 * 1000;
-        setNextSyncCountdown(Math.floor(intervalMs / 1000));
-
-        if (riderConfig.enabled) {
-            // Countdown tick every second
-            countdownTimer = setInterval(() => {
-                setNextSyncCountdown(prev => (prev > 1 ? prev - 1 : Math.floor(intervalMs / 1000)));
-            }, 1000);
-
-            // Auto sync interval
-            timer = setInterval(() => {
-                if (isSyncingRef.current || !userData) return;
-                if (riderConfigRef.current.enabled && riderConfigRef.current.sheetId) {
-                    console.log(`Auto-syncing Rider Data (Interval: ${riderConfigRef.current.syncIntervalMinutes}m)...`);
-                    handleGoogleSync(null, true, 'rider', riderConfigRef.current);
-                }
-
-                if (walletConfigRef.current.enabled && walletConfigRef.current.sheetId) {
-                    setTimeout(() => {
-                        if (!isSyncingRef.current) {
-                            handleGoogleSync(null, true, 'wallet', walletConfigRef.current);
-                        }
-                    }, 5000);
-                }
-
-                if (rentConfigRef.current.enabled && rentConfigRef.current.sheetId) {
-                    setTimeout(() => {
-                        if (!isSyncingRef.current) {
-                            handleGoogleSync(null, true, 'rent_collection', rentConfigRef.current);
-                        }
-                    }, 10000);
-                }
-            }, intervalMs);
-        }
-
-        return () => {
-            if (timer) clearInterval(timer);
-            if (countdownTimer) clearInterval(countdownTimer);
-        };
-    }, [riderConfig.enabled, riderConfig.syncIntervalMinutes, userData]);
 
     const fetchHistory = async () => {
         setLoadingHistory(true);
@@ -202,7 +185,10 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                     failureCount:failure_count,
                     updated_count,
                     skipped_count,
+                    inactivated_count,
+                    reactivated_count,
                     skipped_details,
+                    detailed_changes,
                     status,
                     timestamp,
                     errors
@@ -235,6 +221,23 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
 
         if (scopedCityOpsId) {
             alert("Data Uploads are restricted to Admin Panel.");
+            return;
+        }
+
+        if (mode === 'rider') {
+            try {
+                const toastId = toast.loading("Syncing Live Google Sheet in Background...");
+                const summary = await liveSheetAutoSync.executeAutoSync(true);
+                if (summary) {
+                    const totalActiveSynced = summary.success + (summary.updated || 0) + (summary.unchanged || 0);
+                    toast.success(`Live Sync Complete! Total Active Synced: ${totalActiveSynced} (${summary.success} New, ${summary.updated || 0} Updated, ${summary.unchanged || 0} Identical, ${summary.inactivated || 0} Inactivated)`, { id: toastId });
+                    fetchHistory();
+                } else {
+                    toast.error("Sync did not produce results.", { id: toastId });
+                }
+            } catch (err: any) {
+                toast.error("Sync Error: " + (err.message || 'Failed'));
+            }
             return;
         }
 
@@ -273,7 +276,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
             if (!isAuto) {
                 toast.success(`Sync Complete! Success: ${summary.success}, Updated: ${summary.updated || 0}, Inactivated: ${summary.inactivated || 0}, Reactivated: ${summary.reactivated || 0}`);
             } else {
-                toast.success(`${mode === 'rider' ? 'Riders' : 'Wallets'} auto-synced successfully.`);
+                toast.success(`${mode === 'wallet' ? 'Wallets' : 'Rent Collection'} auto-synced successfully.`);
             }
 
             fetchHistory();
@@ -789,25 +792,78 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
 
                         {/* Recent Status & Fallback Safety Notice */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <GlassCard className="p-6 bg-card/60">
-                                <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-foreground">
-                                    <Clock size={16} className="text-primary" /> Live Engine Health Status
-                                </h3>
-                                <div className="space-y-3 text-xs">
+                            <GlassCard className="p-6 bg-card/60 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-sm flex items-center gap-2 text-foreground">
+                                        <Clock size={16} className="text-primary" /> Live Engine Health Status & Background Worker
+                                    </h3>
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+                                        engineStatus.healthState === 'syncing'
+                                            ? 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                                            : engineStatus.healthState === 'active'
+                                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                                                : engineStatus.healthState === 'error'
+                                                    ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                                                    : 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                                    }`}>
+                                        <span className="relative flex h-2 w-2">
+                                            {engineStatus.healthState === 'active' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                                            <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                                                engineStatus.healthState === 'active' ? 'bg-emerald-500' : engineStatus.healthState === 'syncing' ? 'bg-blue-500' : 'bg-amber-500'
+                                            }`}></span>
+                                        </span>
+                                        <span>
+                                            {engineStatus.healthState === 'syncing' ? 'SYNCING NOW' : engineStatus.healthState === 'active' ? 'GLOBAL WORKER RUNNING' : 'SYNC PAUSED'}
+                                        </span>
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2.5 text-xs">
                                     <div className="p-3 bg-accent/40 rounded-xl border border-border/40 flex justify-between items-center">
-                                        <span className="text-muted-foreground">Last Successful Sync</span>
+                                        <span className="text-muted-foreground">Last Successful Sync Time</span>
                                         <span className="font-mono font-bold text-foreground">
-                                            {lastSyncTime ? lastSyncTime.toLocaleTimeString() : 'No sync recorded in session'}
+                                            {lastSyncTime ? `${lastSyncTime.toLocaleDateString()} ${lastSyncTime.toLocaleTimeString()}` : 'No sync recorded in session'}
                                         </span>
                                     </div>
+
+                                    <div className="p-3 bg-accent/40 rounded-xl border border-border/40 flex justify-between items-center">
+                                        <span className="text-muted-foreground">Next Scheduled Auto Sync</span>
+                                        <span className="font-mono font-bold text-emerald-500">
+                                            {engineStatus.nextSyncTime 
+                                                ? `${engineStatus.nextSyncTime.toLocaleTimeString()} (${formatCountdown(nextSyncCountdown)})`
+                                                : 'Auto-sync paused'}
+                                        </span>
+                                    </div>
+
+                                    {engineStatus.lastSummary && (
+                                        <div className="p-3 rounded-xl bg-card border border-border/50 grid grid-cols-4 gap-2 text-center text-[11px]">
+                                            <div>
+                                                <span className="text-muted-foreground block text-[10px]">Scanned</span>
+                                                <strong className="text-foreground">{engineStatus.lastSummary.total}</strong>
+                                            </div>
+                                            <div>
+                                                <span className="text-emerald-500 block text-[10px]">New Added</span>
+                                                <strong className="text-emerald-500">{engineStatus.lastSummary.success}</strong>
+                                            </div>
+                                            <div>
+                                                <span className="text-blue-500 block text-[10px]">Updated</span>
+                                                <strong className="text-blue-500">{engineStatus.lastSummary.updated || 0}</strong>
+                                            </div>
+                                            <div>
+                                                <span className="text-rose-500 block text-[10px]">Inactivated</span>
+                                                <strong className="text-rose-500">{engineStatus.lastSummary.inactivated || 0}</strong>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {syncError ? (
                                         <div className="p-3 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl border border-red-500/20 font-medium">
-                                            <strong>Sync Error Detected:</strong> {syncError}
+                                            <strong>Sync Warning:</strong> {syncError}
                                         </div>
                                     ) : (
                                         <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 font-medium flex items-center gap-2">
                                             <CheckCircle2 size={16} />
-                                            <span>Engine Operating Normally. Error Fallback Protection Active.</span>
+                                            <span>Background Engine Running Seamlessly Across All Pages & Tab State.</span>
                                         </div>
                                     )}
                                 </div>

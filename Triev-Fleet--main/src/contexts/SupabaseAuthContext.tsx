@@ -3,6 +3,8 @@ import { supabase } from '@/config/supabase';
 import { User } from '@/types';
 import { Session } from '@supabase/supabase-js';
 
+import liveSheetAutoSync from '@/services/LiveSheetAutoSyncService';
+
 interface SupabaseAuthContextType {
     session: Session | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,7 +226,11 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             }
 
             if (data) {
-                setUserData(formatUserData(data));
+                const formatted = formatUserData(data);
+                setUserData(formatted);
+                if (formatted.role === 'admin') {
+                    liveSheetAutoSync.initialize(formatted.id, formatted.fullName || 'Admin User');
+                }
                 // Store role so logout redirect works even when userData closure is stale
                 try { localStorage.setItem('user_role', data.role || ''); } catch { /* storage unavailable */ }
             } else {
