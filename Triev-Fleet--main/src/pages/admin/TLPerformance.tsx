@@ -16,6 +16,7 @@ import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import PerformanceCard from '@/components/dashboard/PerformanceCard';
 import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
 import { exportBrandedPerformancePDF } from '@/utils/exportUtils';
+import { useDebounce } from '@/hooks/useDebounce';
 import { User, Rider, Lead, UserStatus } from '@/types';
 
 interface TLPerformanceProps {
