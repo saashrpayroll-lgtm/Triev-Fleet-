@@ -7,21 +7,37 @@ import { processRiderImport, processWalletUpdate, processRentCollectionImport } 
 interface GoogleSheetConfig {
     sheetId: string;
     range: string;
-    apiKey?: string; // Optional if using proxy or client-side key
+    apiKey?: string;
 }
+
+export const extractSheetIdAndGid = (rawIdOrUrl: string): { sheetId: string; gid?: string } => {
+    if (!rawIdOrUrl) return { sheetId: '' };
+    const str = rawIdOrUrl.trim();
+    let sheetId = str;
+    let gid: string | undefined = undefined;
+
+    const gidMatch = str.match(/[?&#]gid=([0-9]+)/i);
+    if (gidMatch) gid = gidMatch[1];
+
+    const urlMatch = str.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+    if (urlMatch) {
+        sheetId = urlMatch[1];
+    }
+
+    return { sheetId, gid };
+};
 
 export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<any[]> => {
     if (!config.sheetId || !config.range) {
         throw new Error("Sheet ID and Range are required");
     }
 
-    // Priority: 1. Config Key, 2. Env Var, 3. Empty (Try Public Access)
+    const { sheetId, gid } = extractSheetIdAndGid(config.sheetId);
     const apiKey = config.apiKey || import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '';
 
     // Strategy 1: Google Sheets API (Preferred if Key exists)
     if (apiKey) {
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${config.range}?key=${apiKey}`;
-        // console.log(`Fetching Google Sheet via API: ${config.sheetId}, Range: ${config.range}`);
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${config.range}?key=${apiKey}`;
 
         try {
             const response = await fetch(url);
@@ -32,7 +48,6 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
                 }
                 return data.values;
             } else {
-                // If 403, it might be Public but API Key is invalid or restricted. Fallback to CSV.
                 console.warn(`API Fetch Failed (${response.status}). Attempting CSV fallback...`);
             }
         } catch (error) {
@@ -47,11 +62,16 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
     }
 
     const csvUrls: string[] = [];
-    if (sheetName) {
-        csvUrls.push(`https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`);
-        csvUrls.push(`https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv&sheet=${encodeURIComponent(sheetName)}`);
+    if (gid !== undefined) {
+        csvUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`);
+        csvUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`);
     }
-    csvUrls.push(`https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv`);
+    if (sheetName) {
+        csvUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`);
+        csvUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&sheet=${encodeURIComponent(sheetName)}`);
+    }
+    csvUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`);
+    csvUrls.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`);
 
     let lastError: any = null;
     for (const csvUrl of csvUrls) {

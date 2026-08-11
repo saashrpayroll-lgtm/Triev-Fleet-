@@ -142,23 +142,37 @@ export const processRiderImport = async (
     } catch (err) { console.error('Error pre-fetching users:', err); }
 
     // Staff Filter Helper
-    const isStaffSelected = (tlId: string | null): boolean => {
+    const isStaffSelected = (tlId: string | null, tlNameRaw: string): boolean => {
         if (!staffFilter || staffFilter.syncAllStaff) return true;
         const selectedTLs = staffFilter.teamLeaderIds || [];
         const selectedRMs = staffFilter.reportingManagerIds || [];
         const selectedCityOps = staffFilter.cityOpsIds || [];
 
-        // If no filters selected at all, allow all
+        // If no filters selected at all, allow all!
         if (selectedTLs.length === 0 && selectedRMs.length === 0 && selectedCityOps.length === 0) return true;
 
-        if (!tlId) return false;
-        if (selectedTLs.includes(tlId)) return true;
-
-        const tlUser = userByIdMap.get(tlId);
-        if (tlUser) {
-            if (tlUser.reporting_manager && selectedRMs.includes(tlUser.reporting_manager)) return true;
-            if (tlUser.city_ops_id && selectedCityOps.includes(tlUser.city_ops_id)) return true;
+        if (tlId) {
+            if (selectedTLs.includes(tlId)) return true;
+            const tlUser = userByIdMap.get(tlId);
+            if (tlUser) {
+                if (tlUser.reporting_manager && selectedRMs.includes(tlUser.reporting_manager)) return true;
+                if (tlUser.city_ops_id && selectedCityOps.includes(tlUser.city_ops_id)) return true;
+            }
         }
+
+        if (tlNameRaw) {
+            const cleanRaw = tlNameRaw.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
+            const matchedUser = users.find(u => {
+                const un = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
+                return un && (un.includes(cleanRaw) || cleanRaw.includes(un));
+            });
+            if (matchedUser) {
+                if (selectedTLs.includes(matchedUser.id)) return true;
+                if (matchedUser.reporting_manager && selectedRMs.includes(matchedUser.reporting_manager)) return true;
+                if (matchedUser.city_ops_id && selectedCityOps.includes(matchedUser.city_ops_id)) return true;
+            }
+        }
+
         return false;
     };
 
@@ -214,27 +228,27 @@ export const processRiderImport = async (
                 return '';
             };
 
-            currentRiderName = getValue(columnMapping?.riderName, ['Rider Name', 'Name', 'FullName', 'Full Name']);
-            const trievIdRaw = getValue(columnMapping?.primaryKey, ['Triev ID', 'TrievId', 'ID', 'RiderId']);
+            currentRiderName = getValue(columnMapping?.riderName, ['Rider Name', 'RiderName', 'Name', 'FullName', 'Full Name']);
+            const trievIdRaw = getValue(columnMapping?.primaryKey, ['TriEVRiderID', 'TriEV Rider ID', 'TriEVRiderId', 'RiderId', 'Rider ID', 'Triev ID', 'TrievId', 'ID']);
             const trievId = normalizeTrievId(trievIdRaw);
-            const mobileRaw = getValue(columnMapping?.mobileNumber, ['Mobile Number', 'Mobile', 'Phone', 'Contact']);
+            const mobileRaw = getValue(columnMapping?.mobileNumber, ['MobileNo', 'Mobile No', 'Mobile Number', 'Mobile', 'Phone', 'Contact']);
             const mobile = normalizeMobile(mobileRaw);
-            const chassis = getValue(columnMapping?.chassisNumber, ['Chassis Number', 'Chassis', 'ChassisNo']);
-            const teamLeaderName = getValue(columnMapping?.teamLeader, ['Team Leader', 'TeamLeader', 'TL', 'Base']);
-            const clientRaw = getValue(columnMapping?.clientName, ['Client Name', 'Client', 'Brand']);
+            const chassis = getValue(columnMapping?.chassisNumber, ['Chassis No', 'ChassisNo', 'Chassis Number', 'Chassis']);
+            const teamLeaderName = getValue(columnMapping?.teamLeader, ['TL Name', 'TLName', 'Team Leader', 'TeamLeader', 'TL', 'Base']);
+            const clientRaw = getValue(columnMapping?.clientName, ['quick commerce', 'Quick Commerce', 'Client Name', 'Client', 'Brand']);
             const clientId = getValue(columnMapping?.clientId, ['Client ID', 'ClientId']);
-            const remarks = getValue(columnMapping?.remarks, ['Remarks', 'Remark', 'Note']);
-            const dateRaw = getValue(columnMapping?.allotmentDate, ['Allotment Date', 'Date', 'Joining Date']);
-            const walletValRaw = getValue(columnMapping?.walletAmount, ['Wallet Amount', 'Wallet Balance', 'Balance', 'Wallet']);
+            const remarks = getValue(columnMapping?.remarks, ['days', 'Remarks', 'Remark', 'Note']);
+            const dateRaw = getValue(columnMapping?.allotmentDate, ['Registered Date', 'Vehicle Issue Date', 'Allotment Date', 'Date', 'Joining Date']);
+            const walletValRaw = getValue(columnMapping?.walletAmount, ['Balance', 'Wallet Amount', 'Wallet Balance', 'Wallet']);
 
-            if (!trievId && !mobile) throw new Error('Missing Unique Identifier (Triev ID or Mobile required)');
+            if (!trievId && !mobile) throw new Error('Missing Unique Identifier (TriEVRiderID/RiderId or MobileNo required)');
             if (!currentRiderName) throw new Error('Missing Rider Name');
 
             // Resolve Team Leader
             let teamLeaderId: string | null = null;
             let finalTLName = teamLeaderName || 'Unassigned';
             if (teamLeaderName) {
-                const nl = teamLeaderName.toLowerCase();
+                const nl = teamLeaderName.toLowerCase().trim();
                 const cl = nl.replace(/\s*\(.*?\)\s*/g, '').trim();
                 teamLeaderId = teamLeaderEmailMap.get(nl) || teamLeaderMap.get(nl) || teamLeaderMap.get(cl) || null;
                 if (!teamLeaderId) {
@@ -242,19 +256,22 @@ export const processRiderImport = async (
                     if (km) { const num = km[0].match(/\d+/)?.[0]; if (num) teamLeaderId = teamLeaderMap.get(`konti/${num}`) || null; }
                 }
                 if (!teamLeaderId) {
-                    const fuzzy = users.find(u => { const d = (u.fullName || '').toLowerCase(); return d.includes(cl) || cl.includes(d); });
+                    const fuzzy = users.find(u => {
+                        const d = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
+                        return d && (d.includes(cl) || cl.includes(d));
+                    });
                     if (fuzzy) teamLeaderId = fuzzy.id;
                 }
                 if (teamLeaderId) finalTLName = users.find(u => u.id === teamLeaderId)?.fullName || teamLeaderName;
             }
 
             // Staff Filter Check: Skip if TL/RM/CityOps not in selected list
-            if (!isStaffSelected(teamLeaderId)) {
+            if (!isStaffSelected(teamLeaderId, teamLeaderName)) {
                 summary.skipped = (summary.skipped || 0) + 1;
                 summary.skippedDetails!.push({ 
                     row: rowNum, 
                     identifier: trievId || mobile || currentRiderName, 
-                    reason: `Skipped: Team Leader / RM / City Ops (${finalTLName}) is not selected in Staff Sync Filter`, 
+                    reason: `Skipped: Team Leader (${finalTLName}) is excluded by Staff Filter`, 
                     data: row 
                 });
                 continue;
@@ -389,7 +406,7 @@ export const processRiderImport = async (
         try {
             const ridersToInactivate = allDbRiders.filter(r => {
                 if (r.status !== 'active') return false; // Only active riders can become inactive
-                if (!isStaffSelected(r.team_leader_id)) return false; // Respect staff filter scope
+                if (!isStaffSelected(r.team_leader_id, r.team_leader_name || '')) return false; // Respect staff filter scope
                 return !matchedSheetRiderIds.has(r.id);
             });
 

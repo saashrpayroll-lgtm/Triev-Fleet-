@@ -15,18 +15,18 @@ interface ColumnMappingModalProps {
 }
 
 const DEFAULT_MAPPING: RiderColumnMapping = {
-    primaryKey: 'Triev ID',
+    primaryKey: 'TriEVRiderID',
     riderName: 'Rider Name',
-    mobileNumber: 'Mobile Number',
-    chassisNumber: 'Chassis Number',
-    clientName: 'Client Name',
-    clientId: 'Client ID',
-    allotmentDate: 'Allotment Date',
-    walletAmount: 'Wallet Amount',
-    teamLeader: 'Team Leader',
-    reportingManager: 'Reporting Manager',
-    cityOps: 'City Ops',
-    remarks: 'Remarks'
+    mobileNumber: 'MobileNo',
+    chassisNumber: 'Chassis No',
+    clientName: 'quick commerce',
+    clientId: 'RiderId',
+    allotmentDate: 'Registered Date',
+    walletAmount: 'Balance',
+    teamLeader: 'TL Name',
+    reportingManager: 'Reproting Manager',
+    cityOps: 'Skip Manager',
+    remarks: 'days'
 };
 
 const SYSTEM_FIELDS: { key: keyof RiderColumnMapping; label: string; description: string; required?: boolean }[] = [
