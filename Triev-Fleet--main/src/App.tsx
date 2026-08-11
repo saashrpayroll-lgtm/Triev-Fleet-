@@ -263,7 +263,7 @@ function PresenceTracker() {
 
 // ─── App Routes ───────────────────────────────────────────────────────────────
 function AppRoutes() {
-  const { userData, user, refreshUserData } = useSupabaseAuth();
+  const { userData, user, loading, refreshUserData } = useSupabaseAuth();
 
   return (
     <>
@@ -374,15 +374,21 @@ function AppRoutes() {
           <Route
             path="/"
             element={
-              !user
-                ? <LandingPage />
-                : userData?.role === 'admin'
-                  ? <Navigate to="/portal" replace />
-                  : userData?.role === 'cityOps'
-                    ? <Navigate to="/city-ops" replace />
-                    : userData?.role === 'reportingManager'
-                      ? <Navigate to="/rm-panel" replace />
-                      : <Navigate to="/team-leader" replace />
+              loading || (user && !userData) ? (
+                <LoadingScreen />
+              ) : !user ? (
+                <LandingPage />
+              ) : userData?.role === 'admin' ? (
+                <Navigate to="/portal" replace />
+              ) : userData?.role === 'cityOps' ? (
+                <Navigate to="/city-ops" replace />
+              ) : userData?.role === 'reportingManager' ? (
+                <Navigate to="/rm-panel" replace />
+              ) : userData?.role === 'teamLeader' ? (
+                <Navigate to="/team-leader" replace />
+              ) : (
+                <Navigate to="/unauthorized" replace />
+              )
             }
           />
 

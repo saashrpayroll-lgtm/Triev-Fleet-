@@ -70,7 +70,13 @@ const ReloadPrompt = () => {
                 const regs = await navigator.serviceWorker.getRegistrations();
                 await Promise.all(regs.map(r => r.unregister()));
             }
-            window.location.href = window.location.origin + '?v=' + Date.now();
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('v', Date.now().toString());
+                window.location.href = url.toString();
+            } catch {
+                window.location.reload();
+            }
         };
     }, []);
 
