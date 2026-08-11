@@ -14,8 +14,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
-import { getValidHistoricalDate } from '@/utils/dateUtils';
-import { useDebounce } from '@/hooks/useDebounce';
+import PerformanceCard from '@/components/dashboard/PerformanceCard';
+import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
+import { exportBrandedPerformancePDF } from '@/utils/exportUtils';
 
 /* ── Mini Sparkline (pure SVG) ──────────────────────────────────────────── */
 const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; color?: string }> = ({
@@ -617,38 +618,34 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
 
     const exportToPDF = () => {
         const filterLabel = dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : `${customDateRange.start} to ${customDateRange.end}`;
-        const doc = new jsPDF('l', 'mm', 'a4');
-        doc.setFontSize(20);
-        doc.setTextColor(79, 70, 229); 
-        doc.text('Reporting Manager Performance Report', 14, 20);
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${filterLabel}`, 14, 28);
-        const tableColumn = [
-            'RM Name', 'TLs', 'Riders', 'Tenure', 'Today Coll.', 'Weekly Coll.', 'Monthly Coll.',
-            'Avg/Rider', 'Pos/Neg', 'A/S/N', 'Leads', 'Score'
+        
+        const kpis = [
+            { label: 'Total RM Count', value: `${performanceData.length}` },
+            { label: 'Active Fleet', value: `${tActRiders}/${tTotRiders}` },
+            { label: 'Period Collection', value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}` },
+            { label: 'Market Risk', value: `₹${tNegAmt.toLocaleString()}` },
+            { label: 'Avg AI Score', value: `${avgAIScore} (${avgGrade})` }
         ];
-        const tableRows = filteredData.map(rm => [
+
+        const cols = ['RM Name', 'TLs', 'Riders', 'Tenure', 'Today Coll.', 'Weekly Coll.', 'Monthly Coll.', 'Avg/Rider', 'Pos/Neg', 'A/S/N', 'Leads', 'AI Score'];
+        const rows = filteredData.map(rm => [
             rm.name,
             rm.totalTLs,
             `${rm.activeRiders}/${rm.totalRiders}`,
             `${Math.round(rm.avgTenure)}d`,
-            `INR ${((rm as any).todayCollection || 0).toLocaleString()}`,
-            `INR ${((rm as any).weeklyCollection || 0).toLocaleString()}`,
-            `INR ${((rm as any).monthlyCollection || 0).toLocaleString()}`,
-            `INR ${rm.periodPerRiderAvg.toLocaleString()}`,
+            `₹${((rm as any).todayCollection || 0).toLocaleString()}`,
+            `₹${((rm as any).weeklyCollection || 0).toLocaleString()}`,
+            `₹${((rm as any).monthlyCollection || 0).toLocaleString()}`,
+            `₹${rm.periodPerRiderAvg.toLocaleString()}`,
             `${rm.wallet.positiveCount}/${rm.wallet.negativeCount}`,
             `${rm.allotments}/${rm.submissions}/${rm.netGrowth}`,
             `${rm.leads.converted}/${rm.leads.total}`,
             `${rm.score} (${rm.aiGrade})`
         ]);
-        autoTable(doc, {
-            head: [tableColumn], body: tableRows, startY: 35, theme: 'striped',
-            headStyles: { fillColor: [79, 70, 229] }, styles: { fontSize: 7, cellPadding: 2.5 },
-            alternateRowStyles: { fillColor: [249, 250, 251] }
-        });
-        doc.save(`rm_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-        toast.success('PDF report exported successfully');
+
+        const fileName = `RM_Performance_${filterLabel.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`;
+        exportBrandedPerformancePDF(`RM Operations Performance (${filterLabel})`, kpis, cols, rows, fileName);
+        toast.success('Branded PDF report exported successfully');
         setIsExportOpen(false);
     };
 
@@ -770,29 +767,61 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             </div>
 
             <div className="px-6 space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {[
-                        { label: `${dateFilter === 'today' ? "Today's" : dateFilter === 'yesterday' ? "Yesterday's" : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`, value: `₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5' },
-                        { label: 'Active Riders', value: tActRiders.toLocaleString(), icon: Users, color: 'text-blue-500', border: 'border-blue-500/20', bg: 'bg-blue-500/5' },
-                        { label: 'Avg Fleet Tenure', value: `${Math.round(tAvgTenure)} Days`, icon: History, color: 'text-indigo-500', border: 'border-indigo-500/20', bg: 'bg-indigo-500/5' },
-                        { label: 'Market Risk', value: `₹${tNegAmt.toLocaleString()}`, icon: Wallet, color: 'text-rose-500', border: 'border-rose-500/20', bg: 'bg-rose-500/5' },
-                        { label: 'Avg AI Score', value: `${avgAIScore}`, icon: Activity, color: avgAIScore >= 50 ? 'text-emerald-500' : 'text-amber-500', border: avgAIScore >= 50 ? 'border-emerald-500/20' : 'border-amber-500/20', bg: avgAIScore >= 50 ? 'bg-emerald-500/5' : 'bg-amber-500/5', badge: avgGrade },
-                        { label: 'Avg/Rider', value: `₹${tTotPerRiderAvg.toLocaleString()}`, icon: ArrowUpRight, color: 'text-violet-500', border: 'border-violet-500/20', bg: 'bg-violet-500/5' },
-                    ].map((card, i) => (
-                    <motion.div key={i}
-                        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06, duration: 0.35 }}
-                        whileHover={{ scale: 1.03, y: -2 }}
-                        className={`p-3 sm:p-4 rounded-2xl border ${card.border} ${card.bg} shadow-sm space-y-1.5 cursor-default transition-shadow hover:shadow-md`}>
-                            <div className="flex items-center justify-between gap-1">
-                                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-muted-foreground truncate">{card.label}</span>
-                                <card.icon className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${card.color} flex-shrink-0`} />
-                            </div>
-                            <div className="flex items-baseline gap-1.5 min-w-0">
-                                <span className="text-base sm:text-xl font-black truncate">{card.value}</span>
-                            </div>
-                        </motion.div>
-                    ))}
+                {/* ── STAT CARDS ROW V2 ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <PerformanceCard
+                        title={`${dateFilter === 'today' ? "Today's" : dateFilter === 'yesterday' ? "Yesterday's" : dateFilter === 'week' ? 'Weekly' : dateFilter === 'month' ? 'Monthly' : 'Range'} Collection`}
+                        value={`₹${performanceData.reduce((a, b) => a + b.rangeCollection, 0).toLocaleString()}`}
+                        subtext="assigned teams collection"
+                        icon={TrendingUp}
+                        colorScheme="emerald"
+                    />
+                    <PerformanceCard
+                        title="Active Riders"
+                        value={tActRiders.toLocaleString()}
+                        subtext={`of ${tTotRiders.toLocaleString()} total`}
+                        icon={Users}
+                        colorScheme="blue"
+                    />
+                    <PerformanceCard
+                        title="Avg Fleet Tenure"
+                        value={`${Math.round(tAvgTenure)} Days`}
+                        subtext="average active age"
+                        icon={History}
+                        colorScheme="indigo"
+                    />
+                    <PerformanceCard
+                        title="Market Risk"
+                        value={`₹${tNegAmt.toLocaleString()}`}
+                        subtext={`${tNegCount} negative riders`}
+                        icon={Wallet}
+                        colorScheme="rose"
+                    />
+                    <PerformanceCard
+                        title="Avg AI Score"
+                        value={`${avgAIScore}`}
+                        subtext={`Grade ${avgGrade}`}
+                        icon={Activity}
+                        colorScheme="purple"
+                    />
+                    <PerformanceCard
+                        title="Avg / Rider"
+                        value={`₹${tTotPerRiderAvg.toLocaleString()}`}
+                        subtext="average daily yield"
+                        icon={ArrowUpRight}
+                        colorScheme="purple"
+                    />
                 </div>
+
+                {/* ── AI Performance Insights ── */}
+                <AIPerformanceInsights
+                    roleName="Reporting Managers Operations"
+                    totalCollection={performanceData.reduce((a, b) => a + b.rangeCollection, 0)}
+                    activeRidersCount={tActRiders}
+                    totalRidersCount={tTotRiders}
+                    criticalDebtCount={tNegCount}
+                    avgScore={avgAIScore}
+                />
 
                 <div className="bg-card border border-border/40 rounded-2xl shadow-xl">
                     <div className="p-6 border-b border-border/40 bg-muted/20">

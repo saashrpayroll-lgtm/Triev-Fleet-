@@ -12,8 +12,9 @@ import {
 import { toast } from 'sonner';
 import { format, subDays, startOfMonth, eachDayOfInterval } from 'date-fns';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import PerformanceCard from '@/components/dashboard/PerformanceCard';
+import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
+import { exportBrandedPerformancePDF } from '@/utils/exportUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface DailyRow {
@@ -362,45 +363,32 @@ const TLPersonalPerformance: React.FC = () => {
     };
 
     const exportPDF = () => {
-        const doc = new jsPDF('l', 'mm', 'a4');
-        doc.setFontSize(18);
-        doc.setTextColor(99, 70, 255);
-        doc.text('Personal Performance Report', 14, 18);
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(`TL: ${userData?.fullName || 'Team Leader'} | Period: ${format(rangeStart, 'PP')} – ${format(rangeEnd, 'PP')}`, 14, 26);
+        const kpis = [
+            { label: 'Active Fleet', value: `${summary.activeFleet}/${summary.totalRiders}` },
+            { label: 'Period Collection', value: `₹${summary.periodCollections.toLocaleString('en-IN')}` },
+            { label: 'Avg / Active Day', value: `₹${Math.round(summary.periodCollections / (summary.activeDays || 1)).toLocaleString('en-IN')}` },
+            { label: 'Net Growth', value: `${summary.netGrowth > 0 ? '+' : ''}${summary.netGrowth}` },
+            { label: 'Conversion Rate', value: `${summary.conversionRate}%` }
+        ];
 
-        // Summary row
-        doc.setFontSize(8);
-        doc.setTextColor(60);
-        doc.text(
-            `Active Fleet: ${summary.activeFleet}/${summary.totalRiders}  |  Total Collections: ₹${summary.periodCollections.toLocaleString('en-IN')}  |  Net Growth: ${summary.netGrowth}  |  Avg Wallet: ₹${summary.avgWallet.toLocaleString('en-IN')}`,
-            14, 33
-        );
+        const cols = ['Date', 'Collections (₹)', 'Active Fleet', 'Avg/Rider (₹)', 'Allotments', 'Submissions', 'Net Growth', 'Leads', 'Conversions'];
+        const rows = filteredLedger.map(r => [
+            r.date,
+            `₹${r.collections.toLocaleString('en-IN')}`,
+            r.activeRiders,
+            `₹${r.avgCollection.toLocaleString('en-IN')}`,
+            r.allotments,
+            r.submissions,
+            r.netGrowth,
+            r.leads,
+            r.conversions,
+        ]);
 
-        (doc as any).autoTable({
-            head: [['Date', 'Collections (₹)', 'Active', 'Avg/Rider (₹)', 'Allotments', 'Submissions', 'Net Growth', 'Leads', 'Conv']],
-            body: filteredLedger.map(r => [
-                r.date,
-                `₹${r.collections.toLocaleString('en-IN')}`,
-                r.activeRiders,
-                `₹${r.avgCollection.toLocaleString('en-IN')}`,
-                r.allotments,
-                r.submissions,
-                r.netGrowth,
-                r.leads,
-                r.conversions,
-            ]),
-            startY: 38,
-            theme: 'striped',
-            headStyles: { fillColor: [99, 70, 255], fontSize: 8 },
-            styles: { fontSize: 7.5 },
-            foot: [['TOTAL', `₹${summary.periodCollections.toLocaleString('en-IN')}`, '', `₹${Math.round(summary.periodCollections / (summary.activeDays || 1)).toLocaleString('en-IN')}`, summary.totalAllotments, summary.totalSubmissions, summary.netGrowth, summary.totalLeads, '']],
-            footStyles: { fillColor: [240, 240, 255], textColor: [60, 60, 60], fontStyle: 'bold', fontSize: 7.5 },
-        });
+        const fileName = `Performance_${userData?.fullName?.replace(/\s+/g, '_') || 'TL'}_${format(new Date(), 'yyyy-MM-dd')}`;
+        const titleText = `Personal Performance (${format(rangeStart, 'dd MMM yyyy')} - ${format(rangeEnd, 'dd MMM yyyy')})`;
 
-        doc.save(`performance_${userData?.fullName?.replace(' ', '_') || 'tl'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast.success('PDF exported');
+        exportBrandedPerformancePDF(titleText, kpis, cols, rows, fileName);
+        toast.success('Branded PDF exported successfully');
         setIsExportOpen(false);
     };
 
@@ -420,62 +408,7 @@ const TLPersonalPerformance: React.FC = () => {
         </div>
     );
 
-    const kpiCards = [
-        {
-            label: 'Active Fleet',
-            value: `${summary.activeFleet}`,
-            sub: `/ ${summary.totalRiders} total`,
-            icon: Users,
-            color: 'text-blue-500',
-            bg: 'from-blue-500/15 to-blue-500/5',
-            border: 'border-blue-500/20',
-        },
-        {
-            label: 'Period Collections',
-            value: `₹${summary.periodCollections.toLocaleString('en-IN')}`,
-            sub: `${summary.activeDays} active days`,
-            icon: IndianRupee,
-            color: 'text-emerald-500',
-            bg: 'from-emerald-500/15 to-emerald-500/5',
-            border: 'border-emerald-500/20',
-        },
-        {
-            label: 'Avg / Active Day',
-            value: `₹${Math.round(summary.periodCollections / (summary.activeDays || 1)).toLocaleString('en-IN')}`,
-            sub: summary.bestDay !== '-' ? `Best: ${format(new Date(summary.bestDay), 'dd MMM')}` : 'No collection yet',
-            icon: BarChart3,
-            color: 'text-violet-500',
-            bg: 'from-violet-500/15 to-violet-500/5',
-            border: 'border-violet-500/20',
-        },
-        {
-            label: 'Net Growth',
-            value: (summary.netGrowth > 0 ? '+' : '') + summary.netGrowth,
-            sub: `${summary.totalAllotments} in · ${summary.totalSubmissions} out`,
-            icon: summary.netGrowth >= 0 ? TrendingUp : TrendingDown,
-            color: summary.netGrowth >= 0 ? 'text-emerald-500' : 'text-rose-500',
-            bg: summary.netGrowth >= 0 ? 'from-emerald-500/15 to-emerald-500/5' : 'from-rose-500/15 to-rose-500/5',
-            border: summary.netGrowth >= 0 ? 'border-emerald-500/20' : 'border-rose-500/20',
-        },
-        {
-            label: 'Avg Wallet',
-            value: `₹${summary.avgWallet.toLocaleString('en-IN')}`,
-            sub: 'Active riders only',
-            icon: Wallet,
-            color: 'text-amber-500',
-            bg: 'from-amber-500/15 to-amber-500/5',
-            border: 'border-amber-500/20',
-        },
-        {
-            label: 'Lead Conversion',
-            value: `${summary.conversionRate}%`,
-            sub: `${summary.totalLeads} leads total`,
-            icon: Target,
-            color: 'text-pink-500',
-            bg: 'from-pink-500/15 to-pink-500/5',
-            border: 'border-pink-500/20',
-        },
-    ];
+
 
     return (
         <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto min-h-screen pb-24 bg-background">
@@ -550,19 +483,66 @@ const TLPersonalPerformance: React.FC = () => {
                 </div>
             </div>
 
-            {/* ── KPI Cards ── */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {kpiCards.map((card, i) => (
-                    <div key={i} className={`p-4 rounded-2xl border bg-gradient-to-br ${card.bg} ${card.border} flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow`}>
-                        <div className="flex items-center justify-between">
-                            <p className="text-[8px] font-black uppercase text-muted-foreground/60 tracking-widest leading-tight">{card.label}</p>
-                            <card.icon className={`h-3.5 w-3.5 ${card.color} shrink-0`} />
-                        </div>
-                        <p className={`text-lg font-black leading-tight ${card.color}`}>{card.value}</p>
-                        <p className="text-[9px] text-muted-foreground font-medium">{card.sub}</p>
-                    </div>
-                ))}
+            {/* ── KPI Cards V2 ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <PerformanceCard
+                    title="Active Fleet"
+                    value={`${summary.activeFleet}`}
+                    subtext={`/ ${summary.totalRiders} total fleet`}
+                    icon={Users}
+                    colorScheme="blue"
+                    badgeText={`${summary.totalRiders > 0 ? Math.round((summary.activeFleet / summary.totalRiders) * 100) : 0}% Active`}
+                    badgeVariant="blue"
+                />
+                <PerformanceCard
+                    title="Period Collections"
+                    value={`₹${summary.periodCollections.toLocaleString('en-IN')}`}
+                    subtext={`${summary.activeDays} active collection days`}
+                    icon={IndianRupee}
+                    colorScheme="emerald"
+                    badgeText="Revenue"
+                    badgeVariant="emerald"
+                />
+                <PerformanceCard
+                    title="Avg / Active Day"
+                    value={`₹${Math.round(summary.periodCollections / (summary.activeDays || 1)).toLocaleString('en-IN')}`}
+                    subtext={summary.bestDay !== '-' ? `Best: ${format(new Date(summary.bestDay), 'dd MMM')}` : 'No collection yet'}
+                    icon={BarChart3}
+                    colorScheme="purple"
+                />
+                <PerformanceCard
+                    title="Net Fleet Growth"
+                    value={`${summary.netGrowth > 0 ? '+' : ''}${summary.netGrowth}`}
+                    subtext={`${summary.totalAllotments} in · ${summary.totalSubmissions} out`}
+                    icon={summary.netGrowth >= 0 ? TrendingUp : TrendingDown}
+                    colorScheme={summary.netGrowth >= 0 ? 'emerald' : 'rose'}
+                    trend={{ value: summary.netGrowth, label: 'net' }}
+                />
+                <PerformanceCard
+                    title="Avg Wallet Balance"
+                    value={`₹${summary.avgWallet.toLocaleString('en-IN')}`}
+                    subtext="Active riders balance"
+                    icon={Wallet}
+                    colorScheme="amber"
+                />
+                <PerformanceCard
+                    title="Lead Conversion"
+                    value={`${summary.conversionRate}%`}
+                    subtext={`${summary.totalLeads} total leads`}
+                    icon={Target}
+                    colorScheme="orange"
+                    progress={{ current: summary.conversionRate, target: 100 }}
+                />
             </div>
+
+            {/* ── AI Performance Insights Widget ── */}
+            <AIPerformanceInsights
+                roleName={userData?.fullName || 'My Team'}
+                totalCollection={summary.periodCollections}
+                activeRidersCount={summary.activeFleet}
+                totalRidersCount={summary.totalRiders}
+                leadConversionRate={summary.conversionRate}
+            />
 
             {/* ── Daily Ledger Table ── */}
             <div className="bg-card border border-border/50 rounded-3xl overflow-hidden shadow-xl">

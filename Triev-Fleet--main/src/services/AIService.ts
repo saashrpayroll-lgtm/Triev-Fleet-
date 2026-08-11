@@ -135,41 +135,44 @@ class AIOrchestrator {
         }
     }
 
-    // --- Groq Driver ---
+    // --- Groq Driver (Sub-second Speed Engine) ---
     private static async callGroq(prompt: string, system: string) {
         const key = AIConfigService.getGroqKey();
         if (!key) return { success: false, content: null };
 
-        // Ensure system prompt is not empty for Groq
         const safeSystem = system || "You are a helpful assistant.";
+        const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"];
 
-        try {
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { role: "system", content: safeSystem },
-                        { role: "user", content: prompt }
-                    ]
-                })
-            });
+        for (const model of models) {
+            try {
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: "system", content: safeSystem },
+                            { role: "user", content: prompt }
+                        ],
+                        temperature: 0.3
+                    })
+                });
 
-            if (!res.ok) {
-                console.error(`[Groq Error] ${res.status}`);
-                return { success: false, content: null };
+                if (res.ok) {
+                    const data = await res.json();
+                    const content = data.choices?.[0]?.message?.content || null;
+                    if (content) return { success: true, content };
+                } else {
+                    console.warn(`[Groq ${model} Warning] Status ${res.status}, trying fallback model...`);
+                }
+            } catch (e) {
+                console.error(`[Groq ${model} Exception]`, e);
             }
-
-            const data = await res.json();
-            return { success: true, content: data.choices?.[0]?.message?.content || null };
-        } catch (e) {
-            console.error("[Groq Exception]", e);
-            return { success: false, content: null };
         }
+        return { success: false, content: null };
     }
 
-    // --- Gemini Driver ---
+    // --- Gemini Driver (Deep Fleet Analytics Engine) ---
     private static async callGemini(prompt: string, system: string) {
         const key = AIConfigService.getGeminiKey() || FALLBACK_GEMINI_KEY;
         if (!key) return { success: false, content: "Config Error: No Gemini Key" };
@@ -180,28 +183,28 @@ class AIOrchestrator {
             }]
         };
 
-        try {
-            // Attempt: Gemini 2.0 Flash (v1 Stable)
-            // Diagnostics confirmed 'gemini-2.0-flash' is available on v1.
-            // Previous 'gemini-pro' and 'gemini-1.5-flash' were NOT in the available models list for this key.
-            const model = "gemini-2.0-flash";
-            let res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+        const models = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"];
 
-            if (!res.ok) {
-                console.warn(`[Gemini ${model} Error] ${res.status}`);
-                return { success: false, content: null };
+        for (const model of models) {
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+                    if (content) return { success: true, content };
+                } else {
+                    console.warn(`[Gemini ${model} Warning] Status ${res.status}, trying fallback model...`);
+                }
+            } catch (e) {
+                console.error(`[Gemini ${model} Exception]`, e);
             }
-
-            const data = await res.json();
-            return { success: true, content: data.candidates?.[0]?.content?.parts?.[0]?.text || null };
-        } catch (e) {
-            console.error("[Gemini Exception]", e);
-            return { success: false, content: null };
         }
+        return { success: false, content: null };
     }
 
     // --- OpenAI Driver ---
@@ -600,5 +603,89 @@ Return ONLY the final message text ready to send.`;
 
         const text = await AIOrchestrator.execute('speed', prompt, system); // Groq for chat
         return text || "I am currently offline.";
+    },
+
+    // --- Autonomous Virtual Team Leader Operations Plan ---
+    generateDailyOperationsPlan: async (data: { riders: Rider[], leads?: Lead[], requests?: any[] }, role: string): Promise<{
+        summary: string;
+        debtRecoveryActions: { riderName: string; walletAmount: number; priority: 'high' | 'critical' | 'medium'; action: string }[];
+        hardRecoveryEscalations: { riderName: string; debtAmount: number; reason: string }[];
+        leadActions: { leadName: string; phone?: string; recommendation: string }[];
+    }> => {
+        const activeRiders = data.riders.filter(r => r.status === 'active');
+        const negativeRiders = activeRiders.filter(r => r.walletAmount < 0).sort((a, b) => a.walletAmount - b.walletAmount);
+        const criticalDebtors = negativeRiders.filter(r => r.walletAmount <= -1500);
+
+        const prompt = `Generate a precise daily operations action plan for a ${role}.
+Stats: Active Riders: ${activeRiders.length}, Total Negative Debtors: ${negativeRiders.length}, Heavy Debtors (<-1500): ${criticalDebtors.length}, Leads Count: ${data.leads?.length || 0}.
+Top Debtors: ${JSON.stringify(negativeRiders.slice(0, 5).map(r => ({ name: r.riderName, wallet: r.walletAmount })))}.
+
+Instructions:
+Output strictly JSON matching this structure:
+{
+  "summary": "2-sentence overall daily directive",
+  "debtRecoveryActions": [ { "riderName": "...", "walletAmount": -1000, "priority": "high", "action": "..." } ],
+  "hardRecoveryEscalations": [ { "riderName": "...", "debtAmount": 2000, "reason": "..." } ],
+  "leadActions": [ { "leadName": "...", "phone": "...", "recommendation": "..." } ]
+}`;
+
+        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Chief Fleet Operations Officer. Output strictly JSON.");
+        try {
+            const parsed = JSON.parse(text?.match(/\{[\s\S]*\}/)?.[0] || 'null');
+            if (parsed && parsed.summary) return parsed;
+        } catch (e) {
+            console.error("AI operations plan parse error", e);
+        }
+
+        // Reliable Fallback
+        return {
+            summary: `Focus today on ${negativeRiders.length} unpaid debt accounts and ${criticalDebtors.length} critical defaulters needing immediate escalation.`,
+            debtRecoveryActions: negativeRiders.slice(0, 4).map(r => ({
+                riderName: r.riderName,
+                walletAmount: r.walletAmount,
+                priority: r.walletAmount <= -1500 ? 'critical' : 'high',
+                action: r.walletAmount <= -1500 ? 'Assign Hard Recovery Team & call immediately' : 'Send WhatsApp payment reminder & follow up'
+            })),
+            hardRecoveryEscalations: criticalDebtors.map(r => ({
+                riderName: r.riderName,
+                debtAmount: Math.abs(r.walletAmount),
+                reason: 'Wallet balance exceeds -₹1,500 threshold'
+            })),
+            leadActions: (data.leads || []).slice(0, 3).map(l => ({
+                leadName: l.name,
+                phone: l.phone,
+                recommendation: 'Contact within 24h to complete EV leasing onboarding'
+            }))
+        };
+    },
+
+    // --- Multilingual Smart Calling Script Generator ---
+    generateSmartCallScript: async (rider: { riderName: string; walletAmount: number; clientName?: string }): Promise<{
+        hindiScript: string;
+        englishScript: string;
+        whatsappHindi: string;
+        whatsappEnglish: string;
+    }> => {
+        const debtAmt = Math.abs(rider.walletAmount);
+        const prompt = `Generate phone call scripts and WhatsApp messages in BOTH Hindi (Devanagari) and English for a fleet rider owing money.
+Rider Name: ${rider.riderName}
+Wallet Balance: -₹${debtAmt}
+
+Output strictly JSON with keys: "hindiScript", "englishScript", "whatsappHindi", "whatsappEnglish".`;
+
+        const text = await AIOrchestrator.execute('speed', prompt, "You are an Expert Customer Communication Specialist. Output strictly JSON.");
+        try {
+            const parsed = JSON.parse(text?.match(/\{[\s\S]*\}/)?.[0] || 'null');
+            if (parsed && parsed.hindiScript) return parsed;
+        } catch (e) {
+            console.error("Smart script parse error", e);
+        }
+
+        return {
+            hindiScript: `नमस्ते ${rider.riderName} जी, मैं ट्रिएव फ़्लीट से बात कर रहा हूँ। आपके वॉलेट में -₹${debtAmt} का बकाया है। क्या आप आज यूपीआई द्वारा इसका भुगतान कर सकते हैं?`,
+            englishScript: `Hello ${rider.riderName}, calling from Triev Fleet. Your wallet has a pending balance of -₹${debtAmt}. Can you clear this today via UPI?`,
+            whatsappHindi: `नमस्ते *${rider.riderName}*, आपके वॉलेट में *-₹${debtAmt}* का बकाया है। कृपया सेवा जारी रखने के लिए आज ही भुगतान करें। धन्यवाद!`,
+            whatsappEnglish: `Hello *${rider.riderName}*, your wallet balance is *-₹${debtAmt}*. Please make the payment today to avoid service interruption. Thank you!`
+        };
     }
 };

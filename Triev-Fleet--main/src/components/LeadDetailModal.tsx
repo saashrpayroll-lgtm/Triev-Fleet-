@@ -53,20 +53,22 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ lead, onClose, onEdit
     const handleGenerateSummary = async () => {
         setIsGeneratingAi(true);
         try {
-            // Simulate AI Summary or use real service
-            // Using AIService if available, otherwise mock for now to ensure UI works
-            // Assuming getLeadRecommendations exists or we add a mock fallback
-            let summary = "AI Insights not configured.";
+            const score = await AIService.scoreLead(lead);
+            const recommendation = await AIService.getLeadRecommendations(lead);
+            const pitch = await AIService.generateSmartCallScript({ riderName: lead.riderName || 'Lead', walletAmount: 0 });
 
-            if (AIService && typeof AIService.getLeadRecommendations === 'function') {
-                summary = await AIService.getLeadRecommendations(lead);
-            } else {
-                // Mock logic if service missing
-                const score = lead.score || 50;
-                summary = `Lead Score: ${score} - ${score > 70 ? "High conversion probability." : "Medium conversion probability."}\n\nRecommended Action: ${score > 70 ? "Call immediately." : "Send follow-up message."}`;
-            }
+            const formattedSummary = `📊 AI Conversion Score: ${score}/100 (${score >= 70 ? '🔥 High Intent' : score >= 40 ? '⚡ Medium Potential' : '❄️ Low Priority'})
 
-            setAiSummary(summary || "No insights available.");
+💡 AI Recommended Action:
+${recommendation}
+
+💬 AI WhatsApp Pitch (Hindi):
+${pitch.whatsappHindi}
+
+🇬🇧 AI WhatsApp Pitch (English):
+${pitch.whatsappEnglish}`;
+
+            setAiSummary(formattedSummary);
         } catch (e) {
             console.error(e);
             setAiSummary("Failed to generate summary.");

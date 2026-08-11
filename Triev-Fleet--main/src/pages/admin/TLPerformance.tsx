@@ -13,7 +13,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
-import { useDebounce } from '@/hooks/useDebounce';
+import PerformanceCard from '@/components/dashboard/PerformanceCard';
+import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
+import { exportBrandedPerformancePDF } from '@/utils/exportUtils';
 import { User, Rider, Lead, UserStatus } from '@/types';
 
 interface TLPerformanceProps {
@@ -466,22 +468,30 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     };
 
     const exportToPDF = () => {
-        const doc = new jsPDF('landscape');
-        doc.setFontSize(14); doc.text('Team Performance Engine', 14, 15);
-        autoTable(doc, {
-            head: [['Team Leader', 'RM', 'Active/Total', 'Period Coll.', 'Per Rider', 'POS/NEG', 'Growth', 'A/S', 'Score']],
-            body: filteredData.map(t => [
-                t.name, t.reportingManager, `${t.activeRiders}/${t.totalRiders}`,
-                fmt(t.periodCollection), fmt(t.periodPerRider),
-                `${t.positiveCount}/${t.negativeCount}`,
-                t.netGrowth >= 0 ? `+${t.netGrowth}` : String(t.netGrowth),
-                `+${t.allotments} / -${t.submissions}`,
-                `${t.score} (${t.aiGrade})`
-            ]),
-            startY: 22, styles: { fontSize: 7 }, headStyles: { fillColor: [79, 70, 229] }
-        });
-        doc.save(`tl_performance_${new Date().toISOString().split('T')[0]}.pdf`);
-        toast.success('PDF exported!');
+        const kpis = [
+            { label: 'Active TLs', value: `${activeTLCount}/${filteredData.length}` },
+            { label: 'Period Collection', value: fmtShort(totals.periodCollection) },
+            { label: 'Active Fleet', value: `${totals.activeRiders}/${totals.totalRiders}` },
+            { label: 'Wallet Risk', value: fmtShort(Math.abs(totals.negativeAmount)) },
+            { label: 'Avg AI Score', value: `${avgScore} (${avgGrade})` }
+        ];
+
+        const cols = ['Team Leader', 'RM', 'Active/Total', 'Period Coll.', 'Per Rider', 'POS/NEG Wallets', 'Net Growth', 'A / S', 'AI Score'];
+        const rows = filteredData.map(t => [
+            t.name,
+            t.reportingManager,
+            `${t.activeRiders}/${t.totalRiders}`,
+            fmt(t.periodCollection),
+            fmt(t.periodPerRider),
+            `${t.positiveCount} / ${t.negativeCount}`,
+            t.netGrowth >= 0 ? `+${t.netGrowth}` : String(t.netGrowth),
+            `+${t.allotments} / -${t.submissions}`,
+            `${t.score} (${t.aiGrade})`
+        ]);
+
+        const fileName = `TL_Performance_Report_${new Date().toISOString().split('T')[0]}`;
+        exportBrandedPerformancePDF("Team Leaders Operations Performance", kpis, cols, rows, fileName);
+        toast.success('Branded PDF exported successfully!');
     };
 
     const activeTLCount = filteredData.filter(t => t.status === 'active').length;
@@ -548,29 +558,64 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                     </div>
                 </div>
 
-                {/* ── STAT CARDS ROW ── */}
-                <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
-                    {[
-                        { label: `${dateLabel[dateFilter] || 'Selected'} Coll.`, value: fmtShort(totals.periodCollection), sub: `for this period`, gradient: 'from-emerald-500/20 to-emerald-600/5', border: 'border-emerald-400/20', text: 'text-emerald-300', Icon: TrendingUp },
-                        { label: 'Active Riders', value: totals.activeRiders.toString(), sub: `of ${totals.totalRiders} total`, gradient: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-400/20', text: 'text-blue-300', Icon: Users },
-                        { label: 'Wallet Risk', value: fmtShort(Math.abs(totals.negativeAmount)), sub: `${totals.negativeCount} riders`, gradient: 'from-rose-500/20 to-rose-600/5', border: 'border-rose-400/20', text: 'text-rose-300', Icon: AlertTriangle },
-                        { label: 'Avg AI Score', value: `${avgScore}`, sub: `Grade ${avgGrade}`, gradient: 'from-violet-500/20 to-violet-600/5', border: 'border-violet-400/20', text: 'text-violet-300', Icon: Star },
-                        { label: 'Leads Found', value: `+${totals.leadsToday}`, sub: `${totals.churnLeads} churned`, gradient: 'from-indigo-500/20 to-indigo-600/5', border: 'border-indigo-400/20', text: 'text-indigo-300', Icon: Target },
-                        { label: 'Net Growth', value: totals.netGrowth >= 0 ? `+${totals.netGrowth}` : String(totals.netGrowth), sub: `+${totals.allotments}A / -${totals.submissions}S`, gradient: totals.netGrowth >= 0 ? 'from-teal-500/20 to-teal-600/5' : 'from-rose-500/20 to-rose-600/5', border: totals.netGrowth >= 0 ? 'border-teal-400/20' : 'border-rose-400/20', text: totals.netGrowth >= 0 ? 'text-teal-300' : 'text-rose-300', Icon: ArrowUpRight },
-                    ].map(({ label, value, sub, gradient, border, text, Icon }, i) => (
-                        <div key={i} className={`group bg-gradient-to-br ${gradient} backdrop-blur-xl border ${border} rounded-2xl p-4 md:p-5 hover:scale-[1.04] hover:shadow-lg transition-all duration-300 cursor-default flex flex-col justify-between`}>
-                            <div className="flex items-center gap-2 mb-3">
-                                <Icon size={16} className={`${text} opacity-70 group-hover:opacity-100 transition-opacity`} />
-                                <span className="text-[11px] lg:text-xs font-black uppercase tracking-wider text-white/70">{label}</span>
-                            </div>
-                            <div className={`text-2xl md:text-3xl font-black ${text} leading-none tracking-tight`}>{value}</div>
-                            <div className="text-[11px] text-white/40 mt-1.5 font-semibold">{sub}</div>
-                        </div>
-                    ))}
+                {/* ── STAT CARDS ROW V2 ── */}
+                <div className="relative grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
+                    <PerformanceCard
+                        title={`${dateLabel[dateFilter] || 'Selected'} Coll.`}
+                        value={fmtShort(totals.periodCollection)}
+                        subtext="for this period"
+                        icon={TrendingUp}
+                        colorScheme="emerald"
+                    />
+                    <PerformanceCard
+                        title="Active Riders"
+                        value={totals.activeRiders.toString()}
+                        subtext={`of ${totals.totalRiders} total`}
+                        icon={Users}
+                        colorScheme="blue"
+                    />
+                    <PerformanceCard
+                        title="Wallet Risk"
+                        value={fmtShort(Math.abs(totals.negativeAmount))}
+                        subtext={`${totals.negativeCount} riders`}
+                        icon={AlertTriangle}
+                        colorScheme="rose"
+                    />
+                    <PerformanceCard
+                        title="Avg AI Score"
+                        value={`${avgScore}`}
+                        subtext={`Grade ${avgGrade}`}
+                        icon={Star}
+                        colorScheme="purple"
+                    />
+                    <PerformanceCard
+                        title="Leads Found"
+                        value={`+${totals.leadsToday}`}
+                        subtext={`${totals.churnLeads} churned`}
+                        icon={Target}
+                        colorScheme="indigo"
+                    />
+                    <PerformanceCard
+                        title="Net Growth"
+                        value={totals.netGrowth >= 0 ? `+${totals.netGrowth}` : String(totals.netGrowth)}
+                        subtext={`+${totals.allotments}A / -${totals.submissions}S`}
+                        icon={ArrowUpRight}
+                        colorScheme={totals.netGrowth >= 0 ? 'emerald' : 'rose'}
+                    />
                 </div>
             </div>
 
             <div className="px-4 pt-6 space-y-4">
+                {/* ── AI Performance Insights Widget ── */}
+                <AIPerformanceInsights
+                    roleName="Team Leaders Fleet"
+                    totalCollection={totals.periodCollection}
+                    activeRidersCount={totals.activeRiders}
+                    totalRidersCount={totals.totalRiders}
+                    criticalDebtCount={totals.negativeCount}
+                    avgScore={avgScore}
+                    topPerformerName={topPerformer?.name}
+                />
                 {/* ── ANALYSIS CORE TABLE CARD ─────────────────────────────────────── */}
                 <div className="bg-card border border-border/40 rounded-2xl shadow-xl overflow-hidden">
                     {/* Table Controls */}

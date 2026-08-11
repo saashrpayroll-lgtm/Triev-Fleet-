@@ -23,6 +23,7 @@ import DefaulterAlertCard from '@/components/dashboard/DefaulterAlertCard';
 import BadgeGallery from '@/components/BadgeGallery';
 import ActivityStreak from '@/components/dashboard/ActivityStreak';
 import AnnouncementsWidget from '@/components/dashboard/AnnouncementsWidget';
+import AIVirtualOpsCopilot from '@/components/dashboard/AIVirtualOpsCopilot';
 import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
 import CollectionHeatmap from '@/components/dashboard/CollectionHeatmap';
 import NotificationCenter from '@/components/dashboard/NotificationCenter';
@@ -698,6 +699,12 @@ const Dashboard: React.FC = () => {
             {/* TAB 1: DAILY TASKS & RECOVERY */}
             {activeTab === 'overview' && (
                 <div className="space-y-5 animate-in fade-in duration-300">
+                    <AIVirtualOpsCopilot
+                        roleName={safeRender(userData?.fullName, 'Team Leader')}
+                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
+                        leads={leaderboardData.leads.filter(l => l.createdBy === userData.id)}
+                    />
+
                     <QuickInsightStrip
                         insights={[
                             { label: 'Fleet', value: stats.activeRiders, suffix: ' active' },

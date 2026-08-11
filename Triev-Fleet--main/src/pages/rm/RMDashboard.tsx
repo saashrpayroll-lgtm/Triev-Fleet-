@@ -12,6 +12,7 @@ import { supabase } from '@/config/supabase';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
 import LiveAlertCenter from '@/components/LiveAlertCenter';
+import AIVirtualOpsCopilot from '@/components/dashboard/AIVirtualOpsCopilot';
 
 const RMDashboard: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -473,6 +474,12 @@ const RMDashboard: React.FC = () => {
             {/* TAB 1: PORTFOLIO OVERVIEW */}
             {activeTab === 'overview' && (
                 <div className="space-y-5 animate-in fade-in duration-300">
+                    <AIVirtualOpsCopilot
+                        roleName="Reporting Manager"
+                        riders={riders}
+                        leads={leads}
+                    />
+
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3">
                         <div className="flex items-center gap-2.5 px-1 mt-3">
                             <div className="relative">
