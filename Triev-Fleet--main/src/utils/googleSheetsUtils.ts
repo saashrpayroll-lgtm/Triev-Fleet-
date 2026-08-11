@@ -40,57 +40,54 @@ export const fetchGoogleSheetData = async (config: GoogleSheetConfig): Promise<a
         }
     }
 
-    // Strategy 2: CSV Export (Fallback for Public Sheets "Anyone with link")
-    // console.log(`Attempting CSV Export fetch for Sheet: ${config.sheetId}`);
-
-    // We'll use a CORS proxy if needed, or try direct if generic. 
-    // Direct fetch to google docs export often has CORS issues in browser unless it's truly public and simple.
-    // However, purely public sheets often allow this.
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv`;
-
-    try {
-        const response = await fetch(csvUrl);
-        const contentType = response.headers.get('content-type') || '';
-
-        if (!response.ok) {
-            if (response.status === 403 || response.status === 401) { // auth error
-                throw new Error("Access Denied: Sheet is private. Share it with 'Anyone with the link' or provide a valid API Key.");
-            }
-            throw new Error(`CSV Fetch Failed: ${response.statusText}`);
-        }
-
-        // Prevent HTML Login Page interpretation
-        if (contentType.includes('text/html')) {
-            throw new Error("Access Denied: Google returned an HTML Login Page instead of CSV. Ensure the Sheet is truly Public ('Anyone with the link').");
-        }
-
-        const csvText = await response.text();
-
-        // Final sanity check on content
-        if (csvText.trim().startsWith('<!DOCTYPE') || csvText.trim().startsWith('<html')) {
-            throw new Error("Invalid CSV: Content appears to be HTML. Check Sheet permissions.");
-        }
-
-        // console.log("[CSV Preview] First 100 chars:", csvText.substring(0, 100));
-
-        return parseCSV(csvText); // We need a helper to parse CSV to 2D array
-
-    } catch (error: any) {
-        console.error("All Fetch Strategies Failed:", error);
-        throw new Error(error.message || "Failed to fetch Sheet data. Ensure it is Public.");
+    // Strategy 2: CSV / GViz Export (Fallback for Public Sheets "Anyone with link")
+    let sheetName = '';
+    if (config.range && config.range.includes('!')) {
+        sheetName = config.range.split('!')[0].replace(/^'|'$/g, '').trim();
     }
+
+    const csvUrls: string[] = [];
+    if (sheetName) {
+        csvUrls.push(`https://docs.google.com/spreadsheets/d/${config.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`);
+        csvUrls.push(`https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv&sheet=${encodeURIComponent(sheetName)}`);
+    }
+    csvUrls.push(`https://docs.google.com/spreadsheets/d/${config.sheetId}/export?format=csv`);
+
+    let lastError: any = null;
+    for (const csvUrl of csvUrls) {
+        try {
+            const response = await fetch(csvUrl);
+            const contentType = response.headers.get('content-type') || '';
+
+            if (response.ok && !contentType.includes('text/html')) {
+                const csvText = await response.text();
+                if (!csvText.trim().startsWith('<!DOCTYPE') && !csvText.trim().startsWith('<html')) {
+                    const parsed = parseCSV(csvText);
+                    if (parsed && parsed.length > 0 && parsed[0].some(cell => Boolean(cell))) {
+                        return parsed;
+                    }
+                }
+            }
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    throw new Error(lastError?.message || "Failed to fetch Sheet data. Ensure Sheet is set to 'Anyone with the link' or check Sheet ID & Range.");
 };
 
 // Simple CSV Parser to match API 'values' format (2D array of strings)
 const parseCSV = (text: string): string[][] => {
+    // Strip UTF-8 BOM if present
+    const cleanText = text.replace(/^\uFEFF/, '');
     const rows: string[][] = [];
     let currentRow: string[] = [];
     let currentCell = '';
     let inQuotes = false;
 
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        const nextChar = text[i + 1];
+    for (let i = 0; i < cleanText.length; i++) {
+        const char = cleanText[i];
+        const nextChar = cleanText[i + 1];
 
         if (char === '"') {
             if (inQuotes && nextChar === '"') {
@@ -100,11 +97,11 @@ const parseCSV = (text: string): string[][] => {
                 inQuotes = !inQuotes;
             }
         } else if (char === ',' && !inQuotes) {
-            currentRow.push(currentCell);
+            currentRow.push(currentCell.replace(/[\uFEFF\u00A0\r\n]/g, ' ').trim());
             currentCell = '';
         } else if ((char === '\r' || char === '\n') && !inQuotes) {
             if (char === '\r' && nextChar === '\n') i++;
-            currentRow.push(currentCell);
+            currentRow.push(currentCell.replace(/[\uFEFF\u00A0\r\n]/g, ' ').trim());
             rows.push(currentRow);
             currentRow = [];
             currentCell = '';
@@ -113,7 +110,7 @@ const parseCSV = (text: string): string[][] => {
         }
     }
     if (currentRow.length > 0 || currentCell) {
-        currentRow.push(currentCell);
+        currentRow.push(currentCell.replace(/[\uFEFF\u00A0\r\n]/g, ' ').trim());
         rows.push(currentRow);
     }
     return rows;
@@ -122,19 +119,16 @@ const parseCSV = (text: string): string[][] => {
 export const parseGoogleSheetData = (rawData: any[]): any[] => {
     if (!rawData || rawData.length < 1) return [];
 
-    const headers = rawData[0];
+    const headers = (rawData[0] || []).map((header: any) => 
+        String(header || '').replace(/[\uFEFF\u00A0\r\n]/g, '').trim()
+    );
     const rows = rawData.slice(1);
-
-    // console.log("[Google Parse] Detetcted Headers:", headers);
-    // console.log("[Google Parse] Total Rows Parsed:", rows.length);
 
     return rows.map(row => {
         const rowData: any = {};
         headers.forEach((header: string, index: number) => {
-            // Trim headers to avoid matching issues
-            const cleanHeader = (header || '').trim();
-            if (cleanHeader) {
-                rowData[cleanHeader] = row[index];
+            if (header) {
+                rowData[header] = row[index] !== undefined && row[index] !== null ? String(row[index]).trim() : '';
             }
         });
         return rowData;
@@ -144,7 +138,9 @@ export const parseGoogleSheetData = (rawData: any[]): any[] => {
 export const fetchGoogleSheetHeaders = async (config: GoogleSheetConfig): Promise<string[]> => {
     const rawData = await fetchGoogleSheetData(config);
     if (!rawData || rawData.length === 0) return [];
-    return (rawData[0] || []).map((h: any) => String(h || '').trim()).filter(Boolean);
+    return (rawData[0] || [])
+        .map((h: any) => String(h || '').replace(/[\uFEFF\u00A0\r\n]/g, '').trim())
+        .filter(Boolean);
 };
 
 export const syncGoogleSheet = async (

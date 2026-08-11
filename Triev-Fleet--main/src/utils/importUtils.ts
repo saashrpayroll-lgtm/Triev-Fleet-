@@ -20,8 +20,8 @@ export const REQUIRED_RIDER_COLUMNS = [
 
 export const CLIENT_NAMES: ClientName[] = ['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'];
 
-// Helper: Normalize keys (remove spaces, lowercase)
-export const normalizeKey = (key: string) => key.trim().toLowerCase().replace(/\s+/g, '');
+export const normalizeKey = (key: string) => 
+    String(key || '').replace(/[\uFEFF\u00A0\r\n]/g, '').trim().toLowerCase().replace(/\s+/g, '');
 
 // Helper: Validate Client Name
 export const isValidClient = (client: string): boolean => {
@@ -202,8 +202,14 @@ export const processRiderImport = async (
                 const keys = primaryKey ? [primaryKey, ...fallbacks] : fallbacks;
                 for (const k of keys) {
                     if (!k) continue;
-                    const v = nr[normalizeKey(k)];
-                    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+                    const normK = normalizeKey(k);
+                    if (nr[normK] !== undefined && nr[normK] !== null && String(nr[normK]).trim() !== '') {
+                        return String(nr[normK]).trim();
+                    }
+                    const matchingKey = Object.keys(nr).find(rk => rk && (rk.includes(normK) || normK.includes(rk)));
+                    if (matchingKey && nr[matchingKey] !== undefined && nr[matchingKey] !== null && String(nr[matchingKey]).trim() !== '') {
+                        return String(nr[matchingKey]).trim();
+                    }
                 }
                 return '';
             };

@@ -63,6 +63,12 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
         }
     }, [currentMapping]);
 
+    useEffect(() => {
+        if (isOpen && sheetId && range && sheetId.length >= 10) {
+            handleFetchHeaders();
+        }
+    }, [isOpen, sheetId, range]);
+
     const handleFetchHeaders = async () => {
         if (!sheetId || !range) {
             toast.error("Please enter Sheet ID and Range in settings first");
@@ -158,6 +164,9 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                                         className="w-full text-xs px-3 py-2 rounded-lg border border-input bg-card text-foreground focus:ring-2 focus:ring-primary outline-none"
                                     >
                                         <option value="">-- Select Sheet Header --</option>
+                                        {mapping[field.key] && !headers.includes(mapping[field.key]) && (
+                                            <option value={mapping[field.key]}>{mapping[field.key]} (Custom)</option>
+                                        )}
                                         {headers.map(h => (
                                             <option key={h} value={h}>{h}</option>
                                         ))}
