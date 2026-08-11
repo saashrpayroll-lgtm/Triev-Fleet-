@@ -254,6 +254,39 @@ export interface Rider {
     photoUrl?: string; // URL for the rider's ID photo
 }
 
+export interface RiderColumnMapping {
+    primaryKey: string;      // e.g. 'Triev ID' | 'Mobile Number' | 'Rider ID'
+    riderName: string;       // e.g. 'Rider Name'
+    mobileNumber: string;    // e.g. 'Mobile Number'
+    chassisNumber: string;   // e.g. 'Chassis Number'
+    clientName: string;      // e.g. 'Client Name'
+    clientId: string;        // e.g. 'Client ID'
+    allotmentDate: string;   // e.g. 'Allotment Date'
+    walletAmount: string;    // e.g. 'Wallet Balance'
+    teamLeader: string;      // e.g. 'Team Leader'
+    reportingManager: string;// e.g. 'Reporting Manager'
+    cityOps: string;         // e.g. 'City Ops'
+    remarks: string;         // e.g. 'Remarks'
+}
+
+export interface LiveSyncStaffFilter {
+    teamLeaderIds: string[];
+    reportingManagerIds: string[];
+    cityOpsIds: string[];
+    syncAllStaff: boolean; // Default false
+}
+
+export interface RiderImportConfig {
+    sheetId: string;
+    range: string;
+    apiKey?: string;
+    enabled: boolean;
+    strictMirror: boolean;
+    syncIntervalMinutes: number; // e.g., 1, 2, 3, 5, 10
+    columnMapping?: RiderColumnMapping;
+    staffFilter?: LiveSyncStaffFilter;
+}
+
 // Activity Log Types
 export type ActionType =
     | 'riderAdded'
@@ -427,6 +460,8 @@ export interface ImportSummary {
     failed: number;
     updated?: number; // Added for tracking updates
     skipped?: number; // Added for duplicate checks
+    inactivated?: number; // Count of riders auto-set to inactive
+    reactivated?: number; // Count of riders restored to active
     errors: ImportError[];
     skippedDetails?: ImportError[]; // Reusing ImportError type since structure is identical
     successfulDetails?: unknown[]; // Array to temporarily hold successful transaction info

@@ -652,8 +652,8 @@ Output strictly JSON matching this structure:
                 reason: 'Wallet balance exceeds -₹1,500 threshold'
             })),
             leadActions: (data.leads || []).slice(0, 3).map(l => ({
-                leadName: l.name,
-                phone: l.phone,
+                leadName: l.riderName,
+                phone: l.mobileNumber,
                 recommendation: 'Contact within 24h to complete EV leasing onboarding'
             }))
         };

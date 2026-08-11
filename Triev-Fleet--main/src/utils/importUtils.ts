@@ -1,5 +1,5 @@
 import { supabase } from '@/config/supabase';
-import { ImportSummary, ClientName } from '@/types';
+import { ImportSummary, ClientName, RiderColumnMapping, LiveSyncStaffFilter } from '@/types';
 import { logActivity } from './activityLog';
 import { LedgerAPI } from '@/api/ledger';
 import { fetchAllRidersPaginated } from './dbUtils';
@@ -94,23 +94,36 @@ export const processRiderImport = async (
     fileData: any[],
     adminId: string,
     adminName: string,
-    strictMirror = false
+    strictMirror = false,
+    columnMapping?: RiderColumnMapping,
+    staffFilter?: LiveSyncStaffFilter
 ): Promise<ImportSummary> => {
-    const summary: ImportSummary = { total: 0, success: 0, failed: 0, errors: [], updated: 0, skipped: 0, skippedDetails: [] };
+    const summary: ImportSummary = { 
+        total: 0, 
+        success: 0, 
+        failed: 0, 
+        errors: [], 
+        updated: 0, 
+        skipped: 0, 
+        inactivated: 0,
+        reactivated: 0,
+        skippedDetails: [] 
+    };
 
-    // ── 1. Pre-fetch Team Leaders ────────────────────────────────────────────
+    // ── 1. Pre-fetch Team Leaders, RMs & City Ops Users ───────────────────────
     const teamLeaderMap = new Map<string, string>();
     const teamLeaderEmailMap = new Map<string, string>();
+    const userByIdMap = new Map<string, any>();
     let users: any[] = [];
     try {
         const { data: fetchedUsers, error } = await supabase
             .from('users')
-            .select('id, fullName:full_name, email, role')
-            .in('role', ['teamLeader', 'admin', 'manager'])
+            .select('id, fullName:full_name, email, role, reporting_manager, city_ops_id')
             .range(0, 4999);
         if (error) throw error;
         users = fetchedUsers || [];
         users.forEach((user: any) => {
+            userByIdMap.set(user.id, user);
             const nameRaw = (user.fullName || '').trim();
             const email = (user.email || '').trim().toLowerCase();
             const uid = user.id;
@@ -128,15 +141,36 @@ export const processRiderImport = async (
         });
     } catch (err) { console.error('Error pre-fetching users:', err); }
 
-    // ── 2. Pre-fetch ALL Riders into memory (normalized keys) ────────────────
-    //    KEY FIX: both Triev ID and Mobile are normalized the same way
-    //    as we will normalize the incoming Excel values.
+    // Staff Filter Helper
+    const isStaffSelected = (tlId: string | null): boolean => {
+        if (!staffFilter || staffFilter.syncAllStaff) return true;
+        const selectedTLs = staffFilter.teamLeaderIds || [];
+        const selectedRMs = staffFilter.reportingManagerIds || [];
+        const selectedCityOps = staffFilter.cityOpsIds || [];
+
+        // If no filters selected at all, allow all
+        if (selectedTLs.length === 0 && selectedRMs.length === 0 && selectedCityOps.length === 0) return true;
+
+        if (!tlId) return false;
+        if (selectedTLs.includes(tlId)) return true;
+
+        const tlUser = userByIdMap.get(tlId);
+        if (tlUser) {
+            if (tlUser.reporting_manager && selectedRMs.includes(tlUser.reporting_manager)) return true;
+            if (tlUser.city_ops_id && selectedCityOps.includes(tlUser.city_ops_id)) return true;
+        }
+        return false;
+    };
+
+    // ── 2. Pre-fetch ALL Riders into memory ──────────────────────────────────
     const riderTrievMap = new Map<string, any>();   // normalizeTrievId(triev_id) → rider
     const riderMobileMap = new Map<string, any>();  // normalizeMobile(mobile)    → rider
+    const allDbRiders: any[] = [];
     try {
-        const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, chassis_number, client_name, allotment_date, team_leader_id, team_leader_name, remarks, status, inactivated_at');
+        const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, chassis_number, client_name, client_id, allotment_date, wallet_amount, team_leader_id, team_leader_name, remarks, status, inactivated_at');
         if (fetchErr) throw fetchErr;
         allRiders?.forEach(r => {
+            allDbRiders.push(r);
             const tid = normalizeTrievId(String(r.triev_id || ''));
             const mob = normalizeMobile(String(r.mobile_number || ''));
             if (tid) riderTrievMap.set(tid, r);
@@ -149,7 +183,10 @@ export const processRiderImport = async (
 
     summary.total = fileData.length;
 
-    // ── 3. PASS 1: Classify rows — NO DB calls inside this loop ─────────────
+    // Set of matched rider IDs present in sheet
+    const matchedSheetRiderIds = new Set<string>();
+
+    // ── 3. PASS 1: Classify rows ─────────────────────────────────────────────
     const pendingInserts: any[] = [];
     const pendingUpdates: { id: string; payload: any; rowNum: number }[] = [];
 
@@ -160,24 +197,29 @@ export const processRiderImport = async (
         try {
             const nr: any = {};
             Object.keys(row).forEach(k => nr[normalizeKey(k)] = row[k]);
-            const getValue = (keys: string[]) => {
+
+            const getValue = (primaryKey?: string, fallbacks: string[] = []) => {
+                const keys = primaryKey ? [primaryKey, ...fallbacks] : fallbacks;
                 for (const k of keys) {
+                    if (!k) continue;
                     const v = nr[normalizeKey(k)];
                     if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
                 }
                 return '';
             };
 
-            currentRiderName = getValue(['Rider Name', 'Name', 'FullName', 'Full Name']);
-            const trievIdRaw = getValue(['Triev ID', 'TrievId', 'ID', 'RiderId']);
-            const trievId = normalizeTrievId(trievIdRaw);   // ← normalize
-            const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Contact']);
-            const mobile = normalizeMobile(mobileRaw);       // ← normalize to last-10
-            const chassis = getValue(['Chassis Number', 'Chassis', 'ChassisNo']);
-            const teamLeaderName = getValue(['Team Leader', 'TeamLeader', 'TL', 'Base']);
-            const clientRaw = getValue(['Client Name', 'Client', 'Brand']);
-            const remarks = getValue(['Remarks', 'Remark', 'Note']);
-            const dateRaw = getValue(['Allotment Date', 'Date', 'Joining Date']);
+            currentRiderName = getValue(columnMapping?.riderName, ['Rider Name', 'Name', 'FullName', 'Full Name']);
+            const trievIdRaw = getValue(columnMapping?.primaryKey, ['Triev ID', 'TrievId', 'ID', 'RiderId']);
+            const trievId = normalizeTrievId(trievIdRaw);
+            const mobileRaw = getValue(columnMapping?.mobileNumber, ['Mobile Number', 'Mobile', 'Phone', 'Contact']);
+            const mobile = normalizeMobile(mobileRaw);
+            const chassis = getValue(columnMapping?.chassisNumber, ['Chassis Number', 'Chassis', 'ChassisNo']);
+            const teamLeaderName = getValue(columnMapping?.teamLeader, ['Team Leader', 'TeamLeader', 'TL', 'Base']);
+            const clientRaw = getValue(columnMapping?.clientName, ['Client Name', 'Client', 'Brand']);
+            const clientId = getValue(columnMapping?.clientId, ['Client ID', 'ClientId']);
+            const remarks = getValue(columnMapping?.remarks, ['Remarks', 'Remark', 'Note']);
+            const dateRaw = getValue(columnMapping?.allotmentDate, ['Allotment Date', 'Date', 'Joining Date']);
+            const walletValRaw = getValue(columnMapping?.walletAmount, ['Wallet Amount', 'Wallet Balance', 'Balance', 'Wallet']);
 
             if (!trievId && !mobile) throw new Error('Missing Unique Identifier (Triev ID or Mobile required)');
             if (!currentRiderName) throw new Error('Missing Rider Name');
@@ -200,6 +242,18 @@ export const processRiderImport = async (
                 if (teamLeaderId) finalTLName = users.find(u => u.id === teamLeaderId)?.fullName || teamLeaderName;
             }
 
+            // Staff Filter Check: Skip if TL/RM/CityOps not in selected list
+            if (!isStaffSelected(teamLeaderId)) {
+                summary.skipped = (summary.skipped || 0) + 1;
+                summary.skippedDetails!.push({ 
+                    row: rowNum, 
+                    identifier: trievId || mobile || currentRiderName, 
+                    reason: `Skipped: Team Leader / RM / City Ops (${finalTLName}) is not selected in Staff Sync Filter`, 
+                    data: row 
+                });
+                continue;
+            }
+
             const clientName = isValidClient(clientRaw) ? clientRaw : 'Other';
             let allotmentDate = '';
             if (dateRaw) {
@@ -207,17 +261,13 @@ export const processRiderImport = async (
                 if (parsed) allotmentDate = parsed;
             }
 
-            // ── Lookup: prefer Triev ID, fallback to mobile ──────────────────
+            // Lookup existing rider
             const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
                 ?? (mobile ? riderMobileMap.get(mobile) : null);
 
             if (existingRider) {
-                // ── PASS 1: Calculate New Status and Potential Date Reset ──
-                // NEW BEHAVIOR: DO NOT AUTO-REACTIVATE OR CHANGE ALLOTMENT DATE!
-                // We keep them inactive/deleted here. The Audit & Sync check will handle reactivation.
-                // Inactive riders strictly preserve their existing allotment_date until manually Reactivated.
+                matchedSheetRiderIds.add(existingRider.id);
 
-                // ── Check what changed ───────────────────────────────────────
                 const updatePayload: any = {};
                 const addIfDiff = (dbProp: string, newVal: any, dbVal: any = existingRider[dbProp]) => {
                     const cleanNew = String(newVal || '').trim();
@@ -231,15 +281,21 @@ export const processRiderImport = async (
                 addIfDiff('chassis_number', chassis);
                 addIfDiff('remarks', remarks);
                 addIfDiff('client_name', clientName);
+                if (clientId) addIfDiff('client_id', clientId);
 
-                // CRITICAL (LOCK UNIQUE IDENTITY): Never update triev_id or mobile_number for existing riders
+                // Auto Reactivation Logic: If rider was inactive in DB but is active in Live Sheet, restore to Active!
+                if (existingRider.status === 'inactive') {
+                    updatePayload.status = 'active';
+                    updatePayload.inactivated_at = null;
+                    summary.reactivated = (summary.reactivated || 0) + 1;
+                }
 
-                // Date Handling: STRICTLY IGNORED for existing riders.
-                // The Bulk Importer will NEVER update `allotment_date` or `submission_date` for existing riders.
-                // Dates are permanently locked here. Any updates to dates MUST be done via "Audit & Sync Check" tool.
-                if (allotmentDate && String(allotmentDate).trim() !== String(existingRider.allotment_date || '').trim()) {
-                    // We intentionally do nothing here.
-                    // The date in the sheet is ignored.
+                // Wallet balance sync if mapped
+                if (walletValRaw !== '') {
+                    const walletParsed = parseCurrency(walletValRaw);
+                    if (!isNaN(walletParsed) && Number(existingRider.wallet_amount) !== walletParsed) {
+                        updatePayload.wallet_amount = walletParsed;
+                    }
                 }
 
                 if (teamLeaderId !== existingRider.team_leader_id || finalTLName !== existingRider.team_leader_name) {
@@ -247,35 +303,32 @@ export const processRiderImport = async (
                     updatePayload.team_leader_name = finalTLName;
                 }
 
-                // WALLET PROTECTION: never touch wallet_amount in rider import
-                // Remove any accidentally added wallet keys if they slipped in (though they shouldn't here)
-                delete updatePayload.wallet_amount;
-
                 if (Object.keys(updatePayload).length > 0) {
                     updatePayload.updated_at = new Date().toISOString();
                     pendingUpdates.push({ id: existingRider.id, payload: updatePayload, rowNum });
                 } else {
-                    // Truly identical — skip
                     summary.skipped = (summary.skipped || 0) + 1;
                     summary.skippedDetails!.push({ row: rowNum, identifier: trievId || mobile, reason: 'No changes detected (identical data)', data: row });
                 }
             } else {
-                // ── Brand new rider ─────────────────────────────────────────
+                // Brand new rider
+                const initialWallet = walletValRaw !== '' ? parseCurrency(walletValRaw) : 0;
                 pendingInserts.push({
                     rider_name: currentRiderName,
                     triev_id: trievId || null,
-                    mobile_number: mobile || null,   // store normalized 10-digit
+                    mobile_number: mobile || null,
                     chassis_number: chassis,
                     client_name: clientName,
+                    client_id: clientId || null,
                     team_leader_id: teamLeaderId,
                     team_leader_name: finalTLName,
                     allotment_date: allotmentDate || new Date().toISOString(),
                     remarks,
-                    wallet_amount: 0,
+                    wallet_amount: isNaN(initialWallet) ? 0 : initialWallet,
                     status: 'active',
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
-                    _rowNum: rowNum  // temp field, stripped before insert
+                    _rowNum: rowNum
                 });
             }
         } catch (err: any) {
@@ -284,6 +337,7 @@ export const processRiderImport = async (
         }
     }
 
+    // ── 4. Apply Updates in Parallel Chunks ─────────────────────────────────
     const updateChunks = chunkArray(pendingUpdates, 20);
     for (const chunk of updateChunks) {
         for (const { id, payload, rowNum } of chunk) {
@@ -298,10 +352,9 @@ export const processRiderImport = async (
         }
     }
 
-    // ── 5. PASS 2: Bulk-insert all new riders in one call ───────────────────
+    // ── 5. Bulk Insert New Riders ────────────────────────────────────────────
     if (pendingInserts.length > 0) {
-        // Strip temp _rowNum field before insert
-        const insertBatches = chunkArray(pendingInserts, 200); // Supabase safe limit
+        const insertBatches = chunkArray(pendingInserts, 200);
         for (const batch of insertBatches) {
             const cleanBatch = batch.map(({ _rowNum: _, ...rest }) => rest);
             try {
@@ -309,7 +362,6 @@ export const processRiderImport = async (
                 if (error) throw error;
                 summary.success += cleanBatch.length;
             } catch (err: any) {
-                // If batch fails, fall back to individual inserts for granular error reporting
                 for (const item of batch) {
                     const { _rowNum: rn, ...clean } = item;
                     try {
@@ -325,29 +377,41 @@ export const processRiderImport = async (
         }
     }
 
-    // ── Strict Mirror (Optional) ─────────────────────────────────────────────
-    if (strictMirror && summary.success > fileData.length * 0.1) {
+    // ── 6. Auto Active/Inactive Reconciliation Engine ────────────────────────
+    // If strictMirror OR sheet reconciliation is active, mark riders as inactive if missing from live sheet
+    if (strictMirror || fileData.length > 0) {
         try {
-            const { data: activeRiders, error: activeErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number', { column: 'status', value: 'active' });
-            if (activeErr) throw activeErr;
-            if (activeRiders) {
-                const idsToDeactivate = activeRiders.filter(r => {
-                    const tid = normalizeTrievId(String(r.triev_id || ''));
-                    const mob = normalizeMobile(String(r.mobile_number || ''));
-                    return (!tid || !riderTrievMap.has(tid)) && (!mob || !riderMobileMap.has(mob));
-                }).map(r => r.id);
-                if (idsToDeactivate.length > 0) {
-                    await supabase.from('riders').update({ status: 'deleted', remarks: 'Removed via Sync' }).in('id', idsToDeactivate);
+            const ridersToInactivate = allDbRiders.filter(r => {
+                if (r.status !== 'active') return false; // Only active riders can become inactive
+                if (!isStaffSelected(r.team_leader_id)) return false; // Respect staff filter scope
+                return !matchedSheetRiderIds.has(r.id);
+            });
+
+            if (ridersToInactivate.length > 0) {
+                const nowIso = new Date().toISOString();
+                const ids = ridersToInactivate.map(r => r.id);
+
+                const { error: inactErr } = await supabase
+                    .from('riders')
+                    .update({ status: 'inactive', inactivated_at: nowIso, updated_at: nowIso })
+                    .in('id', ids);
+
+                if (!inactErr) {
+                    summary.inactivated = ids.length;
+                } else {
+                    console.error("Failed auto-inactivation of riders missing in live sheet:", inactErr);
                 }
             }
-        } catch (e) { console.error('Mirror cleanup failed', e); }
+        } catch (e) {
+            console.error("Active/Inactive reconciliation failed:", e);
+        }
     }
 
     await logActivity({
         actionType: 'bulkImport',
         targetType: 'system',
         targetId: 'multiple',
-        details: `Rider Import: ${summary.success} new, ${summary.updated} updated, ${summary.skipped} skipped, ${summary.failed} failed. Total: ${summary.total}`,
+        details: `Live Sheet Sync: ${summary.success} new, ${summary.updated} updated, ${summary.reactivated || 0} reactivated, ${summary.inactivated || 0} auto-inactivated, ${summary.skipped} skipped, ${summary.failed} failed. Total: ${summary.total}`,
         metadata: { adminName, summary }
     });
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);

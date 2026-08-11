@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { Eye, EyeOff, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones, Sparkles, ArrowRight, ArrowLeft, Globe, Home } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones, Sparkles, ArrowRight, ArrowLeft, Globe } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import ForgotPasswordModal from '@/components/ForgotPasswordModal';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';

@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, Trash2, RefreshCw, Download as DownloadIcon, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+    FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, 
+    Trash2, RefreshCw, Download as DownloadIcon, Search, Sliders, Users, 
+    CheckCircle2, Pause, Play, Clock, Sparkles, ShieldCheck, Check, Table
+} from 'lucide-react';
 import { toast } from 'sonner';
 import DataImport from '@/components/DataImport';
 import GlassCard from '@/components/GlassCard';
@@ -11,20 +15,55 @@ import { downloadRiderTemplate, downloadWalletTemplate, downloadRentCollectionTe
 import { logActivity } from '@/utils/activityLog';
 import RiderAuditModal from '@/components/RiderAuditModal';
 import ImportLogModal from '@/components/ImportLogModal';
+import ColumnMappingModal from '@/components/ColumnMappingModal';
+import StaffFilterSelectorModal from '@/components/StaffFilterSelectorModal';
+import { RiderColumnMapping, LiveSyncStaffFilter, RiderImportConfig } from '@/types';
 
 interface DataManagementProps {
     scopedCityOpsId?: string;
 }
 
+const DEFAULT_COLUMN_MAPPING: RiderColumnMapping = {
+    primaryKey: 'Triev ID',
+    riderName: 'Rider Name',
+    mobileNumber: 'Mobile Number',
+    chassisNumber: 'Chassis Number',
+    clientName: 'Client Name',
+    clientId: 'Client ID',
+    allotmentDate: 'Allotment Date',
+    walletAmount: 'Wallet Balance',
+    teamLeader: 'Team Leader',
+    reportingManager: 'Reporting Manager',
+    cityOps: 'City Ops',
+    remarks: 'Remarks'
+};
+
+const DEFAULT_STAFF_FILTER: LiveSyncStaffFilter = {
+    teamLeaderIds: [],
+    reportingManagerIds: [],
+    cityOpsIds: [],
+    syncAllStaff: false
+};
+
 const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
     const { userData } = useSupabaseAuth();
-    // Persistent Settings
-    const [riderConfig, setRiderConfig] = useState({ sheetId: '', range: 'Sheet1!A1:Z10000', apiKey: '', enabled: false, strictMirror: false });
+    
+    // Persistent Settings State
+    const [riderConfig, setRiderConfig] = useState<RiderImportConfig>({ 
+        sheetId: '', 
+        range: 'Sheet1!A1:Z10000', 
+        apiKey: '', 
+        enabled: false, 
+        strictMirror: false,
+        syncIntervalMinutes: 2, // Default: every 2 minutes
+        columnMapping: DEFAULT_COLUMN_MAPPING,
+        staffFilter: DEFAULT_STAFF_FILTER
+    });
     const [walletConfig, setWalletConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C10000', apiKey: '', enabled: false });
     const [rentConfig, setRentConfig] = useState({ sheetId: '', range: 'Sheet1!A1:C10000', apiKey: '', enabled: false });
 
-    // Legacy state for UI (optional, or we replace usage)
-    const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'rent_collection' | 'gsheets' | 'history' | 'help'>('import');
+    // UI Tabs & Modals
+    const [activeTab, setActiveTab] = useState<'import' | 'wallet' | 'rent_collection' | 'gsheets' | 'history' | 'help'>('gsheets');
     const [history, setHistory] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
@@ -32,13 +71,16 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
     const [showAuditModal, setShowAuditModal] = useState(false);
+    const [showColumnMappingModal, setShowColumnMappingModal] = useState(false);
+    const [showStaffFilterModal, setShowStaffFilterModal] = useState(false);
     const [selectedLogRecord, setSelectedLogRecord] = useState<any | null>(null);
+    const [nextSyncCountdown, setNextSyncCountdown] = useState<number>(0);
 
-    // Refs for interval
-    const riderConfigRef = React.useRef(riderConfig);
-    const walletConfigRef = React.useRef(walletConfig);
-    const rentConfigRef = React.useRef(rentConfig);
-    const isSyncingRef = React.useRef(isSyncing);
+    // Refs for interval safety
+    const riderConfigRef = useRef(riderConfig);
+    const walletConfigRef = useRef(walletConfig);
+    const rentConfigRef = useRef(rentConfig);
+    const isSyncingRef = useRef(isSyncing);
 
     useEffect(() => { riderConfigRef.current = riderConfig; }, [riderConfig]);
     useEffect(() => { walletConfigRef.current = walletConfig; }, [walletConfig]);
@@ -58,35 +100,33 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                     data.forEach(setting => {
                         if (setting.key === 'rider_import_config') {
                             const val = setting.value;
-                            // Migration: Auto-update limit if it's the old default
                             if (val?.range === 'Sheet1!A1:Z1000') {
                                 val.range = 'Sheet1!A1:Z10000';
-                                saveSettings('rider', val); // Persist the upgrade
                             }
-                            setRiderConfig({ ...riderConfig, ...val });
+                            setRiderConfig(prev => ({ 
+                                ...prev, 
+                                ...val,
+                                columnMapping: val.columnMapping || DEFAULT_COLUMN_MAPPING,
+                                staffFilter: val.staffFilter || DEFAULT_STAFF_FILTER,
+                                syncIntervalMinutes: val.syncIntervalMinutes || 2
+                            }));
                         }
                         if (setting.key === 'wallet_update_config') {
-                            const val = setting.value;
-                            // Migration: Auto-update limit if it's the old default
-                            if (val?.range === 'Sheet1!A1:C1000') {
-                                val.range = 'Sheet1!A1:C10000';
-                                saveSettings('wallet', val); // Persist the upgrade
-                            }
-                            setWalletConfig({ ...walletConfig, ...val });
+                            setWalletConfig(prev => ({ ...prev, ...setting.value }));
                         }
                         if (setting.key === 'rent_collection_sync_config') {
-                            setRentConfig({ ...rentConfig, ...setting.value });
+                            setRentConfig(prev => ({ ...prev, ...setting.value }));
                         }
                     });
                 }
             } catch (err) {
-                console.error("Failed to load settings (Table might be missing):", err);
+                console.error("Failed to load settings from database:", err);
             }
         };
         fetchSettings();
     }, []);
 
-    // Save Settings Helper (Debounce or Call explicitly)
+    // Save Settings Helper
     const saveSettings = async (type: 'rider' | 'wallet' | 'rent_collection', newConfig: any) => {
         const key = type === 'rider' ? 'rider_import_config' : type === 'wallet' ? 'wallet_update_config' : 'rent_collection_sync_config';
         try {
@@ -95,62 +135,58 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                 value: newConfig,
                 updated_at: new Date().toISOString()
             });
-            toast.success("Settings saved!");
+            toast.success("Settings saved successfully!");
         } catch (err) {
             console.error("Failed to save settings:", err);
             toast.error("Failed to save settings to database.");
         }
     };
 
-    // Auto-Sync Interval (Every 10s)
+    // Auto-Sync Manager Interval (Dynamic Frequency - e.g. 1m, 2m, 3m, 5m, 10m)
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (isSyncingRef.current || !userData) return;
+        let timer: NodeJS.Timeout | null = null;
+        let countdownTimer: NodeJS.Timeout | null = null;
 
-            // Check Rider Sync
-            if (riderConfigRef.current.enabled && riderConfigRef.current.sheetId) {
-                console.log("Auto-syncing Rider Data...");
-                handleGoogleSync(null, true, 'rider', riderConfigRef.current);
-            }
+        const intervalMs = (riderConfig.syncIntervalMinutes || 2) * 60 * 1000;
+        setNextSyncCountdown(Math.floor(intervalMs / 1000));
 
-            // Check Wallet Sync (Chain them or run parallel? Parallel is fine if handleSync checks isSyncing)
-            // But handleSync sets isSyncing=true. So we should probably wait. 
-            // Better: Trigger separately if not invalid.
-            // Actually, handleGoogleSync has a guard `if (isSyncing) return`.
-            // So if Rider takes >0ms, Wallet check immediately after might fail.
-            // We should stagger them or check individually. 
-            // For now, let's try to run Wallet only if Rider isn't running? 
-            // Or just fire both and let the second one wait or fail?
-            // "dono me... update ho".
-            // Let's modify handleGoogleSync to accept concurrency or strictly serialize.
-            // Simplified: If Rider is enabled, run it. On success/fail, verify Wallet. 
-            // But setInterval fires blindly.
+        if (riderConfig.enabled) {
+            // Countdown tick every second
+            countdownTimer = setInterval(() => {
+                setNextSyncCountdown(prev => (prev > 1 ? prev - 1 : Math.floor(intervalMs / 1000)));
+            }, 1000);
 
-            if (walletConfigRef.current.enabled && walletConfigRef.current.sheetId) {
-                // simple timeout to stagger
-                setTimeout(() => {
-                    if (!isSyncingRef.current) {
-                        console.log("Auto-syncing Wallet Data...");
-                        handleGoogleSync(null, true, 'wallet', walletConfigRef.current);
-                    }
-                }, 4000); // 4s stagger
-            }
+            // Auto sync interval
+            timer = setInterval(() => {
+                if (isSyncingRef.current || !userData) return;
+                if (riderConfigRef.current.enabled && riderConfigRef.current.sheetId) {
+                    console.log(`Auto-syncing Rider Data (Interval: ${riderConfigRef.current.syncIntervalMinutes}m)...`);
+                    handleGoogleSync(null, true, 'rider', riderConfigRef.current);
+                }
 
-            if (rentConfigRef.current.enabled && rentConfigRef.current.sheetId) {
-                setTimeout(() => {
-                    if (!isSyncingRef.current) {
-                        console.log("Auto-syncing Rent Collection...");
-                        handleGoogleSync(null, true, 'rent_collection', rentConfigRef.current);
-                    }
-                }, 8000); // 8s stagger
-            }
+                if (walletConfigRef.current.enabled && walletConfigRef.current.sheetId) {
+                    setTimeout(() => {
+                        if (!isSyncingRef.current) {
+                            handleGoogleSync(null, true, 'wallet', walletConfigRef.current);
+                        }
+                    }, 5000);
+                }
 
-        }, 10000); // 10 seconds
+                if (rentConfigRef.current.enabled && rentConfigRef.current.sheetId) {
+                    setTimeout(() => {
+                        if (!isSyncingRef.current) {
+                            handleGoogleSync(null, true, 'rent_collection', rentConfigRef.current);
+                        }
+                    }, 10000);
+                }
+            }, intervalMs);
+        }
 
-        return () => clearInterval(interval);
-    }, [userData]);
-
-    // DEFINE FUNCTIONS FIRST to avoid hoisting issues with const
+        return () => {
+            if (timer) clearInterval(timer);
+            if (countdownTimer) clearInterval(countdownTimer);
+        };
+    }, [riderConfig.enabled, riderConfig.syncIntervalMinutes, userData]);
 
     const fetchHistory = async () => {
         setLoadingHistory(true);
@@ -172,9 +208,8 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                     errors
                 `)
                 .order('timestamp', { ascending: false })
-                .limit(20);
+                .limit(30);
 
-            // City Ops: only show their own imports
             if (scopedCityOpsId && userData?.id) {
                 historyQuery = historyQuery.eq('admin_id', userData.id);
             }
@@ -183,7 +218,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
 
             if (error) {
                 console.error("Supabase Error fetching history:", error);
-                toast.error(`History Fetch Failed: ${error.message} (${error.code})`);
+                toast.error(`History Fetch Failed: ${error.message}`);
                 throw error;
             }
             setHistory(data || []);
@@ -194,17 +229,9 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
         }
     };
 
-
-
     const handleGoogleSync = async (e: React.FormEvent | null, isAuto = false, mode: 'rider' | 'wallet' | 'rent_collection', config: any) => {
         if (e) e.preventDefault();
         if (!userData || isSyncingRef.current) return;
-
-        // Prevent concurrent syncs if needed, or allow parallel. 
-        // For safety, let's keep isSyncing lock global for now to avoid UI confusion, 
-        // unless we split isSyncing state. The user wants "dono me... chalta rahe".
-        // If we use global lock, one will block the other.
-        // Let's rely on the lock but realize 10s is enough time for one to finish usually.
 
         if (scopedCityOpsId) {
             alert("Data Uploads are restricted to Admin Panel.");
@@ -220,7 +247,6 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                 throw new Error("Invalid Configuration");
             }
 
-            // Fix Range Format
             let formattedRange = config.range.trim();
             if (formattedRange.includes('!')) {
                 const parts = formattedRange.split('!');
@@ -237,15 +263,17 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
             const summary = await syncGoogleSheet({
                 sheetId: config.sheetId,
                 range: formattedRange,
-                apiKey: config.apiKey || undefined
+                apiKey: config.apiKey || undefined,
+                columnMapping: config.columnMapping,
+                staffFilter: config.staffFilter
             }, userData.id, userData.fullName, mode, config.strictMirror || false);
 
             setLastSyncTime(new Date());
 
             if (!isAuto) {
-                alert(`Sync Complete!\nSuccess: ${summary.success}\nFailed: ${summary.failed}`);
+                toast.success(`Sync Complete! Success: ${summary.success}, Updated: ${summary.updated || 0}, Inactivated: ${summary.inactivated || 0}, Reactivated: ${summary.reactivated || 0}`);
             } else {
-                toast.success(`${mode === 'rider' ? 'Riders' : 'Wallets'} synced automatically.`);
+                toast.success(`${mode === 'rider' ? 'Riders' : 'Wallets'} auto-synced successfully.`);
             }
 
             fetchHistory();
@@ -258,21 +286,9 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
         }
     };
 
-    const handleSyncEvent = async (event: any) => {
-        if (!userData) return;
-        const currentMode = event.event_type === 'wallet_sync' ? 'wallet' : 'rider';
-        const targetConfig = currentMode === 'rider' ? riderConfigRef.current : walletConfigRef.current;
-
-        if (event.sheet_id === targetConfig.sheetId) {
-            console.log(`Triggering Real-time ${currentMode} Sync for Sheet: ${event.sheet_id}`);
-            toast.info(`Real-time ${currentMode} sync triggered from sheet...`);
-            handleGoogleSync(null, true, currentMode, targetConfig);
-        }
-    };
-
     const [isEmergencyResyncing, setIsEmergencyResyncing] = useState(false);
     const handleEmergencyResync = async () => {
-        if (!confirm("This will force-recalculate all Daily Collection metrics for today across all Team Leaders. This might take a few seconds. Proceed?")) return;
+        if (!confirm("This will force-recalculate all Daily Collection metrics for today across all Team Leaders. Proceed?")) return;
 
         setIsEmergencyResyncing(true);
         const toastId = toast.loading("Resyncing Daily Collections cache from Ledger history...");
@@ -345,13 +361,6 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                 return newSet;
             });
             fetchHistory();
-            logActivity({
-                actionType: 'importHistoryDeleted',
-                targetType: 'system',
-                targetId: id,
-                details: `Deleted an import history record`,
-                performedBy: userData?.email || 'admin'
-            }).catch(console.error);
         } catch (error) {
             console.error("Error deleting history:", error);
             alert("Failed to delete record.");
@@ -365,18 +374,9 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
         try {
             const idsToDelete = Array.from(selectedHistoryIds);
             const { error } = await supabase.from('import_history').delete().in('id', idsToDelete);
-
             if (error) throw error;
-
             setSelectedHistoryIds(new Set());
             fetchHistory();
-            logActivity({
-                actionType: 'bulkImportHistoryDeleted',
-                targetType: 'system',
-                targetId: 'multiple',
-                details: `Bulk deleted ${idsToDelete.length} import history records`,
-                performedBy: userData?.email || 'admin'
-            }).catch(console.error);
         } catch (error) {
             console.error("Error bulk deleting history:", error);
             alert("Failed to delete records.");
@@ -400,264 +400,343 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
         }
     };
 
-    // Initial Fetch & Real-time History
     useEffect(() => {
         fetchHistory();
 
-        // Real-time subscription
         const historyChannel = supabase
             .channel('import-history-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'import_history' }, () => fetchHistory())
             .subscribe();
 
-        // Real-time sync events
-        const syncChannel = supabase
-            .channel('google-sync-events')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sync_events' }, (payload) => {
-                console.log('Sync event received.');
-                handleSyncEvent(payload.new);
-            })
-            .subscribe();
-
         return () => {
             supabase.removeChannel(historyChannel);
-            supabase.removeChannel(syncChannel);
         };
     }, []);
 
+    const formatCountdown = (secs: number) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+    };
+
+    const selectedStaffCount = (riderConfig.staffFilter?.teamLeaderIds?.length || 0) + 
+                               (riderConfig.staffFilter?.reportingManagerIds?.length || 0) + 
+                               (riderConfig.staffFilter?.cityOpsIds?.length || 0);
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">Data Management</h1>
-                    <p className="text-muted-foreground mt-1">Bulk Operations & Import History</p>
+            {/* Header with Live Sync Status Pill */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-background via-muted/30 to-background p-6 rounded-2xl border border-border/60 shadow-lg">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-primary via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                            Data Management Engine
+                        </h1>
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 flex items-center gap-1.5 shadow-sm">
+                            <Sparkles size={13} /> V2 Live Engine
+                        </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Real-time Live Google Sheet Rider Sync, Column Mapper & Scope Filter</p>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Live Sync Status Pill */}
+                    <div className={`px-4 py-2 rounded-xl border font-bold text-xs flex items-center gap-2.5 transition-all shadow-sm ${
+                        riderConfig.enabled
+                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                            : 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                    }`}>
+                        <span className="relative flex h-2.5 w-2.5">
+                            {riderConfig.enabled && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${riderConfig.enabled ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                        </span>
+                        <span>{riderConfig.enabled ? `LIVE SYNC ACTIVE (${formatCountdown(nextSyncCountdown)})` : 'SYNC PAUSED'}</span>
+                    </div>
+
+                    <button
+                        onClick={handleEmergencyResync}
+                        disabled={isEmergencyResyncing}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm ${
+                            isEmergencyResyncing
+                                ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                                : 'bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20'
+                        }`}
+                        title="Force recalculate all Daily Collections from Ledger History"
+                    >
+                        <RefreshCw size={15} className={isEmergencyResyncing ? 'animate-spin' : ''} />
+                        <span>{isEmergencyResyncing ? 'Resyncing...' : 'Resync Daily Collections'}</span>
+                    </button>
+
                     <button
                         onClick={async () => {
-                            if (!confirm("This will permanently delete Wallet Ledger rows older than 35 days (5 weeks) to save database space. Historical 'Daily Collection' totals for Team Leaders will NOT be affected. Proceed?")) return;
-
+                            if (!confirm("Delete Wallet Ledger rows older than 35 days to save DB space? Proceed?")) return;
                             const toastId = toast.loading("Pruning old wallet data (>35 days)...");
                             try {
                                 const { data, error } = await supabase.rpc('prune_old_wallet_ledger_data');
                                 if (error) throw error;
-
                                 if (data && data.success) {
                                     toast.success(data.message, { id: toastId });
-                                    logActivity({
-                                        actionType: 'systemDataPruned',
-                                        targetType: 'system',
-                                        targetId: 'wallet_ledger',
-                                        details: `Admin manually pruned ${data.deleted_count} wallet rows older than ${data.cutoff_date}`,
-                                        performedBy: userData?.email || 'admin'
-                                    }).catch(console.error);
                                 } else {
-                                    throw new Error(data?.error || "Unknown error during pruning.");
+                                    throw new Error(data?.error || "Error during pruning.");
                                 }
                             } catch (err: any) {
-                                console.error(err);
                                 toast.error("Failed to prune data: " + err.message, { id: toastId });
                             }
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800/50"
-                        title="Permanently delete Wallet entries older than 35 days (Saves DB space)"
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-orange-500/10 text-orange-600 border border-orange-500/20 hover:bg-orange-500/20 transition-all shadow-sm"
+                        title="Clean entries older than 35 days"
                     >
-                        <Trash2 size={18} />
-                        <span>Clean Old Data (35+ Days)</span>
-                    </button>
-                    <button
-                        onClick={handleEmergencyResync}
-                        disabled={isEmergencyResyncing}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${isEmergencyResyncing
-                            ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                            : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 dark:bg-red-900/20 dark:border-red-800/50 dark:hover:bg-red-900/40'
-                            }`}
-                        title="Force recalculate all Daily Collections from Ledger History"
-                    >
-                        <RefreshCw size={18} className={isEmergencyResyncing ? 'animate-spin' : ''} />
-                        <span>{isEmergencyResyncing ? 'Resyncing...' : 'Resync Daily Collections'}</span>
+                        <Trash2 size={15} />
+                        <span>Clean 35+ Days Data</span>
                     </button>
                 </div>
             </div>
 
+            {/* Navigation Tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
                 <button
-                    onClick={() => setActiveTab('import')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'import' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
+                    onClick={() => setActiveTab('gsheets')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold text-xs whitespace-nowrap ${
+                        activeTab === 'gsheets'
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary'
+                            : 'hover:bg-accent bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
                 >
-                    <FileSpreadsheet size={18} />
-                    <span>Rider Import</span>
+                    <FileText size={16} />
+                    <span>Live Google Sheet Engine</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('import')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold text-xs whitespace-nowrap ${
+                        activeTab === 'import'
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary'
+                            : 'hover:bg-accent bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <FileSpreadsheet size={16} />
+                    <span>Rider CSV Import</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('wallet')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'wallet' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold text-xs whitespace-nowrap ${
+                        activeTab === 'wallet'
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary'
+                            : 'hover:bg-accent bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
                 >
-                    <Wallet size={18} />
+                    <Wallet size={16} />
                     <span>Wallet Update</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('rent_collection')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'rent_collection' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold text-xs whitespace-nowrap ${
+                        activeTab === 'rent_collection'
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary'
+                            : 'hover:bg-accent bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
                 >
-                    <RefreshCw size={18} />
-                    <span>Rent Collection Import</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('gsheets')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'gsheets' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
-                >
-                    <FileText size={18} />
-                    <span>Google Sheets</span>
+                    <RefreshCw size={16} />
+                    <span>Rent Collection</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'history' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold text-xs whitespace-nowrap ${
+                        activeTab === 'history'
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary'
+                            : 'hover:bg-accent bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
                 >
-                    <History size={18} />
-                    <span>Import History</span>
+                    <History size={16} />
+                    <span>Sync & Audit History</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('help')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium whitespace-nowrap ${activeTab === 'help' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' : 'hover:bg-accent bg-card border border-border'}`}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all font-bold text-xs whitespace-nowrap ${
+                        activeTab === 'help'
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 border border-primary'
+                            : 'hover:bg-accent bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
                 >
-                    <HelpCircle size={18} />
-                    <span>Instructions</span>
+                    <HelpCircle size={16} />
+                    <span>Guide & Instructions</span>
                 </button>
             </div>
 
+            {/* Tab Views */}
             <div className="min-h-[500px] animate-in fade-in duration-300">
-                {activeTab === 'import' && (
-                    <GlassCard className="p-8">
-                        <div className="mb-8 flex justify-between items-start">
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <FileSpreadsheet className="text-green-500" /> Bulk Rider Import
-                                </h2>
-                                <p className="text-muted-foreground">Upload Excel/CSV file to create or update riders.</p>
-                            </div>
-                            <button
-                                onClick={() => downloadRiderTemplate()}
-                                className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg flex gap-2 items-center transition-colors"
-                            >
-                                <DownloadIcon size={16} /> Download Template
-                            </button>
-                            <button
-                                onClick={() => setShowAuditModal(true)}
-                                className="px-4 py-2 text-sm font-medium text-purple-600 bg-purple-100 hover:bg-purple-200 rounded-lg flex gap-2 items-center transition-colors border border-purple-200"
-                            >
-                                <Search size={16} /> Audit / Sync Check
-                            </button>
-                        </div>
-                        <DataImport onImport={handleRiderImport} mode="rider" />
-                    </GlassCard>
-                )}
 
-                <RiderAuditModal
-                    isOpen={showAuditModal}
-                    onClose={() => setShowAuditModal(false)}
-                />
-
-                {activeTab === 'wallet' && (
-                    <GlassCard className="p-8">
-                        <div className="mb-8 flex justify-between items-start">
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <Wallet className="text-blue-500" /> Bulk Wallet Update
-                                </h2>
-                                <p className="text-muted-foreground">Update wallet balances for existing riders.</p>
-                            </div>
-                            <button
-                                onClick={() => downloadWalletTemplate()}
-                                className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg flex gap-2 items-center transition-colors"
-                            >
-                                <DownloadIcon size={16} /> Download Template
-                            </button>
-                        </div>
-                        <DataImport onImport={handleWalletImport} mode="wallet" />
-                    </GlassCard>
-                )}
-
-                {activeTab === 'rent_collection' && (
-                    <GlassCard className="p-8">
-                        <div className="mb-8 flex justify-between items-start">
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-bold flex items-center gap-2">
-                                    <RefreshCw className="text-purple-500" /> Rent Collection Import
-                                </h2>
-                                <p className="text-muted-foreground">Process daily collections via CSV/Excel.</p>
-                            </div>
-                            <button
-                                onClick={() => downloadRentCollectionTemplate()}
-                                className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg flex gap-2 items-center transition-colors"
-                            >
-                                <DownloadIcon size={16} /> Download Template
-                            </button>
-                        </div>
-                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 p-4 rounded-lg mb-4">
-                            <h3 className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-2">
-                                <Wallet size={18} /> Rent Collection Process
-                            </h3>
-                            <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                                Upload a "Wallet Recharge" file. The amount will be <strong>ADDED</strong> to the rider's current wallet balance (Credit).
-                                <br />
-                                <em>Example: If Rider has -500 and you collect 200, New Balance = -300.</em>
-                            </p>
-                        </div>
-                        <DataImport onImport={handleRentCollectionImport} mode="rent_collection" />
-                    </GlassCard>
-                )}
-
+                {/* Tab 1: Live Google Sheet Engine */}
                 {activeTab === 'gsheets' && (
-                    <div className="space-y-8 animate-in fade-in duration-300">
+                    <div className="space-y-6">
 
-                        {/* Rider Import Settings */}
-                        <GlassCard className="p-8 border-l-4 border-l-green-500">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                                        <FileSpreadsheet className="text-green-500" /> Rider Import Config
+                        {/* Top Action Cards for Column Mapping & Staff Filter */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Card 1: Column Mapping Engine */}
+                            <GlassCard className="p-6 border-l-4 border-l-primary relative overflow-hidden group hover:border-primary transition-all">
+                                <div className="flex items-start justify-between">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                                                <Table size={18} />
+                                            </div>
+                                            <h3 className="font-bold text-lg text-foreground">Column Mapping Engine</h3>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">Map Live Google Sheet columns to system Rider fields ONCE</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowColumnMappingModal(true)}
+                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-md shadow-primary/20 flex items-center gap-1.5"
+                                    >
+                                        <Sliders size={14} /> Map Columns
+                                    </button>
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t border-border/40 flex flex-wrap gap-2">
+                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
+                                        Key: <strong>{riderConfig.columnMapping?.primaryKey || 'Triev ID'}</strong>
+                                    </span>
+                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
+                                        Name: <strong>{riderConfig.columnMapping?.riderName || 'Rider Name'}</strong>
+                                    </span>
+                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
+                                        Mobile: <strong>{riderConfig.columnMapping?.mobileNumber || 'Mobile Number'}</strong>
+                                    </span>
+                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
+                                        TL: <strong>{riderConfig.columnMapping?.teamLeader || 'Team Leader'}</strong>
+                                    </span>
+                                </div>
+                            </GlassCard>
+
+                            {/* Card 2: Staff Multi-Select Scope Filter */}
+                            <GlassCard className="p-6 border-l-4 border-l-purple-500 relative overflow-hidden group hover:border-purple-500 transition-all">
+                                <div className="flex items-start justify-between">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                                                <ShieldCheck size={18} />
+                                            </div>
+                                            <h3 className="font-bold text-lg text-foreground">Staff Scope Multi-Filter</h3>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">Select TLs, RMs & City Ops whose riders sync into system</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowStaffFilterModal(true)}
+                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5"
+                                    >
+                                        <Users size={14} /> Filter Staff
+                                    </button>
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">Filter Mode:</span>
+                                    {riderConfig.staffFilter?.syncAllStaff ? (
+                                        <span className="font-bold text-emerald-500 flex items-center gap-1">
+                                            <CheckCircle2 size={13} /> Global (All Registered Staff)
+                                        </span>
+                                    ) : selectedStaffCount > 0 ? (
+                                        <span className="font-bold text-purple-500 flex items-center gap-1">
+                                            <Check size={13} /> Restricted to {selectedStaffCount} Selected Staff
+                                        </span>
+                                    ) : (
+                                        <span className="font-bold text-amber-500">
+                                            No Staff Filter Selected (All Staff Sync)
+                                        </span>
+                                    )}
+                                </div>
+                            </GlassCard>
+                        </div>
+
+                        {/* Main Rider Live Sheet Settings Card */}
+                        <GlassCard className="p-8 border-l-4 border-l-emerald-500 shadow-xl">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-border/40">
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-bold flex items-center gap-2.5 text-foreground">
+                                        <FileSpreadsheet className="text-emerald-500" /> Live Google Sheet Rider Sync Config
                                     </h2>
-                                    <p className="text-muted-foreground mt-1">Configure Google Sheet for automated Rider Sync.</p>
+                                    <p className="text-xs text-muted-foreground">Real-time sync sheet parameters & auto-activation engine</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={() => saveSettings('rider', riderConfig)}
-                                        className="text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
+                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20"
                                     >
-                                        Save Config
+                                        Save Rider Config
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Sheet ID</label>
-                                        <input
-                                            type="text"
-                                            value={riderConfig.sheetId}
-                                            onChange={e => setRiderConfig({ ...riderConfig, sheetId: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-green-500/50 font-mono text-sm"
-                                            placeholder="e.g., 1BxiMvs0..."
-                                        />
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Left 2 Columns: Credentials & Frequency */}
+                                <div className="lg:col-span-2 space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold text-foreground">Google Sheet ID</label>
+                                            <input
+                                                type="text"
+                                                value={riderConfig.sheetId}
+                                                onChange={e => setRiderConfig({ ...riderConfig, sheetId: e.target.value })}
+                                                className="w-full p-3 rounded-xl border border-input bg-card text-foreground font-mono text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                placeholder="e.g., 1BxiMvs0..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold text-foreground">Sheet Range</label>
+                                            <input
+                                                type="text"
+                                                value={riderConfig.range}
+                                                onChange={e => setRiderConfig({ ...riderConfig, range: e.target.value })}
+                                                className="w-full p-3 rounded-xl border border-input bg-card text-foreground font-mono text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                placeholder="Sheet1!A1:Z10000"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Range</label>
-                                        <input
-                                            type="text"
-                                            value={riderConfig.range}
-                                            onChange={e => setRiderConfig({ ...riderConfig, range: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-green-500/50 font-mono text-sm"
-                                            placeholder="Sheet1!A1:Z1000"
-                                        />
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold text-foreground">Optional API Key</label>
+                                            <input
+                                                type="text"
+                                                value={riderConfig.apiKey || ''}
+                                                onChange={e => setRiderConfig({ ...riderConfig, apiKey: e.target.value })}
+                                                className="w-full p-3 rounded-xl border border-input bg-card text-foreground font-mono text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                                                placeholder="Leave empty for Public Sheets"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                                <Clock size={14} className="text-emerald-500" /> Sync Update Frequency
+                                            </label>
+                                            <select
+                                                value={riderConfig.syncIntervalMinutes || 2}
+                                                onChange={e => {
+                                                    const newInterval = Number(e.target.value);
+                                                    const updated = { ...riderConfig, syncIntervalMinutes: newInterval };
+                                                    setRiderConfig(updated);
+                                                    saveSettings('rider', updated);
+                                                }}
+                                                className="w-full p-3 rounded-xl border border-input bg-card text-foreground text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-semibold"
+                                            >
+                                                <option value={1}>Every 1 Minute</option>
+                                                <option value={2}>Every 2 Minutes (Recommended)</option>
+                                                <option value={3}>Every 3 Minutes</option>
+                                                <option value={5}>Every 5 Minutes</option>
+                                                <option value={10}>Every 10 Minutes</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 flex flex-col justify-end">
-                                    <div className="bg-muted/20 p-4 rounded-xl border border-muted/50 flex items-center justify-between">
+                                {/* Right 1 Column: Controls & Triggers */}
+                                <div className="space-y-4 flex flex-col justify-between">
+                                    <div className="p-4 rounded-xl bg-accent/40 border border-border/50 flex items-center justify-between">
                                         <div>
-                                            <h4 className="font-semibold text-sm">Auto-Sync (10s)</h4>
-                                            <p className="text-xs text-muted-foreground">Automatically pull every 10 seconds.</p>
+                                            <h4 className="font-bold text-xs text-foreground flex items-center gap-2">
+                                                {riderConfig.enabled ? <Play size={14} className="text-emerald-500" /> : <Pause size={14} className="text-amber-500" />}
+                                                Auto Live Sync Engine
+                                            </h4>
+                                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                {riderConfig.enabled ? `Syncing every ${riderConfig.syncIntervalMinutes || 2} mins` : 'Sync is currently paused'}
+                                            </p>
                                         </div>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input
@@ -671,251 +750,183 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                                                 }}
                                                 className="sr-only peer"
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                            <div className="w-11 h-6 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                                         </label>
                                     </div>
 
-                                    <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/30 flex items-center justify-between">
+                                    <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between">
                                         <div>
-                                            <h4 className="font-semibold text-sm text-red-600 dark:text-red-400">Strict Mirror Mode</h4>
-                                            <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-1 leading-tight">
-                                                DANGER: Enabling this will automatically deactivate any Rider in the system that is <strong>NOT</strong> present in the sync sheet. The sheet becomes the master list.
-                                            </p>
+                                            <h4 className="font-bold text-xs text-purple-600 dark:text-purple-400">Strict Active / Inactive Mirror</h4>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">Auto-inactivate riders missing in sheet</p>
                                         </div>
-                                        <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                        <label className="relative inline-flex items-center cursor-pointer ml-2 shrink-0">
                                             <input
                                                 type="checkbox"
                                                 checked={riderConfig.strictMirror}
                                                 onChange={(e) => {
                                                     const newVal = e.target.checked;
-                                                    if (newVal) {
-                                                        if (!confirm("WARNING: Strict Mirror Mode will DEACTIVATE any riders not found in the Google Sheet during sync. Are you sure you want to enable this?")) return;
-                                                    }
                                                     const newConfig = { ...riderConfig, strictMirror: newVal };
                                                     setRiderConfig(newConfig);
                                                     saveSettings('rider', newConfig);
                                                 }}
                                                 className="sr-only peer"
                                             />
-                                            <div className="w-11 h-6 bg-red-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                                            <div className="w-11 h-6 bg-gray-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                         </label>
                                     </div>
 
                                     <button
                                         onClick={(e) => handleGoogleSync(e, false, 'rider', riderConfig)}
                                         disabled={isSyncing}
-                                        className="w-full bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        className="w-full py-3.5 rounded-xl bg-emerald-600 text-white font-extrabold text-xs hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                                     >
-                                        {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
-                                        Sync Riders Now
+                                        {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                                        <span>{isSyncing ? 'Syncing Live Data...' : 'Sync Live Sheet Now'}</span>
                                     </button>
                                 </div>
                             </div>
                         </GlassCard>
 
-                        {/* Wallet Update Settings */}
-                        <GlassCard className="p-8 border-l-4 border-l-blue-500">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                                        <Wallet className="text-blue-500" /> Wallet Sync Config
-                                    </h2>
-                                    <p className="text-muted-foreground mt-1">Configure Google Sheet for automated Wallet Updates.</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => saveSettings('wallet', walletConfig)}
-                                        className="text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
-                                    >
-                                        Save Config
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Sheet ID</label>
-                                        <input
-                                            type="text"
-                                            value={walletConfig.sheetId}
-                                            onChange={e => setWalletConfig({ ...walletConfig, sheetId: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-blue-500/50 font-mono text-sm"
-                                            placeholder="e.g., 1BxiMvs0..."
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Range</label>
-                                        <input
-                                            type="text"
-                                            value={walletConfig.range}
-                                            onChange={e => setWalletConfig({ ...walletConfig, range: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-blue-500/50 font-mono text-sm"
-                                            placeholder="Sheet1!A1:C1000"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 flex flex-col justify-end">
-                                    <div className="bg-muted/20 p-4 rounded-xl border border-muted/50 flex items-center justify-between">
-                                        <div>
-                                            <h4 className="font-semibold text-sm">Auto-Sync (10s)</h4>
-                                            <p className="text-xs text-muted-foreground">Automatically pull every 10 seconds.</p>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={walletConfig.enabled}
-                                                onChange={(e) => {
-                                                    const newVal = e.target.checked;
-                                                    const newConfig = { ...walletConfig, enabled: newVal };
-                                                    setWalletConfig(newConfig);
-                                                    saveSettings('wallet', newConfig);
-                                                }}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                        </label>
-                                    </div>
-
-                                    <button
-                                        onClick={(e) => handleGoogleSync(e, false, 'wallet', walletConfig)}
-                                        disabled={isSyncing}
-                                        className="w-full bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                    >
-                                        {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
-                                        Sync Wallets Now
-                                    </button>
-                                </div>
-                            </div>
-                        </GlassCard>
-
-                        {/* Rent Collection Sync Settings */}
-                        <GlassCard className="p-8 border-l-4 border-l-purple-500">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                                        <RefreshCw className="text-purple-500" /> Rent Collection Sync Config
-                                    </h2>
-                                    <p className="text-muted-foreground mt-1">Configure Google Sheet for automated Rent Collections.</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => saveSettings('rent_collection', rentConfig)}
-                                        className="text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-semibold"
-                                    >
-                                        Save Config
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Sheet ID</label>
-                                        <input
-                                            type="text"
-                                            value={rentConfig.sheetId}
-                                            onChange={e => setRentConfig({ ...rentConfig, sheetId: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-purple-500/50 font-mono text-sm"
-                                            placeholder="e.g., 1BxiMvs0..."
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Range</label>
-                                        <input
-                                            type="text"
-                                            value={rentConfig.range}
-                                            onChange={e => setRentConfig({ ...rentConfig, range: e.target.value })}
-                                            className="w-full p-3 rounded-lg border bg-background/50 outline-none focus:ring-2 focus:ring-purple-500/50 font-mono text-sm"
-                                            placeholder="Sheet1!A1:C1000"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 flex flex-col justify-end">
-                                    <div className="bg-muted/20 p-4 rounded-xl border border-muted/50 flex items-center justify-between">
-                                        <div>
-                                            <h4 className="font-semibold text-sm">Auto-Sync (10s)</h4>
-                                            <p className="text-xs text-muted-foreground">Automatically pull every 10 seconds.</p>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={rentConfig.enabled}
-                                                onChange={(e) => {
-                                                    const newVal = e.target.checked;
-                                                    const newConfig = { ...rentConfig, enabled: newVal };
-                                                    setRentConfig(newConfig);
-                                                    saveSettings('rent_collection', newConfig);
-                                                }}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </label>
-                                    </div>
-
-                                    <button
-                                        onClick={(e) => handleGoogleSync(e, false, 'rent_collection', rentConfig)}
-                                        disabled={isSyncing}
-                                        className="w-full bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-600/20 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                    >
-                                        {isSyncing ? <span className="animate-spin">⟳</span> : <RefreshCw size={18} />}
-                                        Sync Collections Now
-                                    </button>
-                                </div>
-                            </div>
-                        </GlassCard>
-
-                        {/* Recent Activity / Status */}
+                        {/* Recent Status & Fallback Safety Notice */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <GlassCard className="p-5 bg-primary/5 border-primary/10">
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                    <History size={18} className="text-primary" /> Sync Status
+                            <GlassCard className="p-6 bg-card/60">
+                                <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-foreground">
+                                    <Clock size={16} className="text-primary" /> Live Engine Health Status
                                 </h3>
-                                <div className="space-y-4">
-                                    <div className="p-3 bg-background/60 rounded-lg border border-border/50 flex justify-between items-center">
-                                        <span className="text-sm font-medium">Last Synced</span>
-                                        <span className="font-mono text-sm">{lastSyncTime ? lastSyncTime.toLocaleTimeString() : 'Never'}</span>
+                                <div className="space-y-3 text-xs">
+                                    <div className="p-3 bg-accent/40 rounded-xl border border-border/40 flex justify-between items-center">
+                                        <span className="text-muted-foreground">Last Successful Sync</span>
+                                        <span className="font-mono font-bold text-foreground">
+                                            {lastSyncTime ? lastSyncTime.toLocaleTimeString() : 'No sync recorded in session'}
+                                        </span>
                                     </div>
-                                    {syncError && <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 text-xs font-bold">Error: {syncError}</div>}
+                                    {syncError ? (
+                                        <div className="p-3 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl border border-red-500/20 font-medium">
+                                            <strong>Sync Error Detected:</strong> {syncError}
+                                        </div>
+                                    ) : (
+                                        <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 font-medium flex items-center gap-2">
+                                            <CheckCircle2 size={16} />
+                                            <span>Engine Operating Normally. Error Fallback Protection Active.</span>
+                                        </div>
+                                    )}
                                 </div>
                             </GlassCard>
-                            <div className="p-4 bg-muted/20 rounded-xl border border-muted/50 text-xs text-muted-foreground">
-                                <p className="font-bold mb-1">Note on Persistence:</p>
-                                <p>Settings are now saved to the database. They will persist across devices, logouts, and page refreshes.</p>
-                                <p className="mt-2"><b>Auto-Sync</b> requires this admin panel to be open in a browser tab. If you close the tab, sync will pause until you return.</p>
-                            </div>
-                        </div>
 
+                            <GlassCard className="p-6 bg-card/60 text-xs space-y-2">
+                                <h4 className="font-bold text-foreground flex items-center gap-2">
+                                    <AlertTriangle size={16} className="text-amber-500" /> Fallback & Data Resilience Rule
+                                </h4>
+                                <p className="text-muted-foreground leading-relaxed">
+                                    अगर कभी Live Google Sheet में Technical Issue की वजह से Data नहीं आता या 0 Rows return होते हैं, तो System मौजूदा Riders के Data और Statuses को Touch नहीं करेगा। Existing status सुरक्षित रहेगा और Sheet ठीक होते ही Auto-Sync Resume होगा।
+                                </p>
+                            </GlassCard>
+                        </div>
                     </div>
                 )}
 
+                {/* Tab 2: Rider CSV Import */}
+                {activeTab === 'import' && (
+                    <GlassCard className="p-8">
+                        <div className="mb-8 flex justify-between items-start">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold flex items-center gap-2 text-foreground">
+                                    <FileSpreadsheet className="text-emerald-500" /> Manual Rider CSV Import
+                                </h2>
+                                <p className="text-xs text-muted-foreground">Upload Excel/CSV file for manual one-time rider batch imports</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => downloadRiderTemplate()}
+                                    className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-xl flex gap-2 items-center transition-all border border-primary/20"
+                                >
+                                    <DownloadIcon size={14} /> Download Template
+                                </button>
+                                <button
+                                    onClick={() => setShowAuditModal(true)}
+                                    className="px-4 py-2 text-xs font-bold text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl flex gap-2 items-center transition-all border border-purple-500/20"
+                                >
+                                    <Search size={14} /> Audit / Sync Check
+                                </button>
+                            </div>
+                        </div>
+                        <DataImport onImport={handleRiderImport} mode="rider" />
+                    </GlassCard>
+                )}
+
+                {/* Tab 3: Wallet Update */}
+                {activeTab === 'wallet' && (
+                    <GlassCard className="p-8">
+                        <div className="mb-8 flex justify-between items-start">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold flex items-center gap-2 text-foreground">
+                                    <Wallet className="text-blue-500" /> Manual Wallet Balance Update
+                                </h2>
+                                <p className="text-xs text-muted-foreground">Bulk update wallet balances for existing riders</p>
+                            </div>
+                            <button
+                                onClick={() => downloadWalletTemplate()}
+                                className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-xl flex gap-2 items-center transition-all border border-primary/20"
+                            >
+                                <DownloadIcon size={14} /> Download Template
+                            </button>
+                        </div>
+                        <DataImport onImport={handleWalletImport} mode="wallet" />
+                    </GlassCard>
+                )}
+
+                {/* Tab 4: Rent Collection */}
+                {activeTab === 'rent_collection' && (
+                    <GlassCard className="p-8">
+                        <div className="mb-8 flex justify-between items-start">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-bold flex items-center gap-2 text-foreground">
+                                    <RefreshCw className="text-purple-500" /> Manual Rent Collection Import
+                                </h2>
+                                <p className="text-xs text-muted-foreground">Import daily collection logs and credit wallet balances</p>
+                            </div>
+                            <button
+                                onClick={() => downloadRentCollectionTemplate()}
+                                className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-xl flex gap-2 items-center transition-all border border-primary/20"
+                            >
+                                <DownloadIcon size={14} /> Download Template
+                            </button>
+                        </div>
+                        <DataImport onImport={handleRentCollectionImport} mode="rent_collection" />
+                    </GlassCard>
+                )}
+
+                {/* Tab 5: Sync & Import History */}
                 {activeTab === 'history' && (
                     <GlassCard className="p-6">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2"><History className="text-purple-500" /> Import History</h2>
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                                    <History className="text-purple-500" /> Import & Live Sync History Log
+                                </h2>
+                                <p className="text-xs text-muted-foreground mt-0.5">Audit log of sheet sync runs, row changes, and active/inactive reconciliations</p>
+                            </div>
                             <div className="flex items-center gap-3">
                                 {selectedHistoryIds.size > 0 && (
                                     <button
                                         onClick={handleBulkDeleteHistory}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                                        className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-red-600 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all border border-red-500/20"
                                     >
                                         <Trash2 size={14} /> Delete Selected ({selectedHistoryIds.size})
                                     </button>
                                 )}
-                                <button onClick={() => fetchHistory()} disabled={loadingHistory} className="p-2 hover:bg-muted rounded-full transition-colors group">
-                                    <RefreshCw size={20} className={`${loadingHistory ? 'animate-spin text-primary' : 'text-muted-foreground group-hover:text-primary'}`} />
+                                <button onClick={() => fetchHistory()} disabled={loadingHistory} className="p-2 hover:bg-accent rounded-xl transition-colors">
+                                    <RefreshCw size={18} className={`${loadingHistory ? 'animate-spin text-primary' : 'text-muted-foreground'}`} />
                                 </button>
                             </div>
                         </div>
+
                         {loadingHistory ? (
-                            <div className="text-center py-12"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div><p className="text-muted-foreground">Loading history...</p></div>
+                            <div className="text-center py-12 text-xs text-muted-foreground">Loading sync history...</div>
                         ) : history.length === 0 ? (
-                            <div className="text-center text-muted-foreground py-16 bg-muted/10 rounded-2xl border border-dashed border-muted/50 flex flex-col items-center gap-3">
-                                <History size={40} className="text-muted-foreground/50" />
-                                <p className="font-semibold text-lg">No history records found</p>
-                                <button onClick={() => fetchHistory()} className="mt-2 text-sm text-primary hover:underline font-medium">Refresh</button>
+                            <div className="text-center text-muted-foreground py-16 bg-muted/10 rounded-2xl border border-dashed border-border/60 flex flex-col items-center gap-3">
+                                <History size={40} className="text-muted-foreground/40" />
+                                <p className="font-semibold text-sm text-foreground">No sync history records found</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -924,63 +935,54 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                                         type="checkbox"
                                         checked={history.length > 0 && selectedHistoryIds.size === history.length}
                                         onChange={handleSelectAllHistory}
-                                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        className="w-4 h-4 rounded border-input text-primary focus:ring-primary"
                                     />
-                                    <span className="text-xs font-medium text-muted-foreground">Select All</span>
+                                    <span className="text-xs font-medium text-muted-foreground">Select All History Rows</span>
                                 </div>
                                 {history.map((record: any) => (
-                                    <div key={record.id} className={`p-5 border rounded-xl bg-card/50 hover:bg-card transition-all ${selectedHistoryIds.has(record.id) ? 'border-primary/50 bg-primary/5' : 'border-border/50'}`}>
-                                        <div className="flex justify-between items-start mb-3">
+                                    <div key={record.id} className={`p-5 border rounded-2xl bg-card/60 hover:bg-card transition-all ${selectedHistoryIds.has(record.id) ? 'border-primary/50 bg-primary/5' : 'border-border/50'}`}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedHistoryIds.has(record.id)}
                                                     onChange={() => handleSelectHistory(record.id)}
-                                                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                    className="w-4 h-4 rounded border-input text-primary focus:ring-primary"
                                                 />
-                                                <div className={`p-2 rounded-lg ${record.importType === 'wallet' ? 'bg-blue-500/10 text-blue-500' : 'bg-green-500/10 text-green-500'}`}>
+                                                <div className={`p-2.5 rounded-xl ${record.importType === 'wallet' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
                                                     {record.importType === 'wallet' ? <Wallet size={20} /> : <FileSpreadsheet size={20} />}
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold capitalize text-lg">{record.importType} Import</div>
+                                                    <div className="font-bold text-sm capitalize text-foreground">{record.importType} Sync Run</div>
                                                     <div className="text-xs text-muted-foreground">{new Date(record.timestamp).toLocaleString()} by {record.adminName}</div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     onClick={() => setSelectedLogRecord(record)}
-                                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                                                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition-all border border-primary/20"
                                                 >
                                                     View Details
                                                 </button>
-                                                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${record.status === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>{record.status}</div>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                                                    record.status === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                                                }`}>
+                                                    {record.status}
+                                                </span>
                                                 <button
                                                     onClick={() => handleDeleteHistory(record.id)}
-                                                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-4 gap-2 mt-4 bg-muted/20 p-3 rounded-lg text-sm ml-7">
-                                            <div className="text-center border-r border-border/50"><div>Total</div><div className="font-bold">{record.totalRows}</div></div>
-                                            <div className="text-center border-r border-border/50"><div>Success</div><div className="font-bold text-green-600">{record.successCount}</div></div>
-                                            <div className="text-center border-r border-border/50"><div>Skipped</div><div className="font-bold text-amber-500">{record.totalRows - record.successCount - record.failureCount}</div></div>
-                                            <div className="text-center"><div>Failed</div><div className="font-bold text-red-600">{record.failureCount}</div></div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 bg-accent/30 p-3 rounded-xl text-xs">
+                                            <div className="text-center border-r border-border/40"><div>Total Parsed</div><div className="font-bold text-foreground">{record.totalRows}</div></div>
+                                            <div className="text-center border-r border-border/40"><div>Created</div><div className="font-bold text-emerald-500">{record.successCount}</div></div>
+                                            <div className="text-center border-r border-border/40"><div>Updated</div><div className="font-bold text-blue-500">{record.updated_count || 0}</div></div>
+                                            <div className="text-center"><div>Failed</div><div className="font-bold text-red-500">{record.failureCount}</div></div>
                                         </div>
-                                        {record.errors && record.errors.length > 0 && (
-                                            <div className="mt-3 ml-7 p-3 bg-red-50/50 rounded-lg border border-red-100 text-[10px] text-red-600 flex items-start gap-1.5">
-                                                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="font-bold mb-1 uppercase tracking-wider">Recent Errors</p>
-                                                    <ul className="space-y-0.5 list-disc list-inside">
-                                                        {record.errors.slice(0, 3).map((err: any, idx: number) => (
-                                                            <li key={idx} className="opacity-90">{err.reason} (Row {err.row})</li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -988,22 +990,58 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                     </GlassCard>
                 )}
 
+                {/* Tab 6: Instructions */}
                 {activeTab === 'help' && (
                     <GlassCard className="p-8">
-                        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><HelpCircle className="text-blue-400" /> Instructions</h2>
-                        <div className="space-y-6 text-sm leading-relaxed">
-                            <div className="bg-muted/20 p-4 rounded-xl border border-muted/50">
-                                <h3 className="font-semibold text-base mb-2">1. Rider Import</h3>
-                                <p>Required: Rider Name, Team Leader, Client Name, Triev ID or Mobile Number.</p>
+                        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-foreground"><HelpCircle className="text-blue-500" /> Setup & Operational Guide</h2>
+                        <div className="space-y-4 text-xs leading-relaxed text-muted-foreground">
+                            <div className="p-4 rounded-xl bg-accent/40 border border-border/50 space-y-1">
+                                <h3 className="font-bold text-sm text-foreground">1. Live Sheet Column Mapping</h3>
+                                <p>Admin "Map Columns" बटन पर क्लिक करके अपनी Google Sheet की Header Names को System attributes से एक बार map कर दें।</p>
                             </div>
-                            <div className="bg-muted/20 p-4 rounded-xl border border-muted/50">
-                                <h3 className="font-semibold text-base mb-2">2. Wallet Update</h3>
-                                <p>Required: Wallet Amount, Triev ID or Mobile Number.</p>
+                            <div className="p-4 rounded-xl bg-accent/40 border border-border/50 space-y-1">
+                                <h3 className="font-bold text-sm text-foreground">2. Team Leader / RM / City Ops Multi-Select Filter</h3>
+                                <p>"Filter Staff" पर क्लिक करके उन Staff members को select करें जिनके Riders का data system में sync करना है। Unselected staff का data skip हो जाएगा।</p>
+                            </div>
+                            <div className="p-4 rounded-xl bg-accent/40 border border-border/50 space-y-1">
+                                <h3 className="font-bold text-sm text-foreground">3. Automatic Active / Inactive Engine</h3>
+                                <p>Live Google Sheet में जो Riders एक्टिव हैं केवल वे active रहेंगे। Sheet में Rider न होने पर System auto Inactive कर देगा। Sheet में दोबारा आने पर auto Active हो जाएगा।</p>
                             </div>
                         </div>
                     </GlassCard>
                 )}
             </div>
+
+            {/* Modals */}
+            <RiderAuditModal
+                isOpen={showAuditModal}
+                onClose={() => setShowAuditModal(false)}
+            />
+
+            <ColumnMappingModal
+                isOpen={showColumnMappingModal}
+                onClose={() => setShowColumnMappingModal(false)}
+                sheetId={riderConfig.sheetId}
+                range={riderConfig.range}
+                apiKey={riderConfig.apiKey}
+                currentMapping={riderConfig.columnMapping}
+                onSaveMapping={(newMapping) => {
+                    const updatedConfig = { ...riderConfig, columnMapping: newMapping };
+                    setRiderConfig(updatedConfig);
+                    saveSettings('rider', updatedConfig);
+                }}
+            />
+
+            <StaffFilterSelectorModal
+                isOpen={showStaffFilterModal}
+                onClose={() => setShowStaffFilterModal(false)}
+                currentFilter={riderConfig.staffFilter}
+                onSaveFilter={(newFilter) => {
+                    const updatedConfig = { ...riderConfig, staffFilter: newFilter };
+                    setRiderConfig(updatedConfig);
+                    saveSettings('rider', updatedConfig);
+                }}
+            />
 
             <ImportLogModal
                 isOpen={!!selectedLogRecord}

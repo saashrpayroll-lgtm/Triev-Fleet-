@@ -141,8 +141,14 @@ export const parseGoogleSheetData = (rawData: any[]): any[] => {
     });
 };
 
+export const fetchGoogleSheetHeaders = async (config: GoogleSheetConfig): Promise<string[]> => {
+    const rawData = await fetchGoogleSheetData(config);
+    if (!rawData || rawData.length === 0) return [];
+    return (rawData[0] || []).map((h: any) => String(h || '').trim()).filter(Boolean);
+};
+
 export const syncGoogleSheet = async (
-    config: GoogleSheetConfig,
+    config: GoogleSheetConfig & { columnMapping?: any; staffFilter?: any },
     adminId: string,
     adminName: string,
     mode: 'rider' | 'wallet' | 'rent_collection',
@@ -150,11 +156,23 @@ export const syncGoogleSheet = async (
 ): Promise<ImportSummary> => {
     try {
         const rawData = await fetchGoogleSheetData(config);
+        
+        // Resilience Check: If sheet returned 0 rows or no header, abort to protect DB data
+        if (!rawData || rawData.length < 2) {
+            throw new Error("Sheet returned empty or invalid data (0 rows). Sync aborted to protect existing data.");
+        }
+
         const parsedData = parseGoogleSheetData(rawData);
 
         if (mode === 'rider') {
-            // Pass strictMirror explicitly for Rider sync:
-            return await processRiderImport(parsedData, adminId, adminName, strictMirror);
+            return await processRiderImport(
+                parsedData,
+                adminId,
+                adminName,
+                strictMirror,
+                config.columnMapping,
+                config.staffFilter
+            );
         } else if (mode === 'wallet') {
             return await processWalletUpdate(parsedData, adminId, adminName);
         } else if (mode === 'rent_collection') {
