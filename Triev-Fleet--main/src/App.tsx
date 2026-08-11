@@ -207,6 +207,27 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     );
   }
 
+  if (userData.status === 'pending_approval') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-sm mx-auto p-6">
+          <div className="w-20 h-20 rounded-full bg-amber-500/15 border-4 border-amber-500/30 flex items-center justify-center mx-auto mb-6">
+            <span className="text-3xl">⏳</span>
+          </div>
+          <h1 className="text-2xl font-black mb-3">Awaiting Approval</h1>
+          <p className="text-muted-foreground text-sm mb-5">Your account is pending admin approval. You will be able to login once your administrator activates your account.</p>
+          <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl p-4 text-left mb-5">
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1">What to do next?</p>
+            <p className="text-xs text-muted-foreground">Contact your reporting manager or admin and share your registered mobile number so they can approve your account from the Staff &amp; Roles panel.</p>
+          </div>
+          <button onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }} className="px-5 py-2.5 border border-border rounded-xl hover:bg-accent text-sm font-semibold transition-all">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 };
 
@@ -258,10 +279,8 @@ function AppRoutes() {
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/admin-login" element={<PublicRoute><AdminLogin /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-          {/* /register disabled by default — set VITE_ENABLE_REGISTER=true to enable */}
-          {import.meta.env.VITE_ENABLE_REGISTER === 'true' && (
-            <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
-          )}
+          {/* /register is open — but new accounts start as 'pending_approval' and require admin activation */}
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
 
           {/* Team Leader Routes */}
           <Route

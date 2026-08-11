@@ -76,7 +76,7 @@ const RegisterPage: React.FC = () => {
             if (authError) throw authError;
 
             if (authData.user) {
-                // Create user record in users table
+                // Create user record — status 'pending_approval' until admin approves
                 const { error: dbError } = await supabase
                     .from('users')
                     .insert([{
@@ -85,20 +85,15 @@ const RegisterPage: React.FC = () => {
                         full_name: formData.fullName,
                         mobile: formData.mobile,
                         job_location: formData.jobLocation,
-                        role: 'teamLeader', // Default role
-                        status: 'active',
+                        role: 'teamLeader', // Default role — admin can change
+                        status: 'pending_approval', // Admin must approve before login
                         created_at: new Date().toISOString()
                     }]);
 
                 if (dbError) throw dbError;
 
-                // Show success animation
                 setSuccess(true);
-
-                // Redirect to login after 2 seconds
-                setTimeout(() => {
-                    navigate('/login');
-                }, 2000);
+                // Do NOT auto-redirect — user must wait for admin approval
             }
         } catch (err: any) {
             console.error('Registration error:', err);
@@ -113,12 +108,19 @@ const RegisterPage: React.FC = () => {
             <>
                 <AnimatedBackground variant="register" />
                 <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
-                    <div className="text-center animate-in fade-in zoom-in duration-500">
-                        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-500/20 backdrop-blur-xl border-4 border-green-500/50 mb-6">
-                            <Check className="w-12 h-12 text-green-500" />
+                    <div className="text-center animate-in fade-in zoom-in duration-500 max-w-sm">
+                        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-amber-500/20 backdrop-blur-xl border-4 border-amber-500/50 mb-6">
+                            <Check className="w-12 h-12 text-amber-400" />
                         </div>
-                        <h2 className="text-4xl font-bold text-white mb-4">Account Created!</h2>
-                        <p className="text-white/80 text-lg">Redirecting you to login...</p>
+                        <h2 className="text-3xl font-bold text-white mb-3">Registration Submitted!</h2>
+                        <p className="text-white/70 text-base mb-4">Your account request has been sent to the admin for approval.</p>
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left">
+                            <p className="text-amber-300 text-sm font-semibold mb-1">⏳ Awaiting Admin Approval</p>
+                            <p className="text-white/50 text-xs">Once your admin approves your account, you will be able to login. Please contact your manager for faster approval.</p>
+                        </div>
+                        <button onClick={() => navigate('/login')} className="mt-6 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-all">
+                            Back to Login
+                        </button>
                     </div>
                 </div>
             </>

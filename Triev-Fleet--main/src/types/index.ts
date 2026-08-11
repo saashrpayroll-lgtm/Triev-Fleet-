@@ -1,6 +1,6 @@
 // User Types
 export type UserRole = 'admin' | 'teamLeader' | 'reportingManager' | 'cityOps';
-export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deleted';
+export type UserStatus = 'active' | 'inactive' | 'suspended' | 'deleted' | 'pending_approval';
 export type WalletAccessLevel = 'full' | 'readOnly' | 'none';
 
 export interface UserPermissions {

@@ -27,6 +27,7 @@ import RevenueForecast from '@/components/dashboard/RevenueForecast';
 import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
 import TLComparisonCard from '@/components/dashboard/TLComparisonCard';
 import FleetGrowthIndicator from '@/components/dashboard/FleetGrowthIndicator';
+import LiveAlertCenter from '@/components/LiveAlertCenter';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -747,6 +748,10 @@ const Dashboard: React.FC = () => {
 
             {/* Wallet Sync Widget */}
             <WalletSyncWidget />
+
+            {/* Live Alert Center — Negative & Low Balance Riders */}
+            <LiveAlertCenter portalBase="/portal" />
+
             {/* --- Fleet & Operations --- */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-3 sm:space-y-4">
                 <div className="flex items-center gap-2.5 sm:gap-3 px-1">

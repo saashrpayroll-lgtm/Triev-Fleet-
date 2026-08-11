@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import {
     Users, BarChart3, Bot, Target, Trophy, ShieldAlert, Zap, Shield,
     ArrowRight, ChevronDown, Star, CheckCircle2, Sparkles, Globe,
-    Wallet, Bell, LogIn, Lock, Activity, Play, X
+    Wallet, Bell, LogIn, Lock, Activity, Play, X, LayoutDashboard
 } from 'lucide-react';
 
 // ─── Animated Aurora Background ───────────────────────────────────────────────
@@ -636,8 +636,5 @@ const LandingPage: React.FC = () => {
         </div>
     );
 };
-
-// Missing import for LayoutDashboard used in mockup
-import { LayoutDashboard } from 'lucide-react';
 
 export default LandingPage;
