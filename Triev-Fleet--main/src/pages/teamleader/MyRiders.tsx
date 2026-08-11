@@ -3,7 +3,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { Rider, RiderStatus, RiderFormData, ClientName } from '@/types';
-import { Plus, Search, Filter, Download, Phone, MessageCircle, ChevronLeft, ChevronRight, Trash2, UserX, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Download, Phone, MessageCircle, ChevronLeft, ChevronRight, Trash2, UserX, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import AddRiderForm from '@/components/AddRiderForm';
@@ -23,6 +23,8 @@ import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
 import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
 import { RiderRatingService } from '@/services/RiderRatingService';
 import { StarRatingResult } from '@/utils/starRatingEngine';
+import LiveAlertCenter from '@/components/LiveAlertCenter';
+import { motion } from 'framer-motion';
 
 type TabType = 'all' | 'active' | 'inactive' | 'deleted' | 'zomato';
 
@@ -494,24 +496,52 @@ const MyRiders: React.FC = () => {
 
     return (
         <div className="space-y-5">
-            {/* ── Header ── */}
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">My Riders</h1>
-                    <p className="text-muted-foreground text-sm mt-0.5">
-                        Manage your riders •{' '}
-                        <span className="font-semibold text-primary">{riders.length} total</span>
-                    </p>
+            {/* ── Premium Gradient Banner Header ── */}
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative rounded-2xl overflow-hidden border border-border/50 shadow-lg"
+                style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 50%, rgba(99,102,241,0.06) 100%)' }}
+            >
+                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(245,158,11,1) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,1) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+                <div className="relative px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}>
+                            <span className="text-white font-black text-xl">🛵</span>
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tight">My Riders</h1>
+                            <p className="text-muted-foreground text-sm mt-0.5">
+                                Manage your riders •{' '}
+                                <span className="font-semibold" style={{ color: '#f59e0b' }}>{riders.length} total</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Stat chips */}
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border" style={{ background: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.2)', color: '#10b981' }}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            {riders.filter(r => r.status === 'active').length} Active
+                        </span>
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border" style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                            {riders.filter(r => r.status === 'active' && r.walletAmount < 0).length} Negative
+                        </span>
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border" style={{ background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+                            {riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250).length} Low Balance
+                        </span>
+                        {canAddRider && (
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-black text-sm shadow-lg hover:opacity-90 transition-all active:scale-95"
+                                style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
+                            >
+                                <Plus size={16} /> Add Rider
+                            </button>
+                        )}
+                    </div>
                 </div>
-                {canAddRider && (
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="bg-primary text-primary-foreground px-5 py-2.5 rounded-xl hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2 font-bold text-sm"
-                    >
-                        <Plus size={18} /> Add Rider
-                    </button>
-                )}
-            </div>
+            </motion.div>
 
             {/* ── Tab Bar ── */}
             <div className="flex gap-1 p-1 bg-muted/60 backdrop-blur-sm rounded-2xl border border-border/50 w-fit overflow-x-auto">
@@ -674,12 +704,28 @@ const MyRiders: React.FC = () => {
                 </div>
             )}
 
+            {/* ── Live Alert Center (TL-scoped) ── */}
+            {userData?.id && (
+                <LiveAlertCenter teamLeaderId={userData.id} portalBase="/team-leader" />
+            )}
+
             {/* ── Main Table / Card Panel ── */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                        <Loader2 className="animate-spin text-primary" size={40} />
-                        <p className="text-sm text-muted-foreground font-medium">Loading riders...</p>
+                    // Shimmer skeleton loader
+                    <div className="p-4 space-y-3">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="flex items-center gap-4 px-3 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                <div className="w-4 h-4 rounded bg-muted animate-pulse shrink-0" />
+                                <div className="w-9 h-9 rounded-xl bg-muted animate-pulse shrink-0" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-3 bg-muted rounded animate-pulse" style={{ width: `${55 + i * 7}%`, animationDelay: `${i * 0.08}s` }} />
+                                    <div className="h-2.5 bg-muted/60 rounded animate-pulse" style={{ width: `${35 + i * 5}%`, animationDelay: `${i * 0.08 + 0.1}s` }} />
+                                </div>
+                                <div className="h-6 w-16 bg-muted rounded-lg animate-pulse" style={{ animationDelay: `${i * 0.08 + 0.2}s` }} />
+                                <div className="h-7 w-20 bg-muted rounded-xl animate-pulse" style={{ animationDelay: `${i * 0.08 + 0.3}s` }} />
+                            </div>
+                        ))}
                     </div>
                 ) : filteredRiders.length === 0 ? (
                     <div className="text-center py-20 px-6">
@@ -698,7 +744,7 @@ const MyRiders: React.FC = () => {
                         {/* ── Desktop Table ── */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-muted/40 border-b border-border">
+                                <thead className="border-b border-border/50" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(99,102,241,0.04))' }}>
                                     <tr>
                                         <th className="px-5 py-3.5 text-left w-10">
                                             <input type="checkbox"
@@ -707,8 +753,8 @@ const MyRiders: React.FC = () => {
                                                 className="w-4 h-4 rounded accent-primary cursor-pointer" />
                                         </th>
                                         {[
+                                            { label: 'Rider', key: 'riderName' },
                                             { label: 'Triev ID', key: 'trievId' },
-                                            { label: 'Rider Name', key: 'riderName' },
                                             { label: 'Mobile', key: null },
                                             { label: 'Chassis No.', key: 'chassisNumber' },
                                             { label: 'Wallet', key: 'walletAmount' },
@@ -718,14 +764,14 @@ const MyRiders: React.FC = () => {
                                         ].map(col => (
                                             <th key={col.label}
                                                 onClick={() => col.key && handleSort(col.key as keyof Rider)}
-                                                className={`px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider text-muted-foreground ${col.key ? 'cursor-pointer hover:bg-muted/60 hover:text-primary transition-colors select-none' : ''}`}>
+                                                className={`px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider text-muted-foreground/70 ${col.key ? 'cursor-pointer hover:bg-amber-500/5 hover:text-amber-600 transition-colors select-none' : ''}`}>
                                                 <span className="flex items-center gap-1">
                                                     {col.label}
-                                                    {col.key && sortBy === col.key && <span className="text-primary text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>}
+                                                    {col.key && sortBy === col.key && <span className="text-amber-500 text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>}
                                                 </span>
                                             </th>
                                         ))}
-                                        <th className="px-5 py-3.5 text-right text-[10px] font-black uppercase tracking-wider text-muted-foreground">Actions</th>
+                                        <th className="px-5 py-3.5 text-right text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/50">
@@ -737,17 +783,29 @@ const MyRiders: React.FC = () => {
                                                     className="w-4 h-4 rounded accent-primary cursor-pointer" />
                                             </td>
                                             <td className="px-5 py-4">
-                                                <button onClick={() => setViewingRider(rider)} className="text-primary font-black text-sm hover:underline hover:text-primary/80 transition-colors">
-                                                    {rider.trievId}
-                                                </button>
+                                                <div className="flex items-center gap-3">
+                                                    {/* Premium Avatar with status dot */}
+                                                    <div className="relative shrink-0">
+                                                        <div
+                                                            className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md"
+                                                            style={{ background: `hsl(${(rider.riderName?.charCodeAt(0) || 65) * 47 % 360}, 60%, 40%)` }}
+                                                        >
+                                                            {(rider.riderName || '?').slice(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <span
+                                                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${statusDot(rider.status)}`}
+                                                            title={rider.status}
+                                                        />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-sm text-foreground truncate max-w-[130px]">{rider.riderName}</p>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="px-5 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-sm flex-shrink-0">
-                                                        {(rider.riderName || '?').charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <p className="font-bold text-sm text-foreground truncate max-w-[140px]">{rider.riderName}</p>
-                                                </div>
+                                                <button onClick={() => setViewingRider(rider)} className="text-amber-500 dark:text-amber-400 font-black text-xs hover:underline hover:text-amber-600 transition-colors font-mono">
+                                                    {rider.trievId}
+                                                </button>
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex items-center gap-2 flex-wrap">
