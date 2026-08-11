@@ -18,6 +18,7 @@ import PerformanceCard from '@/components/dashboard/PerformanceCard';
 import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
 import { exportBrandedPerformancePDF } from '@/utils/exportUtils';
 import { useDebounce } from '@/hooks/useDebounce';
+import { getValidHistoricalDate } from '@/utils/dateUtils';
 
 /* ── Mini Sparkline (pure SVG) ──────────────────────────────────────────── */
 const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; color?: string }> = ({
