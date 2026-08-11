@@ -4,9 +4,8 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import {
     Users, BarChart3, Bot, Target, Trophy, ShieldAlert, Zap, Shield,
     ArrowRight, ChevronDown, Star, CheckCircle2, Sparkles, Globe,
-    Wallet, Bell, LogIn, Lock, Activity, Play, X, LayoutDashboard, Home, SunMoon
+    Wallet, Bell, LogIn, Lock, Activity, Play, X, LayoutDashboard, Home
 } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
 
 // ─── Animated Aurora Background ───────────────────────────────────────────────
 const LandingBackground: React.FC = () => {
@@ -225,7 +224,6 @@ const STATS = [
 const LandingPage: React.FC = () => {
     const [loginModalOpen, setLoginModalOpen] = useState(false);
     const [navScrolled, setNavScrolled] = useState(false);
-    const { autoRotate30Min, setAutoRotate30Min } = useTheme();
     const { scrollY } = useScroll();
     const heroY = useTransform(scrollY, [0, 600], [0, -120]);
     const mockupY = useTransform(scrollY, [0, 500], [0, -60]);
@@ -273,20 +271,6 @@ const LandingPage: React.FC = () => {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                        {/* 30-min Auto Theme Shift button */}
-                        <button
-                            onClick={() => setAutoRotate30Min(!autoRotate30Min)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                                autoRotate30Min
-                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
-                                    : 'bg-white/[0.04] text-white/60 border-white/10 hover:text-white hover:bg-white/[0.08]'
-                            }`}
-                            title="Auto-rotate ambient theme background every 30 minutes"
-                        >
-                            <SunMoon size={14} className={autoRotate30Min ? 'animate-spin' : ''} style={{ animationDuration: '10s' }} />
-                            <span className="hidden lg:inline">{autoRotate30Min ? 'Auto Theme 30m: ON' : 'Auto Theme 30m'}</span>
-                        </button>
-
                         <button
                             onClick={() => setLoginModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl font-black text-sm text-white transition-all hover:scale-105 active:scale-95 shadow-lg"
