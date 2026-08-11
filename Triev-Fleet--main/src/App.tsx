@@ -13,6 +13,7 @@ import '@/index.css';
 // ─── Eagerly loaded (critical path – must be instant) ────────────────────────
 import LoginPage from '@/pages/auth/LoginPage';
 import AdminLogin from '@/pages/admin/AdminLogin';
+import LandingPage from '@/pages/LandingPage';
 
 // ─── Lazily loaded (only downloaded when the route is actually visited) ────────
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
@@ -201,16 +202,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
         <div className="text-center">
           <h1 className="text-2xl font-bold text-destructive mb-4">Account Inactive</h1>
           <p className="text-muted-foreground mb-4">Your account is currently inactive. Please contact your administrator.</p>
-          {userData.username === 'saunvir1130' && (
-            <button
-              onClick={async () => {
-                if (user) { await supabase.from('users').update({ status: 'active' }).eq('id', user.id); window.location.reload(); }
-              }}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:bg-primary/90"
-            >
-              Emergency Reactivate (Admin Only)
-            </button>
-          )}
         </div>
       </div>
     );
@@ -267,7 +258,10 @@ function AppRoutes() {
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/admin-login" element={<PublicRoute><AdminLogin /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          {/* /register disabled by default — set VITE_ENABLE_REGISTER=true to enable */}
+          {import.meta.env.VITE_ENABLE_REGISTER === 'true' && (
+            <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          )}
 
           {/* Team Leader Routes */}
           <Route
@@ -357,17 +351,19 @@ function AppRoutes() {
             <Route path="profile" element={<CityOpsProfile />} />
           </Route>
 
-          {/* Default root redirect */}
+          {/* Root: Landing for guests, dashboard for logged-in users */}
           <Route
             path="/"
             element={
-              userData?.role === 'admin'
-                ? <Navigate to="/portal" replace />
-                : userData?.role === 'cityOps'
-                  ? <Navigate to="/city-ops" replace />
-                  : userData?.role === 'reportingManager'
-                    ? <Navigate to="/rm-panel" replace />
-                    : <Navigate to="/team-leader" replace />
+              !user
+                ? <LandingPage />
+                : userData?.role === 'admin'
+                  ? <Navigate to="/portal" replace />
+                  : userData?.role === 'cityOps'
+                    ? <Navigate to="/city-ops" replace />
+                    : userData?.role === 'reportingManager'
+                      ? <Navigate to="/rm-panel" replace />
+                      : <Navigate to="/team-leader" replace />
             }
           />
 
@@ -377,16 +373,12 @@ function AppRoutes() {
             element={
               <div className="flex items-center justify-center min-h-screen">
                 <div className="text-center">
-                  <h1 className="text-2xl font-bold mb-4">Unauthorized</h1>
-                  <p className="text-muted-foreground mb-6">You don't have permission to access this page.</p>
-                  <div className="bg-muted p-4 rounded-lg text-left text-xs font-mono mb-6 inline-block max-w-sm">
-                    <p className="font-bold mb-2">Diagnostic Info:</p>
-                    <p>Your Role: <span className="text-primary">{userData?.role || 'None'}</span></p>
-                    <p>User ID: {user?.id}</p>
+                  <h1 className="text-2xl font-bold mb-4">Unauthorized Access</h1>
+                  <p className="text-muted-foreground mb-6">You don't have permission to view this page.</p>
+                  <div className="flex gap-3 justify-center">
+                    <button onClick={() => window.history.back()} className="px-5 py-2.5 bg-emerald-500 text-white font-medium rounded-lg hover:bg-emerald-600 transition-colors">Go Back</button>
+                    <button onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }} className="px-4 py-2 border border-border rounded-lg hover:bg-accent">Sign Out</button>
                   </div>
-                  <br />
-                  <button onClick={() => window.history.back()} className="px-5 py-2.5 bg-emerald-500 text-white font-medium rounded-lg hover:bg-emerald-600 transition-colors mr-3">Go Back</button>
-                  <button onClick={() => { supabase.auth.signOut(); window.location.href = '/login'; }} className="px-4 py-2 border border-border rounded-lg hover:bg-accent">Sign Out</button>
                 </div>
               </div>
             }
