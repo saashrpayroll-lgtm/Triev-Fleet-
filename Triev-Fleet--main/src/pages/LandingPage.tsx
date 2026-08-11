@@ -4,8 +4,9 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import {
     Users, BarChart3, Bot, Target, Trophy, ShieldAlert, Zap, Shield,
     ArrowRight, ChevronDown, Star, CheckCircle2, Sparkles, Globe,
-    Wallet, Bell, LogIn, Lock, Activity, Play, X, LayoutDashboard
+    Wallet, Bell, LogIn, Lock, Activity, Play, X, LayoutDashboard, Home, SunMoon
 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─── Animated Aurora Background ───────────────────────────────────────────────
 const LandingBackground: React.FC = () => {
@@ -224,6 +225,7 @@ const STATS = [
 const LandingPage: React.FC = () => {
     const [loginModalOpen, setLoginModalOpen] = useState(false);
     const [navScrolled, setNavScrolled] = useState(false);
+    const { autoRotate30Min, setAutoRotate30Min } = useTheme();
     const { scrollY } = useScroll();
     const heroY = useTransform(scrollY, [0, 600], [0, -120]);
     const mockupY = useTransform(scrollY, [0, 500], [0, -60]);
@@ -248,32 +250,52 @@ const LandingPage: React.FC = () => {
             >
                 <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
                     {/* Logo */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-base shadow-lg"
+                    <a href="#" className="flex items-center gap-3 group">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-base shadow-lg transition-transform group-hover:scale-105"
                             style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)' }}>T</div>
                         <div>
                             <span className="font-black text-base text-white">Triev Fleet</span>
                             <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-indigo-400/70 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">v2.5</span>
                         </div>
-                    </div>
+                    </a>
 
-                    {/* Nav links — hidden on mobile */}
+                    {/* Nav links — including Home */}
                     <div className="hidden md:flex items-center gap-6 text-sm">
+                        <a href="#" className="flex items-center gap-1.5 text-white font-medium hover:text-indigo-400 transition-colors">
+                            <Home size={15} />
+                            Home
+                        </a>
                         {['Features', 'Portals', 'Security'].map(link => (
                             <a key={link} href={`#${link.toLowerCase()}`}
                                 className="text-white/50 hover:text-white transition-colors font-medium">{link}</a>
                         ))}
                     </div>
 
-                    {/* CTA */}
-                    <button
-                        onClick={() => setLoginModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-sm text-white transition-all hover:scale-105 active:scale-95 shadow-lg"
-                        style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)', boxShadow: '0 4px 16px rgba(99,102,241,0.35)' }}
-                    >
-                        <LogIn size={15} />
-                        Sign In
-                    </button>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* 30-min Auto Theme Shift button */}
+                        <button
+                            onClick={() => setAutoRotate30Min(!autoRotate30Min)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                                autoRotate30Min
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
+                                    : 'bg-white/[0.04] text-white/60 border-white/10 hover:text-white hover:bg-white/[0.08]'
+                            }`}
+                            title="Auto-rotate ambient theme background every 30 minutes"
+                        >
+                            <SunMoon size={14} className={autoRotate30Min ? 'animate-spin' : ''} style={{ animationDuration: '10s' }} />
+                            <span className="hidden lg:inline">{autoRotate30Min ? 'Auto Theme 30m: ON' : 'Auto Theme 30m'}</span>
+                        </button>
+
+                        <button
+                            onClick={() => setLoginModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl font-black text-sm text-white transition-all hover:scale-105 active:scale-95 shadow-lg"
+                            style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)', boxShadow: '0 4px 16px rgba(99,102,241,0.35)' }}
+                        >
+                            <LogIn size={15} />
+                            Sign In
+                        </button>
+                    </div>
                 </div>
             </motion.nav>
 

@@ -11,23 +11,52 @@ interface ThemeProviderProps {
 interface ThemeProviderState {
     theme: Theme;
     setTheme: (theme: Theme) => void;
+    autoRotate30Min: boolean;
+    setAutoRotate30Min: (enabled: boolean) => void;
 }
 
 const initialState: ThemeProviderState = {
     theme: 'system',
     setTheme: () => null,
+    autoRotate30Min: false,
+    setAutoRotate30Min: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
     children,
-    defaultTheme = 'system',
+    defaultTheme = 'dark',
     storageKey = 'vite-ui-theme',
 }: ThemeProviderProps) {
     const [theme, setTheme] = useState<Theme>(
         () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
     );
+    const [autoRotate30Min, setAutoRotate30MinState] = useState<boolean>(
+        () => localStorage.getItem('auto-theme-rotate-30m') === 'true'
+    );
+
+    const setAutoRotate30Min = (enabled: boolean) => {
+        setAutoRotate30MinState(enabled);
+        localStorage.setItem('auto-theme-rotate-30m', enabled ? 'true' : 'false');
+    };
+
+    // Auto rotate every 30 minutes if enabled
+    useEffect(() => {
+        if (!autoRotate30Min) return;
+
+        const themesList: Theme[] = ['dark', 'orange', 'light'];
+        const interval = setInterval(() => {
+            setTheme((prevTheme) => {
+                const currentIndex = themesList.indexOf(prevTheme);
+                const nextTheme = themesList[(currentIndex + 1) % themesList.length];
+                localStorage.setItem(storageKey, nextTheme);
+                return nextTheme;
+            });
+        }, 30 * 60 * 1000); // 30 minutes
+
+        return () => clearInterval(interval);
+    }, [autoRotate30Min, storageKey]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -50,10 +79,12 @@ export function ThemeProvider({
 
     const value = {
         theme,
-        setTheme: (theme: Theme) => {
-            localStorage.setItem(storageKey, theme);
-            setTheme(theme);
+        setTheme: (newTheme: Theme) => {
+            localStorage.setItem(storageKey, newTheme);
+            setTheme(newTheme);
         },
+        autoRotate30Min,
+        setAutoRotate30Min,
     };
 
     return (
@@ -71,3 +102,4 @@ export const useTheme = () => {
 
     return context;
 };
+
