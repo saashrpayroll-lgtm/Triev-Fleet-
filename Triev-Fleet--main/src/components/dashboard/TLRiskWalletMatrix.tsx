@@ -67,6 +67,41 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             setRiders(ridersData || []);
 
+            // Synchronize drill-down list and inspect rider modal with fresh fetched DB data
+            if (ridersData && ridersData.length > 0) {
+                const freshMap = new Map<string, any>(ridersData.map((rd: any) => [rd.id, rd]));
+
+                setSelectedCellRiders(prevList => {
+                    if (!prevList) return null;
+                    return prevList.map(oldR => {
+                        const fresh = freshMap.get(oldR.id);
+                        if (!fresh) return oldR;
+                        const isStolenVal = Boolean(fresh.is_stolen || fresh.isStolen);
+                        const isCompVal = Boolean(fresh.is_company_tagged || fresh.isCompanyTagged);
+                        return {
+                            ...oldR,
+                            isStolen: isStolenVal,
+                            isCompanyTagged: isCompVal,
+                            walletAmount: Number(fresh.wallet_amount ?? fresh.walletAmount ?? oldR.walletAmount)
+                        };
+                    });
+                });
+
+                setDetailRider(prevDetail => {
+                    if (!prevDetail) return null;
+                    const fresh = freshMap.get(prevDetail.id);
+                    if (!fresh) return prevDetail;
+                    const isStolenVal = Boolean(fresh.is_stolen || fresh.isStolen);
+                    const isCompVal = Boolean(fresh.is_company_tagged || fresh.isCompanyTagged);
+                    return {
+                        ...prevDetail,
+                        isStolen: isStolenVal,
+                        isCompanyTagged: isCompVal,
+                        walletAmount: Number(fresh.wallet_amount ?? fresh.walletAmount ?? prevDetail.walletAmount)
+                    };
+                });
+            }
+
             // 3. Fetch daily snapshots for 5-week historical view
             const { data: snapshotsData, error: snapErr } = await supabase
                 .from('matrix_daily_snapshots')
@@ -111,12 +146,17 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             const rmName = (r.reporting_manager || r.rm_name || r.reportingManager || tlUser?.reporting_manager || 'Saunvir Singh').trim();
             const cityOpsName = (r.skip_manager || r.city_ops_name || r.cityOps || 'Danish Abdulla khan').trim();
 
+            const isStolen = Boolean(r.is_stolen || r.isStolen);
+            const isCompanyTagged = Boolean(r.is_company_tagged || r.isCompanyTagged);
+
             return {
                 ...r,
                 walletAmount,
                 tlName,
                 rmName,
-                cityOpsName
+                cityOpsName,
+                isStolen,
+                isCompanyTagged
             };
         });
     }, [riders, userMap]);
@@ -355,8 +395,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             teamLeaderName: r.team_leader || r.teamLeaderName || row.tlName,
             createdAt: r.created_at || new Date().toISOString(),
             updatedAt: r.updated_at || new Date().toISOString(),
-            isStolen: r.is_stolen || false,
-            isCompanyTagged: r.is_company_tagged || false
+            isStolen: Boolean(r.isStolen || r.is_stolen),
+            isCompanyTagged: Boolean(r.isCompanyTagged || r.is_company_tagged)
         }));
 
         setCellModalTitle(title);
