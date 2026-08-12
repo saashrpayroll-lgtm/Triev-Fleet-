@@ -52,8 +52,9 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     // Fetch Live Riders & Snapshots
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
+        else setRefreshing(true);
         try {
             // 1. Fetch all active riders with paginated helper (beyond 1000 limit)
             const { data: ridersData, error: ridersErr } = await fetchAllRidersPaginated('*', { column: 'status', value: 'active' });
@@ -76,12 +77,14 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     return prevList.map(oldR => {
                         const fresh = freshMap.get(oldR.id);
                         if (!fresh) return oldR;
-                        const isStolenVal = Boolean(fresh.is_stolen || fresh.isStolen);
-                        const isCompVal = Boolean(fresh.is_company_tagged || fresh.isCompanyTagged);
+                        const isStolenVal = fresh.is_stolen !== undefined && fresh.is_stolen !== null ? Boolean(fresh.is_stolen) : Boolean(oldR.isStolen);
+                        const isCompVal = fresh.is_company_tagged !== undefined && fresh.is_company_tagged !== null ? Boolean(fresh.is_company_tagged) : Boolean(oldR.isCompanyTagged);
                         return {
                             ...oldR,
                             isStolen: isStolenVal,
+                            is_stolen: isStolenVal,
                             isCompanyTagged: isCompVal,
+                            is_company_tagged: isCompVal,
                             walletAmount: Number(fresh.wallet_amount ?? fresh.walletAmount ?? oldR.walletAmount)
                         };
                     });
@@ -91,12 +94,14 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     if (!prevDetail) return null;
                     const fresh = freshMap.get(prevDetail.id);
                     if (!fresh) return prevDetail;
-                    const isStolenVal = Boolean(fresh.is_stolen || fresh.isStolen);
-                    const isCompVal = Boolean(fresh.is_company_tagged || fresh.isCompanyTagged);
+                    const isStolenVal = fresh.is_stolen !== undefined && fresh.is_stolen !== null ? Boolean(fresh.is_stolen) : Boolean(prevDetail.isStolen);
+                    const isCompVal = fresh.is_company_tagged !== undefined && fresh.is_company_tagged !== null ? Boolean(fresh.is_company_tagged) : Boolean(prevDetail.isCompanyTagged);
                     return {
                         ...prevDetail,
                         isStolen: isStolenVal,
+                        is_stolen: isStolenVal,
                         isCompanyTagged: isCompVal,
+                        is_company_tagged: isCompVal,
                         walletAmount: Number(fresh.wallet_amount ?? fresh.walletAmount ?? prevDetail.walletAmount)
                     };
                 });
@@ -909,7 +914,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 <RiderDetailsModal
                     rider={detailRider}
                     onClose={() => setDetailRider(null)}
-                    onUpdate={() => fetchData()}
+                    onUpdate={() => fetchData(true)}
                 />
             )}
 
