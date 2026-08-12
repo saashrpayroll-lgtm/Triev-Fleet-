@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Table, Sliders, Search, Download, FileSpreadsheet, FileText, 
-    RefreshCw, Filter, Sparkles, AlertTriangle, ShieldCheck, CheckCircle2,
-    Users, ChevronRight, Eye, Calendar, ArrowUpDown
+    Search, FileSpreadsheet, FileText, 
+    RefreshCw, Filter, Sparkles, AlertTriangle, ShieldCheck,
+    Users, Eye, Calendar, ArrowUpDown
 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
