@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     LayoutDashboard, Users, FileText, Activity, LogOut, Menu,
-    X, Wallet, User, Target, ShieldAlert, Bell, RefreshCw, Search, ChevronRight
+    X, Wallet, User, Target, ShieldAlert, Bell, RefreshCw, Search, ChevronRight, Sliders
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -135,6 +135,7 @@ const TeamLeaderLayout: React.FC = () => {
             color: 'text-indigo-400',
             items: [
                 { path: '/team-leader/wallet-history', icon: Wallet, label: 'Wallet Logs', emoji: '💰', visible: userData?.permissions?.wallet?.viewHistory ?? true },
+                { path: '/team-leader/risk-matrix', icon: Sliders, label: 'TL Risk Matrix', emoji: '🧮', visible: true },
                 { path: '/team-leader/reports', icon: FileText, label: 'Reports', emoji: '📑', visible: userData?.permissions?.modules?.reports ?? true },
                 { path: '/team-leader/activity-log', icon: Activity, label: 'Activity Logs', emoji: '🗒️', visible: userData?.permissions?.modules?.activityLog ?? true },
             ].filter(item => { if (item.visible === undefined) return true; return item.visible; })

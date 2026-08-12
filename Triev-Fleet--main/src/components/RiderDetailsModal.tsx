@@ -118,6 +118,30 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
     const [starRating, setStarRating] = useState<StarRatingResult | null>(null);
     const [showRatingModal, setShowRatingModal] = useState(false);
 
+    // Risk Matrix Exclusion Flags State
+    const [isStolen, setIsStolen] = useState<boolean>(rider.isStolen || (rider as any).is_stolen || false);
+    const [isCompanyTagged, setIsCompanyTagged] = useState<boolean>(rider.isCompanyTagged || (rider as any).is_company_tagged || false);
+
+    const handleToggleExclusion = async (field: 'is_stolen' | 'is_company_tagged', currentVal: boolean) => {
+        const newVal = !currentVal;
+        if (field === 'is_stolen') setIsStolen(newVal);
+        if (field === 'is_company_tagged') setIsCompanyTagged(newVal);
+
+        try {
+            const { error } = await supabase
+                .from('riders')
+                .update({ [field]: newVal })
+                .eq('id', rider.id);
+
+            if (error) throw error;
+            toast.success(`Rider ${field === 'is_stolen' ? 'Stolen vehicle flag' : 'Company tagged flag'} updated`);
+            onUpdate?.();
+        } catch (err: any) {
+            console.error("Failed to update rider exclusion flag:", err);
+            toast.error("Failed to update flag");
+        }
+    };
+
     useEffect(() => {
         const initialPhoto = rider.photoUrl || (rider as any).photo_url;
         setRiderPhoto(initialPhoto);
@@ -743,6 +767,38 @@ ${new Date().toLocaleString('en-IN')}`;
                                     <p className="text-[9px] text-muted-foreground/50 mt-1">Tap for details</p>
                                 </div>
                             </div>
+
+                            {/* Risk Matrix Exclusion Flags (Admin Only) */}
+                            {userData?.role === 'admin' && (
+                                <div className="bg-card border border-purple-500/20 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                            <ShieldCheck size={14} className="text-purple-500" /> Risk Matrix Exclusion Controls
+                                        </h4>
+                                        <span className="text-[10px] text-purple-600 dark:text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full font-mono">Admin Only</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <label className="flex items-center justify-between p-2.5 rounded-xl bg-accent/30 border border-border/40 cursor-pointer hover:bg-accent/50 transition-all">
+                                            <span className="text-xs font-medium text-foreground">Stolen / Theft Vehicle</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={isStolen}
+                                                onChange={() => handleToggleExclusion('is_stolen', isStolen)}
+                                                className="w-4 h-4 rounded accent-purple-600 focus:ring-purple-500 cursor-pointer"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between p-2.5 rounded-xl bg-accent/30 border border-border/40 cursor-pointer hover:bg-accent/50 transition-all">
+                                            <span className="text-xs font-medium text-foreground">Company Tagged (Blinkit/Zomato)</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={isCompanyTagged}
+                                                onChange={() => handleToggleExclusion('is_company_tagged', isCompanyTagged)}
+                                                className="w-4 h-4 rounded accent-purple-600 focus:ring-purple-500 cursor-pointer"
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
 
 
                             <div className="bg-card border border-border rounded-2xl overflow-hidden">

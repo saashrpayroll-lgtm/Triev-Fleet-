@@ -18,6 +18,7 @@ import LandingPage from '@/pages/LandingPage';
 // ─── Lazily loaded (only downloaded when the route is actually visited) ────────
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
 const RegisterPage = React.lazy(() => import('@/pages/auth/RegisterPage'));
+const RiskMatrixPage = React.lazy(() => import('@/pages/shared/RiskMatrixPage'));
 
 // Team Leader Pages
 const TeamLeaderLayout = React.lazy(() => import('@/layouts/TeamLeaderLayout'));
@@ -299,6 +300,7 @@ function AppRoutes() {
             <Route path="wallet-history" element={<WalletHistory />} />
             <Route path="collections" element={<CollectionHistory />} />
             <Route path="performance" element={<TLPersonalPerformance />} />
+            <Route path="risk-matrix" element={<RiskMatrixPage />} />
             <Route path="notifications" element={<TLNotificationsPage />} />
             <Route path="forms" element={<TLForms />} />
           </Route>
@@ -316,6 +318,7 @@ function AppRoutes() {
             <Route path="cityops-performance" element={<CityOpsPerformance />} />
             <Route path="rm-performance" element={<RMPerformance />} />
             <Route path="tl-performance" element={<TLPerformance />} />
+            <Route path="risk-matrix" element={<RiskMatrixPage />} />
             <Route path="tl-allotment" element={<TLAllotment />} />
             <Route path="leaderboard" element={<LeaderboardPage />} />
             <Route path="broadcast" element={<NotificationManagement />} />
@@ -338,6 +341,7 @@ function AppRoutes() {
           >
             <Route index element={<RMDashboard />} />
             <Route path="tl-performance" element={<RMTLPerformance />} />
+            <Route path="risk-matrix" element={<RiskMatrixPage />} />
             <Route path="leaderboard" element={<RMLeaderboard />} />
             <Route path="riders" element={<RMRiderOverview />} />
             <Route path="leads" element={<RMLeadOverview />} />
@@ -360,6 +364,7 @@ function AppRoutes() {
             <Route path="wallet-history" element={<CityOpsWalletHistory />} />
             <Route path="rm-performance" element={<CityOpsRMPerformance />} />
             <Route path="tl-performance" element={<CityOpsTLPerformance />} />
+            <Route path="risk-matrix" element={<RiskMatrixPage />} />
             <Route path="tl-allotment" element={<CityOpsTLAllotment />} />
             <Route path="reports" element={<CityOpsReports />} />
             <Route path="activity-log" element={<CityOpsActivityLog />} />

@@ -252,6 +252,27 @@ export interface Rider {
     lastStatusChangeAt?: string | null;
     deletedAt?: string | null;
     photoUrl?: string; // URL for the rider's ID photo
+    isStolen?: boolean;
+    isCompanyTagged?: boolean;
+}
+
+export interface TLRiskMatrixRow {
+    cityOpsName: string;
+    rmName: string;
+    tlName: string;
+    activeRiders: number;
+    negativeCount: number;
+    range0To250Count: number;
+    negativePct: number;
+    range0To250Pct: number;
+}
+
+export interface TLRiskMatrixSummary {
+    totalActiveRiders: number;
+    totalNegativeCount: number;
+    totalRange0To250Count: number;
+    overallNegativePct: number;
+    overallRange0To250Pct: number;
 }
 
 export interface RiderColumnMapping {

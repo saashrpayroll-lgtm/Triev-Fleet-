@@ -106,6 +106,7 @@ const CityOpsLayout: React.FC = () => {
             items: [
                 { path: '/city-ops/rm-performance', icon: Activity, label: 'RM Performance', visible: perms?.rmPerformance ?? true },
                 { path: '/city-ops/tl-performance', icon: Activity, label: 'TL Performance', visible: perms?.tlPerformance ?? true },
+                { path: '/city-ops/risk-matrix', icon: Sliders, label: 'TL Risk Matrix', visible: true },
                 { path: '/city-ops/tl-allotment', icon: Layout, label: 'Allotment System', visible: perms?.allotmentSystem ?? true },
                 { path: '/city-ops/forms', icon: FileText, label: 'Company Forms', visible: perms?.companyForms ?? true },
             ].filter(item => item.visible)

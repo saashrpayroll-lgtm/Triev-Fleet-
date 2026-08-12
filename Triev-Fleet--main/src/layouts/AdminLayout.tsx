@@ -127,6 +127,7 @@ const AdminLayout: React.FC = () => {
                 { path: '/portal/cityops-performance', icon: Activity, label: 'CityOps Performance', emoji: '🏙️', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/rm-performance', icon: Activity, label: 'RM Performance', emoji: '📡', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/tl-performance', icon: Activity, label: 'TL Performance', emoji: '👥', visible: userData?.permissions?.dashboard?.view ?? true },
+                { path: '/portal/risk-matrix', icon: Sliders, label: 'TL Risk Matrix', emoji: '🧮', visible: true },
                 { path: '/portal/tl-allotment', icon: Layout, label: 'Allotment System', emoji: '🗂️', visible: userData?.permissions?.dashboard?.view ?? true },
                 { path: '/portal/forms', icon: FileText, label: 'Company Forms', emoji: '📄', visible: userData?.permissions?.modules?.requests ?? true },
             ].filter(item => item.visible)

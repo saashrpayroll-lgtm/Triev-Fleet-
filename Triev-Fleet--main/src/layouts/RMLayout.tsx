@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     LayoutDashboard, Users, Target, Trophy, FileText, LogOut, Menu,
-    X, User, BarChart3, Wallet
+    X, User, BarChart3, Wallet, Sliders
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { safeRender } from '@/utils/safeRender';
@@ -48,6 +48,7 @@ const RMLayout: React.FC = () => {
             title: 'Team Performance',
             items: [
                 { path: '/rm-panel/tl-performance', icon: BarChart3, label: 'TL Performance', visible: rmPerms?.tlPerformance ?? true },
+                { path: '/rm-panel/risk-matrix', icon: Sliders, label: 'TL Risk Matrix', visible: true },
                 { path: '/rm-panel/leaderboard', icon: Trophy, label: 'Leaderboard', visible: rmPerms?.leaderboard ?? true },
             ].filter(item => item.visible !== false)
         },
