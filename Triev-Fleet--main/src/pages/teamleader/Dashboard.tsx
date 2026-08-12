@@ -699,12 +699,6 @@ const Dashboard: React.FC = () => {
             {/* TAB 1: DAILY TASKS & RECOVERY */}
             {activeTab === 'overview' && (
                 <div className="space-y-5 animate-in fade-in duration-300">
-                    <AIVirtualOpsCopilot
-                        roleName={safeRender(userData?.fullName, 'Team Leader')}
-                        riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id)}
-                        leads={leaderboardData.leads.filter(l => l.createdBy === userData.id)}
-                    />
-
                     <QuickInsightStrip
                         insights={[
                             { label: 'Fleet', value: stats.activeRiders, suffix: ' active' },
@@ -1283,6 +1277,13 @@ const Dashboard: React.FC = () => {
                 rider={selectedCheckInRider}
                 currentUserId={userData?.id}
                 currentUserEmail={userData?.email}
+            />
+
+            {/* Global Floating AI Copilot */}
+            <AIVirtualOpsCopilot
+                roleName={safeRender(userData?.fullName, 'Team Leader')}
+                riders={leaderboardData.riders.filter(r => r.teamLeaderId === userData?.id)}
+                leads={leaderboardData.leads.filter(l => l.createdBy === userData?.id)}
             />
         </div>
     );

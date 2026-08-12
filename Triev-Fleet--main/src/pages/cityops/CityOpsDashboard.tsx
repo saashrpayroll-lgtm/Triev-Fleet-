@@ -751,13 +751,6 @@ const CityOpsDashboard: React.FC = () => {
             {/* TAB 1: CITY OPERATIONS OVERVIEW */}
             {activeTab === 'overview' && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                    <AIVirtualOpsCopilot
-                        roleName="City Operations Fleet Manager"
-                        riders={rawData.riders}
-                        leads={rawData.leads}
-                        requests={rawData.requests}
-                    />
-
                     {/* Fleet & Operations */}
                     <div className="space-y-3 sm:space-y-4">
                         <div className="flex items-center gap-2.5 sm:gap-3 px-1">
@@ -974,6 +967,14 @@ const CityOpsDashboard: React.FC = () => {
                     <WalletWatchlist riders={rawData.riders} />
                 </div>
             )}
+
+            {/* Global Floating AI Copilot */}
+            <AIVirtualOpsCopilot
+                roleName="City Operations Fleet Manager"
+                riders={rawData.riders}
+                leads={rawData.leads}
+                requests={rawData.requests}
+            />
         </div>
     );
 };

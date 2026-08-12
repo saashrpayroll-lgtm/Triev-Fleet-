@@ -799,13 +799,6 @@ const Dashboard: React.FC = () => {
             {/* TAB 1: OVERVIEW */}
             {activeTab === 'overview' && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                    <AIVirtualOpsCopilot
-                        roleName="System Administrator"
-                        riders={rawData.riders}
-                        leads={rawData.leads}
-                        requests={rawData.requests}
-                    />
-
                     {/* Fleet & Operations */}
                     <div className="space-y-3 sm:space-y-4">
                         <div className="flex items-center gap-2.5 sm:gap-3 px-1">
@@ -1169,6 +1162,14 @@ const Dashboard: React.FC = () => {
                     )}
                 </div>
             )}
+
+            {/* Global Floating AI Copilot */}
+            <AIVirtualOpsCopilot
+                roleName="System Administrator"
+                riders={rawData.riders}
+                leads={rawData.leads}
+                requests={rawData.requests}
+            />
         </div>
     );
 };
