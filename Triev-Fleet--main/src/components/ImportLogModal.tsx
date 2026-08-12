@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, FileSpreadsheet, Info, Wallet, UserMinus, UserCheck, UserPlus } from 'lucide-react';
 import { DetailedSyncChange } from '@/types';
 
@@ -8,28 +8,66 @@ interface ImportLogModalProps {
     record: any | null;
 }
 
+const renderSafeString = (val: any): string => {
+    if (val === null || val === undefined) return '-';
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+    if (typeof val === 'object') {
+        if (val.message) return String(val.message);
+        if (val.reason) return String(val.reason);
+        try { return JSON.stringify(val); } catch { return String(val); }
+    }
+    return String(val);
+};
+
+const parseJsonSafely = (data: any): any => {
+    if (!data) return null;
+    if (typeof data === 'object') return data;
+    if (typeof data === 'string') {
+        try { return JSON.parse(data); } catch { return null; }
+    }
+    return null;
+};
+
 export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose, record }) => {
     const [activeTab, setActiveTab] = useState<'wallet' | 'inactivated' | 'reactivated' | 'added' | 'errors' | 'skips'>('wallet');
 
     if (!isOpen || !record) return null;
 
-    const errors = record.errors || [];
-    const rawSkips = record.skipped_details || [];
-    const metaObj = (Array.isArray(rawSkips) && rawSkips.find((s: any) => s._meta)?._meta) || {};
-    const skips = Array.isArray(rawSkips) ? rawSkips.filter((s: any) => !s._meta) : [];
+    const parsedErrors = parseJsonSafely(record.errors);
+    const errors = Array.isArray(parsedErrors) ? parsedErrors : (parsedErrors ? [parsedErrors] : []);
 
-    const detailedChanges = record.detailed_changes || metaObj.detailedChanges || record.metadata?.summary?.detailedChanges || {
-        added: [],
-        inactivated: [],
-        reactivated: [],
-        walletUpdates: [],
-        dataUpdates: []
-    };
+    const parsedSkips = parseJsonSafely(record.skipped_details || record.skippedDetails);
+    const rawSkips = Array.isArray(parsedSkips) ? parsedSkips : [];
+    const metaObj = (rawSkips.find((s: any) => s && s._meta)?._meta) || {};
+    const skips = rawSkips.filter((s: any) => s && !s._meta);
 
-    const added: DetailedSyncChange[] = detailedChanges.added || [];
-    const inactivated: DetailedSyncChange[] = detailedChanges.inactivated || [];
-    const reactivated: DetailedSyncChange[] = detailedChanges.reactivated || [];
-    const walletUpdates: DetailedSyncChange[] = detailedChanges.walletUpdates || [];
+    const parsedDetailed = parseJsonSafely(record.detailed_changes || record.detailedChanges) 
+        || metaObj.detailedChanges 
+        || parseJsonSafely(record.metadata)?.summary?.detailedChanges 
+        || {};
+
+    const added: DetailedSyncChange[] = Array.isArray(parsedDetailed.added) ? parsedDetailed.added : [];
+    const inactivated: DetailedSyncChange[] = Array.isArray(parsedDetailed.inactivated) ? parsedDetailed.inactivated : [];
+    const reactivated: DetailedSyncChange[] = Array.isArray(parsedDetailed.reactivated) ? parsedDetailed.reactivated : [];
+    const walletUpdates: DetailedSyncChange[] = Array.isArray(parsedDetailed.walletUpdates) ? parsedDetailed.walletUpdates : [];
+
+    const importType = (record.importType || record.import_type || 'rider').toString();
+    const adminName = (record.adminName || record.admin_name || 'Admin').toString();
+    const totalRows = record.totalRows ?? record.total_rows ?? 0;
+    const successCount = record.successCount ?? record.success_count ?? added.length;
+    const updatedCount = walletUpdates.length || record.updated_count || 0;
+    const inactivatedCount = inactivated.length || metaObj.inactivated || record.inactivated_count || 0;
+    const reactivatedCount = reactivated.length || metaObj.reactivated || record.reactivated_count || 0;
+    const skippedCount = record.skipped_count ?? skips.length;
+
+    useEffect(() => {
+        if (walletUpdates.length > 0) setActiveTab('wallet');
+        else if (inactivated.length > 0) setActiveTab('inactivated');
+        else if (reactivated.length > 0) setActiveTab('reactivated');
+        else if (added.length > 0) setActiveTab('added');
+        else if (errors.length > 0) setActiveTab('errors');
+        else if (skips.length > 0) setActiveTab('skips');
+    }, [record?.id]);
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 shadow-2xl animate-in fade-in duration-200">

@@ -135,39 +135,157 @@ export const processRiderImport = async (
         skippedDetails: [] 
     };
 
-    // ── 1. Pre-fetch Team Leaders, RMs & City Ops Users ───────────────────────
-    const teamLeaderMap = new Map<string, string>();
-    const teamLeaderEmailMap = new Map<string, string>();
+    // ── 1. Pre-fetch ALL Team Leaders, RMs & City Ops Users (Paginated) ──────
+    const teamLeaderMap = new Map<string, string[]>();
+    const teamLeaderEmailMap = new Map<string, string[]>();
+    const superCleanMap = new Map<string, string[]>();
+    const kontiIdMap = new Map<string, string[]>();
     const userByIdMap = new Map<string, any>();
     let users: any[] = [];
     try {
-        const { data: fetchedUsers, error } = await supabase
-            .from('users')
-            .select('id, fullName:full_name, email, role, reporting_manager, city_ops_id')
-            .range(0, 4999);
+        const { data: fetchedUsers, error } = await fetchTablePaginated('users', 'id, full_name, email, role, reporting_manager, city_ops_id');
         if (error) throw error;
-        users = fetchedUsers || [];
+        users = (fetchedUsers || []).map((u: any) => ({
+            ...u,
+            fullName: (u.full_name || '').replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim()
+        }));
+
+        const addToMap = (map: Map<string, string[]>, key: string, id: string) => {
+            if (!key || !id) return;
+            const list = map.get(key) || [];
+            if (!list.includes(id)) list.push(id);
+            map.set(key, list);
+        };
+
         users.forEach((user: any) => {
             userByIdMap.set(user.id, user);
             const nameRaw = (user.fullName || '').trim();
             const email = (user.email || '').trim().toLowerCase();
             const uid = user.id;
-            if (email) teamLeaderEmailMap.set(email, uid);
+            if (email) addToMap(teamLeaderEmailMap, email, uid);
+
             if (nameRaw) {
-                teamLeaderMap.set(nameRaw.toLowerCase(), uid);
-                const clean = nameRaw.replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase();
-                if (clean) teamLeaderMap.set(clean, uid);
-                const kontiMatch = nameRaw.match(/KONTI\s*[\/\-]?\s*\d+/i);
-                if (kontiMatch) {
-                    const num = kontiMatch[0].match(/\d+/)?.[0];
-                    if (num) teamLeaderMap.set(`konti/${num}`, uid);
+                const lowerRaw = nameRaw.toLowerCase();
+                addToMap(teamLeaderMap, lowerRaw, uid);
+
+                const clean = lowerRaw.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                if (clean) addToMap(teamLeaderMap, clean, uid);
+
+                const sc = clean.replace(/[^a-z0-9]/gi, '');
+                if (sc) addToMap(superCleanMap, sc, uid);
+
+                const tagMatches = nameRaw.match(/(?:KONTI|TL|EMP|ID)[\s\/\-_]*\d+/gi);
+                if (tagMatches) {
+                    tagMatches.forEach((tag: string) => {
+                        const numOnly = tag.match(/\d+/)?.[0];
+                        if (numOnly) {
+                            addToMap(kontiIdMap, numOnly, uid);
+                            addToMap(kontiIdMap, `konti/${numOnly}`, uid);
+                        }
+                    });
                 }
             }
         });
     } catch (err) { console.error('Error pre-fetching users:', err); }
 
+    // Multi-Strategy TL Resolver Helper (handles duplicate TL names disambiguated by RM Name)
+    const findMatchingUserId = (rawTLName: string, rawRMName?: string): string | null => {
+        if (!rawTLName) return null;
+        const normTL = rawTLName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!normTL || ['n/a', 'unassigned', '-', 'none', 'null'].includes(normTL.toLowerCase())) return null;
+
+        const lowerTL = normTL.toLowerCase();
+        const cleanTL = lowerTL.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+        const scTL = cleanTL.replace(/[^a-z0-9]/gi, '');
+
+        const candidateUserIds = new Set<string>();
+
+        const addCandidates = (map: Map<string, string[]>, key: string) => {
+            const list = map.get(key);
+            if (list) list.forEach(id => candidateUserIds.add(id));
+        };
+
+        addCandidates(teamLeaderEmailMap, lowerTL);
+        addCandidates(teamLeaderMap, lowerTL);
+        if (cleanTL) addCandidates(teamLeaderMap, cleanTL);
+        if (scTL) addCandidates(superCleanMap, scTL);
+
+        const tagMatches = normTL.match(/(?:KONTI|TL|EMP|ID)[\s\/\-_]*(\d+)/gi);
+        if (tagMatches) {
+            for (const tag of tagMatches) {
+                const numOnly = tag.match(/\d+/)?.[0];
+                if (numOnly) addCandidates(kontiIdMap, `konti/${numOnly}`);
+            }
+        }
+
+        if (cleanTL.length >= 3) {
+            const cleanTokens = cleanTL.split(/\s+/).filter((t: string) => t.length >= 2);
+            for (const u of users) {
+                const uClean = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                if (!uClean) continue;
+
+                if (uClean === cleanTL) {
+                    candidateUserIds.add(u.id);
+                } else if (cleanTokens.length >= 2) {
+                    const uTokens = uClean.split(/\s+/).filter((t: string) => t.length >= 2);
+                    if (uTokens.length >= 2) {
+                        const isSame = cleanTokens.every((ct: string) => uTokens.includes(ct)) && uTokens.every((ut: string) => cleanTokens.includes(ut));
+                        if (isSame) candidateUserIds.add(u.id);
+                    }
+                }
+            }
+        }
+
+        if (candidateUserIds.size === 0) return null;
+
+        const candidates = Array.from(candidateUserIds);
+
+        // Strict RM Disambiguation: If RM is specified in sheet row, filter candidates strictly by RM!
+        if (rawRMName && rawRMName.trim() !== '' && !['n/a', 'unassigned', '-', 'none', 'null'].includes(rawRMName.trim().toLowerCase())) {
+            const normRM = rawRMName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            const cleanRM = normRM.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+            const scRM = cleanRM.replace(/[^a-z0-9]/gi, '');
+
+            const matchingRMCandidates = candidates.filter(uid => {
+                const candidateUser = userByIdMap.get(uid);
+                if (!candidateUser) return false;
+
+                const candidateRmRef = (candidateUser.reporting_manager || '').toString().trim();
+
+                // 1. If reporting_manager is UUID pointing to rmUser
+                const rmUser = candidateRmRef ? userByIdMap.get(candidateRmRef) : null;
+                const rmNameLower = rmUser ? (rmUser.fullName || '').toLowerCase() : '';
+                const rmClean = rmNameLower.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                const rmEmail = rmUser ? (rmUser.email || '').toLowerCase() : '';
+                const rmSC = rmClean.replace(/[^a-z0-9]/gi, '');
+
+                // 2. Direct string value in reporting_manager column
+                const directRmLower = candidateRmRef.toLowerCase();
+                const directRmClean = directRmLower.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                const directRmSC = directRmClean.replace(/[^a-z0-9]/gi, '');
+
+                if (rmEmail && rmEmail === normRM) return true;
+                if (rmNameLower && (rmNameLower === normRM || rmClean === cleanRM)) return true;
+                if (directRmLower && (directRmLower === normRM || directRmClean === cleanRM)) return true;
+                if (scRM && ((rmSC && (scRM === rmSC || scRM.includes(rmSC) || rmSC.includes(scRM))) || (directRmSC && (scRM === directRmSC || scRM.includes(directRmSC) || directRmSC.includes(scRM))))) return true;
+                if (cleanRM && ((rmClean && (rmClean.includes(cleanRM) || cleanRM.includes(rmClean))) || (directRmClean && (directRmClean.includes(cleanRM) || cleanRM.includes(directRmClean))))) return true;
+
+                return false;
+            });
+
+            if (matchingRMCandidates.length > 0) {
+                return matchingRMCandidates[0];
+            } else {
+                // Specified RM in sheet does not match the candidate TL's registered RM in system!
+                return null;
+            }
+        }
+
+        return candidates[0];
+    };
+
     // Staff Filter Helper
-    const isStaffSelected = (tlId: string | null, tlNameRaw: string, existingRiderTLId?: string | null): boolean => {
+    const isStaffSelected = (tlId: string | null, tlNameRaw: string, existingRiderTLId?: string | null, rmNameRaw?: string): boolean => {
         if (!staffFilter || staffFilter.syncAllStaff) return true;
         const selectedTLs = staffFilter.teamLeaderIds || [];
         const selectedRMs = staffFilter.reportingManagerIds || [];
@@ -176,36 +294,14 @@ export const processRiderImport = async (
         // If no filters selected at all, allow all!
         if (selectedTLs.length === 0 && selectedRMs.length === 0 && selectedCityOps.length === 0) return true;
 
-        if (tlId) {
-            if (selectedTLs.includes(tlId)) return true;
-            const tlUser = userByIdMap.get(tlId);
+        const effectiveTLId = tlId || (existingRiderTLId && userByIdMap.has(existingRiderTLId) ? existingRiderTLId : null) || findMatchingUserId(tlNameRaw, rmNameRaw);
+
+        if (effectiveTLId) {
+            if (selectedTLs.includes(effectiveTLId)) return true;
+            const tlUser = userByIdMap.get(effectiveTLId);
             if (tlUser) {
                 if (tlUser.reporting_manager && selectedRMs.includes(tlUser.reporting_manager)) return true;
                 if (tlUser.city_ops_id && selectedCityOps.includes(tlUser.city_ops_id)) return true;
-            }
-        }
-
-        if (existingRiderTLId) {
-            if (selectedTLs.includes(existingRiderTLId)) return true;
-            const existingTLUser = userByIdMap.get(existingRiderTLId);
-            if (existingTLUser) {
-                if (existingTLUser.reporting_manager && selectedRMs.includes(existingTLUser.reporting_manager)) return true;
-                if (existingTLUser.city_ops_id && selectedCityOps.includes(existingTLUser.city_ops_id)) return true;
-            }
-        }
-
-        if (tlNameRaw) {
-            const cleanRaw = tlNameRaw.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
-            if (cleanRaw && cleanRaw !== 'n/a' && cleanRaw !== 'unassigned' && cleanRaw !== '-') {
-                const matchedUser = users.find(u => {
-                    const un = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
-                    return un && (un.includes(cleanRaw) || cleanRaw.includes(un));
-                });
-                if (matchedUser) {
-                    if (selectedTLs.includes(matchedUser.id)) return true;
-                    if (matchedUser.reporting_manager && selectedRMs.includes(matchedUser.reporting_manager)) return true;
-                    if (matchedUser.city_ops_id && selectedCityOps.includes(matchedUser.city_ops_id)) return true;
-                }
             }
         }
 
@@ -278,6 +374,7 @@ export const processRiderImport = async (
             const mobile = normalizeMobile(mobileRaw);
             const chassis = getValue(columnMapping?.chassisNumber, ['Chassis No', 'ChassisNo', 'Chassis Number', 'Chassis']);
             const teamLeaderName = getValue(columnMapping?.teamLeader, ['TL Name', 'TLName', 'Team Leader', 'TeamLeader', 'TL', 'Base']);
+            const reportingManagerName = getValue(columnMapping?.reportingManager, ['Reporting Manager', 'ReportingManager', 'RM Name', 'RMName', 'RM', 'Reproting Manager', 'Reporting Mgr', 'Manager', 'Reporting Manager Name']);
             const clientRaw = getValue(columnMapping?.clientName, ['quick commerce', 'Quick Commerce', 'Client Name', 'Client', 'Brand']);
             const clientId = getValue(columnMapping?.clientId, ['Client ID', 'ClientId']);
             const remarks = getValue(columnMapping?.remarks, ['days', 'Remarks', 'Remark', 'Note']);
@@ -291,29 +388,37 @@ export const processRiderImport = async (
             const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
                 ?? (mobile ? riderMobileMap.get(mobile) : null);
 
-            // Resolve Team Leader
-            let teamLeaderId: string | null = null;
+            // Resolve Team Leader using Multi-Strategy Matcher (disambiguating duplicate names via RM)
+            let teamLeaderId: string | null = findMatchingUserId(teamLeaderName, reportingManagerName);
             let finalTLName = teamLeaderName || 'Unassigned';
-            if (teamLeaderName) {
-                const nl = teamLeaderName.toLowerCase().trim();
-                const cl = nl.replace(/\s*\(.*?\)\s*/g, '').trim();
-                teamLeaderId = teamLeaderEmailMap.get(nl) || teamLeaderMap.get(nl) || teamLeaderMap.get(cl) || null;
-                if (!teamLeaderId) {
-                    const km = teamLeaderName.match(/KONTI\s*[\/\-]?\s*\d+/i);
-                    if (km) { const num = km[0].match(/\d+/)?.[0]; if (num) teamLeaderId = teamLeaderMap.get(`konti/${num}`) || null; }
-                }
-                if (!teamLeaderId) {
-                    const fuzzy = users.find(u => {
-                        const d = (u.fullName || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim();
-                        return d && (d.includes(cl) || cl.includes(d));
-                    });
-                    if (fuzzy) teamLeaderId = fuzzy.id;
-                }
-                if (teamLeaderId) finalTLName = users.find(u => u.id === teamLeaderId)?.fullName || teamLeaderName;
+
+            if (teamLeaderId) {
+                finalTLName = userByIdMap.get(teamLeaderId)?.fullName || teamLeaderName;
+            } else if (
+                existingRider &&
+                existingRider.team_leader_id &&
+                userByIdMap.has(existingRider.team_leader_id) &&
+                (!teamLeaderName || ['n/a', 'unassigned', '-', 'none', 'null'].includes(teamLeaderName.toLowerCase().trim()))
+            ) {
+                const existingTLId: string = existingRider.team_leader_id;
+                teamLeaderId = existingTLId;
+                finalTLName = existingRider.team_leader_name || userByIdMap.get(existingTLId)?.fullName || 'Unassigned';
+            }
+
+            // Strict Unregistered TL Rule: Skip row if Team Leader is NOT registered in system users!
+            if (!teamLeaderId) {
+                summary.skipped = (summary.skipped || 0) + 1;
+                summary.skippedDetails!.push({ 
+                    row: rowNum, 
+                    identifier: trievId || mobile || currentRiderName, 
+                    reason: `Skipped: Team Leader (${teamLeaderName || 'Unassigned'}) under RM (${reportingManagerName || 'Unregistered'}) is NOT registered in system users`, 
+                    data: row 
+                });
+                continue;
             }
 
             // Staff Filter Check: Skip if TL/RM/CityOps not in selected list
-            if (!isStaffSelected(teamLeaderId, teamLeaderName, existingRider?.team_leader_id)) {
+            if (!isStaffSelected(teamLeaderId, teamLeaderName, existingRider?.team_leader_id, reportingManagerName)) {
                 summary.skipped = (summary.skipped || 0) + 1;
                 summary.skippedDetails!.push({ 
                     row: rowNum, 
@@ -484,6 +589,11 @@ export const processRiderImport = async (
         try {
             const ridersToInactivate = allDbRiders.filter(r => {
                 if (r.status !== 'active') return false; // Only active riders can become inactive
+
+                // If the rider's TL is no longer registered in system users, auto-inactivate!
+                const isRegisteredTL = r.team_leader_id ? userByIdMap.has(r.team_leader_id) : false;
+                if (!isRegisteredTL) return true;
+
                 if (!isStaffSelected(r.team_leader_id, r.team_leader_name || '')) return false; // Respect staff filter scope
                 return !matchedSheetRiderIds.has(r.id);
             });
