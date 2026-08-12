@@ -524,97 +524,112 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             {/* ── TOP HEADER & SUMMARY STAT CARDS (MATCHING GOOGLE SHEET TOP ROW) ── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <GlassCard className="p-5 border-l-4 border-l-slate-800 dark:border-l-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Active Riders</p>
+                <GlassCard className="p-5 border-l-4 border-l-slate-700 dark:border-l-slate-200 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Riders</p>
                     <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-foreground">{summaryStats.totalActiveRiders}</h3>
-                        <Users size={20} className="text-slate-500 opacity-60" />
+                        <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{summaryStats.totalActiveRiders}</h3>
+                        <div className="p-2 rounded-xl bg-slate-500/10 text-slate-700 dark:text-slate-300">
+                            <Users size={18} />
+                        </div>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-amber-500">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Negative Wallet Count</p>
+                <GlassCard className="p-5 border-l-4 border-l-amber-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Negative Wallet Count</p>
                     <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-amber-500">{summaryStats.totalNegativeCount}</h3>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-mono font-bold">
+                        <h3 className="text-3xl font-black text-amber-600 dark:text-amber-400 tracking-tight">{summaryStats.totalNegativeCount}</h3>
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-mono font-black border border-amber-500/30">
                             {summaryStats.overallNegativePct}%
                         </span>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-orange-500">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">0 to 250 Range Count</p>
+                <GlassCard className="p-5 border-l-4 border-l-orange-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">0 to 250 Range Count</p>
                     <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-orange-500">{summaryStats.totalRange0To250Count}</h3>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500 font-mono font-bold">
+                        <h3 className="text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">{summaryStats.totalRange0To250Count}</h3>
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-300 font-mono font-black border border-orange-500/30">
                             {summaryStats.overallRange0To250Pct}%
                         </span>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-rose-500">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Negative Count %</p>
+                <GlassCard className="p-5 border-l-4 border-l-rose-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Negative Count %</p>
                     <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-rose-500">{summaryStats.overallNegativePct}%</h3>
-                        <AlertTriangle size={20} className="text-rose-500 opacity-60" />
+                        <h3 className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight">{summaryStats.overallNegativePct}%</h3>
+                        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                            <AlertTriangle size={18} />
+                        </div>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-purple-500">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">0 to 250 %</p>
+                <GlassCard className="p-5 border-l-4 border-l-purple-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">0 to 250 %</p>
                     <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-purple-500">{summaryStats.overallRange0To250Pct}%</h3>
-                        <Sparkles size={20} className="text-purple-500 opacity-60" />
+                        <h3 className="text-3xl font-black text-purple-600 dark:text-purple-400 tracking-tight">{summaryStats.overallRange0To250Pct}%</h3>
+                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                            <Sparkles size={18} />
+                        </div>
                     </div>
                 </GlassCard>
             </div>
 
             {/* ── ADMIN-ONLY EXCLUSION CONTROL BAR ── */}
             {isAdmin && (
-                <GlassCard className="p-4 bg-purple-500/5 border-purple-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                            <ShieldCheck size={18} />
+                <GlassCard className="p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner">
+                            <ShieldCheck size={22} />
                         </div>
                         <div>
-                            <h4 className="font-extrabold text-xs text-foreground flex items-center gap-1.5">
-                                Admin Exclusion Rules Power Controls
-                                <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-mono">Admin Only</span>
+                            <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                                Risk Matrix Exclusion Controls
+                                <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">Admin Only</span>
                             </h4>
-                            <p className="text-[11px] text-muted-foreground">Toggle active filtering rules for New Allotments, Theft, and Company Tagged Riders</p>
+                            <p className="text-[11px] text-muted-foreground font-medium">Toggle exclusion parameters for New Allotments, Theft Vehicles, and Company Tagged Payouts</p>
                         </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 text-xs">
-                        <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border cursor-pointer hover:bg-accent transition-all font-medium">
+                        <div 
+                            onClick={() => setExcludeNewAllotments(!excludeNewAllotments)}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                        >
                             <input
                                 type="checkbox"
                                 checked={excludeNewAllotments}
-                                onChange={e => setExcludeNewAllotments(e.target.checked)}
-                                className="w-4 h-4 rounded accent-purple-600"
+                                readOnly
+                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
                             />
                             <span>Exclude New Allotments (&lt;= 36h)</span>
-                        </label>
+                        </div>
 
-                        <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border cursor-pointer hover:bg-accent transition-all font-medium">
+                        <div 
+                            onClick={() => setExcludeStolen(!excludeStolen)}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                        >
                             <input
                                 type="checkbox"
                                 checked={excludeStolen}
-                                onChange={e => setExcludeStolen(e.target.checked)}
-                                className="w-4 h-4 rounded accent-purple-600"
+                                readOnly
+                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
                             />
                             <span>Exclude Stolen Vehicles</span>
-                        </label>
+                        </div>
 
-                        <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-border cursor-pointer hover:bg-accent transition-all font-medium">
+                        <div 
+                            onClick={() => setExcludeCompanyTagged(!excludeCompanyTagged)}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                        >
                             <input
                                 type="checkbox"
                                 checked={excludeCompanyTagged}
-                                onChange={e => setExcludeCompanyTagged(e.target.checked)}
-                                className="w-4 h-4 rounded accent-purple-600"
+                                readOnly
+                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
                             />
                             <span>Exclude Company Tagged</span>
-                        </label>
+                        </div>
                     </div>
                 </GlassCard>
             )}
