@@ -1,6 +1,6 @@
 import React from 'react';
 import TLRiskWalletMatrix from '@/components/dashboard/TLRiskWalletMatrix';
-import { Sliders, Sparkles, Shield } from 'lucide-react';
+import { Sliders, Sparkles } from 'lucide-react';
 
 const RiskMatrixPage: React.FC = () => {
     return (
