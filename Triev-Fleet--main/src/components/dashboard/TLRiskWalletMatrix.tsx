@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 
 export interface TLRiskWalletMatrixProps {
     className?: string;
@@ -24,6 +25,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
     // Data States
     const [riders, setRiders] = useState<any[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [snapshots, setSnapshots] = useState<any[]>([]);
@@ -53,16 +55,19 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch all active riders with hierarchy details
-            const { data: ridersData, error: ridersErr } = await supabase
-                .from('riders')
-                .select('*')
-                .eq('status', 'active');
-
+            // 1. Fetch all active riders with paginated helper (beyond 1000 limit)
+            const { data: ridersData, error: ridersErr } = await fetchAllRidersPaginated('*', { column: 'status', value: 'active' });
             if (ridersErr) throw ridersErr;
+
+            // 2. Fetch users table to map TL ID -> TL Name, RM Name, City Ops Name
+            const { data: usersData, error: usersErr } = await fetchTablePaginated('users', 'id, full_name, email, role, reporting_manager, city_ops_id, status');
+            if (!usersErr && usersData) {
+                setUsers(usersData);
+            }
+
             setRiders(ridersData || []);
 
-            // 2. Fetch daily snapshots for 5-week historical view
+            // 3. Fetch daily snapshots for 5-week historical view
             const { data: snapshotsData, error: snapErr } = await supabase
                 .from('matrix_daily_snapshots')
                 .select('*')
@@ -85,33 +90,36 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         fetchData();
     }, []);
 
-    // Unique Dropdown Options
-    const cityOpsOptions = useMemo(() => {
-        const set = new Set<string>();
-        riders.forEach(r => {
-            const val = r.skip_manager || r.city_ops_name || r.cityOps;
-            if (val && String(val).trim()) set.add(String(val).trim());
+    // Create User Lookup Map
+    const userMap = useMemo(() => {
+        const map = new Map<string, any>();
+        users.forEach(u => {
+            if (u.id) map.set(u.id, u);
         });
-        return Array.from(set).sort();
-    }, [riders]);
+        return map;
+    }, [users]);
 
-    const rmOptions = useMemo(() => {
-        const set = new Set<string>();
-        riders.forEach(r => {
-            const val = r.reporting_manager || r.rm_name || r.reportingManager;
-            if (val && String(val).trim()) set.add(String(val).trim());
-        });
-        return Array.from(set).sort();
-    }, [riders]);
+    // Enrich Riders with Resolved Hierarchy & Wallet Amount
+    const enrichedRiders = useMemo(() => {
+        return riders.map(r => {
+            const walletAmount = Number(r.wallet_amount ?? r.walletAmount ?? r.wallet_balance ?? 0);
+            
+            const tlId = r.team_leader_id || r.teamLeaderId;
+            const tlUser = tlId ? userMap.get(tlId) : null;
+            const tlName = (r.team_leader_name || r.team_leader || r.teamLeaderName || tlUser?.full_name || tlUser?.email || 'Unassigned TL').trim();
 
-    const tlOptions = useMemo(() => {
-        const set = new Set<string>();
-        riders.forEach(r => {
-            const val = r.team_leader || r.teamLeaderName || r.teamLeader;
-            if (val && String(val).trim()) set.add(String(val).trim());
+            const rmName = (r.reporting_manager || r.rm_name || r.reportingManager || tlUser?.reporting_manager || 'Saunvir Singh').trim();
+            const cityOpsName = (r.skip_manager || r.city_ops_name || r.cityOps || 'Danish Abdulla khan').trim();
+
+            return {
+                ...r,
+                walletAmount,
+                tlName,
+                rmName,
+                cityOpsName
+            };
         });
-        return Array.from(set).sort();
-    }, [riders]);
+    }, [riders, userMap]);
 
     // Calculate Today IST & Yesterday IST for New Allotment Filter
     const isNewAllotment = (allotmentDateStr?: string) => {
@@ -120,7 +128,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             const allotmentDate = new Date(allotmentDateStr).getTime();
             const now = new Date().getTime();
             const diffHours = (now - allotmentDate) / (1000 * 60 * 60);
-            return diffHours >= 0 && diffHours <= 36; // Within last 36 hours (yesterday/today)
+            return diffHours >= 0 && diffHours <= 36;
         } catch {
             return false;
         }
@@ -128,27 +136,23 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
     // Filter Raw Riders based on Admin Exclusions
     const filteredRiders = useMemo(() => {
-        return riders.filter(r => {
-            // Rule 1: Exclude New Allotments (<= 24-36h)
+        return enrichedRiders.filter(r => {
             if (excludeNewAllotments && isNewAllotment(r.allotment_date || r.allotmentDate)) {
                 return false;
             }
-            // Rule 2: Exclude Stolen Vehicles
             if (excludeStolen && (r.is_stolen || r.isStolen)) {
                 return false;
             }
-            // Rule 3: Exclude Company Tagged Riders
             if (excludeCompanyTagged && (r.is_company_tagged || r.isCompanyTagged)) {
                 return false;
             }
             return true;
         });
-    }, [riders, excludeNewAllotments, excludeStolen, excludeCompanyTagged]);
+    }, [enrichedRiders, excludeNewAllotments, excludeStolen, excludeCompanyTagged]);
 
     // Build Live Matrix Rows
     const matrixRows: TLRiskMatrixRow[] = useMemo(() => {
         if (selectedWeek !== 'current' && snapshots.length > 0) {
-            // Historical snapshot mode
             const targetWeekOffset = parseInt(selectedWeek.replace('week-', ''), 10) || 1;
             const targetDate = new Date();
             targetDate.setDate(targetDate.getDate() - (targetWeekOffset * 7));
@@ -159,9 +163,9 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             const targetDaySnaps = snapshots.filter(s => s.snapshot_date === latestDate);
 
             return targetDaySnaps.map(s => ({
-                cityOpsName: s.city_ops_name || 'Unassigned',
-                rmName: s.rm_name || 'Unassigned',
-                tlName: s.tl_name || 'Unassigned',
+                cityOpsName: s.city_ops_name || 'Danish Abdulla khan',
+                rmName: s.rm_name || 'Saunvir Singh',
+                tlName: s.tl_name || 'Unassigned TL',
                 activeRiders: s.active_riders || 0,
                 negativeCount: s.negative_count || 0,
                 range0To250Count: s.range_0_250_count || 0,
@@ -170,7 +174,6 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             }));
         }
 
-        // Live Mode Grouping
         const map = new Map<string, {
             cityOpsName: string;
             rmName: string;
@@ -178,10 +181,24 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             matchingRiders: any[];
         }>();
 
+        // 1. Seed with active Team Leaders from users table so all assigned TLs are visible
+        users.forEach(u => {
+            if (u.role === 'teamLeader' && (u.status === 'active' || u.status === undefined)) {
+                const tlName = (u.full_name || u.email || '').trim();
+                const rmName = (u.reporting_manager || 'Saunvir Singh').trim();
+                const cityOpsName = 'Danish Abdulla khan';
+                if (tlName) {
+                    const key = `${cityOpsName}___${rmName}___${tlName}`;
+                    map.set(key, { cityOpsName, rmName, tlName, matchingRiders: [] });
+                }
+            }
+        });
+
+        // 2. Group riders into matching TL key
         filteredRiders.forEach(r => {
-            const cityOpsName = r.skip_manager || r.city_ops_name || r.cityOps || 'Danish Abdulla khan';
-            const rmName = r.reporting_manager || r.rm_name || r.reportingManager || 'Saunvir Singh';
-            const tlName = r.team_leader || r.teamLeaderName || r.teamLeader || 'Unassigned TL';
+            const cityOpsName = r.cityOpsName || 'Danish Abdulla khan';
+            const rmName = r.rmName || 'Saunvir Singh';
+            const tlName = r.tlName || 'Unassigned TL';
             const key = `${cityOpsName}___${rmName}___${tlName}`;
 
             if (!map.has(key)) {
@@ -193,11 +210,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         const rows: TLRiskMatrixRow[] = [];
         map.forEach(group => {
             const activeRiders = group.matchingRiders.length;
-            const negRiders = group.matchingRiders.filter(r => (Number(r.walletAmount ?? r.wallet_balance ?? 0) < 0));
-            const rangeRiders = group.matchingRiders.filter(r => {
-                const bal = Number(r.walletAmount ?? r.wallet_balance ?? 0);
-                return bal >= -250 && bal < 0;
-            });
+            const negRiders = group.matchingRiders.filter(r => r.walletAmount < 0);
+            const rangeRiders = group.matchingRiders.filter(r => r.walletAmount >= -250 && r.walletAmount < 0);
 
             const negativeCount = negRiders.length;
             const range0To250Count = rangeRiders.length;
@@ -217,7 +231,35 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         });
 
         return rows;
-    }, [filteredRiders, selectedWeek, snapshots]);
+    }, [filteredRiders, selectedWeek, snapshots, users]);
+
+    // Unique Dropdown Options derived directly from matrix rows
+    const cityOpsOptions = useMemo(() => {
+        const set = new Set<string>();
+        matrixRows.forEach(r => {
+            if (r.cityOpsName && r.cityOpsName.trim()) set.add(r.cityOpsName.trim());
+        });
+        return Array.from(set).sort();
+    }, [matrixRows]);
+
+    const rmOptions = useMemo(() => {
+        const set = new Set<string>();
+        matrixRows.forEach(r => {
+            if (selectedCityOps !== 'all' && r.cityOpsName !== selectedCityOps) return;
+            if (r.rmName && r.rmName.trim()) set.add(r.rmName.trim());
+        });
+        return Array.from(set).sort();
+    }, [matrixRows, selectedCityOps]);
+
+    const tlOptions = useMemo(() => {
+        const set = new Set<string>();
+        matrixRows.forEach(r => {
+            if (selectedCityOps !== 'all' && r.cityOpsName !== selectedCityOps) return;
+            if (selectedRM !== 'all' && r.rmName !== selectedRM) return;
+            if (r.tlName && r.tlName.trim()) set.add(r.tlName.trim());
+        });
+        return Array.from(set).sort();
+    }, [matrixRows, selectedCityOps, selectedRM]);
 
     // Apply Filter Dropdowns & Search Query
     const displayedRows = useMemo(() => {
@@ -284,23 +326,17 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     // Open Drill-down Rider Modal
     const handleOpenCellRiders = (row: TLRiskMatrixRow, type: 'negative' | 'range0To250' | 'all') => {
         const groupRiders = filteredRiders.filter(r => {
-            const cName = r.skip_manager || r.city_ops_name || r.cityOps || 'Danish Abdulla khan';
-            const rName = r.reporting_manager || r.rm_name || r.reportingManager || 'Saunvir Singh';
-            const tName = r.team_leader || r.teamLeaderName || r.teamLeader || 'Unassigned TL';
-            return cName === row.cityOpsName && rName === row.rmName && tName === row.tlName;
+            return r.cityOpsName === row.cityOpsName && r.rmName === row.rmName && r.tlName === row.tlName;
         });
 
         let result: any[] = groupRiders;
         let title = `${row.tlName} - Active Riders (${groupRiders.length})`;
 
         if (type === 'negative') {
-            result = groupRiders.filter(r => (Number(r.walletAmount ?? r.wallet_balance ?? 0) < 0));
+            result = groupRiders.filter(r => r.walletAmount < 0);
             title = `${row.tlName} - Negative Wallet Riders (${result.length})`;
         } else if (type === 'range0To250') {
-            result = groupRiders.filter(r => {
-                const bal = Number(r.walletAmount ?? r.wallet_balance ?? 0);
-                return bal >= -250 && bal < 0;
-            });
+            result = groupRiders.filter(r => r.walletAmount >= -250 && r.walletAmount < 0);
             title = `${row.tlName} - Negative Wallet (₹0 to ₹250) Riders (${result.length})`;
         }
 
@@ -311,7 +347,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             mobileNumber: r.mobile_number || r.mobileNumber || '',
             chassisNumber: r.chassis_number || r.chassisNumber || '',
             clientName: r.client_name || r.clientName || 'Other',
-            walletAmount: Number(r.wallet_amount ?? r.wallet_balance ?? 0),
+            walletAmount: r.walletAmount,
             allotmentDate: r.allotment_date || r.allotmentDate || '',
             remarks: r.remarks || '',
             status: r.status || 'active',
