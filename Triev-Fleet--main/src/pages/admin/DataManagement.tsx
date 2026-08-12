@@ -810,9 +810,13 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                                             }`}></span>
                                         </span>
                                         <span>
-                                            {engineStatus.healthState === 'syncing' ? 'SYNCING NOW' : engineStatus.healthState === 'active' ? 'GLOBAL WORKER RUNNING' : 'SYNC PAUSED'}
+                                            {engineStatus.healthState === 'syncing' ? 'SYNCING NOW' : engineStatus.healthState === 'active' ? '24/7 SERVER SYNC ACTIVE' : 'SYNC PAUSED'}
                                         </span>
                                     </span>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                    <Sparkles size={14} className="shrink-0" />
+                                    <span>Server background sync runs 24/7 even when Admin panel is closed or logged out.</span>
                                 </div>
 
                                 <div className="space-y-2.5 text-xs">

@@ -2,6 +2,12 @@
     "outputDirectory": "dist",
     "buildCommand": "npm run build",
     "installCommand": "npm install --legacy-peer-deps",
+    "crons": [
+        {
+            "path": "/api/cron-live-sheet-sync",
+            "schedule": "*/2 * * * *"
+        }
+    ],
     "rewrites": [
         {
             "source": "/(.*)",

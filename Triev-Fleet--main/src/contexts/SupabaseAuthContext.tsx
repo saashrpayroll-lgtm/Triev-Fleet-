@@ -228,8 +228,8 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             if (data) {
                 const formatted = formatUserData(data);
                 setUserData(formatted);
-                if (formatted.role === 'admin') {
-                    liveSheetAutoSync.initialize(formatted.id, formatted.fullName || 'Admin User');
+                if (formatted.id) {
+                    liveSheetAutoSync.initialize(formatted.id, formatted.fullName || `${formatted.role} User`);
                 }
                 // Store role so logout redirect works even when userData closure is stale
                 try { localStorage.setItem('user_role', data.role || ''); } catch { /* storage unavailable */ }
