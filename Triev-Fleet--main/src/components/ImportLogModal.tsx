@@ -81,7 +81,7 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                             Live Sync & Import Detailed History Log
                         </h2>
                         <p className="text-xs text-muted-foreground mt-1 font-medium">
-                            {record.importType.toUpperCase()} Sync Run • {new Date(record.timestamp).toLocaleString()} • by {record.adminName}
+                            {importType.toUpperCase()} Sync Run • {new Date(record.timestamp).toLocaleString()} • by {adminName}
                         </p>
                     </div>
                     <button
@@ -96,27 +96,27 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                 <div className="px-6 py-4 bg-accent/30 border-b border-border/40 grid grid-cols-2 sm:grid-cols-6 gap-3">
                     <div className="p-3 rounded-xl bg-muted/40 border border-border/50 text-center">
                         <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Rows</div>
-                        <div className="text-lg font-black text-foreground">{record.totalRows}</div>
+                        <div className="text-lg font-black text-foreground">{totalRows}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                         <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">New Added</div>
-                        <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">{record.successCount || added.length}</div>
+                        <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">{successCount}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
                         <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Wallet Updated</div>
-                        <div className="text-lg font-black text-blue-600 dark:text-blue-400">{walletUpdates.length || record.updated_count || 0}</div>
+                        <div className="text-lg font-black text-blue-600 dark:text-blue-400">{updatedCount}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
                         <div className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">Inactivated</div>
-                        <div className="text-lg font-black text-rose-600 dark:text-rose-400">{inactivated.length || metaObj.inactivated || record.inactivated_count || 0}</div>
+                        <div className="text-lg font-black text-rose-600 dark:text-rose-400">{inactivatedCount}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
                         <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase">Reactivated</div>
-                        <div className="text-lg font-black text-purple-600 dark:text-purple-400">{reactivated.length || metaObj.reactivated || record.reactivated_count || 0}</div>
+                        <div className="text-lg font-black text-purple-600 dark:text-purple-400">{reactivatedCount}</div>
                     </div>
                     <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
                         <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Skipped</div>
-                        <div className="text-lg font-black text-amber-600 dark:text-amber-400">{record.skipped_count || 0}</div>
+                        <div className="text-lg font-black text-amber-600 dark:text-amber-400">{skippedCount}</div>
                     </div>
                 </div>
 
@@ -351,7 +351,7 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                                                 <tr key={i} className="hover:bg-accent/30">
                                                     <td className="px-4 py-2.5 font-bold text-muted-foreground">{err.row || '-'}</td>
                                                     <td className="px-4 py-2.5 font-mono font-bold text-foreground">{err.identifier || '-'}</td>
-                                                    <td className="px-4 py-2.5 text-red-500 font-medium">{err.reason}</td>
+                                                    <td className="px-4 py-2.5 text-red-500 font-medium">{renderSafeString(err.reason)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -383,7 +383,7 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                                                 <tr key={i} className="hover:bg-accent/30">
                                                     <td className="px-4 py-2.5 font-bold text-muted-foreground">{skip.row || '-'}</td>
                                                     <td className="px-4 py-2.5 font-mono font-bold text-foreground">{skip.identifier || '-'}</td>
-                                                    <td className="px-4 py-2.5 text-amber-500 font-medium">{skip.reason}</td>
+                                                    <td className="px-4 py-2.5 text-amber-500 font-medium">{renderSafeString(skip.reason)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

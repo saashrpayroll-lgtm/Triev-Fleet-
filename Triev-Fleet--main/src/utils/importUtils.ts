@@ -2,7 +2,7 @@ import { supabase } from '@/config/supabase';
 import { ImportSummary, ClientName, RiderColumnMapping, LiveSyncStaffFilter } from '@/types';
 import { logActivity } from './activityLog';
 import { LedgerAPI } from '@/api/ledger';
-import { fetchAllRidersPaginated } from './dbUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated } from './dbUtils';
 import { parseIndianDate } from './dateUtils';
 
 // Constants for Rider Import
