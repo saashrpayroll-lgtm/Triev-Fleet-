@@ -1,0 +1,17 @@
+{
+    "outputDirectory": "dist",
+    "buildCommand": "cd Triev-Fleet--main && npm run build",
+    "installCommand": "cd Triev-Fleet--main && npm install --legacy-peer-deps",
+    "crons": [
+        {
+            "path": "/api/cron-live-sheet-sync",
+            "schedule": "*/2 * * * *"
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/Triev-Fleet--main/dist/$1"
+        }
+    ]
+}
