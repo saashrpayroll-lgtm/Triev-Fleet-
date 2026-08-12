@@ -18,6 +18,7 @@ import {
     Trophy,
     TrendingUp,
     Layout,
+    Sliders,
     type LucideIcon
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';

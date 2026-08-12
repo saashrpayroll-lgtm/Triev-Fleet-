@@ -5,7 +5,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import {
     LayoutDashboard, Users, UserCog, Database, FileText, Activity, User,
     LogOut, Menu, X, Bell, ShieldAlert, Target, Trophy, TrendingUp,
-    Layout, Bot, RefreshCw, Search, ChevronRight
+    Layout, Bot, RefreshCw, Search, ChevronRight, Sliders
 } from 'lucide-react';
 import NotificationsDropdown from '@/components/NotificationsDropdown';
 import { ThemeToggle } from '@/components/ThemeToggle';
