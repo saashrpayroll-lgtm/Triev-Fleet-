@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, FileSpreadsheet, Info, Wallet, UserMinus, UserCheck, UserPlus } from 'lucide-react';
+import { X, AlertTriangle, FileSpreadsheet, Info, Wallet, UserMinus, UserCheck, UserPlus, Layers } from 'lucide-react';
 import { DetailedSyncChange } from '@/types';
 
 interface ImportLogModalProps {
@@ -70,22 +70,79 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
 
     if (!isOpen || !record) return null;
 
+    const cards = [
+        {
+            id: 'wallet' as const,
+            title: 'Wallet Updates',
+            count: updatedCount,
+            icon: Wallet,
+            colorClass: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/30 hover:border-blue-500',
+            activeClass: 'ring-2 ring-blue-500 bg-blue-500/20 border-blue-500 font-extrabold shadow-md'
+        },
+        {
+            id: 'inactivated' as const,
+            title: 'Auto-Inactivated',
+            count: inactivatedCount,
+            icon: UserMinus,
+            colorClass: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/30 hover:border-rose-500',
+            activeClass: 'ring-2 ring-rose-500 bg-rose-500/20 border-rose-500 font-extrabold shadow-md'
+        },
+        {
+            id: 'reactivated' as const,
+            title: 'Auto-Reactivated',
+            count: reactivatedCount,
+            icon: UserCheck,
+            colorClass: 'text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/30 hover:border-purple-500',
+            activeClass: 'ring-2 ring-purple-500 bg-purple-500/20 border-purple-500 font-extrabold shadow-md'
+        },
+        {
+            id: 'added' as const,
+            title: 'New Added',
+            count: successCount,
+            icon: UserPlus,
+            colorClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-500',
+            activeClass: 'ring-2 ring-emerald-500 bg-emerald-500/20 border-emerald-500 font-extrabold shadow-md'
+        },
+        {
+            id: 'errors' as const,
+            title: 'Errors',
+            count: errors.length,
+            icon: AlertTriangle,
+            colorClass: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/30 hover:border-red-500',
+            activeClass: 'ring-2 ring-red-500 bg-red-500/20 border-red-500 font-extrabold shadow-md'
+        },
+        {
+            id: 'skips' as const,
+            title: 'Skips',
+            count: skippedCount,
+            icon: Info,
+            colorClass: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30 hover:border-amber-500',
+            activeClass: 'ring-2 ring-amber-500 bg-amber-500/20 border-amber-500 font-extrabold shadow-md'
+        }
+    ];
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 shadow-2xl animate-in fade-in duration-200">
-            <div className="bg-card border border-border/60 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="bg-card border border-border/60 rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden shadow-2xl">
 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-border/40 bg-muted/20">
+                <div className="flex justify-between items-center p-5 border-b border-border/40 bg-muted/20">
                     <div>
-                        <h2 className="text-xl font-extrabold flex items-center gap-2.5 text-foreground">
-                            <FileSpreadsheet className="text-primary" />
-                            Live Sync & Import Detailed History Log
-                        </h2>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-xl font-extrabold flex items-center gap-2 text-foreground">
+                                <FileSpreadsheet className="text-primary" size={22} />
+                                Live Sync & Import Detailed History Log
+                            </h2>
+                            <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold flex items-center gap-1">
+                                <Layers size={12} /> Total Rows: {totalRows}
+                            </span>
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1 font-medium">
                             {importType.toUpperCase()} Sync Run • {new Date(record.timestamp).toLocaleString()} • by {adminName}
                         </p>
                     </div>
                     <button
+                        type="button"
                         onClick={onClose}
                         className="p-2 hover:bg-accent text-muted-foreground hover:text-foreground rounded-xl transition-colors"
                     >
@@ -93,95 +150,44 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     </button>
                 </div>
 
-                {/* Summary Badges Bar */}
-                <div className="px-6 py-4 bg-accent/30 border-b border-border/40 grid grid-cols-2 sm:grid-cols-6 gap-3">
-                    <div className="p-3 rounded-xl bg-muted/40 border border-border/50 text-center">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Rows</div>
-                        <div className="text-lg font-black text-foreground">{totalRows}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">New Added</div>
-                        <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">{successCount}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
-                        <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Wallet Updated</div>
-                        <div className="text-lg font-black text-blue-600 dark:text-blue-400">{updatedCount}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
-                        <div className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">Inactivated</div>
-                        <div className="text-lg font-black text-rose-600 dark:text-rose-400">{inactivatedCount}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
-                        <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase">Reactivated</div>
-                        <div className="text-lg font-black text-purple-600 dark:text-purple-400">{reactivatedCount}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-                        <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Skipped</div>
-                        <div className="text-lg font-black text-amber-600 dark:text-amber-400">{skippedCount}</div>
-                    </div>
+                {/* Clickable Interactive Category Cards Bar */}
+                <div className="p-5 bg-accent/20 border-b border-border/40 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {cards.map(card => {
+                        const Icon = card.icon;
+                        const isActive = activeTab === card.id;
+                        return (
+                            <button
+                                key={card.id}
+                                type="button"
+                                onClick={() => setActiveTab(card.id)}
+                                className={`p-3 rounded-xl border text-left transition-all duration-150 flex flex-col justify-between cursor-pointer ${
+                                    isActive ? card.activeClass : `${card.colorClass} opacity-85 hover:opacity-100 hover:scale-[1.02]`
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">{card.title}</span>
+                                    <Icon size={14} className="opacity-75" />
+                                </div>
+                                <div className="text-xl font-black mt-1">
+                                    {card.count}
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                {/* Sub-tabs */}
-                <div className="px-6 pt-3 flex gap-2 border-b border-border/40 overflow-x-auto scrollbar-thin">
-                    <button
-                        onClick={() => setActiveTab('wallet')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-                            activeTab === 'wallet' ? 'border-blue-500 text-blue-500' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <Wallet size={14} /> Wallet Updates ({walletUpdates.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('inactivated')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-                            activeTab === 'inactivated' ? 'border-rose-500 text-rose-500' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <UserMinus size={14} /> Auto-Inactivated ({inactivated.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('reactivated')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-                            activeTab === 'reactivated' ? 'border-purple-500 text-purple-500' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <UserCheck size={14} /> Auto-Reactivated ({reactivated.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('added')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-                            activeTab === 'added' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <UserPlus size={14} /> New Added ({added.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('errors')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-                            activeTab === 'errors' ? 'border-red-500 text-red-500' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <AlertTriangle size={14} /> Errors ({errors.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('skips')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
-                            activeTab === 'skips' ? 'border-amber-500 text-amber-500' : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <Info size={14} /> Skips ({skips.length})
-                    </button>
-                </div>
-
-                {/* Body Content */}
+                {/* Body Table Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
 
                     {/* Tab 1: Wallet Updates */}
                     {activeTab === 'wallet' && (
                         <div className="space-y-3">
+                            <h3 className="text-xs font-extrabold uppercase text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                                <Wallet size={14} /> Wallet Balance Updates ({walletUpdates.length})
+                            </h3>
                             {walletUpdates.length === 0 ? (
                                 <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                                    No wallet balance updates in this sync run.
+                                    No wallet balance updates recorded in this sync run.
                                 </div>
                             ) : (
                                 <div className="border rounded-xl overflow-hidden bg-card/60">
@@ -217,6 +223,9 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     {/* Tab 2: Auto-Inactivated Riders */}
                     {activeTab === 'inactivated' && (
                         <div className="space-y-3">
+                            <h3 className="text-xs font-extrabold uppercase text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                                <UserMinus size={14} /> Auto-Inactivated Riders ({inactivated.length})
+                            </h3>
                             {inactivated.length === 0 ? (
                                 <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
                                     No riders were auto-inactivated in this sync run.
@@ -257,6 +266,9 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     {/* Tab 3: Auto-Reactivated Riders */}
                     {activeTab === 'reactivated' && (
                         <div className="space-y-3">
+                            <h3 className="text-xs font-extrabold uppercase text-purple-600 dark:text-purple-400 flex items-center gap-2">
+                                <UserCheck size={14} /> Auto-Reactivated Riders ({reactivated.length})
+                            </h3>
                             {reactivated.length === 0 ? (
                                 <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
                                     No riders were auto-reactivated in this sync run.
@@ -297,6 +309,9 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     {/* Tab 4: New Added Riders */}
                     {activeTab === 'added' && (
                         <div className="space-y-3">
+                            <h3 className="text-xs font-extrabold uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                                <UserPlus size={14} /> New Added Riders ({added.length})
+                            </h3>
                             {added.length === 0 ? (
                                 <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
                                     No new riders created in this sync run.
@@ -333,6 +348,9 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     {/* Tab 5: Errors */}
                     {activeTab === 'errors' && (
                         <div className="space-y-3">
+                            <h3 className="text-xs font-extrabold uppercase text-red-600 dark:text-red-400 flex items-center gap-2">
+                                <AlertTriangle size={14} /> Error Logs ({errors.length})
+                            </h3>
                             {errors.length === 0 ? (
                                 <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
                                     No errors encountered in this sync run.
@@ -365,9 +383,12 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                     {/* Tab 6: Skips */}
                     {activeTab === 'skips' && (
                         <div className="space-y-3">
+                            <h3 className="text-xs font-extrabold uppercase text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                                <Info size={14} /> Skip Logs ({skips.length})
+                            </h3>
                             {skips.length === 0 ? (
                                 <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                                    No skip logs recorded.
+                                    No skip logs recorded in this sync run.
                                 </div>
                             ) : (
                                 <div className="border rounded-xl overflow-hidden bg-card/60">
@@ -398,6 +419,7 @@ export const ImportLogModal: React.FC<ImportLogModalProps> = ({ isOpen, onClose,
                 {/* Footer */}
                 <div className="p-4 border-t border-border/40 bg-muted/20 flex justify-end">
                     <button
+                        type="button"
                         onClick={onClose}
                         className="px-5 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-md shadow-primary/20"
                     >
