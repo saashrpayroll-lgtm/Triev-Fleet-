@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
     Search, FileSpreadsheet, FileText, 
@@ -40,7 +40,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedWeek, setSelectedWeek] = useState<string>('current');
 
-    // Global Admin Exclusion Settings (Persisted in localStorage so Admin preferences govern all users)
+    // Global Admin Exclusion Settings (Persisted in Supabase DB & synced via Realtime across all panels)
     const [excludeNewAllotments, setExcludeNewAllotments] = useState<boolean>(() => {
         try {
             const saved = localStorage.getItem('tl_matrix_exclusions');
@@ -65,8 +65,56 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         return false;
     });
 
-    // Admin Toggle Handler (Persists setting globally for all user panels)
-    const handleToggleExclusion = (key: 'newAllotments' | 'stolen' | 'company') => {
+    // Sync Global Exclusion Settings with Supabase DB (system_settings table)
+    const fetchGlobalExclusions = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('system_settings')
+                .select('value')
+                .eq('key', 'tl_matrix_exclusions')
+                .maybeSingle();
+
+            if (!error && data?.value) {
+                const val = data.value;
+                if (val.excludeNewAllotments !== undefined) setExcludeNewAllotments(Boolean(val.excludeNewAllotments));
+                if (val.excludeStolen !== undefined) setExcludeStolen(Boolean(val.excludeStolen));
+                if (val.excludeCompanyTagged !== undefined) setExcludeCompanyTagged(Boolean(val.excludeCompanyTagged));
+                try { localStorage.setItem('tl_matrix_exclusions', JSON.stringify(val)); } catch {}
+            }
+        } catch (err) {
+            console.error("Failed to load global matrix exclusions from DB:", err);
+        }
+    }, []);
+
+    // Realtime Listener for Global Exclusion Updates by Admin across all user panels
+    useEffect(() => {
+        fetchGlobalExclusions();
+
+        const channel = supabase
+            .channel('tl-matrix-global-settings')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'system_settings',
+                filter: 'key=eq.tl_matrix_exclusions'
+            }, (payload: any) => {
+                if (payload.new?.value) {
+                    const val = payload.new.value;
+                    if (val.excludeNewAllotments !== undefined) setExcludeNewAllotments(Boolean(val.excludeNewAllotments));
+                    if (val.excludeStolen !== undefined) setExcludeStolen(Boolean(val.excludeStolen));
+                    if (val.excludeCompanyTagged !== undefined) setExcludeCompanyTagged(Boolean(val.excludeCompanyTagged));
+                    try { localStorage.setItem('tl_matrix_exclusions', JSON.stringify(val)); } catch {}
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [fetchGlobalExclusions]);
+
+    // Admin Toggle Handler (Persists to Supabase DB & Broadcasts via Realtime to all user sessions)
+    const handleToggleExclusion = async (key: 'newAllotments' | 'stolen' | 'company') => {
         if (!isAdmin) return;
 
         let nextNew = excludeNewAllotments;
@@ -77,14 +125,31 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         if (key === 'stolen') { nextStolen = !excludeStolen; setExcludeStolen(nextStolen); }
         if (key === 'company') { nextCompany = !excludeCompanyTagged; setExcludeCompanyTagged(nextCompany); }
 
+        const payload = {
+            excludeNewAllotments: nextNew,
+            excludeStolen: nextStolen,
+            excludeCompanyTagged: nextCompany
+        };
+
         try {
-            localStorage.setItem('tl_matrix_exclusions', JSON.stringify({
-                excludeNewAllotments: nextNew,
-                excludeStolen: nextStolen,
-                excludeCompanyTagged: nextCompany
-            }));
-            toast.success("Global Risk Matrix Exclusions updated by Admin");
-        } catch {}
+            localStorage.setItem('tl_matrix_exclusions', JSON.stringify(payload));
+            
+            const { error } = await supabase
+                .from('system_settings')
+                .upsert({
+                    key: 'tl_matrix_exclusions',
+                    value: payload,
+                    updated_at: new Date().toISOString()
+                });
+
+            if (error) {
+                console.warn("Falling back to local persistence:", error);
+            } else {
+                toast.success("Global Risk Matrix Exclusions updated and synced across all user panels!");
+            }
+        } catch (err) {
+            console.error("Error persisting matrix exclusion setting:", err);
+        }
     };
 
     // Modal States for Rider Drill-Down
@@ -245,10 +310,26 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         if (!allotmentDateStr) return false;
         try {
             const parsedIso = parseIndianDate(allotmentDateStr) || allotmentDateStr;
-            const allotmentDate = new Date(parsedIso).getTime();
-            const now = new Date().getTime();
-            const diffHours = (now - allotmentDate) / (1000 * 60 * 60);
-            return diffHours >= 0 && diffHours <= 36;
+            const allotmentDate = new Date(parsedIso);
+            if (isNaN(allotmentDate.getTime())) return false;
+
+            const now = new Date();
+            // Hour difference safeguard (0 to 48 hours)
+            const diffHours = (now.getTime() - allotmentDate.getTime()) / (1000 * 60 * 60);
+            if (diffHours >= -2 && diffHours <= 48) return true;
+
+            // Calendar day difference in IST
+            const nowIstStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+            const allotmentIstStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(allotmentDate);
+
+            const [nY, nM, nD] = nowIstStr.split('-').map(Number);
+            const [aY, aM, aD] = allotmentIstStr.split('-').map(Number);
+
+            const nDate = Date.UTC(nY, nM - 1, nD);
+            const aDate = Date.UTC(aY, aM - 1, aD);
+
+            const dayDiff = Math.round((nDate - aDate) / (1000 * 60 * 60 * 24));
+            return dayDiff >= 0 && dayDiff <= 1; // 0 = Today IST, 1 = Yesterday IST
         } catch {
             return false;
         }
