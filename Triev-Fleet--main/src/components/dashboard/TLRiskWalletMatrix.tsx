@@ -256,7 +256,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         map.forEach(group => {
             const activeRiders = group.matchingRiders.length;
             const negRiders = group.matchingRiders.filter(r => r.walletAmount < 0);
-            const rangeRiders = group.matchingRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250);
+            const rangeRiders = group.matchingRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250);
 
             const negativeCount = negRiders.length;
             const range0To250Count = rangeRiders.length;
@@ -393,7 +393,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             result = groupRiders.filter(r => r.walletAmount < 0);
             title = `${row.tlName} - Negative Wallet Riders (${result.length})`;
         } else if (type === 'range0To250') {
-            result = groupRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250);
+            result = groupRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250);
             title = `${row.tlName} - Low Wallet (+0 to +250) Riders (${result.length})`;
         }
 
@@ -921,7 +921,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                                 <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.trievId}</td>
                                                 <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.mobileNumber}</td>
                                                 <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.chassisNumber || '—'}</td>
-                                                <td className={`p-3 font-mono font-black text-right ${r.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : r.walletAmount <= 250 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                <td className={`p-3 font-mono font-black text-right ${r.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : r.walletAmount < 250 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                                     ₹{r.walletAmount.toLocaleString('en-IN')}
                                                 </td>
                                                 <td className="p-3 text-center">
