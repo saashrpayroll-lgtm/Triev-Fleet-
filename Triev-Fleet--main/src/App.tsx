@@ -238,16 +238,19 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="text-lg">Loading...</div>
+      <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
     </div>
   );
 
-  if (user && userData) {
-    const redirectPath = userData.role === 'admin' ? '/portal'
-                       : userData.role === 'cityOps' ? '/city-ops'
-                       : userData.role === 'reportingManager' ? '/rm-panel'
-                       : '/team-leader';
-    return <Navigate to={redirectPath} replace />;
+  if (user) {
+    const role = userData?.role || localStorage.getItem('user_role') || 'teamLeader';
+    if (role !== 'guest') {
+      const redirectPath = role === 'admin' ? '/portal'
+                         : role === 'cityOps' ? '/city-ops'
+                         : role === 'reportingManager' ? '/rm-panel'
+                         : '/team-leader';
+      return <Navigate to={redirectPath} replace />;
+    }
   }
 
   return <>{children}</>;

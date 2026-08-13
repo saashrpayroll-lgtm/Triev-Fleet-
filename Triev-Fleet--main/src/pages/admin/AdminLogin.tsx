@@ -207,8 +207,11 @@ const AdminLogin: React.FC = () => {
 
             if (userError || !userData || userData.role !== 'admin') {
                 await supabase.auth.signOut();
+                try { localStorage.removeItem('cached_user_data'); } catch {}
                 throw new Error("ACCESS DENIED: Administrative privileges required.");
             }
+
+            try { localStorage.setItem('user_role', 'admin'); } catch {}
 
             const isDefaultPassword = password === '123456';
             if (isDefaultPassword || userData.force_password_change) {
@@ -222,13 +225,16 @@ const AdminLogin: React.FC = () => {
             }
 
             toast.success("Security Clearance Verified. Welcome back.");
-            window.location.href = '/portal';
+            setTimeout(() => {
+                window.location.href = '/portal';
+            }, 150);
 
         } catch (err: any) {
             setError(err.message || 'Authentication failed');
             toast.error(err.message || 'Authentication failed');
             if (err.message && err.message.includes("DENIED")) {
                 await supabase.auth.signOut();
+                try { localStorage.removeItem('cached_user_data'); } catch {}
             }
         } finally {
             setLoading(false);
