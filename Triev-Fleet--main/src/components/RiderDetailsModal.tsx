@@ -553,7 +553,7 @@ ${new Date().toLocaleString('en-IN')}`;
 
 
     return (
-        <div id="rider-modal-overlay" className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[20000] p-0 md:p-4">
+        <div id="rider-modal-overlay" className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-[50000] p-0 md:p-4">
             <div className="bg-background w-full max-w-4xl flex flex-col rounded-t-3xl md:rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200" ref={fullCardRef}>
 
                 {/* ── HERO HEADER ── */}

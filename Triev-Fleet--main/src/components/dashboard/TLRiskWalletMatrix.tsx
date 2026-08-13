@@ -256,7 +256,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         map.forEach(group => {
             const activeRiders = group.matchingRiders.length;
             const negRiders = group.matchingRiders.filter(r => r.walletAmount < 0);
-            const rangeRiders = group.matchingRiders.filter(r => r.walletAmount >= -250 && r.walletAmount < 0);
+            const rangeRiders = group.matchingRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250);
 
             const negativeCount = negRiders.length;
             const range0To250Count = rangeRiders.length;
@@ -393,8 +393,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             result = groupRiders.filter(r => r.walletAmount < 0);
             title = `${row.tlName} - Negative Wallet Riders (${result.length})`;
         } else if (type === 'range0To250') {
-            result = groupRiders.filter(r => r.walletAmount >= -250 && r.walletAmount < 0);
-            title = `${row.tlName} - Negative Wallet (₹0 to ₹250) Riders (${result.length})`;
+            result = groupRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250);
+            title = `${row.tlName} - Low Wallet (+0 to +250) Riders (${result.length})`;
         }
 
         const mappedRiders: Rider[] = result.map(r => ({
@@ -431,7 +431,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     'TL': 'TOTAL COUNT',
                     'Active Riders': summaryStats.totalActiveRiders,
                     'Current Riders Having Negative wallet Balance': summaryStats.totalNegativeCount,
-                    'Current Riders Having Negative wallet Balance 0 to 250': summaryStats.totalRange0To250Count,
+                    'Current Riders Having Low wallet Balance (+0 to +250)': summaryStats.totalRange0To250Count,
                     'Negative Count %': `${summaryStats.overallNegativePct}%`,
                     '0 to 250 %': `${summaryStats.overallRange0To250Pct}%`
                 },
@@ -443,7 +443,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     'TL': r.tlName,
                     'Active Riders': r.activeRiders,
                     'Current Riders Having Negative wallet Balance': r.negativeCount,
-                    'Current Riders Having Negative wallet Balance 0 to 250': r.range0To250Count,
+                    'Current Riders Having Low wallet Balance (+0 to +250)': r.range0To250Count,
                     'Negative Count %': `${r.negativePct}%`,
                     '0 to 250 %': `${r.range0To250Pct}%`
                 }))
@@ -557,7 +557,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 </GlassCard>
 
                 <GlassCard className="p-5 border-l-4 border-l-orange-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">0 to 250 Range Count</p>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">Low Wallet (+0 to +250) Count</p>
                     <div className="flex items-baseline justify-between mt-2">
                         <h3 className="text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">{summaryStats.totalRange0To250Count}</h3>
                         <span className="text-xs px-2.5 py-1 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-300 font-mono font-black border border-orange-500/30">
@@ -577,7 +577,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 </GlassCard>
 
                 <GlassCard className="p-5 border-l-4 border-l-purple-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">0 to 250 %</p>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Low Wallet (+0 to +250) %</p>
                     <div className="flex items-baseline justify-between mt-2">
                         <h3 className="text-3xl font-black text-purple-600 dark:text-purple-400 tracking-tight">{summaryStats.overallRange0To250Pct}%</h3>
                         <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
@@ -788,7 +788,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                     Current Riders Having Negative wallet Balance
                                 </th>
                                 <th className="p-3 border-r border-[#14484f] text-center max-w-[190px] leading-tight">
-                                    Current Riders Having Negative wallet Balance 0 to 250
+                                    Current Riders Having Low wallet Balance (+0 to +250)
                                 </th>
                                 <th className="p-3 border-r border-[#14484f] text-center cursor-pointer hover:bg-[#12444a] transition-all" onClick={() => { setSortField('negativePct'); setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc'); }}>
                                     <div className="flex items-center justify-center gap-1">
@@ -883,56 +883,62 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             {/* ── INTERACTIVE RIDER DRILL-DOWN MODAL ── */}
             {selectedCellRiders && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[25000] p-4">
-                    <GlassCard className="w-full max-w-4xl max-h-[85vh] flex flex-col p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                                <Users className="text-primary" size={18} /> {cellModalTitle}
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[30000] p-3 sm:p-4">
+                    <div className="w-full max-w-4xl max-h-[85vh] flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+                        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80">
+                            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                                <Users className="text-emerald-600 dark:text-emerald-400" size={20} /> {cellModalTitle}
                             </h3>
                             <button
                                 onClick={() => setSelectedCellRiders(null)}
-                                className="px-3 py-1 rounded-xl bg-accent text-xs font-bold hover:bg-accent/80 transition-all"
+                                className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition-all cursor-pointer"
                             >
                                 Close
                             </button>
                         </div>
 
-                        <div className="overflow-y-auto flex-1 space-y-2 pr-1">
-                            <table className="w-full text-left text-xs border-collapse">
-                                <thead>
-                                    <tr className="bg-muted/40 font-bold border-b border-border/60 text-muted-foreground">
-                                        <th className="p-2.5">Rider Name</th>
-                                        <th className="p-2.5">TriEV ID</th>
-                                        <th className="p-2.5">Mobile</th>
-                                        <th className="p-2.5">Chassis No</th>
-                                        <th className="p-2.5 text-right">Wallet Balance</th>
-                                        <th className="p-2.5 text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border/40">
-                                    {selectedCellRiders.map(r => (
-                                        <tr key={r.id} className="hover:bg-accent/30 transition-colors">
-                                            <td className="p-2.5 font-bold text-foreground capitalize">{r.riderName}</td>
-                                            <td className="p-2.5 font-mono text-muted-foreground">{r.trievId}</td>
-                                            <td className="p-2.5 font-mono text-muted-foreground">{r.mobileNumber}</td>
-                                            <td className="p-2.5 font-mono text-muted-foreground">{r.chassisNumber || '—'}</td>
-                                            <td className={`p-2.5 font-mono font-bold text-right ${r.walletAmount < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                ₹{r.walletAmount.toLocaleString('en-IN')}
-                                            </td>
-                                            <td className="p-2.5 text-center">
-                                                <button
-                                                    onClick={() => setDetailRider(r)}
-                                                    className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground font-bold text-[11px] hover:opacity-90 transition-all"
-                                                >
-                                                    Inspect Profile
-                                                </button>
-                                            </td>
+                        <div className="overflow-y-auto overflow-x-auto flex-1 p-4 sm:p-5">
+                            {selectedCellRiders.length === 0 ? (
+                                <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
+                                    No riders found matching this criteria.
+                                </div>
+                            ) : (
+                                <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-extrabold border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
+                                            <th className="p-3">Rider Name</th>
+                                            <th className="p-3">TriEV ID</th>
+                                            <th className="p-3">Mobile</th>
+                                            <th className="p-3">Chassis No</th>
+                                            <th className="p-3 text-right">Wallet Balance</th>
+                                            <th className="p-3 text-center">Action</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {selectedCellRiders.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                                                <td className="p-3 font-bold text-slate-900 dark:text-white capitalize">{r.riderName}</td>
+                                                <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.trievId}</td>
+                                                <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.mobileNumber}</td>
+                                                <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.chassisNumber || '—'}</td>
+                                                <td className={`p-3 font-mono font-black text-right ${r.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : r.walletAmount <= 250 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                    ₹{r.walletAmount.toLocaleString('en-IN')}
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    <button
+                                                        onClick={() => setDetailRider(r)}
+                                                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-sm transition-all cursor-pointer"
+                                                    >
+                                                        Inspect Profile
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
-                    </GlassCard>
+                    </div>
                 </div>
             )}
 
