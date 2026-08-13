@@ -553,34 +553,31 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         };
     }, [displayedRows]);
 
-    // Ultra-Vibrant Neon Glowing Heatmap Badges (Chamkeele Style with Shadow Border)
+    // Strictly 3-Color Neon Glowing Heatmap Badges (Green / Yellow / Red in decreasing risk order)
     const getNegativePctStyle = (pct: number) => {
-        if (pct === 0) {
-            return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        // 🟢 GREEN: Safe & Low Risk (0.00% to 5.00%)
+        if (pct <= 5.0) {
+            return 'bg-emerald-500/25 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
         }
-        if (pct <= 3.5) {
-            return 'bg-teal-500/20 text-teal-950 dark:text-teal-200 font-black border border-teal-500/40 shadow-[0_0_10px_rgba(20,184,166,0.2)]';
-        }
-        if (pct <= 6.0) {
+        // 🟡 YELLOW: Warning / Moderate Risk (5.01% to 10.00%)
+        if (pct <= 10.0) {
             return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
         }
-        return 'bg-rose-500/25 text-rose-950 dark:text-rose-200 font-black border border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
+        // 🔴 RED: Critical High Risk (> 10.00%)
+        return 'bg-rose-500/30 text-rose-950 dark:text-rose-200 font-black border border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
     };
 
     const getRangePctStyle = (pct: number) => {
-        if (pct === 0) {
-            return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        // 🟢 GREEN: Safe & Low Risk (0.00% to 15.00%)
+        if (pct <= 15.0) {
+            return 'bg-emerald-500/25 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
         }
-        if (pct <= 6.0) {
-            return 'bg-teal-500/20 text-teal-950 dark:text-teal-200 font-black border border-teal-500/40 shadow-[0_0_10px_rgba(20,184,166,0.2)]';
+        // 🟡 YELLOW: Warning / Moderate Risk (15.01% to 25.00%)
+        if (pct <= 25.0) {
+            return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
         }
-        if (pct <= 10.0) {
-            return 'bg-lime-500/20 text-lime-950 dark:text-lime-200 font-black border border-lime-500/40 shadow-[0_0_10px_rgba(132,204,22,0.2)]';
-        }
-        if (pct <= 18.0) {
-            return 'bg-orange-500/25 text-orange-950 dark:text-orange-200 font-black border border-orange-500/60 shadow-[0_0_12px_rgba(249,115,22,0.3)]';
-        }
-        return 'bg-purple-500/25 text-purple-950 dark:text-purple-200 font-black border border-purple-500/60 shadow-[0_0_15px_rgba(168,85,247,0.4)] animate-pulse';
+        // 🔴 RED: Critical High Risk (> 25.00%)
+        return 'bg-rose-500/30 text-rose-950 dark:text-rose-200 font-black border border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
     };
 
     // Open Drill-down Rider Modal
