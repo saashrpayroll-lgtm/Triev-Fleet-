@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { 
     Search, FileSpreadsheet, FileText, 
     RefreshCw, Filter, Sparkles, AlertTriangle, ShieldCheck,
@@ -210,25 +211,27 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         }
     };
 
-    // Filter Raw Riders based on Admin Exclusions
-    const filteredRiders = useMemo(() => {
+    // Filter Raw Active Riders (Unfiltered by Exclusion Toggles for Active Count Parity)
+    const allActiveRiders = useMemo(() => {
         return enrichedRiders.filter(r => {
             const status = String(r.status || '').toLowerCase().trim();
-            if (status !== 'active') {
-                return false;
-            }
-            if (excludeNewAllotments && isNewAllotment(r.allotment_date || r.allotmentDate)) {
-                return false;
-            }
-            if (excludeStolen && (r.is_stolen || r.isStolen)) {
-                return false;
-            }
-            if (excludeCompanyTagged && (r.is_company_tagged || r.isCompanyTagged)) {
-                return false;
-            }
-            return true;
+            return status === 'active';
         });
-    }, [enrichedRiders, excludeNewAllotments, excludeStolen, excludeCompanyTagged]);
+    }, [enrichedRiders]);
+
+    // Check if a rider passes active exclusion toggles (used ONLY for Risk Metric columns)
+    const passesRiskExclusions = (r: any) => {
+        if (excludeNewAllotments && isNewAllotment(r.allotment_date || r.allotmentDate)) {
+            return false;
+        }
+        if (excludeStolen && (r.is_stolen || r.isStolen)) {
+            return false;
+        }
+        if (excludeCompanyTagged && (r.is_company_tagged || r.isCompanyTagged)) {
+            return false;
+        }
+        return true;
+    };
 
     // Build Live Matrix Rows
     const matrixRows: TLRiskMatrixRow[] = useMemo(() => {
@@ -258,7 +261,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             cityOpsName: string;
             rmName: string;
             tlName: string;
-            matchingRiders: any[];
+            matchingActiveRiders: any[];
         }>();
 
         // 1. Seed with active Team Leaders from users table so all assigned TLs are visible
@@ -270,30 +273,33 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 if (tlName) {
                     const normKey = `${cleanName(cityOpsName)}___${cleanName(rmName)}___${cleanName(tlName)}`;
                     if (!map.has(normKey)) {
-                        map.set(normKey, { cityOpsName, rmName, tlName, matchingRiders: [] });
+                        map.set(normKey, { cityOpsName, rmName, tlName, matchingActiveRiders: [] });
                     }
                 }
             }
         });
 
-        // 2. Group riders into matching TL key
-        filteredRiders.forEach(r => {
+        // 2. Group all active riders into matching TL key (UNFILTERED for Active Rider count parity)
+        allActiveRiders.forEach(r => {
             const cityOpsName = r.cityOpsName || 'Danish Abdulla khan';
             const rmName = r.rmName || 'Saunvir Singh';
             const tlName = r.tlName || 'Unassigned TL';
             const normKey = `${cleanName(cityOpsName)}___${cleanName(rmName)}___${cleanName(tlName)}`;
 
             if (!map.has(normKey)) {
-                map.set(normKey, { cityOpsName, rmName, tlName, matchingRiders: [] });
+                map.set(normKey, { cityOpsName, rmName, tlName, matchingActiveRiders: [] });
             }
-            map.get(normKey)!.matchingRiders.push(r);
+            map.get(normKey)!.matchingActiveRiders.push(r);
         });
 
         const rows: TLRiskMatrixRow[] = [];
         map.forEach(group => {
-            const activeRiders = group.matchingRiders.length;
-            const negRiders = group.matchingRiders.filter(r => r.walletAmount < 0);
-            const rangeRiders = group.matchingRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250);
+            const activeRiders = group.matchingActiveRiders.length; // 100% Matches My Riders!
+            
+            // Risk metrics apply exclusion toggles strictly on the active rider pool
+            const riskFilteredRiders = group.matchingActiveRiders.filter(passesRiskExclusions);
+            const negRiders = riskFilteredRiders.filter(r => r.walletAmount < 0);
+            const rangeRiders = riskFilteredRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250);
 
             const negativeCount = negRiders.length;
             const range0To250Count = rangeRiders.length;
@@ -313,7 +319,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         });
 
         return rows;
-    }, [filteredRiders, selectedWeek, snapshots, users]);
+    }, [allActiveRiders, selectedWeek, snapshots, users, excludeNewAllotments, excludeStolen, excludeCompanyTagged]);
 
     // Unique Dropdown Options derived directly from matrix rows
     const cityOpsOptions = useMemo(() => {
@@ -407,14 +413,14 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
     // Open Drill-down Rider Modal
     const handleOpenCellRiders = (row: TLRiskMatrixRow, type: 'negative' | 'range0To250' | 'all') => {
-        const rowTlClean = (row.tlName || '').trim().toLowerCase();
-        const rowOpsClean = (row.cityOpsName || '').trim().toLowerCase();
-        const rowRmClean = (row.rmName || '').trim().toLowerCase();
+        const rowTlClean = cleanName(row.tlName || '');
+        const rowOpsClean = cleanName(row.cityOpsName || '');
+        const rowRmClean = cleanName(row.rmName || '');
 
-        const groupRiders = filteredRiders.filter(r => {
-            const rTlClean = (r.tlName || '').trim().toLowerCase();
-            const rOpsClean = (r.cityOpsName || '').trim().toLowerCase();
-            const rRmClean = (r.rmName || '').trim().toLowerCase();
+        const groupRiders = allActiveRiders.filter(r => {
+            const rTlClean = cleanName(r.tlName || '');
+            const rOpsClean = cleanName(r.cityOpsName || '');
+            const rRmClean = cleanName(r.rmName || '');
 
             const matchTl = rTlClean === rowTlClean || (row.tlName && r.teamLeaderName === row.tlName) || (r.teamLeaderId && row.tlName === r.teamLeaderId);
             const matchOps = !rowOpsClean || rowOpsClean === 'all' || rOpsClean === rowOpsClean;
@@ -427,10 +433,10 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         let title = `${row.tlName} - Active Riders (${groupRiders.length})`;
 
         if (type === 'negative') {
-            result = groupRiders.filter(r => r.walletAmount < 0);
+            result = groupRiders.filter(r => passesRiskExclusions(r) && r.walletAmount < 0);
             title = `${row.tlName} - Negative Wallet Riders (${result.length})`;
         } else if (type === 'range0To250') {
-            result = groupRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250);
+            result = groupRiders.filter(r => passesRiskExclusions(r) && r.walletAmount >= 0 && r.walletAmount < 250);
             title = `${row.tlName} - Low Wallet (+0 to +250) Riders (${result.length})`;
         }
 
@@ -860,22 +866,32 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                 </tr>
                             ) : (
                                 displayedRows.map((row, idx) => (
-                                    <tr key={`${row.tlName}-${idx}`} className="hover:bg-accent/40 transition-colors">
+                                    <motion.tr 
+                                        key={`${row.tlName}-${idx}`}
+                                        initial={{ opacity: 0, y: 4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.15, delay: idx * 0.02 }}
+                                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all group"
+                                    >
                                         <td className="p-3 font-bold text-slate-900 dark:text-slate-100 border-r border-border/50">{row.cityOpsName}</td>
                                         <td className="p-3 font-bold text-slate-900 dark:text-slate-100 text-center border-r border-border/50">{row.rmName}</td>
                                         <td className="p-3 font-black text-slate-950 dark:text-white border-r border-border/50 flex items-center justify-between gap-2">
-                                            <span className="truncate">{row.tlName}</span>
+                                            <span className="truncate group-hover:text-primary transition-colors">{row.tlName}</span>
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'all'); }}
-                                                className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 shadow-sm transition-all cursor-pointer flex-shrink-0 flex items-center gap-1 text-[11px] font-extrabold"
-                                                title="View All Riders under this TL"
+                                                className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 shadow-sm transition-all cursor-pointer flex-shrink-0 flex items-center gap-1 text-[11px] font-extrabold group-hover:scale-105"
+                                                title="View All Active Riders under this TL"
                                             >
                                                 <Eye size={13} /> View
                                             </button>
                                         </td>
 
-                                        {/* Metric Active Riders */}
-                                        <td className="p-3 text-center font-black text-slate-900 dark:text-white border-r border-border/50 font-mono">
+                                        {/* Metric Active Riders (Unfiltered Parity with My Riders) */}
+                                        <td 
+                                            onClick={() => handleOpenCellRiders(row, 'all')}
+                                            className="p-3 text-center font-black text-slate-900 dark:text-white border-r border-border/50 font-mono text-sm cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
+                                            title="Click to view all active riders"
+                                        >
                                             {row.activeRiders}
                                         </td>
 
@@ -883,7 +899,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                         <td className="p-3 text-center border-r border-border/50 font-mono">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'negative'); }}
-                                                className="px-3 py-1 rounded-xl bg-amber-500/15 text-amber-900 dark:text-amber-300 font-black hover:bg-amber-500/25 border border-amber-500/30 shadow-sm transition-all cursor-pointer"
+                                                className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-900 dark:text-amber-300 font-black hover:bg-amber-500/30 border border-amber-500/40 shadow-sm transition-all cursor-pointer hover:scale-105"
                                                 title="Click to view riders with negative wallet balance"
                                             >
                                                 {row.negativeCount}
@@ -894,7 +910,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                         <td className="p-3 text-center border-r border-border/50 font-mono">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'range0To250'); }}
-                                                className="px-3 py-1 rounded-xl bg-orange-500/15 text-orange-900 dark:text-orange-300 font-black hover:bg-orange-500/25 border border-orange-500/30 shadow-sm transition-all cursor-pointer"
+                                                className="px-3 py-1.5 rounded-xl bg-orange-500/15 text-orange-900 dark:text-orange-300 font-black hover:bg-orange-500/30 border border-orange-500/40 shadow-sm transition-all cursor-pointer hover:scale-105"
                                                 title="Click to view riders in 0-250 range"
                                             >
                                                 {row.range0To250Count}
@@ -910,7 +926,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                         <td className={`p-3 text-center font-mono ${getRangePctStyle(row.range0To250Pct)}`}>
                                             {row.range0To250Pct}%
                                         </td>
-                                    </tr>
+                                    </motion.tr>
                                 ))
                             )}
                         </tbody>
