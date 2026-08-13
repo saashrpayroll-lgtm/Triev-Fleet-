@@ -32,8 +32,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ scopedUserIds }) => {
                     details, 
                     timestamp, 
                     userId:user_id, 
-                    userName:user_name, 
-                    metadata
+                    userName:user_name
                 `)
                 .order('timestamp', { ascending: false })
                 .limit(5);

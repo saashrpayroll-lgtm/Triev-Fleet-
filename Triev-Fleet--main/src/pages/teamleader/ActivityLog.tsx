@@ -69,11 +69,11 @@ const ActivityLog: React.FC = () => {
             setLoading(true);
             const { data, error } = await supabase
                 .from('activity_logs')
-                .select('*')
-                .eq('user_id', userData.id) // snake_case
+                .select('id, user_id, user_name, user_role, action_type, target_type, target_id, details, timestamp, is_deleted')
+                .eq('user_id', userData.id)
                 .neq('is_deleted', true)
                 .order('timestamp', { ascending: false })
-                .limit(300);
+                .limit(100);
 
             if (error) throw error;
 
@@ -97,7 +97,7 @@ const ActivityLog: React.FC = () => {
                 l.isDeleted !== true && !localDeleted.has(l.id)
             );
 
-            setLogs(validLogs as ActivityLogType[]);
+            setLogs(validLogs as unknown as ActivityLogType[]);
         } catch (error) {
             console.error('Error fetching logs:', error);
             // toast.error('Failed to load activity logs');
