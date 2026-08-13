@@ -32,8 +32,21 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [session, setSession] = useState<Session | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [user, setUser] = useState<any | null>(null);
-    const [userData, setUserData] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [userData, setUserData] = useState<User | null>(() => {
+        try {
+            const cached = localStorage.getItem('cached_user_data');
+            if (cached) return JSON.parse(cached);
+        } catch {}
+        return null;
+    });
+    const [loading, setLoading] = useState<boolean>(() => {
+        try {
+            const cached = localStorage.getItem('cached_user_data');
+            // If cached user profile exists, resolve loading state immediately (0ms instant startup)
+            if (cached) return false;
+        } catch {}
+        return true;
+    });
     // useRef instead of useState — updating it does NOT trigger re-renders,
     // which means event listeners are registered ONCE and never torn down/re-added.
     const lastActivityRef = React.useRef<number>(Date.now());
@@ -53,9 +66,6 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         const interval = setInterval(checkInactivity, 30000);
 
         // Also check inactivity when tab/app regains focus.
-        // setInterval is paused/suspended by browsers when the screen is off
-        // or the tab is hidden. Checking on visibilitychange ensures that
-        // when the user comes back after 30+ min, logout fires immediately.
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
                 checkInactivity();
@@ -63,7 +73,6 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
-        // updateActivity only writes to a ref — zero re-renders, zero listener churn
         const updateActivity = () => { lastActivityRef.current = Date.now(); };
 
         window.addEventListener('mousemove', updateActivity, { passive: true });
@@ -82,21 +91,17 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             window.removeEventListener('touchstart', updateActivity);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]); // ← only [user], not lastActivity — prevents the re-registration storm
+    }, [user]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const formatUserData = (data: any): User => {
-        // Since we use aliasing in .select(), 'data' should already have camelCase keys.
-        // But for safety and for the Realtime payload (which is raw snake_case), we keep some mapping or ensure Realtime also uses aliasing (which it doesn't easily).
-        // Actually, Realtime payload data is always raw DB columns.
         return {
             id: data.id,
             userId: data.user_id || data.userId,
             email: data.email,
             mobile: data.mobile,
             fullName: data.full_name || data.fullName,
-            role: typeof data.role === 'string' ? data.role : 'guest', // Safer
-            status: typeof data.status === 'string' ? data.status : 'active', // Safer
+            role: typeof data.role === 'string' ? data.role : 'guest',
+            status: typeof data.status === 'string' ? data.status : 'active',
             permissions: typeof data.permissions === 'string'
                 ? JSON.parse(data.permissions)
                 : (data.permissions || {}),
@@ -119,7 +124,6 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         let subscription: any = null;
 
         const setupSubscription = async (userId: string) => {
-            // console.log(`Setting up real-time subscription for user ${userId}`);
             subscription = supabase
                 .channel(`public:users:id=eq.${userId}`)
                 .on(
@@ -131,30 +135,31 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                         filter: `id=eq.${userId}`,
                     },
                     (payload) => {
-                        // console.log('Real-time user update received:', payload.new);
                         const newData = formatUserData(payload.new);
-                        // Force update state
                         setUserData(prev => ({ ...prev, ...newData }));
+                        try { localStorage.setItem('cached_user_data', JSON.stringify(newData)); } catch {}
                     }
                 )
                 .subscribe();
         };
 
-        // Safety Timeout: Force loading to false after 3.5 seconds max
+        // Safety Timeout: Force loading to false after 2.0 seconds max under any network situation
         const safetyTimer = setTimeout(() => {
             setLoading(false);
-        }, 3500);
+        }, 2000);
 
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
-            clearTimeout(safetyTimer);
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
                 fetchUserData(session.user.id, session.user.email);
                 setupSubscription(session.user.id);
             } else {
+                setUserData(null);
+                try { localStorage.removeItem('cached_user_data'); } catch {}
                 setLoading(false);
+                clearTimeout(safetyTimer);
             }
         }).catch((err) => {
             console.error('Failed to get Supabase auth session:', err);
@@ -165,9 +170,16 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
         // Listen for auth changes
         const {
             data: { subscription: authListener },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange((event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
+
+            if (event === 'SIGNED_OUT') {
+                setUserData(null);
+                try { localStorage.removeItem('cached_user_data'); } catch {}
+                setLoading(false);
+                return;
+            }
 
             // Clean up previous subscription if exists
             if (subscription) supabase.removeChannel(subscription);
@@ -177,6 +189,7 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                 setupSubscription(session.user.id);
             } else {
                 setUserData(null);
+                try { localStorage.removeItem('cached_user_data'); } catch {}
                 setLoading(false);
             }
         });
@@ -191,7 +204,6 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const fetchUserData = async (userId: string, email?: string) => {
         try {
-            // Try to get user from 'users' table
             const { data, error } = await supabase
                 .from('users')
                 .select(`
@@ -218,11 +230,9 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                 .single();
 
             if (error && error.code === 'PGRST116') {
-                // User doesn't exist in public.users yet, maybe auto-create or just return basics
-                // Optional: Create basic user record here if needed
+                // User doesn't exist in public.users yet
             } else if (error) {
                 console.error('Error fetching user data:', error);
-                // toast.error(`Profile Load Error: ${error.message}`);
             }
 
             if (data) {
@@ -231,17 +241,18 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
                 if (formatted.id) {
                     liveSheetAutoSync.initialize(formatted.id, formatted.fullName || `${formatted.role} User`);
                 }
-                // Store role so logout redirect works even when userData closure is stale
-                try { localStorage.setItem('user_role', data.role || ''); } catch { /* storage unavailable */ }
+                try {
+                    localStorage.setItem('cached_user_data', JSON.stringify(formatted));
+                    localStorage.setItem('user_role', data.role || '');
+                } catch {}
             } else {
                 console.warn('User profile not found in database. Using minimal fallback.');
-                // Minimal fallback to allow login but restrict access
                 setUserData({
                     id: userId,
                     email: email || '',
-                    role: 'guest', // SAFE DEFAULT: 'guest' prevents access to protected routes instead of granting Admin
+                    role: 'guest',
                     fullName: email?.split('@')[0] || 'Guest User',
-                    status: 'active', // Allow login to see "Unauthorized" or "Setup Profile" page
+                    status: 'active',
                     username: email?.split('@')[0] || 'guest',
                     permissions: {}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
