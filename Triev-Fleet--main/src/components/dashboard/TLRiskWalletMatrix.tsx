@@ -39,6 +39,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const [selectedTL, setSelectedTL] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedWeek, setSelectedWeek] = useState<string>('current');
+    const [quickFilter, setQuickFilter] = useState<'all' | 'high_risk' | 'low_wallet_risk' | 'zero_negative'>('all');
 
     // Global Admin Exclusion Settings (Persisted in Supabase DB & synced via Realtime across all panels)
     const [excludeNewAllotments, setExcludeNewAllotments] = useState<boolean>(() => {
@@ -492,12 +493,26 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         }
     }, [userData, tlOptions, rmOptions, cityOpsOptions]);
 
-    // Apply Filter Dropdowns & Search Query
+    // Calculate Top 3 Critical Risk TLs for Copilot Alert Banner
+    const top3RiskTLs = useMemo(() => {
+        return [...matrixRows]
+            .filter(r => r.negativePct > 0)
+            .sort((a, b) => b.negativePct - a.negativePct)
+            .slice(0, 3);
+    }, [matrixRows]);
+
+    // Apply Filter Dropdowns, Search Query & Admin Quick Risk Filter
     const displayedRows = useMemo(() => {
         return matrixRows.filter(row => {
             if (selectedCityOps !== 'all' && row.cityOpsName !== selectedCityOps) return false;
             if (selectedRM !== 'all' && row.rmName !== selectedRM) return false;
             if (selectedTL !== 'all' && row.tlName !== selectedTL) return false;
+
+            if (isAdmin && quickFilter !== 'all') {
+                if (quickFilter === 'high_risk' && row.negativePct <= 6.0) return false;
+                if (quickFilter === 'low_wallet_risk' && row.range0To250Pct <= 18.0) return false;
+                if (quickFilter === 'zero_negative' && row.negativeCount !== 0) return false;
+            }
 
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase().trim();
@@ -512,7 +527,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             if (sortField === 'tlName') return a.tlName.localeCompare(b.tlName) * factor;
             return (a[sortField] - b[sortField]) * factor;
         });
-    }, [matrixRows, selectedCityOps, selectedRM, selectedTL, searchQuery, sortField, sortDirection]);
+    }, [matrixRows, selectedCityOps, selectedRM, selectedTL, searchQuery, sortField, sortDirection, quickFilter, isAdmin]);
 
     // Calculate Top Summary Header Stats
     const summaryStats: TLRiskMatrixSummary = useMemo(() => {
@@ -538,20 +553,34 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         };
     }, [displayedRows]);
 
-    // Heatmap Gradient Formatter (Crisp Light & Dark Mode Contrast)
+    // Ultra-Vibrant Neon Glowing Heatmap Badges (Chamkeele Style with Shadow Border)
     const getNegativePctStyle = (pct: number) => {
-        if (pct === 0) return 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-300 dark:border-emerald-800/50 shadow-sm';
-        if (pct <= 3.5) return 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-950 dark:text-emerald-100 font-black border border-emerald-400 dark:border-emerald-700/60 shadow-sm';
-        if (pct <= 6.0) return 'bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-100 font-black border border-amber-300 dark:border-amber-700/60 shadow-sm';
-        return 'bg-rose-200 dark:bg-rose-950/70 text-rose-950 dark:text-rose-100 font-black border border-rose-400 dark:border-rose-700/70 shadow-sm';
+        if (pct === 0) {
+            return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        }
+        if (pct <= 3.5) {
+            return 'bg-teal-500/20 text-teal-950 dark:text-teal-200 font-black border border-teal-500/40 shadow-[0_0_10px_rgba(20,184,166,0.2)]';
+        }
+        if (pct <= 6.0) {
+            return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
+        }
+        return 'bg-rose-500/25 text-rose-950 dark:text-rose-200 font-black border border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
     };
 
     const getRangePctStyle = (pct: number) => {
-        if (pct === 0) return 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-300 dark:border-emerald-800/50 shadow-sm';
-        if (pct <= 6.0) return 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-950 dark:text-emerald-100 font-black border border-emerald-400 dark:border-emerald-700/60 shadow-sm';
-        if (pct <= 10.0) return 'bg-lime-200/80 dark:bg-lime-900/60 text-lime-950 dark:text-lime-100 font-black border border-lime-400 dark:border-lime-700/60 shadow-sm';
-        if (pct <= 18.0) return 'bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-100 font-black border border-amber-300 dark:border-amber-700/60 shadow-sm';
-        return 'bg-rose-200 dark:bg-rose-950/70 text-rose-950 dark:text-rose-100 font-black border border-rose-400 dark:border-rose-700/70 shadow-sm';
+        if (pct === 0) {
+            return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        }
+        if (pct <= 6.0) {
+            return 'bg-teal-500/20 text-teal-950 dark:text-teal-200 font-black border border-teal-500/40 shadow-[0_0_10px_rgba(20,184,166,0.2)]';
+        }
+        if (pct <= 10.0) {
+            return 'bg-lime-500/20 text-lime-950 dark:text-lime-200 font-black border border-lime-500/40 shadow-[0_0_10px_rgba(132,204,22,0.2)]';
+        }
+        if (pct <= 18.0) {
+            return 'bg-orange-500/25 text-orange-950 dark:text-orange-200 font-black border border-orange-500/60 shadow-[0_0_12px_rgba(249,115,22,0.3)]';
+        }
+        return 'bg-purple-500/25 text-purple-950 dark:text-purple-200 font-black border border-purple-500/60 shadow-[0_0_15px_rgba(168,85,247,0.4)] animate-pulse';
     };
 
     // Open Drill-down Rider Modal
@@ -719,6 +748,42 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
     return (
         <div className={`space-y-6 ${className}`}>
+
+            {/* ── TOP 3 CRITICAL RISK TL COPILOT BANNER ── */}
+            {top3RiskTLs.length > 0 && (
+                <GlassCard className="p-4 bg-gradient-to-r from-rose-500/15 via-amber-500/10 to-card border border-rose-500/30 shadow-xl rounded-2xl">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-2xl bg-rose-500/20 text-rose-600 dark:text-rose-300 shadow-inner flex-shrink-0 animate-pulse">
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                                    ⚡ Top Critical Risk Team Leaders Today
+                                    <span className="text-[10px] bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 px-2.5 py-0.5 rounded-full font-mono font-black">Immediate Collection Action Required</span>
+                                </h4>
+                                <p className="text-[11px] text-muted-foreground font-medium">Team leaders with the highest negative wallet percentage requiring priority fleet intervention</p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {top3RiskTLs.map((tl, idx) => (
+                                <div 
+                                    key={tl.tlName}
+                                    onClick={() => handleOpenCellRiders(tl, 'negative')}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-rose-500/40 text-xs font-bold shadow-sm hover:scale-105 transition-all cursor-pointer"
+                                >
+                                    <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center font-mono">#{idx + 1}</span>
+                                    <span className="text-slate-900 dark:text-white truncate max-w-[130px]">{tl.tlName}</span>
+                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-700 dark:text-rose-300 font-mono font-black text-[11px]">
+                                        {tl.negativePct}%
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </GlassCard>
+            )}
 
             {/* ── TOP HEADER & SUMMARY STAT CARDS (MATCHING GOOGLE SHEET TOP ROW) ── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -935,6 +1000,37 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                         </button>
                     </div>
                 </div>
+
+                {/* ADMIN-ONLY QUICK RISK FILTER CHIPS */}
+                {isAdmin && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold pt-3 border-t border-border/40">
+                        <span className="text-muted-foreground text-[11px] uppercase tracking-wider font-extrabold mr-1">Admin Quick Risk Filter:</span>
+                        <button
+                            onClick={() => setQuickFilter('all')}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'all' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-card border-border/60 hover:bg-accent text-foreground'}`}
+                        >
+                            All TLs
+                        </button>
+                        <button
+                            onClick={() => setQuickFilter('high_risk')}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'high_risk' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/30' : 'bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/30 hover:bg-rose-500/20'}`}
+                        >
+                            🚨 High Risk Only (&gt;6%)
+                        </button>
+                        <button
+                            onClick={() => setQuickFilter('low_wallet_risk')}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'low_wallet_risk' ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/30' : 'bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20'}`}
+                        >
+                            ⚠️ Low Wallet Risk (&gt;18%)
+                        </button>
+                        <button
+                            onClick={() => setQuickFilter('zero_negative')}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'zero_negative' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/30' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'}`}
+                        >
+                            🟢 Zero Negative TLs
+                        </button>
+                    </div>
+                )}
             </GlassCard>
 
             {/* ── MAIN MATRIX DATA TABLE (EXACT GOOGLE SHEET LAYOUT) ── */}
