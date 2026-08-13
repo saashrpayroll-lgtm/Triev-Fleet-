@@ -509,8 +509,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             if (selectedTL !== 'all' && row.tlName !== selectedTL) return false;
 
             if (isAdmin && quickFilter !== 'all') {
-                if (quickFilter === 'high_risk' && row.negativePct <= 6.0) return false;
-                if (quickFilter === 'low_wallet_risk' && row.range0To250Pct <= 18.0) return false;
+                if (quickFilter === 'high_risk' && row.negativePct <= 8.5) return false;
+                if (quickFilter === 'low_wallet_risk' && row.range0To250Pct <= 11.0) return false;
                 if (quickFilter === 'zero_negative' && row.negativeCount !== 0) return false;
             }
 
@@ -553,30 +553,38 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         };
     }, [displayedRows]);
 
-    // Strictly 3-Color Neon Glowing Heatmap Badges (Green / Yellow / Red in decreasing risk order)
+    // Strictly 3-Color Neon Glowing Heatmap Badges (Graduated Pure -> Light -> Moderate -> Critical)
     const getNegativePctStyle = (pct: number) => {
-        // 🟢 GREEN: Safe & Low Risk (0.00% to 5.00%)
-        if (pct <= 5.0) {
-            return 'bg-emerald-500/25 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
+        // 🟢 PURE GREEN: Zero Negative Balance (0.00%)
+        if (pct === 0) {
+            return 'bg-emerald-500/30 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/70 shadow-[0_0_14px_rgba(16,185,129,0.35)]';
         }
-        // 🟡 YELLOW: Warning / Moderate Risk (5.01% to 10.00%)
-        if (pct <= 10.0) {
+        // 🟢 LIGHT GREEN: Safe & Healthy Range (0.01% to 5.50%)
+        if (pct <= 5.5) {
+            return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        }
+        // 🟡 YELLOW: Warning / Moderate Risk (5.51% to 8.50%)
+        if (pct <= 8.5) {
             return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
         }
-        // 🔴 RED: Critical High Risk (> 10.00%)
+        // 🔴 RED: Critical High Risk (> 8.50%)
         return 'bg-rose-500/30 text-rose-950 dark:text-rose-200 font-black border border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
     };
 
     const getRangePctStyle = (pct: number) => {
-        // 🟢 GREEN: Safe & Low Risk (0.00% to 15.00%)
-        if (pct <= 15.0) {
-            return 'bg-emerald-500/25 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
+        // 🟢 PURE GREEN: Zero Low Balance Riders (0.00%)
+        if (pct === 0) {
+            return 'bg-emerald-500/30 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/70 shadow-[0_0_14px_rgba(16,185,129,0.35)]';
         }
-        // 🟡 YELLOW: Warning / Moderate Risk (15.01% to 25.00%)
-        if (pct <= 25.0) {
+        // 🟢 LIGHT GREEN: Safe & Healthy Range (0.01% to 8.00%)
+        if (pct <= 8.0) {
+            return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+        }
+        // 🟡 YELLOW: Warning / Moderate Risk (8.01% to 11.00%)
+        if (pct <= 11.0) {
             return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
         }
-        // 🔴 RED: Critical High Risk (> 25.00%)
+        // 🔴 RED: Critical High Risk (> 11.00%)
         return 'bg-rose-500/30 text-rose-950 dark:text-rose-200 font-black border border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
     };
 
@@ -1012,13 +1020,13 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                             onClick={() => setQuickFilter('high_risk')}
                             className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'high_risk' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/30' : 'bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/30 hover:bg-rose-500/20'}`}
                         >
-                            🚨 High Risk Only (&gt;6%)
+                            🚨 High Risk Only (&gt;8.5%)
                         </button>
                         <button
                             onClick={() => setQuickFilter('low_wallet_risk')}
                             className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'low_wallet_risk' ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/30' : 'bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20'}`}
                         >
-                            ⚠️ Low Wallet Risk (&gt;18%)
+                            ⚠️ Low Wallet Risk (&gt;11%)
                         </button>
                         <button
                             onClick={() => setQuickFilter('zero_negative')}
