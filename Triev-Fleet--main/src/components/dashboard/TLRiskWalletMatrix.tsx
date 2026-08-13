@@ -14,6 +14,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
+import { parseIndianDate } from '@/utils/dateUtils';
 
 export interface TLRiskWalletMatrixProps {
     className?: string;
@@ -170,7 +171,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const isNewAllotment = (allotmentDateStr?: string) => {
         if (!allotmentDateStr) return false;
         try {
-            const allotmentDate = new Date(allotmentDateStr).getTime();
+            const parsedIso = parseIndianDate(allotmentDateStr) || allotmentDateStr;
+            const allotmentDate = new Date(parsedIso).getTime();
             const now = new Date().getTime();
             const diffHours = (now - allotmentDate) / (1000 * 60 * 60);
             return diffHours >= 0 && diffHours <= 36;

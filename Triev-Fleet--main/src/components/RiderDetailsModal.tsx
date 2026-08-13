@@ -8,6 +8,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { logActivity } from '@/utils/activityLog';
+import { formatDateDisplay } from '@/utils/dateUtils';
 import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
 import RiderIdCard from '@/components/RiderIdCard';
 import { Camera, Image as ImageIcon } from 'lucide-react';
@@ -277,9 +278,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
     };
 
     const generateShareCard = () => {
-        const formattedDate = rider.allotmentDate
-            ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-            : 'N/A';
+        const formattedDate = formatDateDisplay(rider.allotmentDate);
 
         const walletStatus = rider.walletAmount < 0 ? '⚠️ Negative' : rider.walletAmount > 0 ? '✅ Positive' : '➖ Zero';
 
@@ -690,7 +689,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                     </div>
                                     <p className="font-bold text-sm font-mono text-foreground truncate">{rider.chassisNumber || 'N/A'}</p>
                                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        Allotment: {rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No date'}
+                                        Allotment: {formatDateDisplay(rider.allotmentDate, 'No date')}
                                     </p>
                                     {displaySubmissionDate && (
                                         <div className="mt-1 flex items-center justify-between">
@@ -721,7 +720,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                             ) : (
                                                 <div className="flex flex-1 items-center justify-between group">
                                                     <p className="text-[10px] text-rose-500 font-bold">
-                                                        Submission: {new Date(displaySubmissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        Submission: {formatDateDisplay(displaySubmissionDate)}
                                                     </p>
                                                     {userData?.role === 'admin' && (
                                                         <button

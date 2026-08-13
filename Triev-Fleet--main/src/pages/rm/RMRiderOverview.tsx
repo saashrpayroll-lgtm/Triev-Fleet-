@@ -9,6 +9,7 @@ import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
 import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
 import { RiderRatingService } from '@/services/RiderRatingService';
 import { StarRatingResult } from '@/utils/starRatingEngine';
+import { formatDateDisplay } from '@/utils/dateUtils';
 
 const RMRiderOverview: React.FC = () => {
     const { teamLeaders, riders, loading, refresh } = useRMTeamData();
@@ -511,7 +512,7 @@ const RMRiderOverview: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="p-3 text-xs text-muted-foreground">
-                                        {r.allotmentDate ? new Date(r.allotmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}
+                                        {formatDateDisplay(r.allotmentDate, '-')}
                                     </td>
                                     <td className="p-3">
                                         <button

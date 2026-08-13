@@ -65,19 +65,22 @@ export const resolvePerformancePeriod = (
 
 /**
  * Standardized Date Parser for Excel/User Input Dates
- * Ensures robust handling of DD/MM/YYYY formats which
- * native JS `new Date()` wrongly interprets as MM/DD/YYYY
+ * Strictly handles DD/MM/YYYY and DD/MM/YYYY HH:mm:ss formats (Indian Google Sheet locale)
+ * e.g. "4/6/2026 16:12:03" -> Day 4, Month 6 (June), Year 2026
+ * e.g. "12/08/2026" -> Day 12, Month 8 (August), Year 2026
+ * e.g. "13/08/2026" -> Day 13, Month 8 (August), Year 2026
  */
 export const parseIndianDate = (dateRaw: any): string | null => {
     if (!dateRaw) return null;
 
-    // Check if it's an Excel serial number date
+    // 1. Check if it's an Excel serial number date (e.g. 46246)
     if (typeof dateRaw === 'number' || (typeof dateRaw === 'string' && !isNaN(Number(dateRaw)) && Number(dateRaw) > 20000)) {
         const days = Number(dateRaw);
         const msSince1900 = (days - (days > 59 ? 25569 : 25568)) * 86400 * 1000;
         const d = new Date(msSince1900);
         if (!isNaN(d.getTime())) {
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T12:00:00.000+05:30`;
+            const pad = (n: any) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00.000+05:30`;
         }
         return null;
     }
@@ -87,39 +90,16 @@ export const parseIndianDate = (dateRaw: any): string | null => {
 
     const pad = (n: any) => String(n).padStart(2, '0');
 
-    // 1. Try ISO or YYYY-MM-DD
-    const yyyymmddMatch = cleanDate.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\.\d+)?(?:Z|[\+\-]\d{2}:\d{2})?)?$/);
-    if (yyyymmddMatch) {
-        const [, year, month, day, h, m, s] = yyyymmddMatch;
-        const hr = h ? pad(h) : '12';
-        const min = m ? pad(m) : '00';
-        const sec = s ? pad(s) : '00';
-        if (Number(month) <= 12 && Number(day) <= 31) {
-            return `${year}-${pad(month)}-${pad(day)}T${hr}:${min}:${sec}.000+05:30`;
-        }
-    }
-
-    // 2. Try strict DD/MM/YYYY (Indian format - PRIMARY FALLBACK)
-    // Excel/CSV from Indian locale usually exports DD/MM/YYYY.
-    // If someone types 12/02/2026, we MUST interpret 12=Day, 02=Month.
-    const ddmmyyyyMatch = cleanDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?(?:\s*(AM|PM|am|pm))?/);
+    // 2. PRIMARY: Strict DD/MM/YYYY or DD-MM-YYYY (Indian Google Sheet Locale)
+    // Matches "4/6/2026 16:12:03", "12/08/2026", "13/08/2026", "04/06/2026"
+    // Group 1 = DAY (DD), Group 2 = MONTH (MM), Group 3 = YEAR (YYYY)
+    const ddmmyyyyMatch = cleanDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?(?:\s*(AM|PM|am|pm))?/i);
     if (ddmmyyyyMatch) {
-        const [, firstStr, secondStr, yearStr, hourStr, minStr, secStr, ampm] = ddmmyyyyMatch;
+        const [, dayStr, monthStr, yearStr, hourStr, minStr, secStr, ampm] = ddmmyyyyMatch;
 
+        const dayNum = parseInt(dayStr, 10);
+        const monthNum = parseInt(monthStr, 10);
         const yearNum = yearStr.length === 2 ? 2000 + parseInt(yearStr, 10) : parseInt(yearStr, 10);
-        let firstNum = parseInt(firstStr, 10);
-        let secondNum = parseInt(secondStr, 10);
-
-        let dayNum = firstNum;
-        let monthNum = secondNum;
-
-        // Auto-correct if firstNum > 12 (it MUST be a day, so DD/MM format is validated)
-        // Auto-correct if secondNum > 12 (it MUST be a day, so MM/DD format was used inadvertently)
-        if (secondNum > 12 && firstNum <= 12) {
-            // US locale used MM/DD/YYYY exported to string
-            dayNum = secondNum;
-            monthNum = firstNum;
-        }
 
         let hourNum = hourStr ? parseInt(hourStr, 10) : 12;
         if (ampm) {
@@ -133,15 +113,87 @@ export const parseIndianDate = (dateRaw: any): string | null => {
         }
     }
 
-    // 3. Fallback to native parsing, but force to Noon IST
-    // WARNING: Native JS `new Date("12/02/2026")` evaluates to Dec 02 (MM/DD/YYYY).
-    // Our regex above will catch it first and force it to DD/MM/YYYY!
+    // 3. SECONDARY: ISO or YYYY-MM-DD (e.g., "2026-08-12" or "2026-08-12T12:00:00.000Z")
+    // Group 1 = YEAR (YYYY), Group 2 = MONTH (MM), Group 3 = DAY (DD)
+    const yyyymmddMatch = cleanDate.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\.\d+)?(?:Z|[\+\-]\d{2}:\d{2})?)?$/);
+    if (yyyymmddMatch) {
+        const [, yearStr, monthStr, dayStr, h, m, s] = yyyymmddMatch;
+        const yearNum = parseInt(yearStr, 10);
+        const monthNum = parseInt(monthStr, 10);
+        const dayNum = parseInt(dayStr, 10);
+
+        const hr = h ? pad(h) : '12';
+        const min = m ? pad(m) : '00';
+        const sec = s ? pad(s) : '00';
+        if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+            return `${yearNum}-${pad(monthNum)}-${pad(dayNum)}T${hr}:${min}:${sec}.000+05:30`;
+        }
+    }
+
+    // 4. Fallback to native parsing, forcing Noon IST
     const d = new Date(cleanDate);
     if (!isNaN(d.getTime())) {
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00.000+05:30`;
     }
 
     return null;
+};
+
+/**
+ * Universal Indian Date Display Formatter
+ * Formats any date string/object to "12 Aug 2026" or "04 Jun 2026" (DD MMM YYYY)
+ * Strictly treats DD/MM/YYYY strings as Day/Month/Year.
+ */
+export const formatDateDisplay = (dateRaw: any, fallback = 'N/A'): string => {
+    if (!dateRaw || dateRaw === 'N/A' || dateRaw === 'null' || dateRaw === 'undefined') return fallback;
+
+    let clean = String(dateRaw).trim();
+    if (!clean) return fallback;
+
+    const pad = (n: any) => String(n).padStart(2, '0');
+    const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // 1. Strict DD/MM/YYYY or DD-MM-YYYY
+    const ddmmyyyyMatch = clean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (ddmmyyyyMatch) {
+        const [, dayStr, monthStr, yearStr] = ddmmyyyyMatch;
+        const dayNum = parseInt(dayStr, 10);
+        const monthNum = parseInt(monthStr, 10);
+        const yearNum = yearStr.length === 2 ? 2000 + parseInt(yearStr, 10) : parseInt(yearStr, 10);
+
+        if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+            return `${pad(dayNum)} ${monthsShort[monthNum - 1]} ${yearNum}`;
+        }
+    }
+
+    // 2. YYYY-MM-DD or ISO string (e.g. "2026-08-12")
+    const yyyymmddMatch = clean.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (yyyymmddMatch) {
+        const [, yearStr, monthStr, dayStr] = yyyymmddMatch;
+        const yearNum = parseInt(yearStr, 10);
+        const monthNum = parseInt(monthStr, 10);
+        const dayNum = parseInt(dayStr, 10);
+
+        if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+            return `${pad(dayNum)} ${monthsShort[monthNum - 1]} ${yearNum}`;
+        }
+    }
+
+    // 3. Fallback to parseIndianDate
+    const isoParsed = parseIndianDate(clean);
+    if (isoParsed) {
+        const parts = isoParsed.split('T')[0].split('-');
+        if (parts.length === 3) {
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            const d = parseInt(parts[2], 10);
+            if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                return `${pad(d)} ${monthsShort[m - 1]} ${y}`;
+            }
+        }
+    }
+
+    return clean;
 };
 
 /**
@@ -152,22 +204,21 @@ export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallb
     if (!dateRaw) return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
 
     try {
+        const parsed = parseIndianDate(dateRaw);
+        if (parsed) return parsed.split('T')[0];
+
         const d = new Date(dateRaw);
         if (isNaN(d.getTime())) return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
 
         let istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
         const todayIst = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
-        // If date is in the future, it's likely an inverted DD/MM to MM/DD bug from import
         if (istStr > todayIst) {
             const [y, m, day] = istStr.split('-');
-            // Swap month and day to fix the MM/DD vs DD/MM issue
             const fixedDate = `${y}-${day}-${m}`;
-            // Verify fixed date is not still in the future
             if (fixedDate <= todayIst) {
                 istStr = fixedDate;
             } else {
-                // If still future, fallback
                 istStr = todayIst;
             }
         }
@@ -176,3 +227,4 @@ export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallb
         return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
     }
 };
+

@@ -1,6 +1,6 @@
 import { Rider, User, Request } from '@/types';
 import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
-import { getValidHistoricalDate } from '@/utils/dateUtils';
+import { getValidHistoricalDate, formatDateDisplay } from '@/utils/dateUtils';
 
 // Data Mappers (DB snake_case -> App camelCase)
 export const mapRiderFromDB = (data: any): Rider => ({
@@ -102,7 +102,7 @@ export const transformRiderData = (rider: Rider) => ({
     'Status': rider.status ? rider.status.charAt(0).toUpperCase() + rider.status.slice(1) : 'Unknown',
     'Client': rider.clientName || 'Unassigned',
     'Wallet Balance': `₹${(rider.walletAmount || 0).toFixed(2)}`,
-    'Date Added': rider.allotmentDate ? new Date(rider.allotmentDate).toLocaleDateString('en-IN') : '-'
+    'Date Added': formatDateDisplay(rider.allotmentDate, '-')
 });
 
 /**
