@@ -196,7 +196,7 @@ const LoginPage: React.FC = () => {
 
                 const { data: userRecord } = await supabase
                     .from('users')
-                    .select('id, role, force_password_change')
+                    .select('id, force_password_change')
                     .eq('id', user.id)
                     .single();
 
@@ -213,24 +213,9 @@ const LoginPage: React.FC = () => {
                     setLoading(false);
                     return;
                 }
-
-                const role = userRecord?.role || 'teamLeader';
-                try { localStorage.setItem('user_role', role); } catch {}
-
-                const redirectPath = role === 'admin' ? '/portal'
-                                   : role === 'cityOps' ? '/city-ops'
-                                   : role === 'reportingManager' ? '/rm-panel'
-                                   : '/team-leader';
-
-                toast.success('Login successful! Redirecting...');
-                setTimeout(() => {
-                    window.location.href = redirectPath;
-                }, 150);
-                return;
             }
 
             toast.success('Login successful! Redirecting...');
-            window.location.href = '/team-leader';
         } catch (err: any) {
             setError(err.message || 'Failed to login. Please check your credentials.');
             toast.error(err.message || 'Login failed');
