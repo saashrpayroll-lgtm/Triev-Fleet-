@@ -31,6 +31,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const [refreshing, setRefreshing] = useState(false);
     const [snapshots, setSnapshots] = useState<any[]>([]);
 
+    const isAdmin = userData?.role === 'admin';
+
     // Filter & Search States
     const [selectedCityOps, setSelectedCityOps] = useState<string>('all');
     const [selectedRM, setSelectedRM] = useState<string>('all');
@@ -38,10 +40,52 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedWeek, setSelectedWeek] = useState<string>('current');
 
-    // Admin-Only Exclusion Toggles (Default: False so Active Rider count matches My Riders 100%)
-    const [excludeNewAllotments, setExcludeNewAllotments] = useState<boolean>(false);
-    const [excludeStolen, setExcludeStolen] = useState<boolean>(false);
-    const [excludeCompanyTagged, setExcludeCompanyTagged] = useState<boolean>(false);
+    // Global Admin Exclusion Settings (Persisted in localStorage so Admin preferences govern all users)
+    const [excludeNewAllotments, setExcludeNewAllotments] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem('tl_matrix_exclusions');
+            if (saved) return Boolean(JSON.parse(saved).excludeNewAllotments);
+        } catch {}
+        return false;
+    });
+
+    const [excludeStolen, setExcludeStolen] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem('tl_matrix_exclusions');
+            if (saved) return Boolean(JSON.parse(saved).excludeStolen);
+        } catch {}
+        return false;
+    });
+
+    const [excludeCompanyTagged, setExcludeCompanyTagged] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem('tl_matrix_exclusions');
+            if (saved) return Boolean(JSON.parse(saved).excludeCompanyTagged);
+        } catch {}
+        return false;
+    });
+
+    // Admin Toggle Handler (Persists setting globally for all user panels)
+    const handleToggleExclusion = (key: 'newAllotments' | 'stolen' | 'company') => {
+        if (!isAdmin) return;
+
+        let nextNew = excludeNewAllotments;
+        let nextStolen = excludeStolen;
+        let nextCompany = excludeCompanyTagged;
+
+        if (key === 'newAllotments') { nextNew = !excludeNewAllotments; setExcludeNewAllotments(nextNew); }
+        if (key === 'stolen') { nextStolen = !excludeStolen; setExcludeStolen(nextStolen); }
+        if (key === 'company') { nextCompany = !excludeCompanyTagged; setExcludeCompanyTagged(nextCompany); }
+
+        try {
+            localStorage.setItem('tl_matrix_exclusions', JSON.stringify({
+                excludeNewAllotments: nextNew,
+                excludeStolen: nextStolen,
+                excludeCompanyTagged: nextCompany
+            }));
+            toast.success("Global Risk Matrix Exclusions updated by Admin");
+        } catch {}
+    };
 
     // Modal States for Rider Drill-Down
     const [selectedCellRiders, setSelectedCellRiders] = useState<Rider[] | null>(null);
@@ -648,62 +692,64 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 </GlassCard>
             </div>
 
-            {/* ── EXCLUSION CONTROL BAR (ACCESSIBLE ACROSS ALL USER PANELS) ── */}
-            <GlassCard className="p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner">
-                        <ShieldCheck size={22} />
-                    </div>
-                    <div>
-                        <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                            Risk Matrix Exclusion Controls
-                            <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">Live Controls</span>
-                        </h4>
-                        <p className="text-[11px] text-muted-foreground font-medium">Toggle exclusion parameters for New Allotments, Theft Vehicles, and Company Tagged Payouts</p>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <div 
-                        onClick={() => setExcludeNewAllotments(!excludeNewAllotments)}
-                        className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={excludeNewAllotments}
-                            readOnly
-                            className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
-                        />
-                        <span>Exclude New Allotments (&lt;= 36h)</span>
+            {/* ── ADMIN-ONLY GLOBAL EXCLUSION CONTROL BAR ── */}
+            {isAdmin && (
+                <GlassCard className="p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner">
+                            <ShieldCheck size={22} />
+                        </div>
+                        <div>
+                            <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                                Risk Matrix Exclusion Controls
+                                <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">Admin Only</span>
+                            </h4>
+                            <p className="text-[11px] text-muted-foreground font-medium">Configure global exclusion parameters for all user accounts (New Allotments, Theft Vehicles, and Company Tagged Payouts)</p>
+                        </div>
                     </div>
 
-                    <div 
-                        onClick={() => setExcludeStolen(!excludeStolen)}
-                        className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={excludeStolen}
-                            readOnly
-                            className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
-                        />
-                        <span>Exclude Stolen Vehicles</span>
-                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                        <div 
+                            onClick={() => handleToggleExclusion('newAllotments')}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={excludeNewAllotments}
+                                readOnly
+                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
+                            />
+                            <span>Exclude New Allotments (&lt;= 36h)</span>
+                        </div>
 
-                    <div 
-                        onClick={() => setExcludeCompanyTagged(!excludeCompanyTagged)}
-                        className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={excludeCompanyTagged}
-                            readOnly
-                            className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
-                        />
-                        <span>Exclude Company Tagged</span>
+                        <div 
+                            onClick={() => handleToggleExclusion('stolen')}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={excludeStolen}
+                                readOnly
+                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
+                            />
+                            <span>Exclude Stolen Vehicles</span>
+                        </div>
+
+                        <div 
+                            onClick={() => handleToggleExclusion('company')}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={excludeCompanyTagged}
+                                readOnly
+                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
+                            />
+                            <span>Exclude Company Tagged</span>
+                        </div>
                     </div>
-                </div>
-            </GlassCard>
+                </GlassCard>
+            )}
 
             {/* ── ADVANCED FILTER TOOLBAR & ONE-CLICK EXPORT ── */}
             <GlassCard className="p-4 space-y-4">
