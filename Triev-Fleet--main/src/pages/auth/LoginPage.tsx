@@ -166,20 +166,18 @@ const LoginPage: React.FC = () => {
         setLoading(true);
 
         try {
-            let emailToLogin = loginInput;
+            let emailToLogin = loginInput.trim();
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToLogin);
 
-            const { data: resolvedEmail, error: resolutionError } = await supabase
-                .rpc('resolve_login_identifier', { p_identifier: loginInput.trim() });
+            if (!isEmail) {
+                const { data: resolvedEmail, error: resolutionError } = await supabase
+                    .rpc('resolve_login_identifier', { p_identifier: emailToLogin });
 
-            if (resolutionError || !resolvedEmail) {
-                const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginInput.trim());
-                if (isEmail) {
-                    emailToLogin = loginInput.trim();
-                } else {
+                if (resolutionError || !resolvedEmail) {
                     throw new Error('Account not found. Please check your credentials.');
+                } else {
+                    emailToLogin = resolvedEmail;
                 }
-            } else {
-                emailToLogin = resolvedEmail;
             }
 
             await login(emailToLogin, password);
@@ -223,9 +221,7 @@ const LoginPage: React.FC = () => {
                                    : '/team-leader';
 
                 toast.success('Login successful! Redirecting...');
-                setTimeout(() => {
-                    window.location.href = redirectPath;
-                }, 300);
+                window.location.href = redirectPath;
                 return;
             }
 

@@ -175,20 +175,18 @@ const AdminLogin: React.FC = () => {
         setLoading(true);
 
         try {
-            let emailToLogin = loginInput;
+            let emailToLogin = loginInput.trim();
+            const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToLogin);
 
-            const { data: resolvedEmail, error: resolutionError } = await supabase
-                .rpc('resolve_login_identifier', { p_identifier: loginInput.trim() });
+            if (!isEmail) {
+                const { data: resolvedEmail, error: resolutionError } = await supabase
+                    .rpc('resolve_login_identifier', { p_identifier: emailToLogin });
 
-            if (resolutionError || !resolvedEmail) {
-                const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginInput.trim());
-                if (isEmail) {
-                    emailToLogin = loginInput.trim();
-                } else {
+                if (resolutionError || !resolvedEmail) {
                     throw new Error("Account not found. Please check your credentials.");
+                } else {
+                    emailToLogin = resolvedEmail;
                 }
-            } else {
-                emailToLogin = resolvedEmail;
             }
 
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -224,9 +222,7 @@ const AdminLogin: React.FC = () => {
             }
 
             toast.success("Security Clearance Verified. Welcome back.");
-            setTimeout(() => {
-                window.location.href = '/portal';
-            }, 300);
+            window.location.href = '/portal';
 
         } catch (err: any) {
             setError(err.message || 'Authentication failed');
