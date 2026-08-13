@@ -23,7 +23,6 @@ export interface TLRiskWalletMatrixProps {
 
 const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' }) => {
     const { userData } = useSupabaseAuth();
-    const isAdmin = userData?.role === 'admin';
 
     // Data States
     const [riders, setRiders] = useState<any[]>([]);
@@ -349,6 +348,25 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         return Array.from(set).sort();
     }, [matrixRows, selectedCityOps, selectedRM]);
 
+    // Auto-focus filter for Team Leader, RM, or City Ops logged-in user
+    useEffect(() => {
+        if (!userData) return;
+        const uObj = userData as any;
+        const role = uObj?.role;
+        const userClean = cleanName(uObj?.fullName || uObj?.full_name || uObj?.email || '');
+
+        if (role === 'teamLeader' && userClean) {
+            const matchTL = tlOptions.find(t => cleanName(t) === userClean);
+            if (matchTL && selectedTL === 'all') setSelectedTL(matchTL);
+        } else if (role === 'reportingManager' && userClean) {
+            const matchRM = rmOptions.find(r => cleanName(r) === userClean);
+            if (matchRM && selectedRM === 'all') setSelectedRM(matchRM);
+        } else if (role === 'cityOps' && userClean) {
+            const matchCityOps = cityOpsOptions.find(c => cleanName(c) === userClean);
+            if (matchCityOps && selectedCityOps === 'all') setSelectedCityOps(matchCityOps);
+        }
+    }, [userData, tlOptions, rmOptions, cityOpsOptions]);
+
     // Apply Filter Dropdowns & Search Query
     const displayedRows = useMemo(() => {
         return matrixRows.filter(row => {
@@ -630,64 +648,62 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 </GlassCard>
             </div>
 
-            {/* ── ADMIN-ONLY EXCLUSION CONTROL BAR ── */}
-            {isAdmin && (
-                <GlassCard className="p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner">
-                            <ShieldCheck size={22} />
-                        </div>
-                        <div>
-                            <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                                Risk Matrix Exclusion Controls
-                                <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">Admin Only</span>
-                            </h4>
-                            <p className="text-[11px] text-muted-foreground font-medium">Toggle exclusion parameters for New Allotments, Theft Vehicles, and Company Tagged Payouts</p>
-                        </div>
+            {/* ── EXCLUSION CONTROL BAR (ACCESSIBLE ACROSS ALL USER PANELS) ── */}
+            <GlassCard className="p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner">
+                        <ShieldCheck size={22} />
+                    </div>
+                    <div>
+                        <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                            Risk Matrix Exclusion Controls
+                            <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">Live Controls</span>
+                        </h4>
+                        <p className="text-[11px] text-muted-foreground font-medium">Toggle exclusion parameters for New Allotments, Theft Vehicles, and Company Tagged Payouts</p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <div 
+                        onClick={() => setExcludeNewAllotments(!excludeNewAllotments)}
+                        className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={excludeNewAllotments}
+                            readOnly
+                            className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
+                        />
+                        <span>Exclude New Allotments (&lt;= 36h)</span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs">
-                        <div 
-                            onClick={() => setExcludeNewAllotments(!excludeNewAllotments)}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={excludeNewAllotments}
-                                readOnly
-                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
-                            />
-                            <span>Exclude New Allotments (&lt;= 36h)</span>
-                        </div>
-
-                        <div 
-                            onClick={() => setExcludeStolen(!excludeStolen)}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={excludeStolen}
-                                readOnly
-                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
-                            />
-                            <span>Exclude Stolen Vehicles</span>
-                        </div>
-
-                        <div 
-                            onClick={() => setExcludeCompanyTagged(!excludeCompanyTagged)}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={excludeCompanyTagged}
-                                readOnly
-                                className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
-                            />
-                            <span>Exclude Company Tagged</span>
-                        </div>
+                    <div 
+                        onClick={() => setExcludeStolen(!excludeStolen)}
+                        className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={excludeStolen}
+                            readOnly
+                            className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
+                        />
+                        <span>Exclude Stolen Vehicles</span>
                     </div>
-                </GlassCard>
-            )}
+
+                    <div 
+                        onClick={() => setExcludeCompanyTagged(!excludeCompanyTagged)}
+                        className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={excludeCompanyTagged}
+                            readOnly
+                            className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
+                        />
+                        <span>Exclude Company Tagged</span>
+                    </div>
+                </div>
+            </GlassCard>
 
             {/* ── ADVANCED FILTER TOOLBAR & ONE-CLICK EXPORT ── */}
             <GlassCard className="p-4 space-y-4">

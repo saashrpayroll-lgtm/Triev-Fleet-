@@ -81,8 +81,19 @@ const TLPersonalPerformance: React.FC = () => {
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
 
             const [ridersResRaw, leadsResRaw, dailyResRaw, todayLedgerResRaw] = await Promise.all([
-                // All TL's riders (including deleted for historical accuracy in Fleet Flow)
-                fetchAllRidersPaginated('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at', { column: 'team_leader_id', value: userData.id }),
+                // All TL's riders (using multi-ID and cleanName matching for parity across panels)
+                fetchAllRidersPaginated('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at, team_leader_id, team_leader_name').then(res => {
+                    if (!res.data) return res;
+                    const uObj = userData as any;
+                    const cleanUser = (uObj?.fullName || uObj?.full_name || uObj?.email || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+                    const filtered = res.data.filter((r: any) => {
+                        const rTlId = r.team_leader_id || r.teamLeaderId;
+                        if (rTlId && (rTlId === uObj?.id || rTlId === uObj?.userId || rTlId === uObj?.user_id)) return true;
+                        const rTlName = (r.team_leader_name || r.team_leader || r.teamLeaderName || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+                        return Boolean(rTlName && cleanUser && rTlName === cleanUser);
+                    });
+                    return { ...res, data: filtered };
+                }),
 
                 // Leads for this TL
                 fetchTablePaginated('leads', 'status, created_at', [{ column: 'created_by', value: userData.id }]),

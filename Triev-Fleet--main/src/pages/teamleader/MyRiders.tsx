@@ -134,11 +134,21 @@ const MyRiders: React.FC = () => {
         try {
             setLoading(true);
 
-            // 1. Fetch Riders
-            const { data, error } = await fetchAllRidersPaginated('*', { column: 'team_leader_id', value: userData.id });
+            // 1. Fetch Riders (Using multi-ID and cleanName matching to ensure 100% parity with TL Risk Matrix Dashboard)
+            const { data, error } = await fetchAllRidersPaginated('*');
             if (error) throw error;
 
-            const fetchedRiders = data?.map(mapRiderFromDB) || [];
+            const userObj = userData as any;
+            const cleanUser = (userObj?.fullName || userObj?.full_name || userObj?.email || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+
+            const tlRiders = (data || []).filter((r: any) => {
+                const rTlId = r.team_leader_id || r.teamLeaderId;
+                if (rTlId && (rTlId === userObj?.id || rTlId === userObj?.userId || rTlId === userObj?.user_id)) return true;
+                const rTlName = (r.team_leader_name || r.team_leader || r.teamLeaderName || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+                return Boolean(rTlName && cleanUser && rTlName === cleanUser);
+            });
+
+            const fetchedRiders = tlRiders.map(mapRiderFromDB);
             setRiders(fetchedRiders);
 
             // 2. Fetch Today's Collections for Zero Collection filter
