@@ -210,6 +210,8 @@ const AdminLogin: React.FC = () => {
                 throw new Error("ACCESS DENIED: Administrative privileges required.");
             }
 
+            try { localStorage.setItem('user_role', 'admin'); } catch {}
+
             const isDefaultPassword = password === '123456';
             if (isDefaultPassword || userData.force_password_change) {
                 if (isDefaultPassword && !userData.force_password_change) {
@@ -222,7 +224,9 @@ const AdminLogin: React.FC = () => {
             }
 
             toast.success("Security Clearance Verified. Welcome back.");
-            window.location.href = '/portal';
+            setTimeout(() => {
+                window.location.href = '/portal';
+            }, 300);
 
         } catch (err: any) {
             setError(err.message || 'Authentication failed');
