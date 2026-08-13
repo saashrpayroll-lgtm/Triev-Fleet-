@@ -38,10 +38,10 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedWeek, setSelectedWeek] = useState<string>('current');
 
-    // Admin-Only Exclusion Toggles (Default: All Active Exclusions Enabled)
-    const [excludeNewAllotments, setExcludeNewAllotments] = useState<boolean>(true);
-    const [excludeStolen, setExcludeStolen] = useState<boolean>(true);
-    const [excludeCompanyTagged, setExcludeCompanyTagged] = useState<boolean>(true);
+    // Admin-Only Exclusion Toggles (Default: False so Active Rider count matches My Riders 100%)
+    const [excludeNewAllotments, setExcludeNewAllotments] = useState<boolean>(false);
+    const [excludeStolen, setExcludeStolen] = useState<boolean>(false);
+    const [excludeCompanyTagged, setExcludeCompanyTagged] = useState<boolean>(false);
 
     // Modal States for Rider Drill-Down
     const [selectedCellRiders, setSelectedCellRiders] = useState<Rider[] | null>(null);
@@ -62,7 +62,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             if (ridersErr) throw ridersErr;
 
             // 2. Fetch users table to map TL ID -> TL Name, RM Name, City Ops Name
-            const { data: usersData, error: usersErr } = await fetchTablePaginated('users', 'id, full_name, email, role, reporting_manager, city_ops_id, status');
+            const { data: usersData, error: usersErr } = await fetchTablePaginated('users', 'id, user_id, full_name, email, role, reporting_manager, city_ops_id, status, username');
             if (!usersErr && usersData) {
                 setUsers(usersData);
             }
@@ -131,15 +131,29 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         fetchData();
     }, []);
 
-    // Create User Lookup Maps (ID & Normalized Name)
+    // Helper: Strip parenthetical identifiers e.g. "Sachin Verma (KONTI/473)" -> "sachin verma"
+    const cleanName = (nameStr: string) => {
+        if (!nameStr) return '';
+        return nameStr.replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+    };
+
+    // Create User Lookup Maps (ID, User_ID, Email, Username, Full Name & Clean Name)
     const { userMap, userByNameMap } = useMemo(() => {
         const byId = new Map<string, any>();
         const byName = new Map<string, any>();
+
         users.forEach(u => {
             if (u.id) byId.set(u.id, u);
+            if (u.user_id) byId.set(u.user_id, u);
+            if (u.email) byId.set(u.email.trim().toLowerCase(), u);
+
             if (u.role === 'teamLeader') {
-                const nameKey = (u.full_name || u.email || '').trim().toLowerCase();
-                if (nameKey) byName.set(nameKey, u);
+                const fullNameRaw = (u.full_name || '').trim().toLowerCase();
+                const cleaned = cleanName(u.full_name || u.email || '');
+
+                if (fullNameRaw) byName.set(fullNameRaw, u);
+                if (cleaned) byName.set(cleaned, u);
+                if (u.username) byName.set(u.username.trim().toLowerCase(), u);
             }
         });
         return { userMap: byId, userByNameMap: byName };
@@ -154,8 +168,9 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             let tlUser = tlId ? userMap.get(tlId) : null;
             if (!tlUser) {
                 const rawTlName = (r.team_leader_name || r.team_leader || r.teamLeaderName || '').trim().toLowerCase();
+                const cleanedTlName = cleanName(r.team_leader_name || r.team_leader || r.teamLeaderName || '');
                 if (rawTlName) {
-                    tlUser = userByNameMap.get(rawTlName) || null;
+                    tlUser = userByNameMap.get(rawTlName) || userByNameMap.get(cleanedTlName) || null;
                 }
             }
 
@@ -253,7 +268,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 const rmName = (u.reporting_manager || 'Saunvir Singh').trim();
                 const cityOpsName = 'Danish Abdulla khan';
                 if (tlName) {
-                    const normKey = `${cityOpsName.toLowerCase().trim()}___${rmName.toLowerCase().trim()}___${tlName.toLowerCase().trim()}`;
+                    const normKey = `${cleanName(cityOpsName)}___${cleanName(rmName)}___${cleanName(tlName)}`;
                     if (!map.has(normKey)) {
                         map.set(normKey, { cityOpsName, rmName, tlName, matchingRiders: [] });
                     }
@@ -266,7 +281,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             const cityOpsName = r.cityOpsName || 'Danish Abdulla khan';
             const rmName = r.rmName || 'Saunvir Singh';
             const tlName = r.tlName || 'Unassigned TL';
-            const normKey = `${cityOpsName.toLowerCase().trim()}___${rmName.toLowerCase().trim()}___${tlName.toLowerCase().trim()}`;
+            const normKey = `${cleanName(cityOpsName)}___${cleanName(rmName)}___${cleanName(tlName)}`;
 
             if (!map.has(normKey)) {
                 map.set(normKey, { cityOpsName, rmName, tlName, matchingRiders: [] });
