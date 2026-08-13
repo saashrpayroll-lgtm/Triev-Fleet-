@@ -124,10 +124,12 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
 
     useEffect(() => {
         if (rider) {
-            setIsStolen(Boolean(rider.isStolen || (rider as any).is_stolen));
-            setIsCompanyTagged(Boolean(rider.isCompanyTagged || (rider as any).is_company_tagged));
+            const stolenFlag = rider.isStolen !== undefined ? Boolean(rider.isStolen) : Boolean((rider as any).is_stolen);
+            const companyFlag = rider.isCompanyTagged !== undefined ? Boolean(rider.isCompanyTagged) : Boolean((rider as any).is_company_tagged);
+            setIsStolen(stolenFlag);
+            setIsCompanyTagged(companyFlag);
         }
-    }, [rider]);
+    }, [rider?.id, rider?.isStolen, (rider as any)?.is_stolen, rider?.isCompanyTagged, (rider as any)?.is_company_tagged]);
 
     const handleToggleExclusion = async (field: 'is_stolen' | 'is_company_tagged', currentVal: boolean) => {
         const newVal = !currentVal;

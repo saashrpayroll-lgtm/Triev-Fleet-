@@ -352,26 +352,38 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         };
     }, [displayedRows]);
 
-    // Heatmap Gradient Formatter (Exact Google Sheet Color Palette Matching)
+    // Heatmap Gradient Formatter (Crisp Light & Dark Mode Contrast)
     const getNegativePctStyle = (pct: number) => {
-        if (pct === 0) return 'bg-[#6bb377]/25 text-[#1b5e20] dark:text-[#81c784] font-extrabold';
-        if (pct <= 3.5) return 'bg-[#c8e6bf]/50 text-[#2e7d32] dark:text-[#a5d6a7] font-extrabold';
-        if (pct <= 6.0) return 'bg-[#f6d5a1]/60 text-[#b78103] dark:text-[#ffe082] font-black';
-        return 'bg-[#e06d6b]/50 text-[#c62828] dark:text-[#ef9a9a] font-black border border-[#e06d6b]/40';
+        if (pct === 0) return 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-300 dark:border-emerald-800/50 shadow-sm';
+        if (pct <= 3.5) return 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-950 dark:text-emerald-100 font-black border border-emerald-400 dark:border-emerald-700/60 shadow-sm';
+        if (pct <= 6.0) return 'bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-100 font-black border border-amber-300 dark:border-amber-700/60 shadow-sm';
+        return 'bg-rose-200 dark:bg-rose-950/70 text-rose-950 dark:text-rose-100 font-black border border-rose-400 dark:border-rose-700/70 shadow-sm';
     };
 
     const getRangePctStyle = (pct: number) => {
-        if (pct === 0) return 'bg-[#6bb377]/25 text-[#1b5e20] dark:text-[#81c784] font-extrabold';
-        if (pct <= 6.0) return 'bg-[#c8e6bf]/50 text-[#2e7d32] dark:text-[#a5d6a7] font-extrabold';
-        if (pct <= 10.0) return 'bg-[#d5e8c1]/60 text-[#33691e] dark:text-[#c5e1a5] font-extrabold';
-        if (pct <= 18.0) return 'bg-[#f6d5a1]/60 text-[#b78103] dark:text-[#ffe082] font-black';
-        return 'bg-[#e06d6b]/50 text-[#c62828] dark:text-[#ef9a9a] font-black border border-[#e06d6b]/40';
+        if (pct === 0) return 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-300 dark:border-emerald-800/50 shadow-sm';
+        if (pct <= 6.0) return 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-950 dark:text-emerald-100 font-black border border-emerald-400 dark:border-emerald-700/60 shadow-sm';
+        if (pct <= 10.0) return 'bg-lime-200/80 dark:bg-lime-900/60 text-lime-950 dark:text-lime-100 font-black border border-lime-400 dark:border-lime-700/60 shadow-sm';
+        if (pct <= 18.0) return 'bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-100 font-black border border-amber-300 dark:border-amber-700/60 shadow-sm';
+        return 'bg-rose-200 dark:bg-rose-950/70 text-rose-950 dark:text-rose-100 font-black border border-rose-400 dark:border-rose-700/70 shadow-sm';
     };
 
     // Open Drill-down Rider Modal
     const handleOpenCellRiders = (row: TLRiskMatrixRow, type: 'negative' | 'range0To250' | 'all') => {
+        const rowTlClean = (row.tlName || '').trim().toLowerCase();
+        const rowOpsClean = (row.cityOpsName || '').trim().toLowerCase();
+        const rowRmClean = (row.rmName || '').trim().toLowerCase();
+
         const groupRiders = filteredRiders.filter(r => {
-            return r.cityOpsName === row.cityOpsName && r.rmName === row.rmName && r.tlName === row.tlName;
+            const rTlClean = (r.tlName || '').trim().toLowerCase();
+            const rOpsClean = (r.cityOpsName || '').trim().toLowerCase();
+            const rRmClean = (r.rmName || '').trim().toLowerCase();
+
+            const matchTl = rTlClean === rowTlClean || (row.tlName && r.teamLeaderName === row.tlName) || (r.teamLeaderId && row.tlName === r.teamLeaderId);
+            const matchOps = !rowOpsClean || rowOpsClean === 'all' || rOpsClean === rowOpsClean;
+            const matchRm = !rowRmClean || rowRmClean === 'all' || rRmClean === rowRmClean;
+
+            return matchTl && matchOps && matchRm;
         });
 
         let result: any[] = groupRiders;
@@ -812,29 +824,29 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                             ) : (
                                 displayedRows.map((row, idx) => (
                                     <tr key={`${row.tlName}-${idx}`} className="hover:bg-accent/40 transition-colors">
-                                        <td className="p-3 font-semibold text-foreground border-r border-border/40">{row.cityOpsName}</td>
-                                        <td className="p-3 font-semibold text-foreground text-center border-r border-border/40">{row.rmName}</td>
-                                        <td className="p-3 font-extrabold text-foreground border-r border-border/40 flex items-center justify-between">
-                                            <span>{row.tlName}</span>
+                                        <td className="p-3 font-bold text-slate-900 dark:text-slate-100 border-r border-border/50">{row.cityOpsName}</td>
+                                        <td className="p-3 font-bold text-slate-900 dark:text-slate-100 text-center border-r border-border/50">{row.rmName}</td>
+                                        <td className="p-3 font-black text-slate-950 dark:text-white border-r border-border/50 flex items-center justify-between gap-2">
+                                            <span className="truncate">{row.tlName}</span>
                                             <button 
-                                                onClick={() => handleOpenCellRiders(row, 'all')}
-                                                className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition-all"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'all'); }}
+                                                className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 shadow-sm transition-all cursor-pointer flex-shrink-0 flex items-center gap-1 text-[11px] font-extrabold"
                                                 title="View All Riders under this TL"
                                             >
-                                                <Eye size={13} />
+                                                <Eye size={13} /> View
                                             </button>
                                         </td>
 
                                         {/* Metric Active Riders */}
-                                        <td className="p-3 text-center font-bold text-foreground border-r border-border/40 font-mono">
+                                        <td className="p-3 text-center font-black text-slate-900 dark:text-white border-r border-border/50 font-mono">
                                             {row.activeRiders}
                                         </td>
 
                                         {/* Metric Negative Count (Clickable to Drill-Down) */}
-                                        <td className="p-3 text-center border-r border-border/40 font-mono">
+                                        <td className="p-3 text-center border-r border-border/50 font-mono">
                                             <button
-                                                onClick={() => handleOpenCellRiders(row, 'negative')}
-                                                className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold hover:bg-amber-500/20 transition-all cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'negative'); }}
+                                                className="px-3 py-1 rounded-xl bg-amber-500/15 text-amber-900 dark:text-amber-300 font-black hover:bg-amber-500/25 border border-amber-500/30 shadow-sm transition-all cursor-pointer"
                                                 title="Click to view riders with negative wallet balance"
                                             >
                                                 {row.negativeCount}
@@ -842,10 +854,10 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                         </td>
 
                                         {/* Metric 0 to 250 Range Count (Clickable to Drill-Down) */}
-                                        <td className="p-3 text-center border-r border-border/40 font-mono">
+                                        <td className="p-3 text-center border-r border-border/50 font-mono">
                                             <button
-                                                onClick={() => handleOpenCellRiders(row, 'range0To250')}
-                                                className="px-2.5 py-1 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 font-extrabold hover:bg-orange-500/20 transition-all cursor-pointer"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'range0To250'); }}
+                                                className="px-3 py-1 rounded-xl bg-orange-500/15 text-orange-900 dark:text-orange-300 font-black hover:bg-orange-500/25 border border-orange-500/30 shadow-sm transition-all cursor-pointer"
                                                 title="Click to view riders in 0-250 range"
                                             >
                                                 {row.range0To250Count}
