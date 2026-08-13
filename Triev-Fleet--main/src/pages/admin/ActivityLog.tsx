@@ -43,9 +43,10 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
 
 
     const [showMetadata, setShowMetadata] = useState<any | null>(null);
+    const logLimit = 500;
 
-    // Fetch Logs
-    const fetchLogs = async () => {
+    // Fetch Logs with DB-level filtering & automatic timeout fallback
+    const fetchLogs = async (overrideLimit?: number) => {
         if (scopedUserIds !== undefined && scopedUserIds.length === 0) {
             setLogs([]);
             setLoading(false);
@@ -53,6 +54,8 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
         }
 
         setLoading(true);
+        const currentLimit = overrideLimit || logLimit;
+
         try {
             let query = supabase
                 .from('activity_logs')
@@ -69,17 +72,43 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
                     isDeleted:is_deleted,
                     metadata
                 `)
-                .order('timestamp', { ascending: false })
-                .limit(2000);
+                .neq('is_deleted', true);
+
+            // DB-level Date Filtering to avoid full table scans
+            if (dateFrom) {
+                try {
+                    const startIso = startOfDay(parseISO(dateFrom)).toISOString();
+                    query = query.gte('timestamp', startIso);
+                } catch {}
+            }
+            if (dateTo) {
+                try {
+                    const endIso = endOfDay(parseISO(dateTo)).toISOString();
+                    query = query.lte('timestamp', endIso);
+                } catch {}
+            }
 
             // DB-level scoping: only fetch logs for specific user IDs
             if (scopedUserIds && scopedUserIds.length > 0) {
                 query = query.in('user_id', scopedUserIds);
             }
 
+            query = query
+                .order('timestamp', { ascending: false })
+                .limit(currentLimit);
+
             const { data, error } = await query;
 
-            if (error) throw error;
+            if (error) {
+                // If statement timeout occurs, automatically retry with smaller limit
+                if (error.message?.toLowerCase().includes('timeout') || error.code === '57014') {
+                    console.warn("Statement timeout encountered. Retrying with smaller limit (150)...");
+                    if (currentLimit > 150) {
+                        return await fetchLogs(150);
+                    }
+                }
+                throw error;
+            }
 
             if (data) {
                 const filtered = (data as ActivityLog[]).filter(l => l.isDeleted !== true);

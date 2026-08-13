@@ -71,8 +71,9 @@ const ActivityLog: React.FC = () => {
                 .from('activity_logs')
                 .select('*')
                 .eq('user_id', userData.id) // snake_case
-                .not('is_deleted', 'eq', true) // Server check
-                .order('timestamp', { ascending: false });
+                .neq('is_deleted', true)
+                .order('timestamp', { ascending: false })
+                .limit(300);
 
             if (error) throw error;
 
