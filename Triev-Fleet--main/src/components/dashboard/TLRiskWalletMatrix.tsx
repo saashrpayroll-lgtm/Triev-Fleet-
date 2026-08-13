@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
-import { parseIndianDate } from '@/utils/dateUtils';
+import { parseIndianDate, getValidAllotmentDate } from '@/utils/dateUtils';
 
 export interface TLRiskWalletMatrixProps {
     className?: string;
@@ -154,9 +154,12 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             const isStolen = Boolean(r.is_stolen || r.isStolen);
             const isCompanyTagged = Boolean(r.is_company_tagged || r.isCompanyTagged);
+            const validAllotment = getValidAllotmentDate(r.allotment_date || r.allotmentDate, r.created_at || r.createdAt);
 
             return {
                 ...r,
+                allotment_date: validAllotment,
+                allotmentDate: validAllotment,
                 walletAmount,
                 tlName,
                 rmName,

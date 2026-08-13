@@ -1,6 +1,6 @@
 import { Rider, User, Request } from '@/types';
 import { startOfDay, endOfDay, isWithinInterval } from 'date-fns';
-import { getValidHistoricalDate, formatDateDisplay } from '@/utils/dateUtils';
+import { getValidHistoricalDate, formatDateDisplay, getValidAllotmentDate } from '@/utils/dateUtils';
 
 // Data Mappers (DB snake_case -> App camelCase)
 export const mapRiderFromDB = (data: any): Rider => ({
@@ -12,7 +12,7 @@ export const mapRiderFromDB = (data: any): Rider => ({
     clientName: data.client_name,
     clientId: data.client_id,
     walletAmount: data.wallet_amount || 0,
-    allotmentDate: data.allotment_date,
+    allotmentDate: getValidAllotmentDate(data.allotment_date || data.allotmentDate, data.created_at || data.createdAt),
     remarks: data.remarks,
     status: data.status,
     teamLeaderId: data.team_leader_id,

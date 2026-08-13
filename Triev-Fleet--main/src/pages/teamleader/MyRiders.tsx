@@ -17,6 +17,7 @@ import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import { getValidAllotmentDate } from '@/utils/dateUtils';
 import RiskBadge from '@/components/RiskBadge';
 import StarRating from '@/components/StarRating';
 import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
@@ -96,7 +97,7 @@ const MyRiders: React.FC = () => {
         clientName: data.client_name,
         clientId: data.client_id,
         walletAmount: data.status === 'active' ? data.wallet_amount : 0,
-        allotmentDate: data.allotment_date,
+        allotmentDate: getValidAllotmentDate(data.allotment_date, data.created_at),
         remarks: data.remarks,
         status: data.status,
         teamLeaderId: data.team_leader_id,

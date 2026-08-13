@@ -227,4 +227,35 @@ export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallb
         return fallbackDate ? getValidHistoricalDate(fallbackDate) : null;
     }
 };
+/**
+ * Resolves a safe allotment date.
+ * If allotmentDate is missing, in the future relative to today, or later than created_at + 1 day,
+ * it safely falls back to created_at (or today's ISO).
+ */
+export const getValidAllotmentDate = (allotmentDateRaw: any, createdAtRaw?: any): string => {
+    const parsedAllotment = parseIndianDate(allotmentDateRaw);
+    const parsedCreated = parseIndianDate(createdAtRaw);
+
+    const now = Date.now();
+    const allotmentTime = parsedAllotment ? new Date(parsedAllotment).getTime() : 0;
+    const createdTime = parsedCreated ? new Date(parsedCreated).getTime() : 0;
+
+    // If no allotment date, fallback to created_at or today
+    if (!parsedAllotment || !allotmentTime) {
+        return parsedCreated || new Date().toISOString();
+    }
+
+    // Guard 1: If allotment date is in the future relative to today (e.g. Dec 2026 when today is Aug 2026)
+    if (allotmentTime > (now + 86400000)) {
+        return parsedCreated || new Date().toISOString();
+    }
+
+    // Guard 2: If allotment date is significantly later than created_at (e.g. created Aug 12, allotment Dec 08)
+    if (createdTime > 0 && allotmentTime > (createdTime + 86400000)) {
+        return parsedCreated || new Date().toISOString();
+    }
+
+    return parsedAllotment;
+};
+
 
