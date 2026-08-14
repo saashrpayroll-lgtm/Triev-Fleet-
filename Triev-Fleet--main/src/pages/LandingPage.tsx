@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { LegalInfoModal, LegalTab } from '@/components/LegalInfoModal';
 import {
     Users, BarChart3, Bot, Target, Trophy, ShieldAlert, Zap, Shield,
     ArrowRight, ChevronDown, Star, CheckCircle2, Sparkles, Globe,
@@ -223,7 +224,14 @@ const STATS = [
 
 const LandingPage: React.FC = () => {
     const [loginModalOpen, setLoginModalOpen] = useState(false);
+    const [legalModalOpen, setLegalModalOpen] = useState(false);
+    const [legalTab, setLegalTab] = useState<LegalTab>('privacy');
     const [navScrolled, setNavScrolled] = useState(false);
+
+    const openLegal = (tab: LegalTab) => {
+        setLegalTab(tab);
+        setLegalModalOpen(true);
+    };
     const { scrollY } = useScroll();
     const heroY = useTransform(scrollY, [0, 600], [0, -120]);
     const mockupY = useTransform(scrollY, [0, 500], [0, -60]);
@@ -620,25 +628,37 @@ const LandingPage: React.FC = () => {
             </section>
 
             {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-            <footer className="py-8 px-4 sm:px-6 border-t border-white/[0.05]">
-                <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <footer className="py-10 px-4 sm:px-6 border-t border-white/[0.08] bg-black/40">
+                <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-black text-xs"
                             style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)' }}>T</div>
-                        <span className="text-white/40 text-xs font-medium">Triev Fleet Manager</span>
+                        <span className="text-white/60 text-xs font-bold">Triev Fleet Manager</span>
                     </div>
-                    <p className="text-white/20 text-[10px] font-mono">© 2026 Triev Rider Technologies · v2.5.0 · All rights reserved</p>
-                    <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] text-emerald-500/50 font-mono uppercase tracking-widest">All Systems Online</span>
+
+                    {/* Legal & Policy Links */}
+                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-semibold text-slate-400">
+                        <button onClick={() => openLegal('privacy')} className="hover:text-indigo-300 transition-colors">Privacy Policy</button>
+                        <span className="text-white/10">•</span>
+                        <button onClick={() => openLegal('terms')} className="hover:text-indigo-300 transition-colors">Terms of Service</button>
+                        <span className="text-white/10">•</span>
+                        <button onClick={() => openLegal('about')} className="hover:text-indigo-300 transition-colors">About Us</button>
+                        <span className="text-white/10">•</span>
+                        <button onClick={() => openLegal('contact')} className="hover:text-indigo-300 transition-colors">Contact Us</button>
+                        <span className="text-white/10">•</span>
+                        <button onClick={() => openLegal('disclaimer')} className="hover:text-indigo-300 transition-colors">Disclaimer</button>
                     </div>
+
+                    <p className="text-white/30 text-[11px] font-mono">© 2026 Triev Rider Technologies · v2.5.0</p>
                 </div>
             </footer>
 
-            {/* Login Modal */}
+            {/* Modals */}
             <AnimatePresence>
                 {loginModalOpen && <LoginChoiceModal onClose={() => setLoginModalOpen(false)} />}
             </AnimatePresence>
+
+            <LegalInfoModal isOpen={legalModalOpen} initialTab={legalTab} onClose={() => setLegalModalOpen(false)} />
         </div>
     );
 };

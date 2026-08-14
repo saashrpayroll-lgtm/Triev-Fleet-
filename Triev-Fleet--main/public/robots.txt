@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /portal
+Disallow: /team-leader
+Disallow: /rm-panel
+Disallow: /city-ops
+
+Sitemap: https://triev-fleet.vercel.app/sitemap.xml
