@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
     Search, FileSpreadsheet, FileText, 
     RefreshCw, Filter, Sparkles, AlertTriangle, ShieldCheck,
-    Users, Eye, Calendar, ArrowUpDown
+    Users, Eye, Calendar, ArrowUpDown, MessageCircle
 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -16,6 +16,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { parseIndianDate, getValidAllotmentDate } from '@/utils/dateUtils';
+import { generateRiskMatrixWhatsAppDigest, shareWhatsAppDigest } from '@/utils/whatsappUtils';
 
 export interface TLRiskWalletMatrixProps {
     className?: string;
@@ -751,6 +752,38 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         }
     };
 
+    // 1-Click Share Daily WhatsApp Risk Digest
+    const handleShareWhatsAppDigest = () => {
+        try {
+            const topDeficitTLs = matrixRows
+                .filter(r => r.negativePct > 8.5)
+                .sort((a, b) => b.negativePct - a.negativePct)
+                .slice(0, 5)
+                .map(r => ({
+                    name: r.tlName,
+                    rm: r.rmName,
+                    negativePct: r.negativePct,
+                    count: r.negativeCount
+                }));
+
+            const digestMsg = generateRiskMatrixWhatsAppDigest({
+                senderName: (userData as any)?.fullName || (userData as any)?.name || 'Fleet Admin',
+                senderRole: userData?.role === 'admin' ? 'Super Admin' : userData?.role?.toUpperCase() || 'Operations',
+                totalActiveRiders: summaryStats.totalActiveRiders,
+                totalNegativeCount: summaryStats.totalNegativeCount,
+                overallNegativePct: summaryStats.overallNegativePct,
+                totalRange0To250Count: summaryStats.totalRange0To250Count,
+                overallRange0To250Pct: summaryStats.overallRange0To250Pct,
+                topRiskTLs: topDeficitTLs
+            });
+
+            shareWhatsAppDigest(digestMsg);
+            toast.success("WhatsApp Risk Digest generated & opened!");
+        } catch (e: any) {
+            toast.error("Failed to generate WhatsApp digest: " + (e.message || 'Unknown error'));
+        }
+    };
+
     return (
         <div className={`space-y-6 ${className}`}>
 
@@ -980,8 +1013,16 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                         </div>
 
                         <button
+                            onClick={handleShareWhatsAppDigest}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md flex items-center gap-1.5"
+                            title="1-Click Share Daily WhatsApp Risk Digest"
+                        >
+                            <MessageCircle size={14} /> WhatsApp Digest
+                        </button>
+
+                        <button
                             onClick={handleExportExcel}
-                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-all shadow-md flex items-center gap-1.5"
+                            className="px-3.5 py-1.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 transition-all shadow-md flex items-center gap-1.5"
                             title="Export formatted Excel report"
                         >
                             <FileSpreadsheet size={14} /> Excel
