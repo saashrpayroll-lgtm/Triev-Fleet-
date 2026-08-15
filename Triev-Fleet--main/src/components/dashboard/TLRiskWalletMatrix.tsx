@@ -862,7 +862,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     <div className="flex flex-wrap items-center gap-3 text-xs">
                         <div 
                             onClick={() => handleToggleExclusion('newAllotments')}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         >
                             <input
                                 type="checkbox"
@@ -875,7 +875,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
                         <div 
                             onClick={() => handleToggleExclusion('stolen')}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         >
                             <input
                                 type="checkbox"
@@ -888,7 +888,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
                         <div 
                             onClick={() => handleToggleExclusion('company')}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-card border-border/80 text-foreground hover:bg-accent'}`}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         >
                             <input
                                 type="checkbox"
@@ -908,60 +908,60 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     {/* Left: Filters */}
                     <div className="flex flex-wrap items-center gap-3">
                         {/* City Ops Filter */}
-                        <div className="flex items-center gap-1.5 bg-accent/40 border border-border/60 rounded-xl px-3 py-1.5 text-xs">
-                            <Filter size={13} className="text-muted-foreground" />
-                            <span className="text-muted-foreground font-medium">City Ops:</span>
+                        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs shadow-sm">
+                            <Filter size={13} className="text-slate-500 dark:text-slate-400" />
+                            <span className="text-slate-700 dark:text-slate-200 font-bold">City Ops:</span>
                             <select
                                 value={selectedCityOps}
                                 onChange={e => setSelectedCityOps(e.target.value)}
-                                className="bg-transparent font-bold text-foreground outline-none cursor-pointer"
+                                className="bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
                             >
-                                <option value="all">All City Ops</option>
-                                {cityOpsOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All City Ops</option>
+                                {cityOpsOptions.map(c => <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{c}</option>)}
                             </select>
                         </div>
 
                         {/* CM / RM Filter */}
-                        <div className="flex items-center gap-1.5 bg-accent/40 border border-border/60 rounded-xl px-3 py-1.5 text-xs">
-                            <span className="text-muted-foreground font-medium">CM (RM):</span>
+                        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs shadow-sm">
+                            <span className="text-slate-700 dark:text-slate-200 font-bold">CM (RM):</span>
                             <select
                                 value={selectedRM}
                                 onChange={e => setSelectedRM(e.target.value)}
-                                className="bg-transparent font-bold text-foreground outline-none cursor-pointer"
+                                className="bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
                             >
-                                <option value="all">All CMs</option>
-                                {rmOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All CMs</option>
+                                {rmOptions.map(r => <option key={r} value={r} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{r}</option>)}
                             </select>
                         </div>
 
                         {/* TL Filter */}
-                        <div className="flex items-center gap-1.5 bg-accent/40 border border-border/60 rounded-xl px-3 py-1.5 text-xs">
-                            <span className="text-muted-foreground font-medium">TL:</span>
+                        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs shadow-sm">
+                            <span className="text-slate-700 dark:text-slate-200 font-bold">TL:</span>
                             <select
                                 value={selectedTL}
                                 onChange={e => setSelectedTL(e.target.value)}
-                                className="bg-transparent font-bold text-foreground outline-none cursor-pointer"
+                                className="bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
                             >
-                                <option value="all">All TLs</option>
-                                {tlOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All TLs</option>
+                                {tlOptions.map(t => <option key={t} value={t} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{t}</option>)}
                             </select>
                         </div>
 
                         {/* 5-Week History Selector */}
-                        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-xl px-3 py-1.5 text-xs font-bold">
+                        <div className="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm">
                             <Calendar size={13} />
-                            <span>Scope:</span>
+                            <span className="text-emerald-800 dark:text-emerald-200">Scope:</span>
                             <select
                                 value={selectedWeek}
                                 onChange={e => setSelectedWeek(e.target.value)}
-                                className="bg-transparent font-extrabold outline-none cursor-pointer"
+                                className="bg-transparent font-extrabold text-emerald-900 dark:text-emerald-100 outline-none cursor-pointer"
                             >
-                                <option value="current">Live Current Date</option>
-                                <option value="week-1">Week -1 History</option>
-                                <option value="week-2">Week -2 History</option>
-                                <option value="week-3">Week -3 History</option>
-                                <option value="week-4">Week -4 History</option>
-                                <option value="week-5">Week -5 History</option>
+                                <option value="current" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Live Current Date</option>
+                                <option value="week-1" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -1 History</option>
+                                <option value="week-2" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -2 History</option>
+                                <option value="week-3" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -3 History</option>
+                                <option value="week-4" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -4 History</option>
+                                <option value="week-5" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -5 History</option>
                             </select>
                         </div>
                     </div>
@@ -969,13 +969,13 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     {/* Right: Search & One-Click Exports */}
                     <div className="flex items-center gap-3">
                         <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 placeholder="Search TL or Manager..."
-                                className="pl-9 pr-3 py-1.5 rounded-xl border border-input bg-card text-xs text-foreground focus:ring-2 focus:ring-primary outline-none w-48 sm:w-56"
+                                className="pl-9 pr-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/90 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-primary outline-none w-48 sm:w-56 shadow-sm"
                             />
                         </div>
 
@@ -998,7 +998,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                         <button
                             onClick={() => { setRefreshing(true); fetchData(); }}
                             disabled={refreshing}
-                            className="p-2 rounded-xl bg-accent text-foreground hover:bg-accent/80 transition-all"
+                            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm"
                             title="Refresh Data"
                         >
                             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
@@ -1008,29 +1008,29 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
                 {/* ADMIN-ONLY QUICK RISK FILTER CHIPS */}
                 {isAdmin && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold pt-3 border-t border-border/40">
-                        <span className="text-muted-foreground text-[11px] uppercase tracking-wider font-extrabold mr-1">Admin Quick Risk Filter:</span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold pt-3 border-t border-slate-200 dark:border-slate-800">
+                        <span className="text-slate-600 dark:text-slate-300 text-[11px] uppercase tracking-wider font-extrabold mr-1">Admin Quick Risk Filter:</span>
                         <button
                             onClick={() => setQuickFilter('all')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'all' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-card border-border/60 hover:bg-accent text-foreground'}`}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'all' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100'}`}
                         >
                             All TLs
                         </button>
                         <button
                             onClick={() => setQuickFilter('high_risk')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'high_risk' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/30' : 'bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/30 hover:bg-rose-500/20'}`}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'high_risk' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/30' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-500/25'}`}
                         >
                             🚨 High Risk Only (&gt;8.5%)
                         </button>
                         <button
                             onClick={() => setQuickFilter('low_wallet_risk')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'low_wallet_risk' ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/30' : 'bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/30 hover:bg-purple-500/20'}`}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'low_wallet_risk' ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/30' : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40 hover:bg-purple-500/25'}`}
                         >
                             ⚠️ Low Wallet Risk (&gt;11%)
                         </button>
                         <button
                             onClick={() => setQuickFilter('zero_negative')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'zero_negative' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/30' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'}`}
+                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'zero_negative' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/30' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'}`}
                         >
                             🟢 Zero Negative TLs
                         </button>
