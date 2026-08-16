@@ -48,28 +48,61 @@ const parseIndianDate = (dateStr) => {
     const clean = String(dateStr).trim();
     if (!clean) return null;
 
-    // DD/MM/YYYY or DD-MM-YYYY
-    const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-    if (dmyMatch) {
-        const d = String(dmyMatch[1]).padStart(2, '0');
-        const m = String(dmyMatch[2]).padStart(2, '0');
-        const y = dmyMatch[3];
-        return `${y}-${m}-${d}`;
+    const pad = (n) => String(n).padStart(2, '0');
+
+    // 1. Check Excel serial number (e.g. 45367)
+    if (!isNaN(Number(clean)) && Number(clean) > 20000 && Number(clean) < 80000) {
+        const days = Number(clean);
+        const msSince1900 = (days - (days > 59 ? 25569 : 25568)) * 86400 * 1000;
+        const d = new Date(msSince1900);
+        if (!isNaN(d.getTime())) {
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
     }
 
-    // YYYY-MM-DD
+    // 2. YYYY-MM-DD or YYYY-DD-MM (e.g. 2026-16-03 or 2026-03-16)
     const ymdMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
     if (ymdMatch) {
-        const y = ymdMatch[1];
-        const m = String(ymdMatch[2]).padStart(2, '0');
-        const d = String(ymdMatch[3]).padStart(2, '0');
-        return `${y}-${m}-${d}`;
+        const y = parseInt(ymdMatch[1], 10);
+        let m = parseInt(ymdMatch[2], 10);
+        let d = parseInt(ymdMatch[3], 10);
+
+        // If month > 12 and day <= 12, it's YYYY-DD-MM -> auto-swap!
+        if (m > 12 && d <= 12) {
+            const temp = m;
+            m = d;
+            d = temp;
+        }
+
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+            return `${y}-${pad(m)}-${pad(d)}`;
+        }
     }
 
-    // Standard parse fallback
+    // 3. DD/MM/YYYY or MM/DD/YYYY (e.g. 16/03/2026 or 03/16/2026)
+    const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+    if (dmyMatch) {
+        let d = parseInt(dmyMatch[1], 10);
+        let m = parseInt(dmyMatch[2], 10);
+        const y = dmyMatch[3].length === 2 ? 2000 + parseInt(dmyMatch[3], 10) : parseInt(dmyMatch[3], 10);
+
+        // If month > 12 and day <= 12, it was MM/DD/YYYY -> auto-swap!
+        if (m > 12 && d <= 12) {
+            const temp = m;
+            m = d;
+            d = temp;
+        }
+
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+            return `${y}-${pad(m)}-${pad(d)}`;
+        }
+    }
+
+    // 4. Standard parse fallback
     const timestamp = Date.parse(clean);
     if (!isNaN(timestamp)) {
-        return new Date(timestamp).toISOString().split('T')[0];
+        const dt = new Date(timestamp);
+        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
     }
 
     return null;

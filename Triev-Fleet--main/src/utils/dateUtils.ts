@@ -97,9 +97,16 @@ export const parseIndianDate = (dateRaw: any): string | null => {
     if (ddmmyyyyMatch) {
         const [, dayStr, monthStr, yearStr, hourStr, minStr, secStr, ampm] = ddmmyyyyMatch;
 
-        const dayNum = parseInt(dayStr, 10);
-        const monthNum = parseInt(monthStr, 10);
+        let dayNum = parseInt(dayStr, 10);
+        let monthNum = parseInt(monthStr, 10);
         const yearNum = yearStr.length === 2 ? 2000 + parseInt(yearStr, 10) : parseInt(yearStr, 10);
+
+        // Auto-fix inverted MM/DD/YYYY where month > 12
+        if (monthNum > 12 && dayNum <= 12) {
+            const temp = monthNum;
+            monthNum = dayNum;
+            dayNum = temp;
+        }
 
         let hourNum = hourStr ? parseInt(hourStr, 10) : 12;
         if (ampm) {
@@ -113,14 +120,21 @@ export const parseIndianDate = (dateRaw: any): string | null => {
         }
     }
 
-    // 3. SECONDARY: ISO or YYYY-MM-DD (e.g., "2026-08-12" or "2026-08-12T12:00:00.000Z")
+    // 3. SECONDARY: ISO or YYYY-MM-DD or YYYY-DD-MM (e.g., "2026-16-03" or "2026-08-12")
     // Group 1 = YEAR (YYYY), Group 2 = MONTH (MM), Group 3 = DAY (DD)
     const yyyymmddMatch = cleanDate.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\.\d+)?(?:Z|[\+\-]\d{2}:\d{2})?)?$/);
     if (yyyymmddMatch) {
         const [, yearStr, monthStr, dayStr, h, m, s] = yyyymmddMatch;
         const yearNum = parseInt(yearStr, 10);
-        const monthNum = parseInt(monthStr, 10);
-        const dayNum = parseInt(dayStr, 10);
+        let monthNum = parseInt(monthStr, 10);
+        let dayNum = parseInt(dayStr, 10);
+
+        // Auto-fix inverted YYYY-DD-MM where month > 12 (e.g. 2026-16-03 -> 2026-03-16)
+        if (monthNum > 12 && dayNum <= 12) {
+            const temp = monthNum;
+            monthNum = dayNum;
+            dayNum = temp;
+        }
 
         const hr = h ? pad(h) : '12';
         const min = m ? pad(m) : '00';
