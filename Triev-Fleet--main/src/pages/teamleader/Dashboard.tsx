@@ -641,6 +641,23 @@ const Dashboard: React.FC = () => {
                             AI Voice Call
                         </button>
                     )}
+                    {/* WhatsApp 1-Click Share Riders */}
+                    <button
+                        type="button"
+                        title="Share My Riders List via WhatsApp"
+                        onClick={() => {
+                            const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active');
+                            if (myRiders.length === 0) { alert('No active riders to share.'); return; }
+                            const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                            const lines = myRiders.map((r, i) => `${i + 1}. ${r.riderName} — 📱 ${r.mobileNumber || 'N/A'} | 💰 ₹${r.walletAmount ?? 0}`).join('\n');
+                            const msg = encodeURIComponent(`🚀 *Rider Report — ${today}*\nTL: *${userData.fullName}*\nActive Riders: *${myRiders.length}*\n\n${lines}\n\n_Sent from Triev Fleet V2_`);
+                            window.open(`https://wa.me/?text=${msg}`, '_blank');
+                        }}
+                        className="px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-green-500/20 hover:opacity-95 transition-all"
+                    >
+                        <MessageCircle size={15} />
+                        <span className="hidden sm:inline">Share Riders</span>
+                    </button>
                     <div className="px-4 py-2 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-400/20 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 shadow-inner">
                         <Shield size={14} className="text-violet-500" />
                         <span className="text-violet-600 dark:text-violet-400 uppercase tracking-widest">Team Leader</span>

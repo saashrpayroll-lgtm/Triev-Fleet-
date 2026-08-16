@@ -70,7 +70,8 @@ export class OutboundCallService {
         }
 
         try {
-            console.log(`[ElevenLabs + n8n] Triggering AI call for ${payload.riderName} (${formattedMobile}) scenario: ${payload.callScenario}`);
+
+
 
             const webhookPayload = {
                 rider_id: payload.riderId,

@@ -55,9 +55,6 @@ export function useRMTeamData(): RMTeamData {
                         { column: 'role', operator: 'eq', value: 'teamLeader' }
                     ]);
 
-                console.log('[RM Panel Debug] RM Name:', rmName.trim());
-                console.log('[RM Panel Debug] TL Query result:', { count: tlData?.length, error: tlError, data: tlData?.map((t: any) => ({ id: t.id, name: t.full_name || t.fullName, rm: t.reporting_manager || t.reportingManager })) });
-
                 if (tlError) throw tlError;
 
                 const tls = (tlData as unknown as User[]) || [];

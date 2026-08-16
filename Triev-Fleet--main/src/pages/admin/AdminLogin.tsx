@@ -165,6 +165,27 @@ const AdminLogin: React.FC = () => {
     const [focusedField, setFocusedField] = useState<string | null>(null);
     const [loginTime, setLoginTime] = useState('');
 
+    // Rate limiting: max 5 attempts, then 60s lockout
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+    const [lockoutCountdown, setLockoutCountdown] = useState(0);
+
+    useEffect(() => {
+        if (!lockoutUntil) return;
+        const tick = setInterval(() => {
+            const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+            if (remaining <= 0) {
+                setLockoutUntil(null);
+                setLockoutCountdown(0);
+                setFailedAttempts(0);
+                clearInterval(tick);
+            } else {
+                setLockoutCountdown(remaining);
+            }
+        }, 1000);
+        return () => clearInterval(tick);
+    }, [lockoutUntil]);
+
     useEffect(() => {
         const tick = () => setLoginTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
         tick();
@@ -174,6 +195,13 @@ const AdminLogin: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Rate limit check
+        if (lockoutUntil && Date.now() < lockoutUntil) {
+            setError(`Too many failed attempts. Please wait ${lockoutCountdown}s before trying again.`);
+            return;
+        }
+
         setError('');
         setLoading(true);
 
@@ -233,7 +261,16 @@ const AdminLogin: React.FC = () => {
             }, 250);
 
         } catch (err: any) {
-            setError(err.message || 'Authentication failed');
+            const newAttempts = failedAttempts + 1;
+            setFailedAttempts(newAttempts);
+            if (newAttempts >= 5) {
+                const until = Date.now() + 60000;
+                setLockoutUntil(until);
+                setLockoutCountdown(60);
+                setError('Too many failed attempts. Admin console locked for 60 seconds.');
+            } else {
+                setError(err.message || 'Authentication failed');
+            }
             toast.error(err.message || 'Authentication failed');
             if (err.message && err.message.includes("DENIED")) {
                 await supabase.auth.signOut();

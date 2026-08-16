@@ -153,6 +153,27 @@ const LoginPage: React.FC = () => {
     const [focusedField, setFocusedField] = useState<string | null>(null);
     const [activeRoleHint, setActiveRoleHint] = useState<number>(0);
 
+    // Rate limiting: max 5 attempts, then 60s lockout
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+    const [lockoutCountdown, setLockoutCountdown] = useState(0);
+
+    useEffect(() => {
+        if (!lockoutUntil) return;
+        const tick = setInterval(() => {
+            const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+            if (remaining <= 0) {
+                setLockoutUntil(null);
+                setLockoutCountdown(0);
+                setFailedAttempts(0);
+                clearInterval(tick);
+            } else {
+                setLockoutCountdown(remaining);
+            }
+        }, 1000);
+        return () => clearInterval(tick);
+    }, [lockoutUntil]);
+
     useEffect(() => {
         const interval = setInterval(() => {
             setActiveRoleHint(prev => (prev + 1) % ROLE_CHIPS.length);
@@ -162,6 +183,13 @@ const LoginPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Rate limit check
+        if (lockoutUntil && Date.now() < lockoutUntil) {
+            setError(`Too many failed attempts. Please wait ${lockoutCountdown}s before trying again.`);
+            return;
+        }
+
         setError('');
         setLoading(true);
 
@@ -242,7 +270,16 @@ const LoginPage: React.FC = () => {
                 }
             }, 250);
         } catch (err: any) {
-            setError(err.message || 'Failed to login. Please check your credentials.');
+            const newAttempts = failedAttempts + 1;
+            setFailedAttempts(newAttempts);
+            if (newAttempts >= 5) {
+                const until = Date.now() + 60000;
+                setLockoutUntil(until);
+                setLockoutCountdown(60);
+                setError('Too many failed attempts. Account locked for 60 seconds.');
+            } else {
+                setError(err.message || 'Failed to login. Please check your credentials.');
+            }
             toast.error(err.message || 'Login failed');
         } finally {
             setLoading(false);
@@ -516,16 +553,25 @@ const LoginPage: React.FC = () => {
                                 {/* Submit */}
                                 <motion.button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || !!lockoutUntil}
                                     className="w-full relative rounded-xl py-4 font-black text-sm tracking-wide text-white overflow-hidden group/btn disabled:opacity-60 disabled:cursor-not-allowed"
-                                    style={{ background: 'linear-gradient(135deg, #f97316, #ea580c, #dc2626)', boxShadow: '0 8px 24px rgba(249,115,22,0.4)' }}
-                                    whileHover={!loading ? { scale: 1.02, y: -1, boxShadow: '0 12px 36px rgba(249,115,22,0.6)' } : {}}
-                                    whileTap={!loading ? { scale: 0.98 } : {}}
+                                    style={{ background: lockoutUntil ? 'linear-gradient(135deg, #6b7280, #4b5563)' : 'linear-gradient(135deg, #f97316, #ea580c, #dc2626)', boxShadow: lockoutUntil ? '0 4px 12px rgba(0,0,0,0.3)' : '0 8px 24px rgba(249,115,22,0.4)' }}
+                                    whileHover={!loading && !lockoutUntil ? { scale: 1.02, y: -1, boxShadow: '0 12px 36px rgba(249,115,22,0.6)' } : {}}
+                                    whileTap={!loading && !lockoutUntil ? { scale: 0.98 } : {}}
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
                                     <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
                                     <div className="relative z-10 flex items-center justify-center gap-2.5">
-                                        {loading ? (
+                                        {lockoutUntil ? (
+                                            <>
+                                                <motion.div
+                                                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                    animate={{ rotate: 360 }}
+                                                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                                                />
+                                                <span>Locked — retry in {lockoutCountdown}s</span>
+                                            </>
+                                        ) : loading ? (
                                             <>
                                                 <motion.div
                                                     className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"

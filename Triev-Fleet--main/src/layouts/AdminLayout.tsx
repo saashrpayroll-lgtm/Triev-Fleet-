@@ -406,6 +406,26 @@ const AdminLayout: React.FC = () => {
                     </div>
                 </header>
 
+                {/* ── Quick Stats Bar — 1-glance KPIs ─────────────────────────── */}
+                <div className="hidden md:flex items-center gap-3 px-6 py-2 border-b border-border/30 bg-muted/20 flex-wrap text-xs font-semibold overflow-x-auto">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Active Riders: <span className="font-black">{/* fetched via AdminDashboard */}Live</span></span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Pending Requests: <span className="font-black">{pendingRequestsCount}</span></span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                        <span>Unread Notifications: <span className="font-black">{unreadNotificationsCount}</span></span>
+                    </div>
+                    <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-card border border-border text-muted-foreground whitespace-nowrap">
+                        <span>📅</span>
+                        <span>{new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                </div>
+
                 {/* Page Content */}
                 <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
                     <Outlet />

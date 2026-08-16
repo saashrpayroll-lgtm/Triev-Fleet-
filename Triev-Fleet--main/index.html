@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Triev Fleet Manager</title>
   <meta name="google-site-verification" content="fS4_OtobPjrmK0sJbBIxUzctfwL044UqtXqBOuFTlCM" />
   <meta name="description"
@@ -24,6 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
   <link rel="dns-prefetch" href="https://api.elevenlabs.io" />
+  <link rel="preconnect" href="https://supabase.co" />
   <link rel="dns-prefetch" href="https://supabase.co" />
 
   <!-- html2canvas loaded DEFERRED (only when export is used, not blocking) -->
@@ -42,8 +43,10 @@
 
 <body>
   <div id="root">
-    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: system-ui;">
-      Loading Rider App...
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: system-ui; gap: 12px;">
+      <div style="width: 40px; height: 40px; border: 3px solid #6366f1; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+      <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+      <span style="font-size: 14px; color: #64748b; font-weight: 500;">Triev Fleet V2 Loading...</span>
     </div>
   </div>
   <script type="module" src="/src/main.tsx"></script>

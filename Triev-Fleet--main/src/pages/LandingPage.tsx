@@ -10,21 +10,21 @@ import {
 
 // ─── Animated Aurora Background ───────────────────────────────────────────────
 const LandingBackground: React.FC = () => {
-    const particles = Array.from({ length: 40 }, (_, i) => i);
+    const particles = Array.from({ length: 20 }, (_, i) => i);
     return (
         <div className="fixed inset-0 -z-10 overflow-hidden"
-            style={{ background: 'linear-gradient(160deg, #030310 0%, #07072a 40%, #050518 70%, #020210 100%)' }}>
+            style={{ background: 'linear-gradient(160deg, #030310 0%, #07072a 40%, #050518 70%, #020210 100%)', contain: 'layout paint' }}>
             {/* Aurora blobs */}
             <motion.div className="absolute -top-1/3 -left-1/4 w-[100vw] h-[100vh] rounded-full"
-                style={{ background: 'radial-gradient(ellipse, rgba(79,70,229,0.22) 0%, rgba(124,58,237,0.1) 40%, transparent 70%)', filter: 'blur(80px)' }}
+                style={{ background: 'radial-gradient(ellipse, rgba(79,70,229,0.22) 0%, rgba(124,58,237,0.1) 40%, transparent 70%)', filter: 'blur(80px)', willChange: 'transform' }}
                 animate={{ x: [0, 80, -30, 0], y: [0, -50, 60, 0], scale: [1, 1.2, 0.9, 1] }}
                 transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }} />
             <motion.div className="absolute top-1/3 -right-1/3 w-[80vw] h-[80vh] rounded-full"
-                style={{ background: 'radial-gradient(ellipse, rgba(16,185,129,0.14) 0%, rgba(5,150,105,0.07) 40%, transparent 70%)', filter: 'blur(90px)' }}
+                style={{ background: 'radial-gradient(ellipse, rgba(16,185,129,0.14) 0%, rgba(5,150,105,0.07) 40%, transparent 70%)', filter: 'blur(90px)', willChange: 'transform' }}
                 animate={{ x: [0, -70, 50, 0], y: [0, 60, -40, 0], scale: [1, 0.85, 1.15, 1] }}
                 transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut', delay: 6 }} />
             <motion.div className="absolute -bottom-1/4 left-1/4 w-[70vw] h-[70vh] rounded-full"
-                style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.1) 0%, rgba(217,119,6,0.05) 40%, transparent 70%)', filter: 'blur(100px)' }}
+                style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.1) 0%, rgba(217,119,6,0.05) 40%, transparent 70%)', filter: 'blur(100px)', willChange: 'transform' }}
                 animate={{ x: [0, 60, -40, 0], y: [0, -60, 30, 0], scale: [1, 1.1, 0.95, 1] }}
                 transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut', delay: 12 }} />
 
@@ -32,17 +32,18 @@ const LandingBackground: React.FC = () => {
             <div className="absolute inset-0 opacity-[0.035]"
                 style={{ backgroundImage: 'linear-gradient(rgba(99,102,241,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,1) 1px, transparent 1px)', backgroundSize: '64px 64px' }} />
 
-            {/* Particles */}
+            {/* Particles — optimized to 20 for GPU performance */}
             {particles.map((i) => (
                 <motion.div key={i}
                     className="absolute rounded-full"
                     style={{
                         width: i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5,
                         height: i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5,
-                        left: `${(i * 2.6 + 3) % 96}%`,
-                        top: `${(i * 3.7 + 2) % 96}%`,
+                        left: `${(i * 5.2 + 3) % 96}%`,
+                        top: `${(i * 7.4 + 2) % 96}%`,
                         background: i % 4 === 0 ? '#818cf8' : i % 4 === 1 ? '#34d399' : i % 4 === 2 ? '#fbbf24' : '#6366f1',
                         boxShadow: `0 0 ${i % 3 === 0 ? 10 : 6}px currentColor`,
+                        willChange: 'transform, opacity',
                     }}
                     animate={{ opacity: [0.15, 0.9, 0.15], scale: [1, 1.8, 1], y: [0, -(10 + i * 1.2), 0] }}
                     transition={{ duration: 4 + i * 0.28, repeat: Infinity, ease: 'easeInOut', delay: i * 0.15 }} />
