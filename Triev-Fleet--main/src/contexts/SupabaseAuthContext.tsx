@@ -262,11 +262,20 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     const login = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
+        setLoading(true);
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
-        if (error) throw error;
+        if (error) {
+            setLoading(false);
+            throw error;
+        }
+        if (data.session) {
+            setSession(data.session);
+            setUser(data.session.user);
+            await fetchUserData(data.session.user.id, data.session.user.email);
+        }
     };
 
     const signInWithGoogle = async () => {

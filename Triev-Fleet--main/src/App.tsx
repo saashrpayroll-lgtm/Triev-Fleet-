@@ -155,7 +155,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { user, userData, loading } = useSupabaseAuth();
 
-  if (loading) return <LoadingScreen />;
+  if (loading || (user && !userData)) return <LoadingScreen />;
 
   if (!user || !userData) {
     const lastRole = localStorage.getItem('user_role');

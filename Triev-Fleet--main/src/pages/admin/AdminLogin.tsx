@@ -154,7 +154,7 @@ const SystemStatus: React.FC = () => (
 // ─── Main Admin Login ──────────────────────────────────────────────────────────
 const AdminLogin: React.FC = () => {
     const navigate = useNavigate();
-    const { refreshUserData } = useSupabaseAuth();
+    const { login, refreshUserData } = useSupabaseAuth();
     const [loginInput, setLoginInput] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -192,18 +192,15 @@ const AdminLogin: React.FC = () => {
                 }
             }
 
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email: emailToLogin,
-                password
-            });
+            await login(emailToLogin, password);
 
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("Authentication failed.");
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Authentication failed.");
 
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('id, role, force_password_change')
-                .eq('id', authData.user.id)
+                .eq('id', user.id)
                 .single();
 
             if (userError || !userData || userData.role !== 'admin') {
