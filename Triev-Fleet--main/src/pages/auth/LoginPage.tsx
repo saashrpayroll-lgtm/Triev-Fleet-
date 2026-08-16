@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Eye, EyeOff, Mail, Lock, AlertTriangle, CheckCircle, Zap, Shield, Users, BarChart3, Headphones, Sparkles, ArrowRight, ArrowLeft, Globe } from 'lucide-react';
 import { supabase } from '@/config/supabase';
@@ -139,6 +139,8 @@ const MagneticCard: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 // ─── Main Login Page ──────────────────────────────────────────────────────────
 const LoginPage: React.FC = () => {
+    const navigate = useNavigate();
+    const { login, refreshUserData } = useSupabaseAuth();
     const [loginInput, setLoginInput] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -157,8 +159,6 @@ const LoginPage: React.FC = () => {
         }, 3500);
         return () => clearInterval(interval);
     }, []);
-
-    const { login } = useSupabaseAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -221,12 +221,26 @@ const LoginPage: React.FC = () => {
                                    : '/team-leader';
 
                 toast.success('Login successful! Redirecting...');
-                window.location.href = redirectPath;
+                await refreshUserData();
+                navigate(redirectPath, { replace: true });
+
+                setTimeout(() => {
+                    if (window.location.pathname.includes('login')) {
+                        window.location.replace(redirectPath);
+                    }
+                }, 250);
                 return;
             }
 
             toast.success('Login successful! Redirecting...');
-            window.location.href = '/team-leader';
+            await refreshUserData();
+            navigate('/team-leader', { replace: true });
+
+            setTimeout(() => {
+                if (window.location.pathname.includes('login')) {
+                    window.location.replace('/team-leader');
+                }
+            }, 250);
         } catch (err: any) {
             setError(err.message || 'Failed to login. Please check your credentials.');
             toast.error(err.message || 'Login failed');

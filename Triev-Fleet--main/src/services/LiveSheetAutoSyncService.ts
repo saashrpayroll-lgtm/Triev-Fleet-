@@ -255,7 +255,7 @@ class LiveSheetAutoSyncService {
                 return false;
             }
 
-            const lockUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+            const lockUntil = new Date(Date.now() + 45 * 1000).toISOString();
             await supabase.from('system_settings').upsert({
                 key: 'last_sheet_sync_status',
                 value: { ...current, status: 'syncing', lockedUntil: lockUntil },

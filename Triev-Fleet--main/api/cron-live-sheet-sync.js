@@ -199,8 +199,8 @@ export default async function handler(req, res) {
             return { status: 'skipped' };
         }
 
-        // 3. Set Lock for 5 minutes
-        const lockUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        // 3. Set Lock for 45 seconds
+        const lockUntil = new Date(Date.now() + 45 * 1000).toISOString();
         await supabase.from('system_settings').upsert({
             key: 'last_sheet_sync_status',
             value: { ...currentStatus, status: 'syncing', lockedUntil: lockUntil },

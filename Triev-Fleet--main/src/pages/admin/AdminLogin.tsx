@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle, User, Fingerprint, Cpu, Activity, Zap, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
@@ -152,6 +153,8 @@ const SystemStatus: React.FC = () => (
 
 // ─── Main Admin Login ──────────────────────────────────────────────────────────
 const AdminLogin: React.FC = () => {
+    const navigate = useNavigate();
+    const { refreshUserData } = useSupabaseAuth();
     const [loginInput, setLoginInput] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -222,7 +225,15 @@ const AdminLogin: React.FC = () => {
             }
 
             toast.success("Security Clearance Verified. Welcome back.");
-            window.location.href = '/portal';
+            await refreshUserData();
+            navigate('/portal', { replace: true });
+
+            // Safety fallback
+            setTimeout(() => {
+                if (window.location.pathname.includes('login')) {
+                    window.location.replace('/portal');
+                }
+            }, 250);
 
         } catch (err: any) {
             setError(err.message || 'Authentication failed');
