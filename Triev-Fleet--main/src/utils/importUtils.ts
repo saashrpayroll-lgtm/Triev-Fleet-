@@ -281,7 +281,11 @@ export const processRiderImport = async (
             }
         }
 
-        return candidates[0];
+        // If no RM was specified in the sheet: only match if there is a single unique TL with this name
+        if (candidates.length === 1) {
+            return candidates[0];
+        }
+        return null;
     };
 
     // Staff Filter Helper

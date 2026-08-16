@@ -381,6 +381,7 @@ export default async function handler(req, res) {
             if (rawRMName && rawRMName.trim() !== '' && !['n/a', 'unassigned', '-', 'none', 'null'].includes(rawRMName.trim().toLowerCase())) {
                 const normRM = rawRMName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
                 const cleanRM = normRM.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                const scRM = cleanRM.replace(/[^a-z0-9]/gi, '');
 
                 const matchingRMCandidates = candidates.filter(uid => {
                     const candidateUser = userByIdMap.get(uid);
@@ -389,18 +390,32 @@ export default async function handler(req, res) {
                     const rmUser = candidateRmRef ? userByIdMap.get(candidateRmRef) : null;
                     const rmNameLower = rmUser ? (rmUser.full_name || '').toLowerCase() : '';
                     const rmClean = rmNameLower.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                    const rmSC = rmClean.replace(/[^a-z0-9]/gi, '');
                     const rmEmail = rmUser ? (rmUser.email || '').toLowerCase() : '';
+                    const directRmClean = candidateRmRef.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                    const directRmSC = directRmClean.replace(/[^a-z0-9]/gi, '');
 
-                    if (rmEmail && rmEmail === normRM) return true;
+                    if (rmEmail && (rmEmail === normRM || rmEmail.includes(normRM) || normRM.includes(rmEmail))) return true;
                     if (rmNameLower && (rmNameLower === normRM || rmClean === cleanRM)) return true;
-                    if (candidateRmRef.toLowerCase() === normRM || candidateRmRef.toLowerCase() === cleanRM) return true;
+                    if (candidateRmRef.toLowerCase() === normRM || directRmClean === cleanRM) return true;
+                    if (scRM && ((rmSC && (scRM === rmSC || scRM.includes(rmSC) || rmSC.includes(scRM))) || (directRmSC && (scRM === directRmSC || scRM.includes(directRmSC) || directRmSC.includes(scRM))))) return true;
+                    if (cleanRM && ((rmClean && (rmClean.includes(cleanRM) || cleanRM.includes(rmClean))) || (directRmClean && (directRmClean.includes(cleanRM) || cleanRM.includes(directRmClean))))) return true;
                     return false;
                 });
 
-                if (matchingRMCandidates.length > 0) return matchingRMCandidates[0];
+                if (matchingRMCandidates.length > 0) {
+                    return matchingRMCandidates[0];
+                } else {
+                    // Specified RM in sheet does not match candidate TL's registered RM in DB!
+                    return null;
+                }
             }
 
-            return candidates[0];
+            // If no RM specified in sheet, only match if there is a single unique TL with this name
+            if (candidates.length === 1) {
+                return candidates[0];
+            }
+            return null;
         };
 
         const isStaffSelected = (tlId, tlNameRaw, existingRiderTLId, rmNameRaw) => {
