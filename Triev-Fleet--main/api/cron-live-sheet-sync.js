@@ -515,7 +515,7 @@ export default async function handler(req, res) {
                     }
 
                     // Reactivation check
-                    if (existingRider.status === 'inactivated') {
+                    if (existingRider.status === 'inactive') {
                         updatePayload.status = 'active';
                         updatePayload.inactivated_at = null;
                         summary.reactivated++;
@@ -590,7 +590,7 @@ export default async function handler(req, res) {
         if (config.strictMirror) {
             const nowIso = new Date().toISOString();
             const ridersToInactivate = allDbRiders.filter(r => 
-                r.status !== 'inactivated' && !matchedSheetRiderIds.has(r.id)
+                r.status === 'active' && !matchedSheetRiderIds.has(r.id)
             );
 
             if (ridersToInactivate.length > 0) {
@@ -598,7 +598,7 @@ export default async function handler(req, res) {
                 for (const ids of inactBatches) {
                     await supabase
                         .from('riders')
-                        .update({ status: 'inactivated', inactivated_at: nowIso, updated_at: nowIso })
+                        .update({ status: 'inactive', inactivated_at: nowIso, updated_at: nowIso })
                         .in('id', ids);
                 }
                 summary.inactivated += ridersToInactivate.length;
