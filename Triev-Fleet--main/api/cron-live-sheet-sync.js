@@ -232,8 +232,8 @@ export default async function handler(req, res) {
             return { status: 'skipped' };
         }
 
-        // 3. Set Lock for 45 seconds
-        const lockUntil = new Date(Date.now() + 45 * 1000).toISOString();
+        // 3. Set Lock for 120 seconds (large sheets need more time)
+        const lockUntil = new Date(Date.now() + 120 * 1000).toISOString();
         await supabase.from('system_settings').upsert({
             key: 'last_sheet_sync_status',
             value: { ...currentStatus, status: 'syncing', lockedUntil: lockUntil },
@@ -669,7 +669,8 @@ export default async function handler(req, res) {
             updated_count: summary.updated,
             status: summary.failed === 0 ? 'success' : (summary.success === 0 ? 'failed' : 'partial'),
             errors: summary.errors,
-            created_at: nowIso
+            skipped_details: [{ _meta: { inactivated: summary.inactivated || 0, reactivated: summary.reactivated || 0 } }],
+            timestamp: nowIso
         });
 
         // 12. Release Lock & Save Final Sync Status
@@ -694,6 +695,25 @@ export default async function handler(req, res) {
     } catch (err) {
         console.error("Background Server Cron Sync Error:", err);
         const errIso = new Date().toISOString();
+
+        // Log failed sync to import_history so it's visible in the UI
+        try {
+            await supabase.from('import_history').insert({
+                admin_id: 'system-cron-service',
+                admin_name: 'Background System Cron Engine',
+                import_type: 'googleSheet',
+                total_rows: 0,
+                success_count: 0,
+                failure_count: 0,
+                skipped_count: 0,
+                updated_count: 0,
+                status: 'failed',
+                errors: [err.message || 'Background sync failed'],
+                timestamp: errIso
+            });
+        } catch (histErr) {
+            console.error("Failed to log error to import_history:", histErr);
+        }
 
         // Release lock on error
         await supabase.from('system_settings').upsert({
