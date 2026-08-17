@@ -349,8 +349,23 @@ export default async function handler(req, res) {
 
         const findMatchingUserId = (rawTLName, rawRMName) => {
             if (!rawTLName) return null;
-            const normTL = rawTLName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
+            let normTL = cleanString(rawTLName).replace(/\s+/g, ' ').trim();
             if (!normTL || ['n/a', 'unassigned', '-', 'none', 'null'].includes(normTL.toLowerCase())) return null;
+
+            let normRM = cleanString(rawRMName).replace(/\s+/g, ' ').trim();
+
+            // Extract embedded RM if TL column has formats like "Sunil Kumar - Satish Lal" or "Sunil Kumar (Sazid)" or "Sunil Kumar / Sazid"
+            const embeddedMatch = normTL.match(/^(.*?)\s*[-/()|]\s*(?:RM[:\s]*)?([a-zA-Z\s]+)\)?$/i);
+            if (embeddedMatch) {
+                const potentialTL = embeddedMatch[1].replace(/\s*\(.*?\)\s*/g, '').trim();
+                const potentialRM = embeddedMatch[2].replace(/\s*\(.*?\)\s*/g, '').trim();
+                if (potentialTL.length >= 3) {
+                    normTL = potentialTL;
+                    if (!normRM || ['n/a', 'unassigned', '-', 'none', 'null'].includes(normRM.toLowerCase())) {
+                        normRM = potentialRM;
+                    }
+                }
+            }
 
             const lowerTL = normTL.toLowerCase();
             const cleanTL = lowerTL.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
@@ -375,13 +390,34 @@ export default async function handler(req, res) {
                 }
             }
 
+            // Word-token candidate lookup
+            if (cleanTL.length >= 3) {
+                const cleanTokens = cleanTL.split(/\s+/).filter(t => t.length >= 2);
+                for (const u of users) {
+                    const uClean = (u.full_name || '').toLowerCase().replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                    if (!uClean) continue;
+                    if (uClean === cleanTL) {
+                        candidateUserIds.add(u.id);
+                    } else if (cleanTokens.length >= 2) {
+                        const uTokens = uClean.split(/\s+/).filter(t => t.length >= 2);
+                        if (uTokens.length >= 2) {
+                            const isSame = cleanTokens.every(ct => uTokens.includes(ct)) && uTokens.every(ut => cleanTokens.includes(ut));
+                            if (isSame) candidateUserIds.add(u.id);
+                        }
+                    }
+                }
+            }
+
             if (candidateUserIds.size === 0) return null;
             const candidates = Array.from(candidateUserIds);
 
-            if (rawRMName && rawRMName.trim() !== '' && !['n/a', 'unassigned', '-', 'none', 'null'].includes(rawRMName.trim().toLowerCase())) {
-                const normRM = rawRMName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-                const cleanRM = normRM.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+            const hasRMInSheet = normRM && !['n/a', 'unassigned', '-', 'none', 'null'].includes(normRM.toLowerCase());
+
+            if (hasRMInSheet) {
+                const lowerRM = normRM.toLowerCase();
+                const cleanRM = lowerRM.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
                 const scRM = cleanRM.replace(/[^a-z0-9]/gi, '');
+                const rmTokens = cleanRM.split(/\s+/).filter(t => t.length >= 3);
 
                 const matchingRMCandidates = candidates.filter(uid => {
                     const candidateUser = userByIdMap.get(uid);
@@ -395,18 +431,26 @@ export default async function handler(req, res) {
                     const directRmClean = candidateRmRef.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
                     const directRmSC = directRmClean.replace(/[^a-z0-9]/gi, '');
 
-                    // STRICT EXACT MATCHING ONLY — no substring/includes() to prevent cross-TL pollution
-                    if (rmEmail && rmEmail === normRM) return true;
-                    if (rmNameLower && (rmNameLower === normRM || rmClean === cleanRM)) return true;
-                    if (candidateRmRef.toLowerCase() === normRM || directRmClean === cleanRM) return true;
-                    if (scRM && ((rmSC && scRM === rmSC) || (directRmSC && scRM === directRmSC))) return true;
+                    // 1. Exact matches
+                    if (rmEmail && rmEmail === lowerRM) return true;
+                    if (rmClean && (rmClean === cleanRM || rmSC === scRM)) return true;
+                    if (directRmClean && (directRmClean === cleanRM || directRmSC === scRM)) return true;
+
+                    // 2. Token-level matching (e.g. "Sazid" in "Sazid Khan" or "Mohd Sazid")
+                    const candTokens = (rmClean || directRmClean).split(/\s+/).filter(t => t.length >= 3);
+                    if (candTokens.length > 0 && rmTokens.length > 0) {
+                        const hasSharedToken = rmTokens.some(t => candTokens.includes(t));
+                        if (hasSharedToken) return true;
+                    }
+
                     return false;
                 });
 
                 if (matchingRMCandidates.length > 0) {
                     return matchingRMCandidates[0];
                 } else {
-                    // RM specified in sheet does NOT match any candidate TL's registered RM → REJECT
+                    // RM was explicitly provided in sheet but does NOT match candidate TL's registered RM
+                    // -> This is an unregistered TL (e.g. Sunil Kumar under Satish Lal) -> STRICT REJECT
                     return null;
                 }
             }
@@ -414,7 +458,7 @@ export default async function handler(req, res) {
             // No RM in sheet: match ONLY if single unique TL AND that TL has a valid registered RM
             if (candidates.length === 1) {
                 const singleUser = userByIdMap.get(candidates[0]);
-                if (singleUser && singleUser.reporting_manager && userByIdMap.has(singleUser.reporting_manager)) {
+                if (singleUser && singleUser.reporting_manager) {
                     return candidates[0];
                 }
             }
@@ -504,7 +548,7 @@ export default async function handler(req, res) {
                 const mobile = normalizeMobile(mobileRaw);
                 const chassis = getValue(columnMapping.chassisNumber, ['Chassis No', 'ChassisNo', 'Chassis Number', 'Chassis']);
                 const teamLeaderName = getValue(columnMapping.teamLeader, ['TL Name', 'TLName', 'Team Leader', 'TeamLeader', 'TL', 'Base']);
-                const reportingManagerName = getValue(columnMapping.reportingManager, ['Reporting Manager', 'ReportingManager', 'RM Name', 'RMName', 'RM', 'Manager']);
+                const reportingManagerName = getValue(columnMapping.reportingManager, ['Reporting Manager', 'ReportingManager', 'RM Name', 'RMName', 'RM', 'Reproting Manager', 'Reporting Mgr', 'Reporting Head', 'Manager', 'Reporting Manager Name', 'Reporting_Manager', 'RM_Name', 'Reporting', 'RM / Manager', 'TL RM', 'TL_RM']);
                 const clientRaw = getValue(columnMapping.clientName, ['quick commerce', 'Quick Commerce', 'Client Name', 'Client', 'Brand']);
                 const clientId = getValue(columnMapping.clientId, ['Client ID', 'ClientId']);
                 const remarks = getValue(columnMapping.remarks, ['days', 'Remarks', 'Remark', 'Note']);
@@ -522,13 +566,23 @@ export default async function handler(req, res) {
 
                 if (teamLeaderId) {
                     finalTLName = userByIdMap.get(teamLeaderId)?.full_name || teamLeaderName;
-                } else if (existingRider && existingRider.team_leader_id && userByIdMap.has(existingRider.team_leader_id)) {
-                    teamLeaderId = existingRider.team_leader_id;
-                    finalTLName = existingRider.team_leader_name || userByIdMap.get(teamLeaderId)?.full_name || 'Unassigned';
                 }
 
-                // Skip if TL is not registered
+                // Strict Unregistered TL Guard: If TL/RM pair does not match registered users, SKIP and DETACH!
                 if (!teamLeaderId) {
+                    // If this rider is currently sitting in DB linked to a registered TL, unlink it immediately!
+                    if (existingRider && existingRider.team_leader_id) {
+                        pendingUpdates.push({
+                            id: existingRider.id,
+                            payload: {
+                                team_leader_id: null,
+                                team_leader_name: `${teamLeaderName || 'Unregistered'} (${reportingManagerName || 'Unregistered RM'})`,
+                                status: 'inactive',
+                                inactivated_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                            }
+                        });
+                    }
                     summary.skipped++;
                     continue;
                 }

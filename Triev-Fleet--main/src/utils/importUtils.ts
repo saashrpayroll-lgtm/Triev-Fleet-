@@ -20,6 +20,11 @@ export const REQUIRED_RIDER_COLUMNS = [
 
 export const CLIENT_NAMES: ClientName[] = ['Zomato', 'Zepto', 'Blinkit', 'Uber', 'Porter', 'Rapido', 'Swiggy', 'FLK', 'Other'];
 
+export const cleanString = (val: any): string => {
+    if (val === undefined || val === null) return '';
+    return String(val).replace(/[\uFEFF\u00A0\r\n]/g, ' ').trim();
+};
+
 export const normalizeKey = (key: string) => 
     String(key || '').replace(/[\uFEFF\u00A0\r\n]/g, '').trim().toLowerCase().replace(/\s+/g, '');
 
@@ -191,8 +196,23 @@ export const processRiderImport = async (
     // Multi-Strategy TL Resolver Helper (handles duplicate TL names disambiguated by RM Name)
     const findMatchingUserId = (rawTLName: string, rawRMName?: string): string | null => {
         if (!rawTLName) return null;
-        const normTL = rawTLName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
+        let normTL = cleanString(rawTLName).replace(/\s+/g, ' ').trim();
         if (!normTL || ['n/a', 'unassigned', '-', 'none', 'null'].includes(normTL.toLowerCase())) return null;
+
+        let normRM = cleanString(rawRMName || '').replace(/\s+/g, ' ').trim();
+
+        // Extract embedded RM if TL column has formats like "Sunil Kumar - Satish Lal" or "Sunil Kumar (Sazid)" or "Sunil Kumar / Sazid"
+        const embeddedMatch = normTL.match(/^(.*?)\s*[-/()|]\s*(?:RM[:\s]*)?([a-zA-Z\s]+)\)?$/i);
+        if (embeddedMatch) {
+            const potentialTL = embeddedMatch[1].replace(/\s*\(.*?\)\s*/g, '').trim();
+            const potentialRM = embeddedMatch[2].replace(/\s*\(.*?\)\s*/g, '').trim();
+            if (potentialTL.length >= 3) {
+                normTL = potentialTL;
+                if (!normRM || ['n/a', 'unassigned', '-', 'none', 'null'].includes(normRM.toLowerCase())) {
+                    normRM = potentialRM;
+                }
+            }
+        }
 
         const lowerTL = normTL.toLowerCase();
         const cleanTL = lowerTL.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
@@ -240,35 +260,38 @@ export const processRiderImport = async (
 
         const candidates = Array.from(candidateUserIds);
 
-        // Strict RM Disambiguation: If RM is specified in sheet row, filter candidates strictly by RM!
-        if (rawRMName && rawRMName.trim() !== '' && !['n/a', 'unassigned', '-', 'none', 'null'].includes(rawRMName.trim().toLowerCase())) {
-            const normRM = rawRMName.replace(/[\uFEFF\u00A0\r\n]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-            const cleanRM = normRM.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+        const hasRMInSheet = normRM && !['n/a', 'unassigned', '-', 'none', 'null'].includes(normRM.toLowerCase());
+
+        if (hasRMInSheet) {
+            const lowerRM = normRM.toLowerCase();
+            const cleanRM = lowerRM.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
             const scRM = cleanRM.replace(/[^a-z0-9]/gi, '');
+            const rmTokens = cleanRM.split(/\s+/).filter((t: string) => t.length >= 3);
 
             const matchingRMCandidates = candidates.filter(uid => {
                 const candidateUser = userByIdMap.get(uid);
                 if (!candidateUser) return false;
 
                 const candidateRmRef = (candidateUser.reporting_manager || '').toString().trim();
-
-                // 1. If reporting_manager is UUID pointing to rmUser
                 const rmUser = candidateRmRef ? userByIdMap.get(candidateRmRef) : null;
                 const rmNameLower = rmUser ? (rmUser.fullName || '').toLowerCase() : '';
                 const rmClean = rmNameLower.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
                 const rmEmail = rmUser ? (rmUser.email || '').toLowerCase() : '';
                 const rmSC = rmClean.replace(/[^a-z0-9]/gi, '');
-
-                // 2. Direct string value in reporting_manager column
-                const directRmLower = candidateRmRef.toLowerCase();
-                const directRmClean = directRmLower.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
+                const directRmClean = candidateRmRef.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
                 const directRmSC = directRmClean.replace(/[^a-z0-9]/gi, '');
 
-                // STRICT EXACT MATCHING ONLY — no substring/includes() to prevent cross-TL pollution
-                if (rmEmail && rmEmail === normRM) return true;
-                if (rmNameLower && (rmNameLower === normRM || rmClean === cleanRM)) return true;
-                if (directRmLower && (directRmLower === normRM || directRmClean === cleanRM)) return true;
-                if (scRM && ((rmSC && scRM === rmSC) || (directRmSC && scRM === directRmSC))) return true;
+                // 1. Exact matches
+                if (rmEmail && rmEmail === lowerRM) return true;
+                if (rmClean && (rmClean === cleanRM || rmSC === scRM)) return true;
+                if (directRmClean && (directRmClean === cleanRM || directRmSC === scRM)) return true;
+
+                // 2. Token-level matching (e.g. "Sazid" in "Sazid Khan" or "Mohd Sazid")
+                const candTokens = (rmClean || directRmClean).split(/\s+/).filter((t: string) => t.length >= 3);
+                if (candTokens.length > 0 && rmTokens.length > 0) {
+                    const hasSharedToken = rmTokens.some((t: string) => candTokens.includes(t));
+                    if (hasSharedToken) return true;
+                }
 
                 return false;
             });
@@ -276,7 +299,6 @@ export const processRiderImport = async (
             if (matchingRMCandidates.length > 0) {
                 return matchingRMCandidates[0];
             } else {
-                // RM specified in sheet does NOT match any candidate TL's registered RM → REJECT
                 return null;
             }
         }
@@ -284,7 +306,7 @@ export const processRiderImport = async (
         // No RM in sheet: match ONLY if single unique TL AND that TL has a valid registered RM
         if (candidates.length === 1) {
             const singleUser = userByIdMap.get(candidates[0]);
-            if (singleUser && singleUser.reporting_manager && userByIdMap.has(singleUser.reporting_manager)) {
+            if (singleUser && singleUser.reporting_manager) {
                 return candidates[0];
             }
         }
@@ -298,7 +320,6 @@ export const processRiderImport = async (
         const selectedRMs = staffFilter.reportingManagerIds || [];
         const selectedCityOps = staffFilter.cityOpsIds || [];
 
-        // If no filters selected at all, allow all!
         if (selectedTLs.length === 0 && selectedRMs.length === 0 && selectedCityOps.length === 0) return true;
 
         const effectiveTLId = tlId || (existingRiderTLId && userByIdMap.has(existingRiderTLId) ? existingRiderTLId : null) || findMatchingUserId(tlNameRaw, rmNameRaw);
@@ -316,8 +337,8 @@ export const processRiderImport = async (
     };
 
     // ── 2. Pre-fetch ALL Riders into memory ──────────────────────────────────
-    const riderTrievMap = new Map<string, any>();   // normalizeTrievId(triev_id) → rider
-    const riderMobileMap = new Map<string, any>();  // normalizeMobile(mobile)    → rider
+    const riderTrievMap = new Map<string, any>();
+    const riderMobileMap = new Map<string, any>();
     const allDbRiders: any[] = [];
     try {
         const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, chassis_number, client_name, client_id, allotment_date, wallet_amount, team_leader_id, team_leader_name, remarks, status, inactivated_at');
@@ -336,9 +357,6 @@ export const processRiderImport = async (
 
     summary.total = fileData.length;
 
-    // Set of matched rider IDs present in sheet
-    const matchedSheetRiderIds = new Set<string>();
-
     // Track detailed change arrays
     const addedList: any[] = [];
     const inactivatedList: any[] = [];
@@ -346,29 +364,27 @@ export const processRiderImport = async (
     const walletUpdatesList: any[] = [];
     const dataUpdatesList: any[] = [];
 
-    // ── 3. PASS 1: Classify rows ─────────────────────────────────────────────
     const pendingInserts: any[] = [];
-    const pendingUpdates: { id: string; payload: any; rowNum: number }[] = [];
+    const pendingUpdates: { id: string; payload: any; rowNum?: number; changedFields?: string[] }[] = [];
+    const matchedSheetRiderIds = new Set<string>();
 
+    // ── 3. PASS 1: Classify rows ─────────────────────────────────────────────
     for (let i = 0; i < fileData.length; i++) {
         const row = fileData[i];
         const rowNum = i + 2;
         let currentRiderName = '';
+
         try {
-            const nr: any = {};
+            const nr: Record<string, string> = {};
             Object.keys(row).forEach(k => nr[normalizeKey(k)] = row[k]);
 
-            const getValue = (primaryKey?: string, fallbacks: string[] = []) => {
+            const getValue = (primaryKey?: string, fallbacks: string[] = []): string => {
                 const keys = primaryKey ? [primaryKey, ...fallbacks] : fallbacks;
                 for (const k of keys) {
                     if (!k) continue;
                     const normK = normalizeKey(k);
                     if (nr[normK] !== undefined && nr[normK] !== null && String(nr[normK]).trim() !== '') {
                         return String(nr[normK]).trim();
-                    }
-                    const matchingKey = Object.keys(nr).find(rk => rk && (rk.includes(normK) || normK.includes(rk)));
-                    if (matchingKey && nr[matchingKey] !== undefined && nr[matchingKey] !== null && String(nr[matchingKey]).trim() !== '') {
-                        return String(nr[matchingKey]).trim();
                     }
                 }
                 return '';
@@ -381,7 +397,7 @@ export const processRiderImport = async (
             const mobile = normalizeMobile(mobileRaw);
             const chassis = getValue(columnMapping?.chassisNumber, ['Chassis No', 'ChassisNo', 'Chassis Number', 'Chassis']);
             const teamLeaderName = getValue(columnMapping?.teamLeader, ['TL Name', 'TLName', 'Team Leader', 'TeamLeader', 'TL', 'Base']);
-            const reportingManagerName = getValue(columnMapping?.reportingManager, ['Reporting Manager', 'ReportingManager', 'RM Name', 'RMName', 'RM', 'Reproting Manager', 'Reporting Mgr', 'Manager', 'Reporting Manager Name']);
+            const reportingManagerName = getValue(columnMapping?.reportingManager, ['Reporting Manager', 'ReportingManager', 'RM Name', 'RMName', 'RM', 'Reproting Manager', 'Reporting Mgr', 'Reporting Head', 'Manager', 'Reporting Manager Name', 'Reporting_Manager', 'RM_Name', 'Reporting', 'RM / Manager', 'TL RM', 'TL_RM']);
             const clientRaw = getValue(columnMapping?.clientName, ['quick commerce', 'Quick Commerce', 'Client Name', 'Client', 'Brand']);
             const clientId = getValue(columnMapping?.clientId, ['Client ID', 'ClientId']);
             const remarks = getValue(columnMapping?.remarks, ['days', 'Remarks', 'Remark', 'Note']);
@@ -391,29 +407,29 @@ export const processRiderImport = async (
             if (!trievId && !mobile) throw new Error('Missing Unique Identifier (TriEVRiderID/RiderId or MobileNo required)');
             if (!currentRiderName) throw new Error('Missing Rider Name');
 
-            // Lookup existing rider in DB
-            const existingRider = (trievId ? riderTrievMap.get(trievId) : null)
-                ?? (mobile ? riderMobileMap.get(mobile) : null);
-
-            // Resolve Team Leader using Multi-Strategy Matcher (disambiguating duplicate names via RM)
+            const existingRider = (trievId ? riderTrievMap.get(trievId) : null) ?? (mobile ? riderMobileMap.get(mobile) : null);
             let teamLeaderId: string | null = findMatchingUserId(teamLeaderName, reportingManagerName);
             let finalTLName = teamLeaderName || 'Unassigned';
 
             if (teamLeaderId) {
                 finalTLName = userByIdMap.get(teamLeaderId)?.fullName || teamLeaderName;
-            } else if (
-                existingRider &&
-                existingRider.team_leader_id &&
-                userByIdMap.has(existingRider.team_leader_id) &&
-                (!teamLeaderName || ['n/a', 'unassigned', '-', 'none', 'null'].includes(teamLeaderName.toLowerCase().trim()))
-            ) {
-                const existingTLId: string = existingRider.team_leader_id;
-                teamLeaderId = existingTLId;
-                finalTLName = existingRider.team_leader_name || userByIdMap.get(existingTLId)?.fullName || 'Unassigned';
             }
 
-            // Strict Unregistered TL Rule: Skip row if Team Leader is NOT registered in system users!
+            // Strict Unregistered TL Guard: If TL/RM pair does not match registered users, SKIP and DETACH!
             if (!teamLeaderId) {
+                if (existingRider && existingRider.team_leader_id) {
+                    pendingUpdates.push({
+                        id: existingRider.id,
+                        payload: {
+                            team_leader_id: null,
+                            team_leader_name: `${teamLeaderName || 'Unregistered'} (${reportingManagerName || 'Unregistered RM'})`,
+                            status: 'inactive',
+                            inactivated_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        },
+                        changedFields: ['team_leader_id (detached unregistered TL)', 'status (inactivated)']
+                    });
+                }
                 summary.skipped = (summary.skipped || 0) + 1;
                 summary.skippedDetails!.push({ 
                     row: rowNum, 
@@ -561,7 +577,7 @@ export const processRiderImport = async (
                 summary.updated = (summary.updated || 0) + 1;
             } catch (err: any) {
                 summary.failed++;
-                summary.errors.push({ row: rowNum, identifier: id, reason: err.message });
+                summary.errors.push({ row: rowNum || 0, identifier: id, reason: err.message });
             }
         }
     }
