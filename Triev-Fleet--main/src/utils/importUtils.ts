@@ -264,11 +264,11 @@ export const processRiderImport = async (
                 const directRmClean = directRmLower.replace(/\s*\(.*?\)\s*/g, '').replace(/\s+/g, ' ').trim();
                 const directRmSC = directRmClean.replace(/[^a-z0-9]/gi, '');
 
+                // STRICT EXACT MATCHING ONLY — no substring/includes() to prevent cross-TL pollution
                 if (rmEmail && rmEmail === normRM) return true;
                 if (rmNameLower && (rmNameLower === normRM || rmClean === cleanRM)) return true;
                 if (directRmLower && (directRmLower === normRM || directRmClean === cleanRM)) return true;
-                if (scRM && ((rmSC && (scRM === rmSC || scRM.includes(rmSC) || rmSC.includes(scRM))) || (directRmSC && (scRM === directRmSC || scRM.includes(directRmSC) || directRmSC.includes(scRM))))) return true;
-                if (cleanRM && ((rmClean && (rmClean.includes(cleanRM) || cleanRM.includes(rmClean))) || (directRmClean && (directRmClean.includes(cleanRM) || cleanRM.includes(directRmClean))))) return true;
+                if (scRM && ((rmSC && scRM === rmSC) || (directRmSC && scRM === directRmSC))) return true;
 
                 return false;
             });
@@ -276,14 +276,17 @@ export const processRiderImport = async (
             if (matchingRMCandidates.length > 0) {
                 return matchingRMCandidates[0];
             } else {
-                // Specified RM in sheet does not match the candidate TL's registered RM in system!
+                // RM specified in sheet does NOT match any candidate TL's registered RM → REJECT
                 return null;
             }
         }
 
-        // If no RM was specified in the sheet: only match if there is a single unique TL with this name
+        // No RM in sheet: match ONLY if single unique TL AND that TL has a valid registered RM
         if (candidates.length === 1) {
-            return candidates[0];
+            const singleUser = userByIdMap.get(candidates[0]);
+            if (singleUser && singleUser.reporting_manager && userByIdMap.has(singleUser.reporting_manager)) {
+                return candidates[0];
+            }
         }
         return null;
     };
