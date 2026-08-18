@@ -479,11 +479,15 @@ export const processRiderImport = async (
                 addIfDiff('remarks', remarks, 'Remarks');
                 addIfDiff('client_name', clientName, 'Client Name');
                 if (clientId) addIfDiff('client_id', clientId, 'Client ID');
+                if (allotmentDate) addIfDiff('allotment_date', allotmentDate, 'Allotment Date');
 
-                // Auto Reactivation Logic
+                // Auto Reactivation Logic (15-Day Re-allotment Rule)
                 if (existingRider.status === 'inactive') {
                     updatePayload.status = 'active';
                     updatePayload.inactivated_at = null;
+                    const newAllotDate = allotmentDate || new Date().toISOString().split('T')[0];
+                    updatePayload.allotment_date = newAllotDate;
+                    changedFields.push('Status (Reactivated)', 'Allotment Date (Re-allotted)');
                     summary.reactivated = (summary.reactivated || 0) + 1;
                     reactivatedList.push({
                         trievId: trievId || existingRider.triev_id || '',

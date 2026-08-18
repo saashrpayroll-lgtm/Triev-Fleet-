@@ -55,16 +55,64 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
     const [loadingWallet, setLoadingWallet] = useState(false);
     const [walletBalance, setWalletBalance] = useState(rider.walletAmount);
 
-    useEffect(() => {
-        setWalletBalance(rider.walletAmount);
-        setDisplaySubmissionDate(rider.inactivatedAt || '');
-    }, [rider]);
-
     // Submission Date Edit State
     const [isEditingSubmission, setIsEditingSubmission] = useState(false);
     const [selectedDate, setSelectedDate] = useState('');
     const [displaySubmissionDate, setDisplaySubmissionDate] = useState(rider.inactivatedAt || '');
     const [isSavingDate, setIsSavingDate] = useState(false);
+
+    // Allotment Date Edit State
+    const [isEditingAllotment, setIsEditingAllotment] = useState(false);
+    const [selectedAllotmentDate, setSelectedAllotmentDate] = useState('');
+    const [displayAllotmentDate, setDisplayAllotmentDate] = useState(rider.allotmentDate || '');
+    const [isSavingAllotmentDate, setIsSavingAllotmentDate] = useState(false);
+
+    useEffect(() => {
+        setWalletBalance(rider.walletAmount);
+        setDisplaySubmissionDate(rider.inactivatedAt || '');
+        setDisplayAllotmentDate(rider.allotmentDate || '');
+    }, [rider]);
+
+    const handleUpdateAllotmentDate = async () => {
+        if (!selectedAllotmentDate) {
+            toast.error("Please select a valid allotment date");
+            return;
+        }
+
+        setIsSavingAllotmentDate(true);
+        try {
+            const { error } = await supabase
+                .from('riders')
+                .update({ 
+                    allotment_date: selectedAllotmentDate,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', rider.id);
+
+            if (error) throw error;
+
+            setDisplayAllotmentDate(selectedAllotmentDate);
+            rider.allotmentDate = selectedAllotmentDate;
+            (rider as any).allotment_date = selectedAllotmentDate;
+            setIsEditingAllotment(false);
+
+            await logActivity({
+                actionType: 'riderEdited',
+                targetType: 'rider',
+                targetId: rider.id,
+                details: `Updated allotment date to ${selectedAllotmentDate} for ${rider.riderName}`,
+                performedBy: userData?.email
+            });
+
+            toast.success("Allotment date updated successfully!");
+            onUpdate?.();
+        } catch (error) {
+            console.error("Failed to update allotment date:", error);
+            toast.error("Failed to update allotment date");
+        } finally {
+            setIsSavingAllotmentDate(false);
+        }
+    };
 
     const handleUpdateSubmissionDate = async () => {
         if (!selectedDate) {
@@ -688,9 +736,53 @@ ${new Date().toLocaleString('en-IN')}`;
                                         <p className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Vehicle</p>
                                     </div>
                                     <p className="font-bold text-sm font-mono text-foreground truncate">{rider.chassisNumber || 'N/A'}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        Allotment: {formatDateDisplay(rider.allotmentDate, 'No date')}
-                                    </p>
+                                    <div className="mt-0.5">
+                                        {isEditingAllotment ? (
+                                            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-full mt-1">
+                                                <input
+                                                    type="date"
+                                                    value={selectedAllotmentDate}
+                                                    onChange={e => setSelectedAllotmentDate(e.target.value)}
+                                                    className="text-xs py-1 px-1.5 focus:outline-none bg-background rounded border border-border w-full text-foreground"
+                                                />
+                                                <button
+                                                    onClick={handleUpdateAllotmentDate}
+                                                    disabled={isSavingAllotmentDate}
+                                                    className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded shadow-sm disabled:opacity-50 transition-colors"
+                                                    title="Save Allotment Date"
+                                                >
+                                                    {isSavingAllotmentDate ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                                                </button>
+                                                <button
+                                                    onClick={() => setIsEditingAllotment(false)}
+                                                    disabled={isSavingAllotmentDate}
+                                                    className="p-1.5 bg-muted-foreground/20 hover:bg-muted-foreground/30 text-foreground rounded transition-colors"
+                                                    title="Cancel"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between group">
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    Allotment: <span className="font-semibold text-foreground">{formatDateDisplay(displayAllotmentDate, 'No date')}</span>
+                                                </p>
+                                                {(userData?.role === 'admin' || userData?.role === 'teamLeader') && (
+                                                    <button
+                                                        onClick={() => {
+                                                            const curDate = displayAllotmentDate ? (displayAllotmentDate.split('T')[0] || displayAllotmentDate) : '';
+                                                            setSelectedAllotmentDate(curDate);
+                                                            setIsEditingAllotment(true);
+                                                        }}
+                                                        className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-primary transition-all rounded hover:bg-accent"
+                                                        title="Edit Allotment Date"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                     {displaySubmissionDate && (
                                         <div className="mt-1 flex items-center justify-between">
                                             {isEditingSubmission ? (

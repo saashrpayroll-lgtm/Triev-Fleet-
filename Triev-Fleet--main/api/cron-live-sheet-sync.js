@@ -619,10 +619,12 @@ export default async function handler(req, res) {
                         updatePayload.wallet_amount = walletAmount;
                     }
 
-                    // Reactivation check
+                    // Reactivation check (15-Day Re-allotment Rule)
                     if (existingRider.status === 'inactive') {
                         updatePayload.status = 'active';
                         updatePayload.inactivated_at = null;
+                        const newAllotDate = allotmentDate || new Date().toISOString().split('T')[0];
+                        updatePayload.allotment_date = newAllotDate;
                         summary.reactivated++;
                     }
 

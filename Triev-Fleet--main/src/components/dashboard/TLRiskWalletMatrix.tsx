@@ -191,12 +191,15 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                         if (!fresh) return oldR;
                         const isStolenVal = fresh.is_stolen !== undefined && fresh.is_stolen !== null ? Boolean(fresh.is_stolen) : Boolean(oldR.isStolen);
                         const isCompVal = fresh.is_company_tagged !== undefined && fresh.is_company_tagged !== null ? Boolean(fresh.is_company_tagged) : Boolean(oldR.isCompanyTagged);
+                        const freshAllot = fresh.allotment_date || fresh.allotmentDate || oldR.allotmentDate;
                         return {
                             ...oldR,
                             isStolen: isStolenVal,
                             is_stolen: isStolenVal,
                             isCompanyTagged: isCompVal,
                             is_company_tagged: isCompVal,
+                            allotment_date: freshAllot,
+                            allotmentDate: freshAllot,
                             walletAmount: Number(fresh.wallet_amount ?? fresh.walletAmount ?? oldR.walletAmount)
                         };
                     });
@@ -208,12 +211,15 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                     if (!fresh) return prevDetail;
                     const isStolenVal = fresh.is_stolen !== undefined && fresh.is_stolen !== null ? Boolean(fresh.is_stolen) : Boolean(prevDetail.isStolen);
                     const isCompVal = fresh.is_company_tagged !== undefined && fresh.is_company_tagged !== null ? Boolean(fresh.is_company_tagged) : Boolean(prevDetail.isCompanyTagged);
+                    const freshAllot = fresh.allotment_date || fresh.allotmentDate || prevDetail.allotmentDate;
                     return {
                         ...prevDetail,
                         isStolen: isStolenVal,
                         is_stolen: isStolenVal,
                         isCompanyTagged: isCompVal,
                         is_company_tagged: isCompVal,
+                        allotment_date: freshAllot,
+                        allotmentDate: freshAllot,
                         walletAmount: Number(fresh.wallet_amount ?? fresh.walletAmount ?? prevDetail.walletAmount)
                     };
                 });
