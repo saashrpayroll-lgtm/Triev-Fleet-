@@ -80,51 +80,41 @@ const CollectionHistory: React.FC = () => {
             ]);
 
             const realTodayCollection = (todayLedger || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+            const liveActiveCount = (allRiders || []).filter(r => String(r.status || '').toLowerCase() === 'active').length;
 
             // Helper to compute historical active count safely handling imported dates
-            // Handles: same-day allotment/submission, re-activations, and gap periods
             const getHistoricalActiveCount = (ds: string) => {
                 return (allRiders || []).filter(r => {
                     const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
                     if (!adIst) return false;
                     if (adIst > ds) return false; // Not yet allotted on this date
 
-                    const iat: string | null = r.inactivated_at;
-                    const uat: string | null = r.updated_at;
-                    const inactDate = iat ? getValidHistoricalDate(iat) : null;
-
-                    if (r.status === 'active') {
-                        // If rider was previously inactivated and then re-activated,
-                        // check if the date falls within the inactive gap
-                        if (inactDate && inactDate <= ds) {
-                            const lsc = r.last_status_change_at || uat;
-                            const reactivDate = lsc ? getValidHistoricalDate(lsc) : null;
-                            if (reactivDate && reactivDate > inactDate) {
-                                return reactivDate <= ds;
-                            }
-                            return true;
-                        }
+                    if (String(r.status || '').toLowerCase() === 'active') {
                         return true;
                     }
 
-                    // Inactive/deleted rider: was active from allotment to inactivation
-                    const effectiveInactDate = inactDate || (uat ? getValidHistoricalDate(uat) : null);
-                    return effectiveInactDate ? effectiveInactDate > ds : false;
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+                    return inactDate ? inactDate > ds : false;
                 }).length;
             };
 
-            const liveActiveCount = getHistoricalActiveCount(todayStr);
-
-            // Recompute active__riders_count for all records
-            records = records.map(rec => ({
-                ...rec,
-                active_riders_count: getHistoricalActiveCount(rec.date)
-            }));
+            // Recompute active_riders_count: prioritize recorded snapshot if > 0, otherwise fallback
+            records = records.map(rec => {
+                const recordedCount = Number(rec.active_riders_count) || 0;
+                return {
+                    ...rec,
+                    active_riders_count: rec.date === todayStr
+                        ? liveActiveCount
+                        : (recordedCount > 0 ? recordedCount : (getHistoricalActiveCount(rec.date) || liveActiveCount))
+                };
+            });
 
             // If we found money today but daily_collections didn't log it yet, overwrite or inject
             const existingTodayIndex = records.findIndex(r => r.date === todayStr);
             if (existingTodayIndex >= 0) {
-                records[existingTodayIndex].total_collection = realTodayCollection;
+                records[existingTodayIndex].total_collection = Math.max(Number(records[existingTodayIndex].total_collection) || 0, realTodayCollection);
                 records[existingTodayIndex].active_riders_count = liveActiveCount;
             } else if (realTodayCollection > 0 || liveActiveCount > 0) {
                 records = [...records, {

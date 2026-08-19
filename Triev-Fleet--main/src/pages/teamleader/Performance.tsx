@@ -73,137 +73,141 @@ const TLPersonalPerformance: React.FC = () => {
     const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [showOnlyActive, setShowOnlyActive] = useState(false); // Only show days with collection
 
-    // ─── Fetch Everything ─────────────────────────────────────────────────
-    const fetchAll = useCallback(async () => {
+    // ─── Fetch Everything (Fast & Targeted) ─────────────────────────────────
+    const isFetchingRef = React.useRef(false);
+
+    const fetchAll = useCallback(async (isInitial = false) => {
         if (!userData?.id) return;
-        setLoading(true);
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+
+        if (isInitial) {
+            setLoading(true);
+        }
+
         try {
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+            const [y, m, d] = todayStr.split('-').map(Number);
+            const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [ridersResRaw, leadsResRaw, dailyResRaw, todayLedgerResRaw] = await Promise.all([
-                // All TL's riders (using multi-ID and cleanName matching for parity across panels)
-                fetchAllRidersPaginated('id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at, team_leader_id, team_leader_name').then(res => {
-                    if (!res.data) return res;
-                    const uObj = userData as any;
-                    const cleanUser = (uObj?.fullName || uObj?.full_name || uObj?.email || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
-                    const filtered = res.data.filter((r: any) => {
-                        const rTlId = r.team_leader_id || r.teamLeaderId;
-                        if (rTlId && (rTlId === uObj?.id || rTlId === uObj?.userId || rTlId === uObj?.user_id)) return true;
-                        const rTlName = (r.team_leader_name || r.team_leader || r.teamLeaderName || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
-                        return Boolean(rTlName && cleanUser && rTlName === cleanUser);
-                    });
-                    return { ...res, data: filtered };
-                }),
+                // 1. Targeted fetch: ONLY this TL's riders directly by team_leader_id
+                fetchAllRidersPaginated(
+                    'id, status, allotment_date, inactivated_at, wallet_amount, created_at, updated_at, last_status_change_at, team_leader_id, team_leader_name',
+                    { column: 'team_leader_id', value: userData.id }
+                ),
 
-                // Leads for this TL
+                // 2. Leads for this TL
                 fetchTablePaginated('leads', 'status, created_at', [{ column: 'created_by', value: userData.id }]),
 
-                // ✅ PROVEN: daily_collections has correct TL RLS policies
+                // 3. Daily collections snapshot for this TL
                 fetchTablePaginated('daily_collections', 'date, total_collection, active_riders_count', [{ column: 'team_leader_id', value: userData.id }]),
 
-                // ✅ PROVEN: wallet_ledger today-only live override (same as CollectionHistory.tsx)
-                fetchTablePaginated('wallet_ledger', 'amount, rider:riders!inner(team_leader_id)', [
-                    { column: 'mode', value: 'ADD' },
-                    { column: 'transaction_type', operator: 'in', value: [
+                // 4. Wallet ledger live collections for today
+                supabase
+                    .from('wallet_ledger')
+                    .select('amount, rider:riders!inner(team_leader_id)')
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', [
                         'DAILY_COLLECTION', 'DAILY COLLECTION',
                         'RENT_COLLECTION', 'RENT COLLECTION',
                         'FTD_COLLECTION', 'FTD COLLECTION',
                         'COLLECTION', 'RENT'
-                    ]},
-                    { column: 'rider.team_leader_id', value: userData.id },
-                    // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
-                    { operator: 'or', value: (() => {
-                        const now = new Date();
-                        const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-                        const [y, m, d] = todayIST.split('-').map(Number);
-                        const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-                        const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
-                        return `and(transaction_date.gte.${midnight},transaction_date.lte.${endOfDay}),and(transaction_date.is.null,created_at.gte.${midnight})`;
-                    })() }
-                ]),
+                    ])
+                    .eq('rider.team_leader_id', userData.id)
+                    .or(`and(transaction_date.gte.${midnight},transaction_date.lte.${endOfDay}),and(transaction_date.is.null,created_at.gte.${midnight})`)
             ]);
             
-            // Map Raw Data to matches standard format expected below
-            const ridersRes = { data: ridersResRaw.data, error: ridersResRaw.error };
-            const leadsRes = { data: leadsResRaw.data, error: leadsResRaw.error };
-            const dailyRes = { data: dailyResRaw.data?.sort((a,b) => b.date.localeCompare(a.date)), error: dailyResRaw.error };
-            const todayLedgerRes = { data: todayLedgerResRaw.data, error: todayLedgerResRaw.error };
+            const ridersRes = { data: ridersResRaw.data || [], error: ridersResRaw.error };
+            const leadsRes = { data: leadsResRaw.data || [], error: leadsResRaw.error };
+            const dailyRes = { data: (dailyResRaw.data || []).sort((a: any, b: any) => b.date.localeCompare(a.date)), error: dailyResRaw.error };
+            const todayLedgerRes = { data: todayLedgerResRaw.data || [], error: todayLedgerResRaw.error };
 
             if (ridersRes.error) throw ridersRes.error;
             if (dailyRes.error) throw dailyRes.error;
 
             const riderData = ridersRes.data || [];
-            const activeNow = riderData.filter((r: any) => r.status === 'active').length;
+            const activeNow = riderData.filter((r: any) => String(r.status || '').toLowerCase() === 'active').length;
 
             // ── Helper: compute historical active count for any date ──
             const getHistoricalActiveCount = (ds: string) => {
                 return riderData.filter((r: any) => {
                     const adIst = getValidHistoricalDate(r.allotment_date, r.created_at);
-                    if (!adIst) return false;
-                    if (adIst > ds) return false;
+                    if (!adIst || adIst > ds) return false;
 
-                    const iat: string | null = r.inactivated_at;
-                    const uat: string | null = r.updated_at;
-                    const inactDate = iat ? getValidHistoricalDate(iat) : null;
-
-                    if (r.status === 'active') {
-                        if (inactDate && inactDate <= ds) {
-                            const lsc = r.last_status_change_at || uat;
-                            const reactivDate = lsc ? getValidHistoricalDate(lsc) : null;
-                            if (reactivDate && reactivDate > inactDate) {
-                                return reactivDate <= ds;
-                            }
-                            return true;
-                        }
+                    if (String(r.status || '').toLowerCase() === 'active') {
                         return true;
                     }
 
-                    const effectiveInactDate = inactDate || (uat ? getValidHistoricalDate(uat) : null);
-                    return effectiveInactDate ? effectiveInactDate > ds : false;
+                    const iat: string | null = r.inactivated_at;
+                    const uat: string | null = r.updated_at;
+                    const inactDate = iat ? getValidHistoricalDate(iat) : (uat ? getValidHistoricalDate(uat) : null);
+                    return inactDate ? inactDate > ds : false;
                 }).length;
             };
 
-            // Build merged daily records: daily_collections as base, recompute active counts
+            // Build merged daily records: prioritize recorded snapshot if > 0
             let dailyRecords: Array<{ date: string; total_collection: number; active_riders_count: number }> =
-                (dailyRes.data || []).map((r: any) => ({
-                    date: r.date as string,
-                    total_collection: Number(r.total_collection) || 0,
-                    active_riders_count: getHistoricalActiveCount(r.date),
-                }));
+                (dailyRes.data || []).map((r: any) => {
+                    const recordedFleet = Number(r.active_riders_count) || 0;
+                    return {
+                        date: r.date as string,
+                        total_collection: Number(r.total_collection) || 0,
+                        active_riders_count: r.date === todayStr ? activeNow : (recordedFleet > 0 ? recordedFleet : (getHistoricalActiveCount(r.date) || activeNow)),
+                    };
+                });
 
             const realTodayCol = (todayLedgerRes.data || []).reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
             const existingTodayIdx = dailyRecords.findIndex(r => r.date === todayStr);
             if (existingTodayIdx >= 0) {
-                dailyRecords[existingTodayIdx].total_collection = realTodayCol;
+                dailyRecords[existingTodayIdx].total_collection = Math.max(dailyRecords[existingTodayIdx].total_collection, realTodayCol);
                 dailyRecords[existingTodayIdx].active_riders_count = activeNow;
-            } else {
-                // Today not yet in daily_collections — inject it as first entry
+            } else if (realTodayCol > 0 || activeNow > 0) {
                 dailyRecords = [{ date: todayStr, total_collection: realTodayCol, active_riders_count: activeNow }, ...dailyRecords];
             }
 
             setRiders(riderData);
             setLeads(leadsRes.data || []);
-            setLedgerEntries(dailyRecords as any); // Repurpose ledgerEntries to hold daily records
+            setLedgerEntries(dailyRecords as any);
         } catch (err: any) {
             console.error('Performance fetch error:', err);
             toast.error('Failed to load data: ' + err.message);
         } finally {
+            isFetchingRef.current = false;
             setLoading(false);
             setRefreshing(false);
         }
     }, [userData?.id]);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    useEffect(() => {
+        fetchAll(true);
+    }, [fetchAll]);
 
-    // Real-time subscription
+    // Real-time subscription with debouncing to prevent UI flashing
     useEffect(() => {
         if (!userData?.id) return;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (document.hidden) return;
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                fetchAll(false);
+            }, 3500);
+        };
+
+        const channelName = `tl-perf-live-${Math.random().toString(36).substring(2, 9)}`;
         const sub = supabase
-            .channel('tl-perf-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id=eq.${userData.id}` }, fetchAll)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, fetchAll)
+            .channel(channelName)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id=eq.${userData.id}` }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections', filter: `team_leader_id=eq.${userData.id}` }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
-        return () => { supabase.removeChannel(sub); };
+
+        return () => {
+            if (timer) clearTimeout(timer);
+            supabase.removeChannel(sub);
+        };
     }, [userData?.id, fetchAll]);
 
     // ─── Date Range Calculation ───────────────────────────────────────────

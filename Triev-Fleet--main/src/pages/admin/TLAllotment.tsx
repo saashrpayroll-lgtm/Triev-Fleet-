@@ -89,7 +89,9 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
         }
     };
 
-    const fetchMetrics = useCallback(async () => {
+    const isFetchingRef = React.useRef(false);
+
+    const fetchMetrics = useCallback(async (isInitial = false) => {
         if (scopedTlIds !== undefined && scopedTlIds.length === 0) {
             setData([]);
             setLoading(false);
@@ -97,7 +99,12 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
             return;
         }
 
-        setLoading(true);
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+
+        if (isInitial) {
+            setLoading(true);
+        }
         try {
             const pStart = startDate ? format(startDate, 'yyyy-MM-dd') : '1970-01-01';
             const pEnd = endDate ? format(endDate, 'yyyy-MM-dd') : '9999-12-31';
@@ -287,28 +294,44 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
             console.error('TLAllotment fetch error:', err);
             toast.error('Failed to load metrics: ' + (err.message || 'Unknown error'));
         } finally {
+            isFetchingRef.current = false;
             setLoading(false);
             setRefreshing(false);
         }
     }, [startDate, endDate, scopedTlIds]);
 
-    useEffect(() => { fetchMetrics(); }, [fetchMetrics]);
-
-    // ── Real-time auto-refresh ──────────────────────────────────────────────
     useEffect(() => {
-        const channel = supabase
-            .channel('tl-allotment-live')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, () => fetchMetrics())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => fetchMetrics())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, () => fetchMetrics())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
+        fetchMetrics(true);
     }, [fetchMetrics]);
 
+    // ── Real-time auto-refresh (debounced to avoid screen blinking) ──────────
+    useEffect(() => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const fetchDebounced = () => {
+            if (document.hidden) return;
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                fetchMetrics(false);
+            }, 3500);
+        };
+
+        const channelName = `tl-allotment-live-${Math.random().toString(36).substring(2, 9)}`;
+        const channel = supabase
+            .channel(channelName)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
+            .subscribe();
+
+        return () => {
+            if (timer) clearTimeout(timer);
+            supabase.removeChannel(channel);
+        };
+    }, [fetchMetrics]);
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await fetchMetrics();
+        await fetchMetrics(false);
         toast.success('Data refreshed');
     };
 
