@@ -20,8 +20,8 @@ const FleetHealthSummary: React.FC<FleetHealthSummaryProps> = ({ riders, classNa
         const activeCount = active.length;
 
         // Wallet distribution
-        const positive = active.filter(r => r.walletAmount > 250).length;
-        const lowBalance = active.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length;
+        const positive = active.filter(r => r.walletAmount >= 250).length;
+        const lowBalance = active.filter(r => r.walletAmount >= 0 && r.walletAmount < 250).length;
         const minorDebt = active.filter(r => r.walletAmount < 0 && r.walletAmount >= -699).length;
         const defaulters = active.filter(r => r.walletAmount < -699).length;
 

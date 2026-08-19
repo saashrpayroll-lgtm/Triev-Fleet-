@@ -44,7 +44,7 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, todayColl
     });
 
     const inactiveRiders = riders.filter(r => getSt(r) === 'inactive');
-    const lowBalanceRiders = riders.filter(r => getSt(r) === 'active' && getAmt(r) >= 0 && getAmt(r) <= 250);
+    const lowBalanceRiders = riders.filter(r => getSt(r) === 'active' && getAmt(r) >= 0 && getAmt(r) < 250);
 
     const activeList = activeTab === 'critical' ? criticalRiders
         : activeTab === 'warning' ? warningRiders

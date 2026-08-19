@@ -684,7 +684,7 @@ ${new Date().toLocaleString('en-IN')}`;
                                 { label: 'WhatsApp', icon: <MessageCircle size={13} />, onClick: () => handleAction('whatsapp'), cls: 'bg-emerald-500/25 hover:bg-emerald-500/40' },
                                 { label: 'Share Image', icon: <Download size={13} />, onClick: handleDownloadCard, cls: 'bg-indigo-500/25 hover:bg-indigo-500/40 ring-1 ring-indigo-400/30' },
                                 ...(rider.status === 'active' && rider.walletAmount < 0 ? [{ label: 'Payment Req', icon: <AlertTriangle size={13} />, onClick: () => setReminderModalType('warning'), cls: 'bg-red-500/25 hover:bg-red-500/40' }] : []),
-                                ...(rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={13} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40' }] : []),
+                                ...(rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount < 250 ? [{ label: 'Low Bal Msg', icon: <MessageCircle size={13} />, onClick: () => setReminderModalType('low_balance'), cls: 'bg-orange-500/25 hover:bg-orange-500/40' }] : []),
                             ].map(({ label, icon, onClick, cls }) => (
                                 <button key={label} onClick={onClick}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${cls}`}>

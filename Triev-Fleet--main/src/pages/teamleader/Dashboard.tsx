@@ -236,7 +236,7 @@ const Dashboard: React.FC = () => {
         };
         // Some fallback counts still need the myRiders data 
         const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData?.id);
-        const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length;
+        const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250).length;
 
         // Zomato specific calculations — pre-filter once for efficiency
         const zomatoRiders = myRiders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
@@ -262,7 +262,7 @@ const Dashboard: React.FC = () => {
             zomatoTotal: zomatoRiders.length,
             zomatoPosCount: vipPos.length,
             zomatoNegCount: vipNeg.length,
-            zomatoLowBalance: zomatoRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+            zomatoLowBalance: zomatoRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250).length,
             zomatoHighDebt: zomatoRiders.filter(r => r.walletAmount < -3000).length,
             zomatoWalletTotal: vipWalletTotal,
             zomatoAvgWallet: zomatoRiders.length > 0 ? Math.round(vipWalletTotal / zomatoRiders.length) : 0,

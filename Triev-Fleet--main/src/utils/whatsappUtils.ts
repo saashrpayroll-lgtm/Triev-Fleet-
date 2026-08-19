@@ -131,7 +131,7 @@ export const generateRiskMatrixWhatsAppDigest = (data: RiskMatrixDigestData): st
     msg += `📊 *FLEET WALLET METRICS:*\n`;
     msg += `• 🚴 Active Fleet Riders: *${data.totalActiveRiders.toLocaleString('en-IN')}*\n`;
     msg += `• 🔴 Negative Wallet Riders: *${data.totalNegativeCount.toLocaleString('en-IN')}* (${data.overallNegativePct}%)\n`;
-    msg += `• 🟡 Low Wallet (0-250) Riders: *${data.totalRange0To250Count.toLocaleString('en-IN')}* (${data.overallRange0To250Pct}%)\n\n`;
+    msg += `• 🟡 Low Wallet (0-249) Riders: *${data.totalRange0To250Count.toLocaleString('en-IN')}* (${data.overallRange0To250Pct}%)\n\n`;
     
     if (data.topRiskTLs && data.topRiskTLs.length > 0) {
         msg += `🚨 *TOP RISK TEAM LEADERS (>8.5% Deficit):*\n`;

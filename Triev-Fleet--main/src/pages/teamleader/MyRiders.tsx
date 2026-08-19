@@ -214,7 +214,7 @@ const MyRiders: React.FC = () => {
                 if (advancedFilters.walletRange === 'positive') return a > 0;
                 if (advancedFilters.walletRange === 'negative') return a < 0;
                 if (advancedFilters.walletRange === 'zero') return a === 0;
-                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && a >= 0 && a <= 250;
+                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && a >= 0 && a < 250;
                 if (advancedFilters.walletRange === 'defaulter') return a <= -699;
                 if (advancedFilters.walletRange === 'zero_collection') return r.status === 'active' && a <= 0 && !(todayCollections[r.id] > 0);
                 return true;
@@ -546,7 +546,7 @@ const MyRiders: React.FC = () => {
                             {riders.filter(r => r.status === 'active' && r.walletAmount < 0).length} Negative
                         </span>
                         <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border" style={{ background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-                            {riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length} Low Balance
+                            {riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250).length} Low Balance
                         </span>
                         {canAddRider && (
                             <button
@@ -637,7 +637,7 @@ const MyRiders: React.FC = () => {
                             <option value="positive">Positive Balance</option>
                             <option value="negative">Negative Balance</option>
                             <option value="zero">Zero Balance</option>
-                            <option value="low_balance">Low Balance (0-250)</option>
+                            <option value="low_balance">Low Balance (₹0 - ₹249)</option>
                             <option value="defaulter">🚨 Defaulters (&lt; -699)</option>
                             <option value="zero_collection">⚠️ Zero Collection Today</option>
                         </select>
@@ -709,7 +709,7 @@ const MyRiders: React.FC = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {[
                             { label: 'Active', count: riders.filter(r => r.status === 'active').length, cls: 'border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/10', txt: 'text-emerald-600 dark:text-emerald-400' },
-                            { label: 'Low Balance (0-250)', count: riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length, cls: 'border-l-orange-500 bg-orange-50/60 dark:bg-orange-900/10', txt: 'text-orange-600 dark:text-orange-400' },
+                            { label: 'Low Balance (₹0 - ₹249)', count: riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250).length, cls: 'border-l-orange-500 bg-orange-50/60 dark:bg-orange-900/10', txt: 'text-orange-600 dark:text-orange-400' },
                             { label: 'Inactive', count: riders.filter(r => r.status === 'inactive').length, cls: 'border-l-amber-500 bg-amber-50/60 dark:bg-amber-900/10', txt: 'text-amber-600 dark:text-amber-400' },
                             { label: 'Deleted', count: riders.filter(r => r.status === 'deleted').length, cls: 'border-l-rose-500 bg-rose-50/60 dark:bg-rose-900/10', txt: 'text-rose-600 dark:text-rose-400' },
                         ].map(s => (
@@ -871,7 +871,7 @@ const MyRiders: React.FC = () => {
                                                             <AlertTriangle size={16} /> Remind
                                                         </button>
                                                     )}
-                                                    {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                    {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount < 250 && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors" title="Send Low Balance WhatsApp Reminder">
                                                             <MessageCircle size={16} /> Low Bal.
                                                         </button>
@@ -1015,7 +1015,7 @@ const MyRiders: React.FC = () => {
                                                             <AlertTriangle size={18} /> Remind
                                                         </button>
                                                     )}
-                                                    {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                                                    {rider.status === 'active' && !(rider.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (rider as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')) && rider.walletAmount >= 0 && rider.walletAmount < 250 && (
                                                         <button onClick={(e) => { e.stopPropagation(); setSelectedReminderRider(rider); setReminderType('low_balance'); }} className="flex-1 flex items-center justify-center gap-1.5 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-xl text-base font-bold border border-orange-200 dark:border-orange-800 hover:bg-orange-100 transition-colors active:scale-95">
                                                             <MessageCircle size={18} /> Low Bal.
                                                         </button>

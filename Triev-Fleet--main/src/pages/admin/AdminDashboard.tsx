@@ -437,7 +437,7 @@ const Dashboard: React.FC = () => {
             negativeWalletCount: negativeWalletData.length,
             zeroWalletCount: zeroWalletData.length,
             highDebtCount: highDebtRiders.length,
-            lowBalanceCount: activeRidersList.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+            lowBalanceCount: activeRidersList.filter(r => r.walletAmount >= 0 && r.walletAmount < 250).length,
 
             // Finance Amounts
             // ✅ FIX: totalCollection = actual rent from daily_collections for selected period
@@ -477,7 +477,7 @@ const Dashboard: React.FC = () => {
                     zomatoTotal: vipRiders.length,
                     zomatoPosCount: vipPos.length,
                     zomatoNegCount: vipNeg.length,
-                    zomatoLowBalance: vipRiders.filter(r => r.walletAmount >= 0 && r.walletAmount <= 250).length,
+                    zomatoLowBalance: vipRiders.filter(r => r.walletAmount >= 0 && r.walletAmount < 250).length,
                     zomatoHighDebt: vipRiders.filter(r => r.walletAmount < -3000).length,
                     zomatoWalletTotal: vipWalletTotal,
                     zomatoAvgWallet: vipRiders.length > 0 ? Math.round(vipWalletTotal / vipRiders.length) : 0,

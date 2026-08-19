@@ -198,7 +198,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                 if (advancedFilters.walletRange === 'positive') return r.walletAmount > 0;
                 if (advancedFilters.walletRange === 'negative') return r.walletAmount < 0;
                 if (advancedFilters.walletRange === 'zero') return r.walletAmount === 0;
-                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250;
+                if (advancedFilters.walletRange === 'low_balance') return r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250;
                 if (advancedFilters.walletRange === 'high_debt') return r.walletAmount < -3000;
                 return true;
             });
@@ -1396,7 +1396,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                                 <Send size={16} />
                             </button>
                         )}
-                        {rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount <= 250 && (
+                        {rider.status === 'active' && rider.walletAmount >= 0 && rider.walletAmount < 250 && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -1812,7 +1812,7 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
                                     <option value="positive">✅ Positive Balance</option>
                                     <option value="negative">🔴 Negative Balance</option>
                                     <option value="zero">⚪ Zero Balance</option>
-                                    <option value="low_balance">⚠️ Low Balance (₹0–250)</option>
+                                    <option value="low_balance">⚠️ Low Balance (₹0–₹249)</option>
                                     <option value="high_debt">🚨 High Debt (&lt; ₹-3,000)</option>
                                 </select>
                             </div>

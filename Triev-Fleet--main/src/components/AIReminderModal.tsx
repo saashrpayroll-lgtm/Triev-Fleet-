@@ -131,7 +131,7 @@ const AIReminderModal: React.FC<AIReminderModalProps> = ({ rider, type, isOpen, 
                     </h2>
                     <p className="text-muted-foreground text-sm mt-1 max-w-xs">
                         Review and send a customized message to <strong className="text-foreground">{rider.riderName}</strong>.
-                        Balance: <strong className={rider.walletAmount < 0 ? 'text-red-500' : rider.walletAmount <= 250 ? 'text-amber-500' : 'text-green-500'}>
+                        Balance: <strong className={rider.walletAmount < 0 ? 'text-red-500' : rider.walletAmount < 250 ? 'text-amber-500' : 'text-green-500'}>
                             {rider.walletAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                         </strong>
                     </p>

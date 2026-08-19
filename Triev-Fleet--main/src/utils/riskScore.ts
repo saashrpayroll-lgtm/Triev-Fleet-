@@ -44,7 +44,7 @@ export function calculateRiderRiskScore(
     } else if (wallet < 0) {
         score += 8;
         factors.push({ label: 'Minor Debt', impact: 8, detail: `Wallet at ₹${wallet.toLocaleString('en-IN')}` });
-    } else if (wallet <= 250) {
+    } else if (wallet < 250) {
         score += 5;
         factors.push({ label: 'Low Balance', impact: 5, detail: `Wallet at ₹${wallet.toLocaleString('en-IN')}` });
     }
