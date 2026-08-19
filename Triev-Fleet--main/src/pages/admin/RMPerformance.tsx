@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
+import { calculateAIScore, PerformancePeriod, matchesReportingManager } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import PerformanceCard from '@/components/dashboard/PerformanceCard';
 import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
@@ -28,32 +28,15 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; col
     const max = Math.max(...data, 1);
     const min = Math.min(...data, 0);
     const range = max - min || 1;
-    const pad = 2;
-    const pts = data.map((v, i) => ({
-        x: pad + (i / Math.max(data.length - 1, 1)) * (width - pad * 2),
-        y: pad + (1 - (v - min) / range) * (height - pad * 2)
-    }));
-    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-    const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${height} L${pts[0].x.toFixed(1)},${height} Z`;
-    const trend = data[data.length - 1] - data[0];
-    const gradId = `sp-${color.replace('#', '')}`;
+    const points = data.map((v, i) => {
+        const x = (i / (data.length - 1 || 1)) * width;
+        const y = height - ((v - min) / range) * (height - 6) - 3;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
     return (
-        <div className="flex items-center gap-1.5">
-            <svg width={width} height={height} className="flex-shrink-0">
-                <defs>
-                    <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                        <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-                    </linearGradient>
-                </defs>
-                <path d={area} fill={`url(#${gradId})`} />
-                <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2" fill={color} />
-            </svg>
-            <span className={`text-[9px] font-black ${trend > 0 ? 'text-emerald-600' : trend < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
-                {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}
-            </span>
-        </div>
+        <svg width={width} height={height} className="overflow-visible">
+            <polyline fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" points={points} />
+        </svg>
     );
 };
 
@@ -71,7 +54,7 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
         collections: any[];
         dailyCollectionsMap?: Record<string, number>;
         weeklyCollectionsMap?: Record<string, number>;
-        fetchedTodayStr?: string; // The IST date string when fetchData ran — used to detect stale data across day boundaries
+        fetchedTodayStr?: string;
     }>({ riders: [], leads: [], teamLeaders: [], rms: [], collections: [] });
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -86,12 +69,7 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
     const [expandedRM, setExpandedRM] = useState<string | null>(null);
 
     const fetchData = async () => {
-        if (scopedRmIds !== undefined && scopedRmIds.length === 0) {
-            setRawData({ riders: [], leads: [], teamLeaders: [], rms: [], collections: [] });
-            setLoading(false);
-            return;
-        }
-
+        setLoading(true);
         try {
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
             const now = new Date();
@@ -109,54 +87,32 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             let tlQuery = supabase.from('users').select('*').in('role', ['teamLeader']);
             let rmQuery = supabase.from('users').select('*').eq('role', 'reportingManager');
 
+            const [tlRes, rmRes] = await Promise.all([tlQuery, rmQuery]);
+            if (tlRes.error) throw tlRes.error;
+            if (rmRes.error) throw rmRes.error;
+
+            let allTls = tlRes.data || [];
+            let allRms = rmRes.data || [];
+
             if (scopedRmIds && scopedRmIds.length > 0) {
-                // Filter RMs by their IDs first, then use their full_names to match TLs
-                // (TLs store their RM's NAME in reporting_manager field, not an ID)
-                rmQuery = rmQuery.in('id', scopedRmIds);
-                const { data: scopedRms } = await rmQuery;
-                const rmNames = (scopedRms || []).map((r: { full_name: string }) => r.full_name).filter(Boolean);
-                if (rmNames.length > 0) {
-                    tlQuery = tlQuery.in('reporting_manager', rmNames);
-                } else {
-                    // No RMs found — return empty to avoid showing unscoped data
-                    tlQuery = tlQuery.eq('id', 'no-match-placeholder');
-                }
+                allRms = allRms.filter((r: any) => scopedRmIds.includes(r.id));
+                allTls = allTls.filter((tl: any) => 
+                    allRms.some((rm: any) => matchesReportingManager(tl.reporting_manager, rm.full_name, rm.id))
+                );
             }
 
-            // Get the scoped TL IDs for further filtering
-            let scopedTlIdsForRM: string[] | undefined;
-            if (scopedRmIds && scopedRmIds.length > 0) {
-                // We already have the TL query scoped above, but we need TL IDs for rider/collection scoping
-                const { data: scopedTLs } = await tlQuery;
-                scopedTlIdsForRM = (scopedTLs || []).map((tl: { id: string }) => tl.id);
-                // Re-build TL query since it was consumed
-                tlQuery = supabase.from('users').select('*').in('role', ['teamLeader']);
-                if (scopedTlIdsForRM && scopedTlIdsForRM.length > 0) {
-                    tlQuery = tlQuery.in('id', scopedTlIdsForRM);
-                } else {
-                    tlQuery = tlQuery.eq('id', 'no-match-placeholder');
-                }
-            }
+            const scopedTlIdsForRM = allTls.map((tl: any) => tl.id);
 
-            const [ridersRes, leadsRes, usersRes, rmsRes, dailyRes, todayLedgerRes] = await Promise.all([
-                // Scope riders to the scoped TLs
-                scopedTlIdsForRM && scopedTlIdsForRM.length > 0
+            const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
+                scopedTlIdsForRM.length > 0
                     ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIdsForRM, type: 'in' })
                     : fetchAllRidersPaginated('*'),
-                // Leads: scope by createdBy (TL IDs)
-                scopedTlIdsForRM && scopedTlIdsForRM.length > 0
+                scopedTlIdsForRM.length > 0
                     ? supabase.from('leads').select('*').in('created_by', scopedTlIdsForRM)
                     : supabase.from('leads').select('*'),
-                tlQuery,
-                // RMs
-                scopedRmIds && scopedRmIds.length > 0
-                    ? supabase.from('users').select('*').eq('role', 'reportingManager').in('id', scopedRmIds)
-                    : supabase.from('users').select('*').eq('role', 'reportingManager'),
-                // Daily collections — scoped to TLs
-                scopedTlIdsForRM && scopedTlIdsForRM.length > 0
+                scopedTlIdsForRM.length > 0
                     ? supabase.from('daily_collections').select('*').in('team_leader_id', scopedTlIdsForRM).order('date', { ascending: false }).limit(20000)
                     : supabase.from('daily_collections').select('*').order('date', { ascending: false }).limit(20000),
-                // Today's ledger — inherently scoped via riders!inner join
                 supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
@@ -165,14 +121,12 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
-            if (usersRes.error) throw usersRes.error;
-            if (rmsRes.error) throw rmsRes.error;
             if (dailyRes.error) throw dailyRes.error;
             if (todayLedgerRes.error) throw todayLedgerRes.error;
 
             const weekly: Record<string, number> = {};
             const daily: Record<string, number> = {};
-            const tlsWithTodaySnapshot = new Set<string>();
+            const liveTodayMap: Record<string, number> = {};
 
             dailyRes.data?.forEach(item => {
                 const tlId = item.team_leader_id;
@@ -182,7 +136,6 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                     weekly[tlId] = (weekly[tlId] || 0) + amt;
                 }
                 if (dDateStr === todayStr) {
-                    tlsWithTodaySnapshot.add(tlId);
                     daily[tlId] = (daily[tlId] || 0) + amt;
                 }
             });
@@ -191,15 +144,18 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             todayLedger.forEach(txn => {
                 if (txn.rider?.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
-                    if (!tlsWithTodaySnapshot.has(tlId)) {
-                        daily[tlId] = (daily[tlId] || 0) + (Number(txn.amount) || 0);
-                    }
+                    liveTodayMap[tlId] = (liveTodayMap[tlId] || 0) + (Number(txn.amount) || 0);
                 }
             });
 
-            Object.keys(daily).forEach(tlId => {
-                if (!tlsWithTodaySnapshot.has(tlId)) {
-                    weekly[tlId] = (weekly[tlId] || 0) + (daily[tlId] || 0);
+            // Reconcile Live Today with Snapshots
+            Object.keys(liveTodayMap).forEach(tlId => {
+                const liveAmt = liveTodayMap[tlId] || 0;
+                const snapAmt = daily[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    const diffAmt = liveAmt - snapAmt;
+                    daily[tlId] = liveAmt;
+                    weekly[tlId] = (weekly[tlId] || 0) + diffAmt;
                 }
             });
 
@@ -213,14 +169,12 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                     createdAt: r.created_at ?? r.createdAt
                 })),
                 leads: leadsRes.data || [],
-                teamLeaders: (usersRes.data || []).map((u: any) => ({
+                teamLeaders: allTls.map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
                 })),
-                rms: (rmsRes.data || [])
-                    .filter((u: any) => !scopedRmIds || scopedRmIds.includes(u.id))
-                    .map((u: any) => ({
+                rms: allRms.map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
@@ -410,18 +364,10 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: targetDayCollection };
         });
 
-        const rmNamesSet = new Set<string>();
-        rawData.teamLeaders.forEach(tl => {
-            if ((tl.reporting_manager || '').trim()) rmNamesSet.add((tl.reporting_manager || '').trim());
-        });
-        rawData.rms.forEach(rm => rmNamesSet.add((rm.fullName || '').trim()));
-
-        // Reference date for period-aware metrics (use period end, not "now")
-        const periodEndMs = new Date(endDateStr + 'T23:59:59').getTime();
-        const isHistorical = endDateStr < nowISTStr;
-
-        return Array.from(rmNamesSet).filter(Boolean).map(rmName => {
-            const assignedTLs = tlMetrics.filter(tl => (tl.reporting_manager || '').trim() === rmName);
+        return rawData.rms.map(rm => {
+            const rmName = rm.fullName || rm.full_name || '';
+            const rmId = rm.id;
+            const assignedTLs = tlMetrics.filter(tl => matchesReportingManager(tl.reporting_manager, rmName, rmId));
             
             const totalTLs = assignedTLs.length;
             const activeTLs = assignedTLs.filter(tl => tl.status === 'active').length;

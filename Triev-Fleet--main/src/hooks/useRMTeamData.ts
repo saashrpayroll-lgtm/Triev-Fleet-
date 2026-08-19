@@ -3,6 +3,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { Rider, User, Lead } from '@/types';
+import { matchesReportingManager } from '@/utils/performance';
 
 export interface RMTeamData {
     teamLeaders: User[];
@@ -51,13 +52,13 @@ export function useRMTeamData(): RMTeamData {
                         suspendedUntil:suspended_until, createdAt:created_at, updatedAt:updated_at,
                         position
                     `, [
-                        { column: 'reporting_manager', operator: 'ilike', value: `%${rmName.trim()}%` },
                         { column: 'role', operator: 'eq', value: 'teamLeader' }
                     ]);
 
                 if (tlError) throw tlError;
 
-                const tls = (tlData as unknown as User[]) || [];
+                const allTls = (tlData as unknown as User[]) || [];
+                const tls = allTls.filter(tl => matchesReportingManager(tl.reportingManager, rmName, userData?.id));
                 setTeamLeaders(tls);
 
                 const tlIds = tls.map(tl => tl.id);

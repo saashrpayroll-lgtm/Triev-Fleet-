@@ -59,6 +59,51 @@ export const getAIGrade = (score: number, efficiency: number): 'S' | 'A' | 'B' |
     return 'D';
 };
 
+/**
+ * Normalizes a name by lowercasing, stripping parenthetical IDs/tags, and removing common prefixes.
+ */
+export const normalizeHierarchyName = (nameStr?: string | null): string => {
+    if (!nameStr) return '';
+    return String(nameStr)
+        .replace(/\s*\([^)]*\)/g, '') // remove (KONTI/123) or (RM)
+        .replace(/^(?:mr\.|ms\.|shri|mohd\.?|md\.?)\s+/i, '') // remove common prefixes
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+};
+
+/**
+ * Robust matcher to check if a TL's reporting_manager matches an RM's name/ID.
+ * Handles prefix/suffix differences, casing, whitespace, and token inclusion.
+ */
+export const matchesReportingManager = (
+    tlRM?: string | null,
+    rmFullName?: string | null,
+    rmId?: string | null
+): boolean => {
+    if (!tlRM) return false;
+    const cleanTLRM = normalizeHierarchyName(tlRM);
+    if (!cleanTLRM) return false;
+
+    if (rmId && (tlRM === rmId || cleanTLRM === rmId.toLowerCase())) return true;
+    if (!rmFullName) return false;
+
+    const cleanRM = normalizeHierarchyName(rmFullName);
+    if (!cleanRM) return false;
+
+    if (cleanTLRM === cleanRM) return true;
+
+    // Token inclusion (e.g. "Mohd Sazid" vs "Sazid", "Saunvir Singh" vs "Saunvir")
+    const rmTokens = cleanRM.split(' ').filter(t => t.length > 2);
+    const tlTokens = cleanTLRM.split(' ').filter(t => t.length > 2);
+
+    const tokenMatch = rmTokens.some(t => tlTokens.includes(t)) ||
+                       cleanRM.includes(cleanTLRM) ||
+                       cleanTLRM.includes(cleanRM);
+
+    return tokenMatch;
+};
+
 export const calculateAIScore = (
     tl: User,
     riders: Rider[],
@@ -95,18 +140,24 @@ export const calculateAIScore = (
     let churnRiders = 0;
     let totalRiders = 0;
 
-    if (period) {
+    const nowISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const isCurrentPeriod = !period || (period.end >= nowISTStr);
+
+    if (isCurrentPeriod) {
+        // For Current / Today / Live Views, ground truth is live active status in DB
+        activeRiders = tlRiders.filter(r => getRiderStatus(r) === 'active').length;
+        inactiveRiders = tlRiders.filter(r => getRiderStatus(r) === 'inactive').length;
+        churnRiders = tlRiders.filter(r => getRiderStatus(r) === 'deleted').length;
+        totalRiders = tlRiders.length;
+    } else if (period) {
         tlRiders.forEach(r => {
             const status = getRiderStatus(r);
-            // ✅ FIX: Use getValidHistoricalDate to correctly handle bulk-imported riders
-            // whose allotment_date may be missing (falls back to created_at)
             const allotDateStr = getValidHistoricalDate(
                 getRiderAllotment(r),
                 getRiderCreated(r)
             );
 
             if (!allotDateStr) {
-                // No date info — count by current live status
                 if (status === 'active') activeRiders++;
                 else if (status === 'inactive') inactiveRiders++;
                 else if (status === 'deleted') churnRiders++;
@@ -116,8 +167,6 @@ export const calculateAIScore = (
 
             if (allotDateStr <= period.end) {
                 totalRiders++;
-                // ✅ FIX: Do NOT use UpdatedAt as a fallback for inactivation.
-                // If a rider is 'active' or 'Inactive' (imported capitalization), we must be careful.
                 const inactiveDateStr = getValidHistoricalDate(getRiderInactivated(r));
 
                 const isCurrentlyActive = status === 'active';
@@ -132,36 +181,25 @@ export const calculateAIScore = (
                             if (reactivDate <= period.end) activeRiders++;
                             else inactiveRiders++;
                         } else {
-                            // Stale inactivated_at data without a proper re-activation timestamp => Assume active
                             activeRiders++;
                         }
                     } else {
-                        // Normal active rider (no past inactivation)
                         activeRiders++;
                     }
                 } else if (isCurrentlyInactive || isCurrentlyDeleted) {
-                    // Currently inactive/deleted
                     if (inactiveDateStr && inactiveDateStr > period.end) {
-                        // They were inactivated AFTER period end, meaning they were ACTIVE during the period
                         activeRiders++;
                     } else {
-                        // Inactivated ON or BEFORE period.end
                         if (isCurrentlyDeleted) churnRiders++;
                         else inactiveRiders++;
                     }
                 }
             }
         });
-    } else {
-        activeRiders = tlRiders.filter(r => getRiderStatus(r) === 'active').length;
-        inactiveRiders = tlRiders.filter(r => getRiderStatus(r) === 'inactive').length;
-        churnRiders = tlRiders.filter(r => getRiderStatus(r) === 'deleted').length;
-        totalRiders = tlRiders.length;
     }
 
-    // ✅ FIX: Prioritize true historical snapshots over dynamic logic for fleet count
-    // Accept 0 as a valid historical number (don't fallback if explicitly 0)
-    if (historicalActiveFleet !== undefined) {
+    // Prioritize true historical snapshots over dynamic logic for past fleet count if provided
+    if (!isCurrentPeriod && historicalActiveFleet !== undefined) {
         activeRiders = Number(historicalActiveFleet);
     }
 

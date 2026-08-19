@@ -176,7 +176,10 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             let tlQuery = supabase.from('users').select('*').eq('role', 'teamLeader');
             if (scopedTlIds && scopedTlIds.length > 0) tlQuery = tlQuery.in('id', scopedTlIds);
 
-            const [ridersRes, leadsRes, tlRes, todayCollRes, weekCollRes, monthCollRes, grandCollRes] = await Promise.all([
+            const midnightIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const endOfDayIST = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
+
+            const [ridersRes, leadsRes, tlRes, todayCollRes, weekCollRes, monthCollRes, grandCollRes, todayLedgerRes] = await Promise.all([
                 scopedTlIds && scopedTlIds.length > 0
                     ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
                     : fetchAllRidersPaginated('*'),
@@ -201,6 +204,11 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                 scopedTlIds && scopedTlIds.length > 0
                     ? supabase.from('daily_collections').select('team_leader_id, total_collection').in('team_leader_id', scopedTlIds)
                     : supabase.from('daily_collections').select('team_leader_id, total_collection'),
+                // Today's live ledger additions
+                supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
+                    .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -210,6 +218,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             if (weekCollRes.error) throw weekCollRes.error;
             if (monthCollRes.error) throw monthCollRes.error;
             if (grandCollRes.error) throw grandCollRes.error;
+            if (todayLedgerRes.error) throw todayLedgerRes.error;
 
             const aggMap = (rows: { team_leader_id: string; total_collection: number }[]) => {
                 const map: Record<string, number> = {};
@@ -223,6 +232,27 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             const weeklyMap = aggMap(weekCollRes.data || []);
             const monthlyMap = aggMap(monthCollRes.data || []);
             const grandTotalMap = aggMap(grandCollRes.data || []);
+
+            // Reconcile Live Today's Ledger
+            const liveTodayMap: Record<string, number> = {};
+            (todayLedgerRes.data || []).forEach((txn: any) => {
+                if (txn.rider?.team_leader_id) {
+                    const tlId = txn.rider.team_leader_id;
+                    liveTodayMap[tlId] = (liveTodayMap[tlId] || 0) + (Number(txn.amount) || 0);
+                }
+            });
+
+            Object.keys(liveTodayMap).forEach(tlId => {
+                const liveAmt = liveTodayMap[tlId] || 0;
+                const snapAmt = todayMap[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    const diff = liveAmt - snapAmt;
+                    todayMap[tlId] = liveAmt;
+                    weeklyMap[tlId] = (weeklyMap[tlId] || 0) + diff;
+                    monthlyMap[tlId] = (monthlyMap[tlId] || 0) + diff;
+                    grandTotalMap[tlId] = (grandTotalMap[tlId] || 0) + diff;
+                }
+            });
 
             // Map TL data — Supabase select('*') returns snake_case, we need to map to our User type
             const teamLeaders: User[] = (tlRes.data || []).map((u: Record<string, unknown>) => ({
@@ -263,7 +293,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
     // Re-fetch period-specific data when date filter changes (for custom/yesterday/etc)
     const fetchPeriodData = useCallback(async () => {
-        const { start, end } = getDateRangeStr(dateFilter, customRange);
+        const { start, end, today } = getDateRangeStr(dateFilter, customRange);
         if (!start || !end) return;
         let periodQuery = supabase.from('daily_collections')
             .select('team_leader_id, total_collection')
@@ -277,8 +307,20 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         (data || []).forEach((r: { team_leader_id: string; total_collection: number }) => {
             if (r.team_leader_id) map[r.team_leader_id] = (map[r.team_leader_id] || 0) + (Number(r.total_collection) || 0);
         });
+
+        // If today is within period, reconcile live today amounts
+        if (start <= today && end >= today) {
+            Object.keys(rawData.todayMap || {}).forEach(tlId => {
+                const liveAmt = rawData.todayMap[tlId] || 0;
+                const snapAmt = map[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    map[tlId] = liveAmt;
+                }
+            });
+        }
+
         setRawData(prev => ({ ...prev, periodMap: map }));
-    }, [dateFilter, customRange, getDateRangeStr, scopedTlIds]);
+    }, [dateFilter, customRange, getDateRangeStr, scopedTlIds, rawData.todayMap]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { fetchPeriodData(); }, [fetchPeriodData]);

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
+import { matchesReportingManager } from '@/utils/performance';
+
 interface CityOpsScope {
     cityOpsId: string;
     rmIds: string[];
@@ -52,24 +54,20 @@ export const useCityOpsScope = (): CityOpsScope => {
             setRmIds(fetchedRmIds);
 
             // Step 2: Fetch all TLs under this City Ops.
-            // TLs are linked to RMs via the reporting_manager field (which stores RM full_name).
-            // They can also be linked if their reporting_manager is the City Ops' own full_name.
-            const rmNames = (rms || []).map(r => r.full_name).filter(Boolean);
-            const validManagers = [...rmNames, userData.fullName].filter(Boolean);
+            const { data: allTls, error: tlError } = await supabase
+                .from('users')
+                .select('id, full_name, reporting_manager, city_ops_id')
+                .eq('role', 'teamLeader')
+                .in('status', ['active', 'inactive', 'suspended']);
 
-            let fetchedTlIds: string[] = [];
+            if (tlError) throw tlError;
 
-            if (validManagers.length > 0) {
-                const { data: tls, error: tlError } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('role', 'teamLeader')
-                    .in('reporting_manager', validManagers)
-                    .in('status', ['active', 'inactive', 'suspended']);
+            const fetchedTlIds = (allTls || []).filter(tl => {
+                if (tl.city_ops_id === userData.id) return true;
+                if (matchesReportingManager(tl.reporting_manager, userData.fullName, userData.id)) return true;
+                return (rms || []).some(rm => matchesReportingManager(tl.reporting_manager, rm.full_name, rm.id));
+            }).map(t => t.id);
 
-                if (tlError) throw tlError;
-                fetchedTlIds = tls?.map(t => t.id) || [];
-            }
             setTlIds(fetchedTlIds);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Failed to load scope';

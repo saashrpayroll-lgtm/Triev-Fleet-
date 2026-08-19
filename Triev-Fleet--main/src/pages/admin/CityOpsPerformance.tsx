@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { calculateAIScore, PerformancePeriod } from '@/utils/performance';
+import { calculateAIScore, PerformancePeriod, matchesReportingManager } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import PerformanceCard from '@/components/dashboard/PerformanceCard';
 import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
@@ -28,32 +28,15 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; col
     const max = Math.max(...data, 1);
     const min = Math.min(...data, 0);
     const range = max - min || 1;
-    const pad = 2;
-    const pts = data.map((v, i) => ({
-        x: pad + (i / Math.max(data.length - 1, 1)) * (width - pad * 2),
-        y: pad + (1 - (v - min) / range) * (height - pad * 2)
-    }));
-    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-    const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${height} L${pts[0].x.toFixed(1)},${height} Z`;
-    const trend = data[data.length - 1] - data[0];
-    const gradId = `sp-${color.replace('#', '')}`;
+    const points = data.map((v, i) => {
+        const x = (i / (data.length - 1 || 1)) * width;
+        const y = height - ((v - min) / range) * (height - 6) - 3;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
     return (
-        <div className="flex items-center gap-1.5">
-            <svg width={width} height={height} className="flex-shrink-0">
-                <defs>
-                    <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                        <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-                    </linearGradient>
-                </defs>
-                <path d={area} fill={`url(#${gradId})`} />
-                <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2" fill={color} />
-            </svg>
-            <span className={`text-[9px] font-black ${trend > 0 ? 'text-emerald-600' : trend < 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>
-                {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}
-            </span>
-        </div>
+        <svg width={width} height={height} className="overflow-visible">
+            <polyline fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" points={points} />
+        </svg>
     );
 };
 
@@ -62,35 +45,43 @@ interface CityOpsPerformanceProps {
 }
 
 const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsIds }) => {
-    const [loading, setLoading] = useState(true);
     const [rawData, setRawData] = useState<{
         riders: any[];
         leads: any[];
         teamLeaders: any[];
-        rms: any[];
         cityOps: any[];
+        rms: any[];
         collections: any[];
         dailyCollectionsMap?: Record<string, number>;
         weeklyCollectionsMap?: Record<string, number>;
         fetchedTodayStr?: string;
-    }>({ riders: [], leads: [], teamLeaders: [], rms: [], cityOps: [], collections: [] });
+    }>({
+        riders: [],
+        leads: [],
+        teamLeaders: [],
+        cityOps: [],
+        rms: [],
+        collections: []
+    });
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [searchTerm, setSearchTerm] = useState<string>('');
+    const debouncedSearch = useDebounce(searchTerm, 300);
     const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
-    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
-    const [selectedCityOps, setSelectedCityOps] = useState<string[]>([]);
-    const [coDropdownOpen, setCoDropdownOpen] = useState(false);
+    const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+    const [sortField, setSortField] = useState<string>('rank');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [expandedCoId, setExpandedCoId] = useState<string | null>(null);
+    const [expandedRMName, setExpandedRMName] = useState<string | null>(null);
+    const [isExporting, setIsExporting] = useState<boolean>(false);
+    const [exportFormat, setExportFormat] = useState<'excel' | 'pdf'>('excel');
     const coDropdownRef = useRef<HTMLDivElement>(null);
-    const [isExportOpen, setIsExportOpen] = useState(false);
-    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'rangeCollection', direction: 'desc' });
-    const [expandedCO, setExpandedCO] = useState<string | null>(null);
 
     const fetchData = async () => {
+        setLoading(true);
         try {
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-            const now = new Date();
-            const todayStr = formatter.format(now);
+            const todayStr = formatter.format(new Date());
             const [year, month, day] = todayStr.split('-').map(Number);
             const workingDateUTC = new Date(Date.UTC(year, month - 1, day));
             const weekDay = workingDateUTC.getUTCDay();
@@ -105,33 +96,25 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             let rmQuery = supabase.from('users').select('*').eq('role', 'reportingManager');
             let tlQuery = supabase.from('users').select('*').in('role', ['teamLeader']);
 
-            const [coRes, rmRes] = await Promise.all([cityOpsQuery, rmQuery]);
+            const [coRes, rmRes, tlRes] = await Promise.all([cityOpsQuery, rmQuery, tlQuery]);
             if (coRes.error) throw coRes.error;
             if (rmRes.error) throw rmRes.error;
+            if (tlRes.error) throw tlRes.error;
 
-            const allCityOps = coRes.data || [];
-            const allRms = rmRes.data || [];
+            let allCityOps = coRes.data || [];
+            let allRms = rmRes.data || [];
+            let allTls = tlRes.data || [];
 
-            // Map Rms by their City Ops ID
-            const rmNamesToCityOps = new Map();
-            allRms.forEach(rm => {
-                if (rm.city_ops_id && rm.full_name) {
-                    rmNamesToCityOps.set(rm.full_name, rm.city_ops_id);
-                }
-            });
-
-            // Get all TLs matching these RMs
-            const rmNames = Array.from(rmNamesToCityOps.keys());
-            if (rmNames.length > 0) {
-                tlQuery = tlQuery.in('reporting_manager', rmNames);
-            } else {
-                tlQuery = tlQuery.eq('id', 'no-match-placeholder');
+            if (scopedCityOpsIds && scopedCityOpsIds.length > 0) {
+                allCityOps = allCityOps.filter(co => scopedCityOpsIds.includes(co.id));
+                const scopedRMs = allRms.filter(rm => scopedCityOpsIds.includes(rm.city_ops_id));
+                allTls = allTls.filter(tl => {
+                    if (scopedCityOpsIds.includes(tl.city_ops_id)) return true;
+                    return scopedRMs.some(rm => matchesReportingManager(tl.reporting_manager, rm.full_name, rm.id));
+                });
             }
 
-            const { data: allTls, error: tlError } = await tlQuery;
-            if (tlError) throw tlError;
-
-            const validTlIds = (allTls || []).map(tl => tl.id);
+            const validTlIds = allTls.map(tl => tl.id);
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 validTlIds.length > 0 ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: validTlIds, type: 'in' }) : fetchAllRidersPaginated('*', {column: 'id', value: ['invalid'], type:'in'}),
@@ -148,9 +131,9 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             if (dailyRes.error) throw dailyRes.error;
             if (todayLedgerRes.error) throw todayLedgerRes.error;
 
-            const weekly = {};
-            const daily = {};
-            const tlsWithTodaySnapshot = new Set();
+            const weekly: Record<string, number> = {};
+            const daily: Record<string, number> = {};
+            const liveTodayMap: Record<string, number> = {};
 
             dailyRes.data?.forEach(item => {
                 const tlId = item.team_leader_id;
@@ -160,7 +143,6 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     weekly[tlId] = (weekly[tlId] || 0) + amt;
                 }
                 if (dDateStr === todayStr) {
-                    tlsWithTodaySnapshot.add(tlId);
                     daily[tlId] = (daily[tlId] || 0) + amt;
                 }
             });
@@ -169,15 +151,17 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             todayLedger.forEach(txn => {
                 if (txn.rider?.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
-                    if (!tlsWithTodaySnapshot.has(tlId)) {
-                        daily[tlId] = (daily[tlId] || 0) + (Number(txn.amount) || 0);
-                    }
+                    liveTodayMap[tlId] = (liveTodayMap[tlId] || 0) + (Number(txn.amount) || 0);
                 }
             });
 
-            Object.keys(daily).forEach(tlId => {
-                if (!tlsWithTodaySnapshot.has(tlId)) {
-                    weekly[tlId] = (weekly[tlId] || 0) + (daily[tlId] || 0);
+            Object.keys(liveTodayMap).forEach(tlId => {
+                const liveAmt = liveTodayMap[tlId] || 0;
+                const snapAmt = daily[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    const diffAmt = liveAmt - snapAmt;
+                    daily[tlId] = liveAmt;
+                    weekly[tlId] = (weekly[tlId] || 0) + diffAmt;
                 }
             });
 
@@ -399,12 +383,15 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             const coId = co.id;
             
             // RMs under this City Ops
-            const coRMs = rawData.rms.filter(rm => rm.city_ops_id === coId);
-            const coRMNames = coRMs.map(rm => rm.fullName);
+            const coRMs = rawData.rms.filter(rm => rm.city_ops_id === coId || matchesReportingManager(rm.reporting_manager || rm.city_ops_name, coName, coId));
             const totalRMs = coRMs.length;
 
-            // TLs under those RMs
-            const assignedTLs = tlMetrics.filter(tl => coRMNames.includes((tl.reporting_manager || '').trim()));
+            // TLs under those RMs or directly under City Ops
+            const assignedTLs = tlMetrics.filter(tl => {
+                if (tl.city_ops_id && tl.city_ops_id === coId) return true;
+                if (matchesReportingManager(tl.reporting_manager, coName, coId)) return true;
+                return coRMs.some(rm => matchesReportingManager(tl.reporting_manager, rm.fullName, rm.id));
+            });
             
             const totalTLs = assignedTLs.length;
             const activeTLs = assignedTLs.filter(tl => tl.status === 'active').length;
