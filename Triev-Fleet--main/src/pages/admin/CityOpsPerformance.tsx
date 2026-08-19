@@ -65,17 +65,16 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
     });
 
     const [loading, setLoading] = useState<boolean>(true);
-    const [searchTerm, setSearchTerm] = useState<string>('');
-    const debouncedSearch = useDebounce(searchTerm, 300);
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
     const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
-    const [sortField, setSortField] = useState<string>('rank');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [expandedCoId, setExpandedCoId] = useState<string | null>(null);
-    const [expandedRMName, setExpandedRMName] = useState<string | null>(null);
-    const [isExporting, setIsExporting] = useState<boolean>(false);
-    const [exportFormat, setExportFormat] = useState<'excel' | 'pdf'>('excel');
+    const [selectedCityOps, setSelectedCityOps] = useState<string[]>([]);
+    const [coDropdownOpen, setCoDropdownOpen] = useState(false);
     const coDropdownRef = useRef<HTMLDivElement>(null);
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'rangeCollection', direction: 'desc' });
+    const [expandedCO, setExpandedCO] = useState<string | null>(null);
 
     const fetchData = async () => {
         setLoading(true);
