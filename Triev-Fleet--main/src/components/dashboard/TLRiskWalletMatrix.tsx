@@ -1116,7 +1116,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             {/* ── MAIN MATRIX DATA TABLE (EXACT GOOGLE SHEET LAYOUT) ── */}
             <GlassCard className="p-0 overflow-hidden shadow-2xl border border-border/80">
-                <div className="overflow-x-auto custom-scrollbar touch-pan-x">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-[#0b383e] text-white select-none">
                             {/* TOP OVERALL SUMMARY NUMBERS ROW (MATCHING GOOGLE SHEET TOP STATS ROW) */}
