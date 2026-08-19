@@ -1104,7 +1104,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             </GlassCard>
 
             {/* Mobile Scroll Helper Banner */}
-            <div className="block lg:hidden px-3 py-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-[11px] font-bold text-muted-foreground flex items-center justify-between border border-border/50">
+            <div className="flex lg:hidden px-3 py-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-[11px] font-bold text-muted-foreground items-center justify-between border border-border/50">
                 <span className="flex items-center gap-1.5">
                     <ArrowRight size={13} className="text-emerald-500 animate-pulse flex-shrink-0" />
                     <span>Swipe horizontally to view full matrix</span>
