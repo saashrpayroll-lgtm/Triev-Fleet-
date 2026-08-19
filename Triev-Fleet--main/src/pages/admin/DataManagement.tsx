@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
     FileSpreadsheet, Wallet, History, HelpCircle, FileText, AlertTriangle, 
     Trash2, RefreshCw, Download as DownloadIcon, Search, Sliders, Users, 
-    CheckCircle2, Pause, Play, Clock, Sparkles, ShieldCheck, Check, Table
+    CheckCircle2, Pause, Play, Clock, Sparkles, ShieldCheck, Check, Table,
+    Flame
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DataImport from '@/components/DataImport';
@@ -17,6 +18,7 @@ import RiderAuditModal from '@/components/RiderAuditModal';
 import ImportLogModal from '@/components/ImportLogModal';
 import ColumnMappingModal from '@/components/ColumnMappingModal';
 import StaffFilterSelectorModal from '@/components/StaffFilterSelectorModal';
+import { ZomatoVIPPopupControllerModal } from '@/components/admin/ZomatoVIPPopupControllerModal';
 import { RiderColumnMapping, LiveSyncStaffFilter, RiderImportConfig } from '@/types';
 
 import liveSheetAutoSync, { LiveSyncEngineStatus } from '@/services/LiveSheetAutoSyncService';
@@ -75,6 +77,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
     const [showAuditModal, setShowAuditModal] = useState(false);
     const [showColumnMappingModal, setShowColumnMappingModal] = useState(false);
     const [showStaffFilterModal, setShowStaffFilterModal] = useState(false);
+    const [showZomatoModal, setShowZomatoModal] = useState(false);
     const [selectedLogRecord, setSelectedLogRecord] = useState<any | null>(null);
     const [nextSyncCountdown, setNextSyncCountdown] = useState<number>(0);
     const [engineStatus, setEngineStatus] = useState<LiveSyncEngineStatus>(liveSheetAutoSync.getStatus());
@@ -569,79 +572,101 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                 {activeTab === 'gsheets' && (
                     <div className="space-y-6">
 
-                        {/* Top Action Cards for Column Mapping & Staff Filter */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Top Action Cards for Column Mapping, Staff Filter & Zomato VIP Pop-up Controller */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Card 1: Column Mapping Engine */}
-                            <GlassCard className="p-6 border-l-4 border-l-primary relative overflow-hidden group hover:border-primary transition-all">
+                            <GlassCard className="p-5 border-l-4 border-l-primary relative overflow-hidden group hover:border-primary transition-all">
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
-                                            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
-                                                <Table size={18} />
+                                            <div className="p-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                                                <Table size={16} />
                                             </div>
-                                            <h3 className="font-bold text-lg text-foreground">Column Mapping Engine</h3>
+                                            <h3 className="font-bold text-base text-foreground">Column Mapping</h3>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">Map Live Google Sheet columns to system Rider fields ONCE</p>
+                                        <p className="text-[11px] text-muted-foreground">Map Sheet columns to Rider fields</p>
                                     </div>
                                     <button
                                         onClick={() => setShowColumnMappingModal(true)}
-                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-md shadow-primary/20 flex items-center gap-1.5"
+                                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-md shadow-primary/20 flex items-center gap-1"
                                     >
-                                        <Sliders size={14} /> Map Columns
+                                        <Sliders size={13} /> Map
                                     </button>
                                 </div>
 
-                                <div className="mt-4 pt-3 border-t border-border/40 flex flex-wrap gap-2">
-                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
+                                <div className="mt-3 pt-2.5 border-t border-border/40 flex flex-wrap gap-1.5">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-accent/60 text-foreground font-mono">
                                         Key: <strong>{riderConfig.columnMapping?.primaryKey || 'Triev ID'}</strong>
                                     </span>
-                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
-                                        Name: <strong>{riderConfig.columnMapping?.riderName || 'Rider Name'}</strong>
-                                    </span>
-                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
-                                        Mobile: <strong>{riderConfig.columnMapping?.mobileNumber || 'Mobile Number'}</strong>
-                                    </span>
-                                    <span className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 text-foreground font-mono">
-                                        TL: <strong>{riderConfig.columnMapping?.teamLeader || 'Team Leader'}</strong>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-accent/60 text-foreground font-mono">
+                                        TL: <strong>{riderConfig.columnMapping?.teamLeader || 'TL Name'}</strong>
                                     </span>
                                 </div>
                             </GlassCard>
 
                             {/* Card 2: Staff Multi-Select Scope Filter */}
-                            <GlassCard className="p-6 border-l-4 border-l-purple-500 relative overflow-hidden group hover:border-purple-500 transition-all">
+                            <GlassCard className="p-5 border-l-4 border-l-purple-500 relative overflow-hidden group hover:border-purple-500 transition-all">
                                 <div className="flex items-start justify-between">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
-                                            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
-                                                <ShieldCheck size={18} />
+                                            <div className="p-1.5 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                                                <ShieldCheck size={16} />
                                             </div>
-                                            <h3 className="font-bold text-lg text-foreground">Staff Scope Multi-Filter</h3>
+                                            <h3 className="font-bold text-base text-foreground">Staff Filter Scope</h3>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">Select TLs, RMs & City Ops whose riders sync into system</p>
+                                        <p className="text-[11px] text-muted-foreground">Select TLs, RMs whose riders sync</p>
                                     </div>
                                     <button
                                         onClick={() => setShowStaffFilterModal(true)}
-                                        className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5"
+                                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 text-white hover:bg-purple-700 transition-all shadow-md shadow-purple-600/20 flex items-center gap-1"
                                     >
-                                        <Users size={14} /> Filter Staff
+                                        <Users size={13} /> Filter
                                     </button>
                                 </div>
 
-                                <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground">Filter Mode:</span>
+                                <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between text-[11px]">
+                                    <span className="text-muted-foreground">Scope:</span>
                                     {riderConfig.staffFilter?.syncAllStaff ? (
-                                        <span className="font-bold text-emerald-500 flex items-center gap-1">
-                                            <CheckCircle2 size={13} /> Global (All Registered Staff)
+                                        <span className="font-bold text-emerald-500 flex items-center gap-1 text-[11px]">
+                                            <CheckCircle2 size={12} /> Global Staff
                                         </span>
                                     ) : selectedStaffCount > 0 ? (
-                                        <span className="font-bold text-purple-500 flex items-center gap-1">
-                                            <Check size={13} /> Restricted to {selectedStaffCount} Selected Staff
+                                        <span className="font-bold text-purple-500 flex items-center gap-1 text-[11px]">
+                                            <Check size={12} /> {selectedStaffCount} Staff
                                         </span>
                                     ) : (
-                                        <span className="font-bold text-amber-500">
-                                            No Staff Filter Selected (All Staff Sync)
+                                        <span className="font-bold text-amber-500 text-[11px]">
+                                            All Registered Staff
                                         </span>
                                     )}
+                                </div>
+                            </GlassCard>
+
+                            {/* Card 3: Zomato VIP Pop-Up Controller */}
+                            <GlassCard className="p-5 border-l-4 border-l-rose-500 relative overflow-hidden group hover:border-rose-500 transition-all bg-gradient-to-br from-rose-500/5 to-transparent">
+                                <div className="flex items-start justify-between">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                                <Flame size={16} />
+                                            </div>
+                                            <h3 className="font-bold text-base text-foreground">Zomato Pop-Up Hub</h3>
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground">Manage limits, TL visibility & themes</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowZomatoModal(true)}
+                                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-all shadow-md shadow-rose-600/20 flex items-center gap-1"
+                                    >
+                                        <Sliders size={13} /> Controller
+                                    </button>
+                                </div>
+
+                                <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between text-[11px]">
+                                    <span className="text-muted-foreground">Status:</span>
+                                    <span className="font-bold text-rose-500 flex items-center gap-1">
+                                        <Sparkles size={12} /> Real-Time Sync Active
+                                    </span>
                                 </div>
                             </GlassCard>
                         </div>
@@ -1098,6 +1123,11 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                     setRiderConfig(updatedConfig);
                     saveSettings('rider', updatedConfig);
                 }}
+            />
+
+            <ZomatoVIPPopupControllerModal
+                isOpen={showZomatoModal}
+                onClose={() => setShowZomatoModal(false)}
             />
 
             <ImportLogModal

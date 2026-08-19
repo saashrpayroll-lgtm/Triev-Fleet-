@@ -34,6 +34,7 @@ import { computeEarnedBadges } from '@/utils/badges';
 import { getCallLink } from '@/utils/validationUtils';
 import AIReminderModal from '@/components/AIReminderModal';
 import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
+import { useZomatoVIPPopupConfig, filterZomatoEligibleRiders, isPopupVisibleForUser } from '@/hooks/useZomatoVIPPopupConfig';
 import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 import BulkCollectionModal from '@/components/BulkCollectionModal';
 import FieldCheckInModal from '@/components/FieldCheckInModal';
@@ -90,7 +91,8 @@ const Dashboard: React.FC = () => {
     const [selectedCallRider, setSelectedCallRider] = useState<Rider | null>(null);
     const [showElevenLabsModal, setShowElevenLabsModal] = useState(false);
 
-    // Zomato Alert State
+    // Zomato Alert State & Dynamic Admin Config
+    const { config: zomatoPopupConfig } = useZomatoVIPPopupConfig();
     const [showZomatoAlert, setShowZomatoAlert] = useState(false);
     const [hasShownZomatoAlert, setHasShownZomatoAlert] = useState(false);
 
@@ -268,6 +270,13 @@ const Dashboard: React.FC = () => {
             zomatoNegAmt: vipNeg.reduce((s, r) => s + r.walletAmount, 0),
         }
     }, [computedLeaderStats, leaderboardData.riders, userData?.id]);
+
+    const eligibleZomatoAlertRiders = React.useMemo(() => {
+        if (!userData?.id || !zomatoPopupConfig.isEnabled) return [];
+        if (!isPopupVisibleForUser(userData, zomatoPopupConfig)) return [];
+        const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id);
+        return filterZomatoEligibleRiders(myRiders, zomatoPopupConfig);
+    }, [leaderboardData.riders, userData, zomatoPopupConfig]);
 
     const earnedBadges = React.useMemo(() => {
         if (!userData || !leaderboardData.riders.length) return [];
@@ -491,13 +500,13 @@ const Dashboard: React.FC = () => {
         }
     }, [loading, stats]);
 
-    // Zomato Pop-up Effect
+    // Zomato Pop-up Effect (Controlled via Centralized Admin Config)
     useEffect(() => {
-        if (!loading && stats.zomatoNegCount > 0 && !hasShownZomatoAlert) {
+        if (!loading && zomatoPopupConfig.isEnabled && zomatoPopupConfig.enableAutoPopup && eligibleZomatoAlertRiders.length > 0 && !hasShownZomatoAlert) {
             setShowZomatoAlert(true);
             setHasShownZomatoAlert(true);
         }
-    }, [loading, stats.zomatoNegCount, hasShownZomatoAlert]);
+    }, [loading, eligibleZomatoAlertRiders.length, hasShownZomatoAlert, zomatoPopupConfig]);
 
     const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'analytics'>(() => {
         return (localStorage.getItem('tl_dashboard_v2_tab') as any) || 'overview';
@@ -597,7 +606,8 @@ const Dashboard: React.FC = () => {
             <ZomatoNegativeAlertModal
                 isOpen={showZomatoAlert}
                 onClose={() => setShowZomatoAlert(false)}
-                negativeRiders={leaderboardData.riders.filter(r => r.teamLeaderId === userData.id && r.status === 'active' && r.walletAmount <= 0 && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')))}
+                negativeRiders={eligibleZomatoAlertRiders}
+                config={zomatoPopupConfig}
             />
 
             {/* ─── HEADER ─── */}

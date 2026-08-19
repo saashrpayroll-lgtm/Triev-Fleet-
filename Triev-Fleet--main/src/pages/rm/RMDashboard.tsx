@@ -11,6 +11,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
+import { useZomatoVIPPopupConfig, filterZomatoEligibleRiders, isPopupVisibleForUser } from '@/hooks/useZomatoVIPPopupConfig';
 import LiveAlertCenter from '@/components/LiveAlertCenter';
 import AIVirtualOpsCopilot from '@/components/dashboard/AIVirtualOpsCopilot';
 
@@ -42,7 +43,8 @@ const RMDashboard: React.FC = () => {
     const [selectedBracket, setSelectedBracket] = React.useState<string | null>(null);
     const [bifurcationTlFilter, setBifurcationTlFilter] = React.useState<string>('all');
 
-    // Zomato Alert State
+    // Zomato Alert State & Admin Config
+    const { config: zomatoPopupConfig } = useZomatoVIPPopupConfig();
     const [showZomatoAlert, setShowZomatoAlert] = React.useState(false);
     const [hasShownZomatoAlert, setHasShownZomatoAlert] = React.useState(false);
 
@@ -202,13 +204,19 @@ const RMDashboard: React.FC = () => {
         };
     }, [teamLeaders, riders, leads, dailyCollections]);
 
-    // Zomato Auto Pop-up Effect
+    const eligibleZomatoAlertRiders = useMemo(() => {
+        if (!userData || !zomatoPopupConfig.isEnabled) return [];
+        if (!isPopupVisibleForUser(userData, zomatoPopupConfig)) return [];
+        return filterZomatoEligibleRiders(riders, zomatoPopupConfig);
+    }, [riders, userData, zomatoPopupConfig]);
+
+    // Zomato Auto Pop-up Effect (Controlled via Centralized Admin Config)
     React.useEffect(() => {
-        if (!loading && metrics.zomatoNegCount > 0 && !hasShownZomatoAlert) {
+        if (!loading && zomatoPopupConfig.isEnabled && zomatoPopupConfig.enableAutoPopup && eligibleZomatoAlertRiders.length > 0 && !hasShownZomatoAlert) {
             setShowZomatoAlert(true);
             setHasShownZomatoAlert(true);
         }
-    }, [loading, metrics.zomatoNegCount, hasShownZomatoAlert]);
+    }, [loading, eligibleZomatoAlertRiders.length, hasShownZomatoAlert, zomatoPopupConfig]);
 
     // Top 5 TL performance
     const topTLs = useMemo(() => {
@@ -267,7 +275,8 @@ const RMDashboard: React.FC = () => {
             <ZomatoNegativeAlertModal
                 isOpen={showZomatoAlert}
                 onClose={() => setShowZomatoAlert(false)}
-                negativeRiders={riders.filter(r => r.status === 'active' && r.walletAmount < 0 && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')))}
+                negativeRiders={eligibleZomatoAlertRiders}
+                config={zomatoPopupConfig}
             />
 
             {/* ── HEAVY DEFAULTERS MODAL ── */}
