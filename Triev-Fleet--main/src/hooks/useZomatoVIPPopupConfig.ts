@@ -161,9 +161,10 @@ export function useZomatoVIPPopupConfig() {
     useEffect(() => {
         fetchConfig();
 
-        // Realtime Subscription
+        // Realtime Subscription with Unique Channel Name per mount instance
+        const channelName = `zomato-popup-${Math.random().toString(36).substring(2, 9)}`;
         const channel = supabase
-            .channel('zomato-vip-popup-realtime')
+            .channel(channelName)
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
