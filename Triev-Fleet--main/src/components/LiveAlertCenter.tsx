@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, TrendingDown, Phone, X, RefreshCw, Bot, Bell } from 'lucide-react';
+import { AlertTriangle, TrendingDown, Phone, X, RefreshCw, Bot, Bell, MessageCircle, Sparkles } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { Rider } from '@/types';
+import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
+import { getCallLink, getWhatsAppLink } from '@/utils/validationUtils';
+import { toast } from 'sonner';
 
 interface AlertRider {
     id: string;
@@ -29,6 +33,24 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
     const [loading, setLoading] = useState(true);
     const [dismissed, setDismissed] = useState<Set<string>>(new Set());
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+    const [drawerOpen, setDrawerOpen] = useState(false);
+
+    // AI Reminder Modal State
+    const [selectedReminderRider, setSelectedReminderRider] = useState<Rider | null>(null);
+    const [reminderType, setReminderType] = useState<ReminderType>('low_balance');
+
+    const mapAlertToRider = (ar: AlertRider): Rider => ({
+        id: ar.id,
+        trievId: ar.triev_id || '',
+        riderName: ar.rider_name || 'Rider',
+        mobileNumber: ar.mobile_number || '',
+        chassisNumber: '',
+        clientName: '',
+        walletAmount: Number(ar.wallet_amount || 0),
+        status: (ar.status || 'active') as any,
+        allotmentDate: '',
+        createdAt: new Date().toISOString()
+    });
 
     const fetchAlertRiders = async () => {
         setLoading(true);
@@ -43,12 +65,12 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                 query = query.eq('team_leader_id', teamLeaderId);
             }
 
-            const { data, error } = await query.order('wallet_amount', { ascending: true }).limit(30);
+            const { data, error } = await query.order('wallet_amount', { ascending: true }).limit(50);
             if (error) throw error;
 
             const riders = data || [];
-            setNegativeRiders(riders.filter(r => r.wallet_amount < 0));
-            setLowBalanceRiders(riders.filter(r => r.wallet_amount >= 0 && r.wallet_amount < 250));
+            setNegativeRiders(riders.filter(r => Number(r.wallet_amount) < 0));
+            setLowBalanceRiders(riders.filter(r => Number(r.wallet_amount) >= 0 && Number(r.wallet_amount) < 250));
             setLastRefreshed(new Date());
         } catch (e) {
             console.error('[LiveAlertCenter] fetch failed:', e);
@@ -60,9 +82,10 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
     useEffect(() => {
         fetchAlertRiders();
 
-        // Realtime subscription
+        // Unique Realtime subscription
+        const channelName = `live-alert-riders-${Math.random().toString(36).substring(2, 9)}`;
         const channel = supabase
-            .channel('alert-center-riders')
+            .channel(channelName)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
                 fetchAlertRiders();
             })
@@ -81,7 +104,35 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
     const visibleNegative = negativeRiders.filter(r => !dismissed.has(r.id));
     const visibleLow = lowBalanceRiders.filter(r => !dismissed.has(r.id));
     const totalAlerts = visibleNegative.length + visibleLow.length;
-    const [drawerOpen, setDrawerOpen] = useState(false);
+
+    const handleOpenAIReminder = (ar: AlertRider, type: ReminderType) => {
+        setSelectedReminderRider(mapAlertToRider(ar));
+        setReminderType(type);
+    };
+
+    const handleCallRider = (phone: string) => {
+        if (!phone) {
+            toast.error('Mobile number not available');
+            return;
+        }
+        window.open(getCallLink(phone), '_self');
+    };
+
+    const handleDirectWhatsApp = (ar: AlertRider, isNegative: boolean) => {
+        if (!ar.mobile_number) {
+            toast.error('Mobile number not available');
+            return;
+        }
+        const phone = ar.mobile_number.replace(/\D/g, '');
+        const amt = Math.abs(ar.wallet_amount);
+        let msg = '';
+        if (isNegative) {
+            msg = `नमस्ते ${ar.rider_name}, आपका Triev वॉलेट बैलेंस ₹-${amt.toLocaleString('en-IN')} (Negative) है। कृपया अपनी सेवा जारी रखने के लिए तुरंत बकाया राशि का भुगतान करें। धन्यवाद! 🛵`;
+        } else {
+            msg = `नमस्ते ${ar.rider_name}, आपका Triev वॉलेट बैलेंस केवल ₹${ar.wallet_amount} है। निर्बाध राइडिंग के लिए कृपया तुरंत टॉप-अप करें और कम से कम ₹250 बैलेंस बनाए रखें। 🛵`;
+        }
+        window.open(getWhatsAppLink(phone, msg), '_blank');
+    };
 
     if (!loading && totalAlerts === 0) return null;
 
@@ -89,7 +140,7 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
 
     return (
         <>
-            {/* Sleek Compact Alert Bar (Only ~38px height) */}
+            {/* Sleek Compact Alert Bar */}
             <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -114,7 +165,7 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                             <span className="text-[11px] text-muted-foreground truncate hidden sm:inline">
                                 {visibleNegative.length > 0 && `${visibleNegative.length} Negative (₹${totalNegativeDebt.toLocaleString('en-IN')})`}
                                 {visibleNegative.length > 0 && visibleLow.length > 0 && ' • '}
-                                {visibleLow.length > 0 && `${visibleLow.length} Low Balance`}
+                                {visibleLow.length > 0 && `${visibleLow.length} Low Balance (<₹250)`}
                             </span>
                         </div>
                     </div>
@@ -131,7 +182,7 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                         )}
                         <button
                             onClick={() => setDrawerOpen(true)}
-                            className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[10px] font-black tracking-tight transition-all flex items-center gap-1 shadow-sm"
+                            className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[10px] font-black tracking-tight transition-all flex items-center gap-1 shadow-sm active:scale-95"
                         >
                             <Bell size={11} />
                             <span>View ({totalAlerts})</span>
@@ -152,7 +203,7 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                            className="relative w-full max-w-md h-full bg-card text-card-foreground shadow-2xl border-l border-red-500/20 flex flex-col overflow-hidden"
+                            className="relative w-full max-w-lg h-full bg-card text-card-foreground shadow-2xl border-l border-red-500/20 flex flex-col overflow-hidden"
                         >
                             {/* Drawer Header */}
                             <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-gradient-to-r from-red-500/10 to-amber-500/10">
@@ -161,7 +212,12 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                                         <Bell size={16} />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm font-black text-foreground">Live Alert Center</h3>
+                                        <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                                            Live Alert Center
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white font-mono">
+                                                {totalAlerts} Active
+                                            </span>
+                                        </h3>
                                         <p className="text-[10px] text-muted-foreground font-mono">
                                             Refreshed: {lastRefreshed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                         </p>
@@ -186,104 +242,191 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                             </div>
 
                             {/* Drawer Content Body */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
                                 {/* Negative Balance Section */}
                                 {visibleNegative.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between mb-1">
+                                    <div className="space-y-2.5">
+                                        <div className="flex items-center justify-between pb-1 border-b border-red-500/20">
                                             <div className="flex items-center gap-1.5">
-                                                <TrendingDown size={13} className="text-red-600 dark:text-red-400" />
-                                                <span className="text-[11px] font-black uppercase tracking-wider text-red-600 dark:text-red-400">
-                                                    Negative Wallet ({visibleNegative.length})
+                                                <TrendingDown size={14} className="text-red-600 dark:text-red-400" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400">
+                                                    Negative Balance ({visibleNegative.length})
                                                 </span>
                                             </div>
-                                            {portalBase === '/portal' && (
-                                                <Link
-                                                    to={`${portalBase}/ai-calling`}
-                                                    onClick={() => setDrawerOpen(false)}
-                                                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-red-600 dark:text-red-300 text-[9px] font-bold"
-                                                >
-                                                    <Bot size={10} />
-                                                    AI Call All
-                                                </Link>
-                                            )}
+                                            <span className="text-[11px] font-mono font-black text-red-600 dark:text-red-400">
+                                                ₹{totalNegativeDebt.toLocaleString('en-IN')} Total Debt
+                                            </span>
                                         </div>
 
                                         <div className="space-y-2">
-                                            {visibleNegative.map((rider) => (
-                                                <div
-                                                    key={rider.id}
-                                                    className="flex items-center gap-3 p-3 rounded-xl bg-red-500/10 dark:bg-red-950/30 border border-red-500/20"
-                                                >
+                                            {visibleNegative.map((rider) => {
+                                                const isCritical = Number(rider.wallet_amount) <= -699;
+                                                return (
                                                     <div
-                                                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black shrink-0 shadow-sm"
-                                                        style={{ background: `hsl(${rider.rider_name?.charCodeAt(0) * 47 % 360}, 60%, 38%)` }}
+                                                        key={rider.id}
+                                                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 p-3 rounded-2xl border transition-all ${
+                                                            isCritical
+                                                                ? 'bg-red-500/10 dark:bg-red-950/40 border-red-500/30'
+                                                                : 'bg-rose-500/5 dark:bg-rose-950/20 border-rose-500/20'
+                                                        }`}
                                                     >
-                                                        {rider.rider_name?.slice(0, 2).toUpperCase() || '??'}
+                                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                            <div
+                                                                className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 shadow-sm"
+                                                                style={{ background: isCritical ? '#dc2626' : '#ea580c' }}
+                                                            >
+                                                                {rider.rider_name?.slice(0, 2).toUpperCase() || '??'}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <p className="text-xs font-bold text-foreground truncate">{rider.rider_name}</p>
+                                                                    {isCritical && (
+                                                                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-red-600 text-white shrink-0">
+                                                                            CRITICAL
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground font-mono">
+                                                                    {rider.triev_id} · {rider.mobile_number}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                                                            <span className="text-red-600 dark:text-red-400 font-black text-xs font-mono">
+                                                                -₹{Math.abs(rider.wallet_amount).toLocaleString('en-IN')}
+                                                            </span>
+
+                                                            <div className="flex items-center gap-1">
+                                                                {/* 1-Click Call Button */}
+                                                                <button
+                                                                    onClick={() => handleCallRider(rider.mobile_number)}
+                                                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-all active:scale-95 shadow-sm border border-emerald-500/20"
+                                                                    title="Direct Call"
+                                                                >
+                                                                    <Phone size={12} />
+                                                                    <span className="hidden sm:inline">Call</span>
+                                                                </button>
+
+                                                                {/* 1-Click AI Reminder WhatsApp Button */}
+                                                                <button
+                                                                    onClick={() => handleOpenAIReminder(rider, isCritical ? 'critical' : 'warning')}
+                                                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all active:scale-95 shadow-sm shadow-emerald-600/20"
+                                                                    title="AI WhatsApp Reminder Modal"
+                                                                >
+                                                                    <Sparkles size={12} />
+                                                                    <MessageCircle size={12} />
+                                                                    <span className="hidden sm:inline">AI WA</span>
+                                                                </button>
+
+                                                                {/* Quick Direct WA */}
+                                                                <button
+                                                                    onClick={() => handleDirectWhatsApp(rider, true)}
+                                                                    className="p-1.5 rounded-xl bg-green-500/15 hover:bg-green-500/25 text-green-600 dark:text-green-400 transition-colors"
+                                                                    title="Quick Direct WhatsApp"
+                                                                >
+                                                                    <MessageCircle size={13} />
+                                                                </button>
+
+                                                                {/* Dismiss Button */}
+                                                                <button
+                                                                    onClick={() => setDismissed(d => new Set([...d, rider.id]))}
+                                                                    className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                                                    title="Dismiss alert"
+                                                                >
+                                                                    <X size={13} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-bold text-foreground truncate">{rider.rider_name}</p>
-                                                        <p className="text-[10px] text-muted-foreground">{rider.triev_id} · {rider.mobile_number}</p>
-                                                    </div>
-                                                    <span className="text-red-600 dark:text-red-400 font-black text-xs shrink-0 font-mono">
-                                                        -₹{Math.abs(rider.wallet_amount).toLocaleString('en-IN')}
-                                                    </span>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <a
-                                                            href={`tel:${rider.mobile_number}`}
-                                                            className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 transition-colors"
-                                                            title="Call Rider"
-                                                        >
-                                                            <Phone size={12} />
-                                                        </a>
-                                                        <button
-                                                            onClick={() => setDismissed(d => new Set([...d, rider.id]))}
-                                                            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                                            title="Dismiss alert"
-                                                        >
-                                                            <X size={11} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Low Balance Section */}
                                 {visibleLow.length > 0 && (
-                                    <div className="space-y-2 pt-2 border-t border-border/40">
-                                        <div className="flex items-center gap-1.5 mb-1">
-                                            <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400" />
-                                            <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                                                Low Balance &lt;₹250 ({visibleLow.length})
+                                    <div className="space-y-2.5 pt-2 border-t border-border/40">
+                                        <div className="flex items-center justify-between pb-1 border-b border-amber-500/20">
+                                            <div className="flex items-center gap-1.5">
+                                                <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400" />
+                                                <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                                                    Low Balance &lt; ₹250 ({visibleLow.length})
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground font-medium">
+                                                Positive ₹0 - ₹249 Top-Up Required
                                             </span>
                                         </div>
+
                                         <div className="space-y-2">
                                             {visibleLow.map((rider) => (
                                                 <div
                                                     key={rider.id}
-                                                    className="flex items-center gap-3 p-2.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20"
+                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 transition-all"
                                                 >
-                                                    <div
-                                                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[9px] font-black shrink-0"
-                                                        style={{ background: `hsl(${rider.rider_name?.charCodeAt(0) * 47 % 360}, 60%, 38%)` }}
-                                                    >
-                                                        {rider.rider_name?.charAt(0).toUpperCase() || '?'}
+                                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                        <div
+                                                            className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 shadow-sm"
+                                                            style={{ background: '#d97706' }}
+                                                        >
+                                                            {rider.rider_name?.charAt(0).toUpperCase() || '?'}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-bold text-foreground truncate">{rider.rider_name}</p>
+                                                            <p className="text-[10px] text-muted-foreground font-mono">
+                                                                {rider.triev_id} · {rider.mobile_number}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-bold text-foreground truncate">{rider.rider_name}</p>
-                                                        <p className="text-[9px] text-muted-foreground">{rider.mobile_number}</p>
+
+                                                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                                                        <span className="text-amber-700 dark:text-amber-400 font-bold text-xs font-mono">
+                                                            ₹{rider.wallet_amount}
+                                                        </span>
+
+                                                        <div className="flex items-center gap-1">
+                                                            {/* 1-Click Call Button */}
+                                                            <button
+                                                                onClick={() => handleCallRider(rider.mobile_number)}
+                                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-all active:scale-95 shadow-sm border border-emerald-500/20"
+                                                                title="Direct Call"
+                                                            >
+                                                                <Phone size={12} />
+                                                                <span className="hidden sm:inline">Call</span>
+                                                            </button>
+
+                                                            {/* 1-Click AI Reminder WhatsApp Button */}
+                                                            <button
+                                                                onClick={() => handleOpenAIReminder(rider, 'low_balance')}
+                                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all active:scale-95 shadow-sm shadow-amber-500/20"
+                                                                title="AI Low Balance Reminder Modal"
+                                                            >
+                                                                <Sparkles size={12} />
+                                                                <MessageCircle size={12} />
+                                                                <span className="hidden sm:inline">AI WA</span>
+                                                            </button>
+
+                                                            {/* Quick Direct WA */}
+                                                            <button
+                                                                onClick={() => handleDirectWhatsApp(rider, false)}
+                                                                className="p-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 transition-colors"
+                                                                title="Quick Direct WhatsApp"
+                                                            >
+                                                                <MessageCircle size={13} />
+                                                            </button>
+
+                                                            {/* Dismiss Button */}
+                                                            <button
+                                                                onClick={() => setDismissed(d => new Set([...d, rider.id]))}
+                                                                className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                                                title="Dismiss alert"
+                                                            >
+                                                                <X size={13} />
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-amber-700 dark:text-amber-400 font-bold text-xs shrink-0 font-mono">
-                                                        ₹{rider.wallet_amount}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => setDismissed(d => new Set([...d, rider.id]))}
-                                                        className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                                    >
-                                                        <X size={11} />
-                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
@@ -305,6 +448,16 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Global AI Reminder Modal Integration for Live Alerts */}
+            {selectedReminderRider && (
+                <AIReminderModal
+                    rider={selectedReminderRider}
+                    type={reminderType}
+                    isOpen={Boolean(selectedReminderRider)}
+                    onClose={() => setSelectedReminderRider(null)}
+                />
+            )}
         </>
     );
 };
