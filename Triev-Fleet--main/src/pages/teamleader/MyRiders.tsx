@@ -88,25 +88,32 @@ const MyRiders: React.FC = () => {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapRiderFromDB = (data: any): Rider => ({
-        id: data.id,
-        trievId: data.triev_id,
-        riderName: data.rider_name,
-        mobileNumber: data.mobile_number,
-        chassisNumber: data.chassis_number,
-        clientName: data.client_name,
-        clientId: data.client_id,
-        walletAmount: data.status === 'active' ? data.wallet_amount : 0,
-        allotmentDate: getValidAllotmentDate(data.allotment_date, data.created_at),
-        remarks: data.remarks,
-        status: data.status,
-        teamLeaderId: data.team_leader_id,
-        teamLeaderName: data.team_leader_name,
-        comments: data.comments,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-        deletedAt: data.deleted_at
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapRiderFromDB = (data: any): Rider => {
+        const rawAmt = data.wallet_amount ?? data.walletAmount ?? 0;
+        const numAmt = typeof rawAmt === 'number' ? rawAmt : (parseFloat(String(rawAmt).replace(/[^0-9.-]+/g, '')) || 0);
+        const normStatus = String(data.status || 'active').trim().toLowerCase() as RiderStatus;
+
+        return {
+            id: data.id,
+            trievId: data.triev_id || data.trievId || '',
+            riderName: data.rider_name || data.riderName || '',
+            mobileNumber: data.mobile_number || data.mobileNumber || '',
+            chassisNumber: data.chassis_number || data.chassisNumber || '',
+            clientName: data.client_name || data.clientName || '',
+            clientId: data.client_id || data.clientId || '',
+            walletAmount: numAmt,
+            allotmentDate: getValidAllotmentDate(data.allotment_date || data.allotmentDate, data.created_at || data.createdAt),
+            remarks: data.remarks || '',
+            status: normStatus,
+            teamLeaderId: data.team_leader_id || data.teamLeaderId || '',
+            teamLeaderName: data.team_leader_name || data.teamLeaderName || '',
+            comments: data.comments || '',
+            createdAt: data.created_at || data.createdAt,
+            updatedAt: data.updated_at || data.updatedAt,
+            deletedAt: data.deleted_at || data.deletedAt
+        };
+    };
 
     const mapRiderToDB = (rider: Partial<Rider>) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,19 +141,19 @@ const MyRiders: React.FC = () => {
         try {
             setLoading(true);
 
-            // 1. Fetch Riders (Using multi-ID and cleanName matching to ensure 100% parity with TL Risk Matrix Dashboard)
-            const { data, error } = await fetchAllRidersPaginated('*');
+            // 1. Targeted fetch: ONLY this TL's riders directly by team_leader_id from database
+            let { data, error } = await fetchAllRidersPaginated('*', { column: 'team_leader_id', value: userData.id });
             if (error) throw error;
 
-            const userObj = userData as any;
-            const cleanUser = (userObj?.fullName || userObj?.full_name || userObj?.email || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
-
-            const tlRiders = (data || []).filter((r: any) => {
-                const rTlId = r.team_leader_id || r.teamLeaderId;
-                if (rTlId && (rTlId === userObj?.id || rTlId === userObj?.userId || rTlId === userObj?.user_id)) return true;
-                const rTlName = (r.team_leader_name || r.team_leader || r.teamLeaderName || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
-                return Boolean(rTlName && cleanUser && rTlName === cleanUser);
-            });
+            let tlRiders = data || [];
+            if (tlRiders.length === 0) {
+                const userObj = userData as any;
+                const cleanUser = (userObj?.fullName || userObj?.full_name || userObj?.email || '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+                if (cleanUser) {
+                    const { data: nameData } = await fetchAllRidersPaginated('*', { column: 'team_leader_name', value: cleanUser });
+                    tlRiders = nameData || [];
+                }
+            }
 
             const fetchedRiders = tlRiders.map(mapRiderFromDB);
             setRiders(fetchedRiders);
@@ -160,7 +167,7 @@ const MyRiders: React.FC = () => {
 
             const { data: ledgerData, error: ledgerError } = await supabase
                 .from('wallet_ledger')
-                .select('amount, rider:riders!inner(id, team_leader_id)')
+                .select('amount, rider_id, rider:riders!inner(id, team_leader_id)')
                 .eq('mode', 'ADD')
                 .eq('rider.team_leader_id', userData.id)
                 .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
@@ -168,8 +175,8 @@ const MyRiders: React.FC = () => {
 
             if (!ledgerError && ledgerData) {
                 const liveTodayByRider: Record<string, number> = {};
-                ledgerData.forEach(txn => {
-                    const riderId = (txn.rider as any)?.id;
+                ledgerData.forEach((txn: any) => {
+                    const riderId = txn.rider_id || txn.rider?.id;
                     if (riderId) {
                         liveTodayByRider[riderId] = (liveTodayByRider[riderId] || 0) + (Number(txn.amount) || 0);
                     }
@@ -182,7 +189,7 @@ const MyRiders: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [userData, mapRiderFromDB]);
+    }, [userData]);
 
     const filterRiders = React.useCallback(() => {
         let filtered = [...riders];
@@ -539,7 +546,7 @@ const MyRiders: React.FC = () => {
                             {riders.filter(r => r.status === 'active' && r.walletAmount < 0).length} Negative
                         </span>
                         <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border" style={{ background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-                            {riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250).length} Low Balance
+                            {riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250).length} Low Balance
                         </span>
                         {canAddRider && (
                             <button

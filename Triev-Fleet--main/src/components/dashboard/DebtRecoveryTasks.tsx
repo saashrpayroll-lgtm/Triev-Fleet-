@@ -25,19 +25,26 @@ const DebtRecoveryTasks: React.FC<DebtRecoveryTasksProps> = ({ riders, todayColl
     // New modal state (for low_balance)
     const [reminderModalRider, setReminderModalRider] = useState<Rider | null>(null);
 
-    // Derived Lists
-    const criticalRiders = riders.filter(r => r.walletAmount <= CRITICAL_THRESHOLD && r.status === 'active');
-    const warningRiders = riders.filter(r => r.walletAmount < 0 && r.walletAmount > CRITICAL_THRESHOLD && r.status === 'active');
+    // Helper functions for safe calculation
+    const getAmt = (r: Rider) => {
+        const raw = r.walletAmount ?? (r as any).wallet_amount ?? 0;
+        return typeof raw === 'number' ? raw : (parseFloat(String(raw).replace(/[^0-9.-]+/g, '')) || 0);
+    };
+    const getSt = (r: Rider) => String(r.status || '').trim().toLowerCase();
+
+    // Derived Lists with safe fallback checks
+    const criticalRiders = riders.filter(r => getAmt(r) <= CRITICAL_THRESHOLD && getSt(r) === 'active');
+    const warningRiders = riders.filter(r => getAmt(r) < 0 && getAmt(r) > CRITICAL_THRESHOLD && getSt(r) === 'active');
 
     // Zero Collection: Active riders who haven't paid anything today and have a balance <= 0
     const zeroCollectionRiders = riders.filter(r => {
-        if (r.status !== 'active') return false;
-        const paidToday = todayCollections[r.id] || 0;
-        return paidToday <= 0 && r.walletAmount <= 0;
+        if (getSt(r) !== 'active') return false;
+        const paidToday = (todayCollections[r.id] || (r.trievId ? todayCollections[r.trievId] : 0) || 0);
+        return paidToday <= 0 && getAmt(r) <= 0;
     });
 
-    const inactiveRiders = riders.filter(r => r.status === 'inactive');
-    const lowBalanceRiders = riders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount <= 250);
+    const inactiveRiders = riders.filter(r => getSt(r) === 'inactive');
+    const lowBalanceRiders = riders.filter(r => getSt(r) === 'active' && getAmt(r) >= 0 && getAmt(r) <= 250);
 
     const activeList = activeTab === 'critical' ? criticalRiders
         : activeTab === 'warning' ? warningRiders

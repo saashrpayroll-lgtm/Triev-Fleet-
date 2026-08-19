@@ -339,21 +339,27 @@ const Dashboard: React.FC = () => {
             const { data: allRidersData } = await fetchAllRidersPaginated(
                 'id, triev_id, status, rider_name, mobile_number, wallet_amount, team_leader_id, allotment_date, inactivated_at, created_at, updated_at, chassis_number, client_name'
             );
-            const allRiders = (allRidersData || []).map((r: any) => ({
-                id: r.id,
-                trievId: r.triev_id || '',
-                status: r.status,
-                riderName: r.rider_name,
-                mobileNumber: r.mobile_number,
-                walletAmount: r.status === 'active' ? r.wallet_amount : 0,
-                teamLeaderId: r.team_leader_id,
-                allotmentDate: r.allotment_date,
-                inactivatedAt: r.inactivated_at,
-                createdAt: r.created_at,
-                updatedAt: r.updated_at,
-                chassisNumber: r.chassis_number,
-                clientName: r.client_name || ''
-            })) as Rider[];
+            const allRiders = (allRidersData || []).map((r: any) => {
+                const rawAmt = r.wallet_amount ?? r.walletAmount ?? 0;
+                const numAmt = typeof rawAmt === 'number' ? rawAmt : (parseFloat(String(rawAmt).replace(/[^0-9.-]+/g, '')) || 0);
+                const normStatus = String(r.status || 'active').trim().toLowerCase() as RiderStatus;
+
+                return {
+                    id: r.id,
+                    trievId: r.triev_id || r.trievId || '',
+                    status: normStatus,
+                    riderName: r.rider_name || r.riderName || '',
+                    mobileNumber: r.mobile_number || r.mobileNumber || '',
+                    walletAmount: numAmt,
+                    teamLeaderId: r.team_leader_id || r.teamLeaderId || '',
+                    allotmentDate: r.allotment_date,
+                    inactivatedAt: r.inactivated_at,
+                    createdAt: r.created_at,
+                    updatedAt: r.updated_at,
+                    chassisNumber: r.chassis_number || '',
+                    clientName: r.client_name || ''
+                };
+            }) as Rider[];
 
             const { data: allLeadsData } = await supabase.from('leads').select('*');
             const allLeads = ((allLeadsData || [])).map(mapLeadFromDB);
@@ -361,7 +367,6 @@ const Dashboard: React.FC = () => {
             setLeaderboardData({ teamLeaders: allTls, riders: allRiders, leads: allLeads });
 
             // 4. Fetch Collections for Leaderboard (History + Today)
-            // 4. Fetch Collections for Leaderboard
             // Use same robust transaction_date vs created_at logic as Admin
             const fallbackOrQuery = (() => {
                 const now = new Date();
@@ -375,7 +380,7 @@ const Dashboard: React.FC = () => {
                 supabase.from('daily_collections').select('team_leader_id, date, total_collection, active_riders_count'),
                 supabase
                     .from('wallet_ledger')
-                    .select('amount, rider:riders!inner(id, team_leader_id)')
+                    .select('amount, rider_id, rider:riders!inner(id, team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
                     .or(fallbackOrQuery)
@@ -406,18 +411,16 @@ const Dashboard: React.FC = () => {
             const liveTodayByRider: Record<string, number> = {};
 
             todayLedger.forEach(txn => {
-                if (txn.rider && txn.rider.team_leader_id) {
-                    const tlId = txn.rider.team_leader_id;
-                    const riderId = txn.rider.id;
-                    const amount = Number(txn.amount) || 0;
+                const tlId = txn.rider?.team_leader_id;
+                const riderId = txn.rider_id || txn.rider?.id;
+                const amount = Number(txn.amount) || 0;
 
-                    if (!tlsWithTodaySnapshot.has(tlId)) {
-                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + amount;
-                    }
+                if (tlId && !tlsWithTodaySnapshot.has(tlId)) {
+                    liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + amount;
+                }
 
-                    if (riderId) {
-                        liveTodayByRider[riderId] = (liveTodayByRider[riderId] || 0) + amount;
-                    }
+                if (riderId) {
+                    liveTodayByRider[riderId] = (liveTodayByRider[riderId] || 0) + amount;
                 }
             });
 
