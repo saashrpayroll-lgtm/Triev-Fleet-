@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldAlert, Phone, MessageCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import { X, ShieldAlert, Phone, MessageCircle } from 'lucide-react';
 import { Rider } from '@/types';
 import { safeRender } from '@/utils/safeRender';
 import { ZomatoVIPPopupConfig, useZomatoVIPPopupConfig, ZomatoThemeColor } from '@/hooks/useZomatoVIPPopupConfig';

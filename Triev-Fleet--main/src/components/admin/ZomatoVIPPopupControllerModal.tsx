@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    X, ShieldAlert, Sparkles, Settings2, Sliders, Palette, Users,
-    Check, AlertTriangle, Eye, RefreshCw, Save, CheckCircle2,
-    Search, UserCheck, UserX, ArrowRight, ShieldCheck, Flame
+    X, Sparkles, Sliders, Palette, Users,
+    Check, Eye, RefreshCw, Save,
+    Search, Flame
 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { User, Rider } from '@/types';
@@ -32,7 +32,7 @@ const THEME_OPTIONS: { id: ZomatoThemeColor; name: string; gradient: string; dot
 const PRESET_THRESHOLDS = [0, -250, -500, -1000, -1500, -2000];
 
 export const ZomatoVIPPopupControllerModal: React.FC<Props> = ({ isOpen, onClose }) => {
-    const { config: remoteConfig, saveConfig, loading: configLoading } = useZomatoVIPPopupConfig();
+    const { config: remoteConfig, saveConfig } = useZomatoVIPPopupConfig();
     const [localConfig, setLocalConfig] = useState<ZomatoVIPPopupConfig>(DEFAULT_ZOMATO_POPUP_CONFIG);
     const [activeTab, setActiveTab] = useState<'rules' | 'visibility' | 'style' | 'preview'>('rules');
 
