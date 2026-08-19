@@ -34,7 +34,14 @@ import { computeEarnedBadges } from '@/utils/badges';
 import { getCallLink } from '@/utils/validationUtils';
 import AIReminderModal from '@/components/AIReminderModal';
 import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
-import { useZomatoVIPPopupConfig, filterZomatoEligibleRiders, isPopupVisibleForUser } from '@/hooks/useZomatoVIPPopupConfig';
+import ZomatoLowBalanceAlertModal from '@/components/ZomatoLowBalanceAlertModal';
+import {
+    useZomatoVIPPopupConfig,
+    filterZomatoEligibleRiders,
+    filterZomatoLowBalanceRiders,
+    isPopupVisibleForUser,
+    isLowBalancePopupVisibleForUser
+} from '@/hooks/useZomatoVIPPopupConfig';
 import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 import BulkCollectionModal from '@/components/BulkCollectionModal';
 import FieldCheckInModal from '@/components/FieldCheckInModal';
@@ -92,9 +99,11 @@ const Dashboard: React.FC = () => {
     const [showElevenLabsModal, setShowElevenLabsModal] = useState(false);
 
     // Zomato Alert State & Dynamic Admin Config
-    const { config: zomatoPopupConfig } = useZomatoVIPPopupConfig();
+    const { negativeConfig: zomatoPopupConfig, lowBalanceConfig: zomatoLBPopupConfig } = useZomatoVIPPopupConfig();
     const [showZomatoAlert, setShowZomatoAlert] = useState(false);
     const [hasShownZomatoAlert, setHasShownZomatoAlert] = useState(false);
+    const [showZomatoLBAlert, setShowZomatoLBAlert] = useState(false);
+    const [hasShownZomatoLBAlert, setHasShownZomatoLBAlert] = useState(false);
 
     // Bulk Collection & Field Check-In Helper States
     const [showBulkCollectionModal, setShowBulkCollectionModal] = useState(false);
@@ -277,6 +286,13 @@ const Dashboard: React.FC = () => {
         const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id);
         return filterZomatoEligibleRiders(myRiders, zomatoPopupConfig);
     }, [leaderboardData.riders, userData, zomatoPopupConfig]);
+
+    const eligibleZomatoLBAlertRiders = React.useMemo(() => {
+        if (!userData?.id || !zomatoLBPopupConfig.isEnabled) return [];
+        if (!isLowBalancePopupVisibleForUser(userData, zomatoLBPopupConfig)) return [];
+        const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData.id);
+        return filterZomatoLowBalanceRiders(myRiders, zomatoLBPopupConfig);
+    }, [leaderboardData.riders, userData, zomatoLBPopupConfig]);
 
     const earnedBadges = React.useMemo(() => {
         if (!userData || !leaderboardData.riders.length) return [];
@@ -508,8 +524,11 @@ const Dashboard: React.FC = () => {
         if (!loading && zomatoPopupConfig.isEnabled && zomatoPopupConfig.enableAutoPopup && eligibleZomatoAlertRiders.length > 0 && !hasShownZomatoAlert) {
             setShowZomatoAlert(true);
             setHasShownZomatoAlert(true);
+        } else if (!loading && zomatoLBPopupConfig.isEnabled && zomatoLBPopupConfig.enableAutoPopup && eligibleZomatoLBAlertRiders.length > 0 && !hasShownZomatoLBAlert) {
+            setShowZomatoLBAlert(true);
+            setHasShownZomatoLBAlert(true);
         }
-    }, [loading, eligibleZomatoAlertRiders.length, hasShownZomatoAlert, zomatoPopupConfig]);
+    }, [loading, eligibleZomatoAlertRiders.length, eligibleZomatoLBAlertRiders.length, hasShownZomatoAlert, hasShownZomatoLBAlert, zomatoPopupConfig, zomatoLBPopupConfig]);
 
     const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'analytics'>(() => {
         return (localStorage.getItem('tl_dashboard_v2_tab') as any) || 'overview';
@@ -611,6 +630,13 @@ const Dashboard: React.FC = () => {
                 onClose={() => setShowZomatoAlert(false)}
                 negativeRiders={eligibleZomatoAlertRiders}
                 config={zomatoPopupConfig}
+            />
+
+            <ZomatoLowBalanceAlertModal
+                isOpen={showZomatoLBAlert}
+                onClose={() => setShowZomatoLBAlert(false)}
+                lowBalanceRiders={eligibleZomatoLBAlertRiders}
+                config={zomatoLBPopupConfig}
             />
 
             {/* ─── HEADER ─── */}

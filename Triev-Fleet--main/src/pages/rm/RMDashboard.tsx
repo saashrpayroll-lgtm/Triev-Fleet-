@@ -11,7 +11,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import ZomatoNegativeAlertModal from '@/components/ZomatoNegativeAlertModal';
-import { useZomatoVIPPopupConfig, filterZomatoEligibleRiders, isPopupVisibleForUser } from '@/hooks/useZomatoVIPPopupConfig';
+import ZomatoLowBalanceAlertModal from '@/components/ZomatoLowBalanceAlertModal';
+import {
+    useZomatoVIPPopupConfig,
+    filterZomatoEligibleRiders,
+    filterZomatoLowBalanceRiders,
+    isPopupVisibleForUser,
+    isLowBalancePopupVisibleForUser
+} from '@/hooks/useZomatoVIPPopupConfig';
 import LiveAlertCenter from '@/components/LiveAlertCenter';
 import AIVirtualOpsCopilot from '@/components/dashboard/AIVirtualOpsCopilot';
 
@@ -44,9 +51,11 @@ const RMDashboard: React.FC = () => {
     const [bifurcationTlFilter, setBifurcationTlFilter] = React.useState<string>('all');
 
     // Zomato Alert State & Admin Config
-    const { config: zomatoPopupConfig } = useZomatoVIPPopupConfig();
+    const { negativeConfig: zomatoPopupConfig, lowBalanceConfig: zomatoLBPopupConfig } = useZomatoVIPPopupConfig();
     const [showZomatoAlert, setShowZomatoAlert] = React.useState(false);
     const [hasShownZomatoAlert, setHasShownZomatoAlert] = React.useState(false);
+    const [showZomatoLBAlert, setShowZomatoLBAlert] = React.useState(false);
+    const [hasShownZomatoLBAlert, setHasShownZomatoLBAlert] = React.useState(false);
 
     React.useEffect(() => {
         const fetchHRForm = async () => {
@@ -210,13 +219,22 @@ const RMDashboard: React.FC = () => {
         return filterZomatoEligibleRiders(riders, zomatoPopupConfig);
     }, [riders, userData, zomatoPopupConfig]);
 
+    const eligibleZomatoLBAlertRiders = useMemo(() => {
+        if (!userData || !zomatoLBPopupConfig.isEnabled) return [];
+        if (!isLowBalancePopupVisibleForUser(userData, zomatoLBPopupConfig)) return [];
+        return filterZomatoLowBalanceRiders(riders, zomatoLBPopupConfig);
+    }, [riders, userData, zomatoLBPopupConfig]);
+
     // Zomato Auto Pop-up Effect (Controlled via Centralized Admin Config)
     React.useEffect(() => {
         if (!loading && zomatoPopupConfig.isEnabled && zomatoPopupConfig.enableAutoPopup && eligibleZomatoAlertRiders.length > 0 && !hasShownZomatoAlert) {
             setShowZomatoAlert(true);
             setHasShownZomatoAlert(true);
+        } else if (!loading && zomatoLBPopupConfig.isEnabled && zomatoLBPopupConfig.enableAutoPopup && eligibleZomatoLBAlertRiders.length > 0 && !hasShownZomatoLBAlert) {
+            setShowZomatoLBAlert(true);
+            setHasShownZomatoLBAlert(true);
         }
-    }, [loading, eligibleZomatoAlertRiders.length, hasShownZomatoAlert, zomatoPopupConfig]);
+    }, [loading, eligibleZomatoAlertRiders.length, eligibleZomatoLBAlertRiders.length, hasShownZomatoAlert, hasShownZomatoLBAlert, zomatoPopupConfig, zomatoLBPopupConfig]);
 
     // Top 5 TL performance
     const topTLs = useMemo(() => {
@@ -277,6 +295,14 @@ const RMDashboard: React.FC = () => {
                 onClose={() => setShowZomatoAlert(false)}
                 negativeRiders={eligibleZomatoAlertRiders}
                 config={zomatoPopupConfig}
+            />
+
+            {/* ── ZOMATO VIP LOW BALANCE POP-UP ── */}
+            <ZomatoLowBalanceAlertModal
+                isOpen={showZomatoLBAlert}
+                onClose={() => setShowZomatoLBAlert(false)}
+                lowBalanceRiders={eligibleZomatoLBAlertRiders}
+                config={zomatoLBPopupConfig}
             />
 
             {/* ── HEAVY DEFAULTERS MODAL ── */}
