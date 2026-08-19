@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
 import { Star, Users, Wallet, Zap, Activity, Shield, UserCheck, UserX, Sparkles, AlertTriangle, FileText, TrendingUp, X, Phone, MessageCircle, Bot, Trophy } from 'lucide-react';
-import { Rider, User, Lead } from '@/types';
+import { Rider, User, Lead, RiderStatus } from '@/types';
 import Leaderboard from '@/components/Leaderboard';
 import SmartMetricCard from '@/components/dashboard/SmartMetricCard';
 import TodaysCollectionCard from '@/components/dashboard/TodaysCollectionCard';

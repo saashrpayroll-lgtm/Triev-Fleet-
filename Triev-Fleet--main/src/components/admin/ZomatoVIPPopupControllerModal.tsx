@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     X, Sparkles, Palette, Users,
     Check, Eye, RefreshCw, Save,
-    Search, Flame, Zap, AlertTriangle
+    Search, Flame, Zap
 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { User, Rider } from '@/types';
