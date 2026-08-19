@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
     Search, FileSpreadsheet, FileText, 
     RefreshCw, Filter, Sparkles, AlertTriangle, ShieldCheck,
-    Users, Eye, Calendar, ArrowUpDown, MessageCircle
+    Users, Eye, Calendar, ArrowUpDown, MessageCircle, X, ArrowRight, Phone
 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -17,6 +17,7 @@ import autoTable from 'jspdf-autotable';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
 import { parseIndianDate, getValidAllotmentDate } from '@/utils/dateUtils';
 import { generateRiskMatrixWhatsAppDigest, shareWhatsAppDigest } from '@/utils/whatsappUtils';
+import { getCallLink, getWhatsAppLink } from '@/utils/validationUtils';
 
 export interface TLRiskWalletMatrixProps {
     className?: string;
@@ -795,31 +796,33 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             {/* ── TOP 3 CRITICAL RISK TL COPILOT BANNER ── */}
             {top3RiskTLs.length > 0 && (
-                <GlassCard className="p-4 bg-gradient-to-r from-rose-500/15 via-amber-500/10 to-card border border-rose-500/30 shadow-xl rounded-2xl">
+                <GlassCard className="p-3 sm:p-4 bg-gradient-to-r from-rose-500/15 via-amber-500/10 to-card border border-rose-500/30 shadow-xl rounded-2xl">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-2xl bg-rose-500/20 text-rose-600 dark:text-rose-300 shadow-inner flex-shrink-0 animate-pulse">
-                                <AlertTriangle size={20} />
+                        <div className="flex items-center gap-2.5 sm:gap-3">
+                            <div className="p-2 sm:p-2.5 rounded-2xl bg-rose-500/20 text-rose-600 dark:text-rose-300 shadow-inner flex-shrink-0 animate-pulse">
+                                <AlertTriangle size={18} />
                             </div>
                             <div>
-                                <h4 className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                                    ⚡ Top Critical Risk Team Leaders Today
-                                    <span className="text-[10px] bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 px-2.5 py-0.5 rounded-full font-mono font-black">Immediate Collection Action Required</span>
+                                <h4 className="font-black text-xs text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                    <span>⚡ Top Critical Risk Team Leaders Today</span>
+                                    <span className="text-[9px] sm:text-[10px] bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full font-mono font-black">Immediate Collection Action</span>
                                 </h4>
-                                <p className="text-[11px] text-muted-foreground font-medium">Team leaders with the highest negative wallet percentage requiring priority fleet intervention</p>
+                                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Team leaders with highest negative balance percentage requiring priority recovery</p>
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-auto">
                             {top3RiskTLs.map((tl, idx) => (
                                 <div 
                                     key={tl.tlName}
                                     onClick={() => handleOpenCellRiders(tl, 'negative')}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card border border-rose-500/40 text-xs font-bold shadow-sm hover:scale-105 transition-all cursor-pointer"
+                                    className="flex items-center justify-between sm:justify-start gap-2 px-3 py-1.5 rounded-xl bg-card/90 border border-rose-500/40 text-xs font-bold shadow-sm hover:scale-102 active:scale-98 transition-all cursor-pointer"
                                 >
-                                    <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center font-mono">#{idx + 1}</span>
-                                    <span className="text-slate-900 dark:text-white truncate max-w-[130px]">{tl.tlName}</span>
-                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-700 dark:text-rose-300 font-mono font-black text-[11px]">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center font-mono flex-shrink-0">#{idx + 1}</span>
+                                        <span className="text-slate-900 dark:text-white truncate max-w-[110px] sm:max-w-[130px]">{tl.tlName}</span>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-700 dark:text-rose-300 font-mono font-black text-[11px] flex-shrink-0">
                                         {tl.negativePct}%
                                     </span>
                                 </div>
@@ -830,53 +833,53 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             )}
 
             {/* ── TOP HEADER & SUMMARY STAT CARDS (MATCHING GOOGLE SHEET TOP ROW) ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <GlassCard className="p-5 border-l-4 border-l-slate-700 dark:border-l-slate-200 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Riders</p>
-                    <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{summaryStats.totalActiveRiders}</h3>
-                        <div className="p-2 rounded-xl bg-slate-500/10 text-slate-700 dark:text-slate-300">
-                            <Users size={18} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
+                <GlassCard className="p-3.5 sm:p-4 md:p-5 border-l-4 border-l-slate-700 dark:border-l-slate-200 shadow-md hover:shadow-xl transition-all duration-300">
+                    <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Riders</p>
+                    <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
+                        <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">{summaryStats.totalActiveRiders}</h3>
+                        <div className="p-1.5 sm:p-2 rounded-xl bg-slate-500/10 text-slate-700 dark:text-slate-300">
+                            <Users size={16} />
                         </div>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-amber-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Negative Wallet Count</p>
-                    <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-amber-600 dark:text-amber-400 tracking-tight">{summaryStats.totalNegativeCount}</h3>
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-mono font-black border border-amber-500/30">
+                <GlassCard className="p-3.5 sm:p-4 md:p-5 border-l-4 border-l-amber-500 shadow-md hover:shadow-xl transition-all duration-300">
+                    <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Negative Count</p>
+                    <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
+                        <h3 className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400 tracking-tight">{summaryStats.totalNegativeCount}</h3>
+                        <span className="text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-mono font-black border border-amber-500/30">
                             {summaryStats.overallNegativePct}%
                         </span>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-orange-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">Low Wallet (+0 to +250) Count</p>
-                    <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">{summaryStats.totalRange0To250Count}</h3>
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-300 font-mono font-black border border-orange-500/30">
+                <GlassCard className="p-3.5 sm:p-4 md:p-5 border-l-4 border-l-orange-500 shadow-md hover:shadow-xl transition-all duration-300">
+                    <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400">Low Wallet (+0 to +250)</p>
+                    <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
+                        <h3 className="text-2xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 tracking-tight">{summaryStats.totalRange0To250Count}</h3>
+                        <span className="text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-300 font-mono font-black border border-orange-500/30">
                             {summaryStats.overallRange0To250Pct}%
                         </span>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-rose-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Negative Count %</p>
-                    <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight">{summaryStats.overallNegativePct}%</h3>
-                        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                            <AlertTriangle size={18} />
+                <GlassCard className="p-3.5 sm:p-4 md:p-5 border-l-4 border-l-rose-500 shadow-md hover:shadow-xl transition-all duration-300">
+                    <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">Negative %</p>
+                    <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
+                        <h3 className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight">{summaryStats.overallNegativePct}%</h3>
+                        <div className="p-1.5 sm:p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                            <AlertTriangle size={16} />
                         </div>
                     </div>
                 </GlassCard>
 
-                <GlassCard className="p-5 border-l-4 border-l-purple-500 shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-t border-t-white/30 dark:border-t-white/10">
-                    <p className="text-[11px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Low Wallet (+0 to +250) %</p>
-                    <div className="flex items-baseline justify-between mt-2">
-                        <h3 className="text-3xl font-black text-purple-600 dark:text-purple-400 tracking-tight">{summaryStats.overallRange0To250Pct}%</h3>
-                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                            <Sparkles size={18} />
+                <GlassCard className="col-span-2 sm:col-span-1 p-3.5 sm:p-4 md:p-5 border-l-4 border-l-purple-500 shadow-md hover:shadow-xl transition-all duration-300">
+                    <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Low Wallet %</p>
+                    <div className="flex items-baseline justify-between mt-1.5 sm:mt-2">
+                        <h3 className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 tracking-tight">{summaryStats.overallRange0To250Pct}%</h3>
+                        <div className="p-1.5 sm:p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                            <Sparkles size={16} />
                         </div>
                     </div>
                 </GlassCard>
@@ -884,24 +887,24 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
 
             {/* ── ADMIN-ONLY GLOBAL EXCLUSION CONTROL BAR ── */}
             {isAdmin && (
-                <GlassCard className="p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner">
-                            <ShieldCheck size={22} />
+                <GlassCard className="p-3.5 sm:p-4 bg-gradient-to-r from-purple-500/10 via-card to-card border border-purple-500/30 shadow-md rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
+                        <div className="p-2 sm:p-2.5 rounded-2xl bg-purple-500/20 text-purple-600 dark:text-purple-300 shadow-inner flex-shrink-0">
+                            <ShieldCheck size={20} />
                         </div>
                         <div>
-                            <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                                Risk Matrix Exclusion Controls
-                                <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">Admin Only</span>
+                            <h4 className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span>Risk Matrix Exclusion Controls</span>
+                                <span className="text-[9px] bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-mono font-bold">Admin</span>
                             </h4>
-                            <p className="text-[11px] text-muted-foreground font-medium">Configure global exclusion parameters for all user accounts (New Allotments, Theft Vehicles, and Company Tagged Payouts)</p>
+                            <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Configure global exclusion parameters across all user panels</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:w-auto text-xs">
                         <div 
                             onClick={() => handleToggleExclusion('newAllotments')}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold min-h-[40px] ${excludeNewAllotments ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         >
                             <input
                                 type="checkbox"
@@ -909,12 +912,12 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                 readOnly
                                 className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
                             />
-                            <span>Exclude New Allotments (&lt;= 36h)</span>
+                            <span className="truncate">New Allotments (&le; 36h)</span>
                         </div>
 
                         <div 
                             onClick={() => handleToggleExclusion('stolen')}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold min-h-[40px] ${excludeStolen ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         >
                             <input
                                 type="checkbox"
@@ -922,12 +925,12 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                 readOnly
                                 className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
                             />
-                            <span>Exclude Stolen Vehicles</span>
+                            <span className="truncate">Stolen Vehicles</span>
                         </div>
 
                         <div 
                             onClick={() => handleToggleExclusion('company')}
-                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer select-none transition-all shadow-sm font-bold min-h-[40px] ${excludeCompanyTagged ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         >
                             <input
                                 type="checkbox"
@@ -935,159 +938,185 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                 readOnly
                                 className="w-4 h-4 rounded accent-purple-600 pointer-events-none"
                             />
-                            <span>Exclude Company Tagged</span>
+                            <span className="truncate">Company Tagged</span>
                         </div>
                     </div>
                 </GlassCard>
             )}
 
-            {/* ── ADVANCED FILTER TOOLBAR & ONE-CLICK EXPORT ── */}
-            <GlassCard className="p-4 space-y-4">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    {/* Left: Filters */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* City Ops Filter */}
-                        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs shadow-sm">
-                            <Filter size={13} className="text-slate-500 dark:text-slate-400" />
-                            <span className="text-slate-700 dark:text-slate-200 font-bold">City Ops:</span>
-                            <select
-                                value={selectedCityOps}
-                                onChange={e => setSelectedCityOps(e.target.value)}
-                                className="bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
-                            >
-                                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All City Ops</option>
-                                {cityOpsOptions.map(c => <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{c}</option>)}
-                            </select>
-                        </div>
-
-                        {/* CM / RM Filter */}
-                        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs shadow-sm">
-                            <span className="text-slate-700 dark:text-slate-200 font-bold">CM (RM):</span>
-                            <select
-                                value={selectedRM}
-                                onChange={e => setSelectedRM(e.target.value)}
-                                className="bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
-                            >
-                                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All CMs</option>
-                                {rmOptions.map(r => <option key={r} value={r} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{r}</option>)}
-                            </select>
-                        </div>
-
-                        {/* TL Filter */}
-                        <div className="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs shadow-sm">
-                            <span className="text-slate-700 dark:text-slate-200 font-bold">TL:</span>
-                            <select
-                                value={selectedTL}
-                                onChange={e => setSelectedTL(e.target.value)}
-                                className="bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
-                            >
-                                <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All TLs</option>
-                                {tlOptions.map(t => <option key={t} value={t} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{t}</option>)}
-                            </select>
-                        </div>
-
-                        {/* 5-Week History Selector */}
-                        <div className="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm">
-                            <Calendar size={13} />
-                            <span className="text-emerald-800 dark:text-emerald-200">Scope:</span>
-                            <select
-                                value={selectedWeek}
-                                onChange={e => setSelectedWeek(e.target.value)}
-                                className="bg-transparent font-extrabold text-emerald-900 dark:text-emerald-100 outline-none cursor-pointer"
-                            >
-                                <option value="current" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Live Current Date</option>
-                                <option value="week-1" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -1 History</option>
-                                <option value="week-2" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -2 History</option>
-                                <option value="week-3" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -3 History</option>
-                                <option value="week-4" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -4 History</option>
-                                <option value="week-5" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -5 History</option>
-                            </select>
-                        </div>
+            {/* ── ADVANCED FILTER TOOLBAR & ONE-CLICK EXPORT (PWA & MOBILE OPTIMIZED) ── */}
+            <GlassCard className="p-3 sm:p-4 space-y-3.5 sm:space-y-4">
+                {/* Row 1: Responsive Filter Selects Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 w-full">
+                    {/* City Ops Filter */}
+                    <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs shadow-sm min-h-[42px]">
+                        <Filter size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                        <span className="text-slate-700 dark:text-slate-300 font-bold flex-shrink-0 text-[11px]">City Ops:</span>
+                        <select
+                            value={selectedCityOps}
+                            onChange={e => setSelectedCityOps(e.target.value)}
+                            className="w-full bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer text-xs truncate"
+                        >
+                            <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All City Ops</option>
+                            {cityOpsOptions.map(c => <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{c}</option>)}
+                        </select>
                     </div>
 
-                    {/* Right: Search & One-Click Exports */}
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                placeholder="Search TL or Manager..."
-                                className="pl-9 pr-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/90 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-primary outline-none w-48 sm:w-56 shadow-sm"
-                            />
-                        </div>
+                    {/* CM / RM Filter */}
+                    <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs shadow-sm min-h-[42px]">
+                        <span className="text-slate-700 dark:text-slate-300 font-bold flex-shrink-0 text-[11px]">CM (RM):</span>
+                        <select
+                            value={selectedRM}
+                            onChange={e => setSelectedRM(e.target.value)}
+                            className="w-full bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer text-xs truncate"
+                        >
+                            <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All CMs</option>
+                            {rmOptions.map(r => <option key={r} value={r} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{r}</option>)}
+                        </select>
+                    </div>
 
+                    {/* TL Filter */}
+                    <div className="flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs shadow-sm min-h-[42px]">
+                        <span className="text-slate-700 dark:text-slate-300 font-bold flex-shrink-0 text-[11px]">TL:</span>
+                        <select
+                            value={selectedTL}
+                            onChange={e => setSelectedTL(e.target.value)}
+                            className="w-full bg-transparent font-extrabold text-slate-900 dark:text-slate-100 outline-none cursor-pointer text-xs truncate"
+                        >
+                            <option value="all" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">All TLs</option>
+                            {tlOptions.map(t => <option key={t} value={t} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">{t}</option>)}
+                        </select>
+                    </div>
+
+                    {/* 5-Week History Selector */}
+                    <div className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 rounded-xl px-3 py-2 text-xs font-bold shadow-sm min-h-[42px]">
+                        <Calendar size={14} className="flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-emerald-800 dark:text-emerald-200 flex-shrink-0 text-[11px]">Scope:</span>
+                        <select
+                            value={selectedWeek}
+                            onChange={e => setSelectedWeek(e.target.value)}
+                            className="w-full bg-transparent font-extrabold text-emerald-900 dark:text-emerald-100 outline-none cursor-pointer text-xs truncate"
+                        >
+                            <option value="current" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Live Current Date</option>
+                            <option value="week-1" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -1 History</option>
+                            <option value="week-2" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -2 History</option>
+                            <option value="week-3" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -3 History</option>
+                            <option value="week-4" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -4 History</option>
+                            <option value="week-5" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium">Week -5 History</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Row 2: Search Bar & Export Actions (Full Wrap and PWA Touch-Target Optimized) */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 w-full">
+                    {/* Search Input with Clear Button */}
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Search TL, CM, City Ops..."
+                            className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/90 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-primary outline-none shadow-sm min-h-[42px]"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                                title="Clear search"
+                            >
+                                <X size={13} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Action & Export Buttons Grid/Flex */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:flex md:items-center gap-2 flex-shrink-0">
                         <button
                             onClick={handleShareWhatsAppDigest}
-                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-md flex items-center gap-1.5"
+                            className="min-h-[40px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5"
                             title="1-Click Share Daily WhatsApp Risk Digest"
                         >
-                            <MessageCircle size={14} /> WhatsApp Digest
+                            <MessageCircle size={14} className="flex-shrink-0" />
+                            <span className="truncate">WhatsApp</span>
                         </button>
 
                         <button
                             onClick={handleExportExcel}
-                            className="px-3.5 py-1.5 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 transition-all shadow-md flex items-center gap-1.5"
+                            className="min-h-[40px] px-3.5 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
                             title="Export formatted Excel report"
                         >
-                            <FileSpreadsheet size={14} /> Excel
+                            <FileSpreadsheet size={14} className="flex-shrink-0" />
+                            <span>Excel</span>
                         </button>
 
                         <button
                             onClick={handleExportPDF}
-                            className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 transition-all shadow-md flex items-center gap-1.5"
+                            className="min-h-[40px] px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
                             title="Export formatted PDF report"
                         >
-                            <FileText size={14} /> PDF
+                            <FileText size={14} className="flex-shrink-0" />
+                            <span>PDF</span>
                         </button>
 
                         <button
                             onClick={() => { setRefreshing(true); fetchData(); }}
                             disabled={refreshing}
-                            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm"
+                            className="min-h-[40px] px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 flex items-center justify-center gap-1.5 transition-all shadow-sm font-bold text-xs"
                             title="Refresh Data"
                         >
-                            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                            <RefreshCw size={14} className={`flex-shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
+                            <span className="md:hidden">Refresh</span>
                         </button>
                     </div>
                 </div>
 
-                {/* ADMIN-ONLY QUICK RISK FILTER CHIPS */}
+                {/* Row 3: Admin-only Quick Filter Chips */}
                 {isAdmin && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold pt-3 border-t border-slate-200 dark:border-slate-800">
-                        <span className="text-slate-600 dark:text-slate-300 text-[11px] uppercase tracking-wider font-extrabold mr-1">Admin Quick Risk Filter:</span>
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs font-bold pt-2.5 border-t border-slate-200 dark:border-slate-800">
+                        <span className="text-slate-600 dark:text-slate-300 text-[11px] uppercase tracking-wider font-extrabold mr-1">Quick Filters:</span>
                         <button
                             onClick={() => setQuickFilter('all')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'all' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100'}`}
+                            className={`px-3 py-1.5 rounded-xl transition-all border min-h-[32px] text-xs font-bold ${quickFilter === 'all' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-slate-100 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100'}`}
                         >
                             All TLs
                         </button>
                         <button
                             onClick={() => setQuickFilter('high_risk')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'high_risk' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/30' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-500/25'}`}
+                            className={`px-3 py-1.5 rounded-xl transition-all border min-h-[32px] text-xs font-bold ${quickFilter === 'high_risk' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/30' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-500/25'}`}
                         >
-                            🚨 High Risk Only (&gt;8.5%)
+                            🚨 High Risk (&gt;8.5%)
                         </button>
                         <button
                             onClick={() => setQuickFilter('low_wallet_risk')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'low_wallet_risk' ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/30' : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40 hover:bg-purple-500/25'}`}
+                            className={`px-3 py-1.5 rounded-xl transition-all border min-h-[32px] text-xs font-bold ${quickFilter === 'low_wallet_risk' ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/30' : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40 hover:bg-purple-500/25'}`}
                         >
-                            ⚠️ Low Wallet Risk (&gt;11%)
+                            ⚠️ Low Wallet (&gt;11%)
                         </button>
                         <button
                             onClick={() => setQuickFilter('zero_negative')}
-                            className={`px-3 py-1 rounded-xl transition-all border ${quickFilter === 'zero_negative' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/30' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'}`}
+                            className={`px-3 py-1.5 rounded-xl transition-all border min-h-[32px] text-xs font-bold ${quickFilter === 'zero_negative' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/30' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'}`}
                         >
-                            🟢 Zero Negative TLs
+                            🟢 Zero Negative
                         </button>
                     </div>
                 )}
             </GlassCard>
 
+            {/* Mobile Scroll Helper Banner */}
+            <div className="block lg:hidden px-3 py-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-[11px] font-bold text-muted-foreground flex items-center justify-between border border-border/50">
+                <span className="flex items-center gap-1.5">
+                    <ArrowRight size={13} className="text-emerald-500 animate-pulse flex-shrink-0" />
+                    <span>Swipe horizontally to view full matrix</span>
+                </span>
+                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-mono flex-shrink-0">
+                    {displayedRows.length} TLs
+                </span>
+            </div>
+
             {/* ── MAIN MATRIX DATA TABLE (EXACT GOOGLE SHEET LAYOUT) ── */}
             <GlassCard className="p-0 overflow-hidden shadow-2xl border border-border/80">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto custom-scrollbar touch-pan-x">
                     <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-[#0b383e] text-white select-none">
                             {/* TOP OVERALL SUMMARY NUMBERS ROW (MATCHING GOOGLE SHEET TOP STATS ROW) */}
@@ -1255,7 +1284,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                             <th className="p-3">Mobile</th>
                                             <th className="p-3">Chassis No</th>
                                             <th className="p-3 text-right">Wallet Balance</th>
-                                            <th className="p-3 text-center">Action</th>
+                                            <th className="p-3 text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1268,13 +1297,33 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                                 <td className={`p-3 font-mono font-black text-right ${r.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : r.walletAmount < 250 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                                     ₹{r.walletAmount.toLocaleString('en-IN')}
                                                 </td>
-                                                <td className="p-3 text-center">
-                                                    <button
-                                                        onClick={() => setDetailRider(r)}
-                                                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-sm transition-all cursor-pointer"
-                                                    >
-                                                        Inspect Profile
-                                                    </button>
+                                                <td className="p-3">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        {r.mobileNumber && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => window.open(getCallLink(r.mobileNumber), '_self')}
+                                                                    className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/30 transition-all"
+                                                                    title="Direct Call"
+                                                                >
+                                                                    <Phone size={13} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => window.open(getWhatsAppLink(r.mobileNumber, `Namaste ${r.riderName}, aapka TriEV wallet balance ₹${r.walletAmount} hai. Kripya samay par wallet top-up karein.`), '_blank')}
+                                                                    className="p-1.5 rounded-lg bg-green-500/15 text-green-600 hover:bg-green-500/30 transition-all"
+                                                                    title="Send WhatsApp"
+                                                                >
+                                                                    <MessageCircle size={13} />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setDetailRider(r)}
+                                                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shadow-sm transition-all cursor-pointer"
+                                                        >
+                                                            Inspect
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
