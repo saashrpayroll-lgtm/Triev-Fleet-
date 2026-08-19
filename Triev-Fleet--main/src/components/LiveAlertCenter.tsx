@@ -45,7 +45,7 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
         riderName: ar.rider_name || 'Rider',
         mobileNumber: ar.mobile_number || '',
         chassisNumber: '',
-        clientName: '',
+        clientName: '' as any,
         walletAmount: Number(ar.wallet_amount || 0),
         status: (ar.status || 'active') as any,
         allotmentDate: '',

@@ -41,11 +41,12 @@ export const formatPhoneNumber = (phone: string): string => {
 /**
  * Standardized WhatsApp link generation
  */
-export const getWhatsAppLink = (phone: string): string => {
+export const getWhatsAppLink = (phone: string, text?: string): string => {
     const digits = (phone || '').replace(/\D/g, '');
     // Ensure we take the last 10 digits and prefix with 91 for WhatsApp
     const cleanNumber = digits.length >= 10 ? digits.slice(-10) : digits;
-    return `https://wa.me/91${cleanNumber}`;
+    const base = `https://wa.me/91${cleanNumber}`;
+    return text ? `${base}?text=${encodeURIComponent(text)}` : base;
 };
 
 /**
