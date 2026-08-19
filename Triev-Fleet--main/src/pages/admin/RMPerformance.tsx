@@ -364,6 +364,9 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             return { ...tl, ...metrics, collection: tlCollection, weeklyCollection: weeklyCollTL, monthlyCollection: monthlyCollTL, totalCollection: tlCollection, todayCollection: targetDayCollection };
         });
 
+        const periodEndMs = new Date(endDateStr + 'T23:59:59').getTime();
+        const isHistorical = endDateStr < nowISTStr;
+
         return rawData.rms.map(rm => {
             const rmName = rm.fullName || rm.full_name || '';
             const rmId = rm.id;
