@@ -49,7 +49,11 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
         walletAmount: Number(ar.wallet_amount || 0),
         status: (ar.status || 'active') as any,
         allotmentDate: '',
-        createdAt: new Date().toISOString()
+        remarks: '',
+        teamLeaderId: teamLeaderId || '',
+        teamLeaderName: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
     });
 
     const fetchAlertRiders = async () => {
