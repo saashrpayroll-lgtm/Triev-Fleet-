@@ -50,34 +50,65 @@ const RMTLPerformance: React.FC = () => {
                 endDate = customDate.end;
             }
 
-            // ✅ FIX: Fetch active_riders_count alongside total_collection for fleet snapshots
-            const { data } = await supabase
-                .from('daily_collections')
-                .select('team_leader_id, total_collection, date, active_riders_count')
-                .in('team_leader_id', tlIds)
-                .gte('date', startDate)
-                .lte('date', endDate);
+            const [y, m, d] = todayStr.split('-').map(Number);
+            const midnightIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+            const endOfDayIST = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
-            if (data) {
-                const collMap: Record<string, number> = {};
-                // ✅ FIX: Build fleet snapshot — use the LATEST active_riders_count per TL within the period
-                const fleetMap: Record<string, number> = {};
-                const latestDatePerTL: Record<string, string> = {};
+            const [dailyRes, ledgerRes] = await Promise.all([
+                supabase
+                    .from('daily_collections')
+                    .select('team_leader_id, total_collection, date, active_riders_count')
+                    .in('team_leader_id', tlIds)
+                    .gte('date', startDate)
+                    .lte('date', endDate),
+                (startDate <= todayStr && endDate >= todayStr)
+                    ? supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
+                        .eq('mode', 'ADD')
+                        .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
+                        .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
+                    : Promise.resolve({ data: [] })
+            ]);
 
-                data.forEach((d: any) => {
-                    const amt = Number(d.total_collection) || 0;
-                    const fleetCount = Number(d.active_riders_count) || 0;
-                    const dDate = d.date && typeof d.date === 'string' ? d.date.split('T')[0].split(' ')[0] : d.date;
-                    collMap[d.team_leader_id] = (collMap[d.team_leader_id] || 0) + amt;
-                    // Keep the latest snapshot (most recent date wins)
-                    if (fleetCount > 0 && (!latestDatePerTL[d.team_leader_id] || dDate > latestDatePerTL[d.team_leader_id])) {
-                        latestDatePerTL[d.team_leader_id] = dDate;
-                        fleetMap[d.team_leader_id] = fleetCount;
+            const data = dailyRes.data || [];
+            const collMap: Record<string, number> = {};
+            const todaySnapMap: Record<string, number> = {};
+            const fleetMap: Record<string, number> = {};
+            const latestDatePerTL: Record<string, string> = {};
+
+            data.forEach((item: any) => {
+                const amt = Number(item.total_collection) || 0;
+                const fleetCount = Number(item.active_riders_count) || 0;
+                const dDate = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
+                collMap[item.team_leader_id] = (collMap[item.team_leader_id] || 0) + amt;
+                if (dDate === todayStr) {
+                    todaySnapMap[item.team_leader_id] = amt;
+                }
+                if (fleetCount > 0 && (!latestDatePerTL[item.team_leader_id] || dDate > latestDatePerTL[item.team_leader_id])) {
+                    latestDatePerTL[item.team_leader_id] = dDate;
+                    fleetMap[item.team_leader_id] = fleetCount;
+                }
+            });
+
+            // Reconcile Today's Live Collections if today is within range
+            if (startDate <= todayStr && endDate >= todayStr) {
+                const liveMap: Record<string, number> = {};
+                (ledgerRes.data || []).forEach((txn: any) => {
+                    if (txn.rider?.team_leader_id && tlIds.includes(txn.rider.team_leader_id)) {
+                        const tid = txn.rider.team_leader_id;
+                        liveMap[tid] = (liveMap[tid] || 0) + (Number(txn.amount) || 0);
                     }
                 });
-                setCollectionData(collMap);
-                setFleetSnapshotData(fleetMap);
+                Object.keys(liveMap).forEach(tid => {
+                    const liveAmt = liveMap[tid] || 0;
+                    const snapAmt = todaySnapMap[tid] || 0;
+                    if (liveAmt > snapAmt) {
+                        collMap[tid] = (collMap[tid] || 0) + (liveAmt - snapAmt);
+                    }
+                });
             }
+
+            setCollectionData(collMap);
+            setFleetSnapshotData(fleetMap);
             setLoadingCollections(false);
         };
         fetch();

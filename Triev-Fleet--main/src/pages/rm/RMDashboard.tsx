@@ -127,19 +127,37 @@ const RMDashboard: React.FC = () => {
         if (teamLeaders.length === 0) return;
         const tlIds = teamLeaders.map(tl => tl.id);
         const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+        const [y, m, d] = today.split('-').map(Number);
+        const midnightIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
+        const endOfDayIST = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
         const fetchCollections = async () => {
-            const { data } = await supabase
-                .from('daily_collections')
-                .select('team_leader_id, total_collection')
-                .in('team_leader_id', tlIds)
-                .eq('date', today);
+            const [dailyRes, ledgerRes] = await Promise.all([
+                supabase
+                    .from('daily_collections')
+                    .select('team_leader_id, total_collection')
+                    .in('team_leader_id', tlIds)
+                    .eq('date', today),
+                supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
+                    .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
+            ]);
 
-            if (data) {
-                const map: Record<string, number> = {};
-                data.forEach((d: any) => { map[d.team_leader_id] = Number(d.total_collection) || 0; });
-                setDailyCollections(map);
-            }
+            const map: Record<string, number> = {};
+            dailyRes.data?.forEach((item: any) => { map[item.team_leader_id] = Number(item.total_collection) || 0; });
+            
+            const liveMap: Record<string, number> = {};
+            ledgerRes.data?.forEach((txn: any) => {
+                if (txn.rider?.team_leader_id && tlIds.includes(txn.rider.team_leader_id)) {
+                    const tid = txn.rider.team_leader_id;
+                    liveMap[tid] = (liveMap[tid] || 0) + (Number(txn.amount) || 0);
+                }
+            });
+            Object.keys(liveMap).forEach(tid => {
+                map[tid] = Math.max(map[tid] || 0, liveMap[tid]);
+            });
+            setDailyCollections(map);
         };
         fetchCollections();
     }, [teamLeaders]);
