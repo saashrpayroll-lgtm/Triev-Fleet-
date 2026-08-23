@@ -75,8 +75,11 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'rangeCollection', direction: 'desc' });
     const [expandedCO, setExpandedCO] = useState<string | null>(null);
+    const isFetchingRef = useRef(false);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
         setLoading(true);
         try {
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -116,9 +119,15 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             const validTlIds = allTls.map(tl => tl.id);
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
-                validTlIds.length > 0 ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: validTlIds, type: 'in' }) : fetchAllRidersPaginated('*', {column: 'id', value: ['invalid'], type:'in'}),
-                validTlIds.length > 0 ? supabase.from('leads').select('*').in('created_by', validTlIds) : supabase.from('leads').select('*').eq('id', 'invalid'),
-                validTlIds.length > 0 ? supabase.from('daily_collections').select('*').in('team_leader_id', validTlIds).order('date', { ascending: false }).limit(20000) : supabase.from('daily_collections').select('*').limit(0),
+                validTlIds.length > 0 
+                    ? fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name', { column: 'team_leader_id', value: validTlIds, type: 'in' }) 
+                    : fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name', { column: 'id', value: ['invalid'], type: 'in' }),
+                validTlIds.length > 0 
+                    ? supabase.from('leads').select('id, created_by, status, created_at').in('created_by', validTlIds) 
+                    : supabase.from('leads').select('id, created_by, status, created_at').eq('id', 'invalid'),
+                validTlIds.length > 0 
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr).in('team_leader_id', validTlIds) 
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection, date').limit(0),
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
@@ -146,7 +155,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                 }
             });
 
-            const todayLedger = (todayLedgerRes?.data || []);
+            const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
                 if (txn.rider?.team_leader_id) {
                     const tlId = txn.rider.team_leader_id;
@@ -165,7 +174,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             });
 
             setRawData({
-                riders: (ridersRes.data || []).map(r => ({
+                riders: (ridersRes.data || []).map((r: any) => ({
                     ...r,
                     walletAmount: Number(r.wallet_amount ?? r.walletAmount ?? 0),
                     teamLeaderId: r.team_leader_id ?? r.teamLeaderId,
@@ -174,54 +183,40 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     createdAt: r.created_at ?? r.createdAt
                 })),
                 leads: leadsRes.data || [],
-                teamLeaders: (allTls || []).map(u => ({
+                teamLeaders: allTls.map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
                 })),
-                rms: (allRms || []).map(u => ({
+                cityOps: allCityOps.map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
                 })),
-                cityOps: (allCityOps || []).map(u => ({
+                rms: allRms.map((u: any) => ({
                     ...u,
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
                 })),
-                collections: dailyRes.data || [],
-                dailyCollectionsMap: daily,
-                weeklyCollectionsMap: weekly,
-                fetchedTodayStr: todayStr
+                weeklyCollections: weekly,
+                dailyCollections: daily
             });
-        } catch (error) {
-            toast.error('Failed to load performance data: ' + error.message);
+            lastFetchedAtRef.current = Date.now();
+        } catch (err: any) {
+            console.error('Error fetching City Ops performance data:', err);
+            toast.error('Failed to load performance metrics');
         } finally {
-            lastFetchedAtRef.current = Date.now(); // ✅ Record fetch time
             setLoading(false);
+            isFetchingRef.current = false;
         }
-    };
+    }, [scopedCityOpsIds]);
 
-    // Egress guard: only re-fetch on visibility if data is stale (>5 min)
     const lastFetchedAtRef = React.useRef<number>(0);
     const VISIBILITY_STALE_MS = 5 * 60 * 1000;
 
     useEffect(() => {
         fetchData();
-        let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            ledgerDebounce = setTimeout(() => fetchData(), 1000);
-        };
 
-        const channels = [
-            supabase.channel('rm-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced).subscribe(),
-            supabase.channel('rm-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced).subscribe(),
-            supabase.channel('rm-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced).subscribe(),
-            supabase.channel('rm-perf-ledger').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced).subscribe(),
-        ];
-
-        // ── Auto-reset at IST midnight — forces fresh data so "Today" zeroes out ─
         const scheduleMidnightReset = () => {
             const now = new Date();
             const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
@@ -235,7 +230,6 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         };
         const midnightTimer = scheduleMidnightReset();
 
-        // ── Auto-reset at IST Monday midnight (weekly reset) ─────────────────
         const scheduleWeeklyReset = () => {
             const now = new Date();
             const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
@@ -252,7 +246,6 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         };
         const weeklyTimer = scheduleWeeklyReset();
 
-        // ── PWA/Background: Auto-refresh on tab visibility restore (only if stale) ───
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
                 if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
@@ -262,17 +255,15 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
-        // ── Fallback: Poll every 15 minutes (reduced from 2 min to save egress) ──
         const pollInterval = setInterval(() => fetchData(), 15 * 60 * 1000);
 
         return () => {
-            channels.forEach(ch => supabase.removeChannel(ch));
             window.clearTimeout(midnightTimer);
             window.clearTimeout(weeklyTimer);
             document.removeEventListener('visibilitychange', handleVisibility);
             clearInterval(pollInterval);
         };
-    }, []);
+    }, [fetchData]);
 
     const performanceData = useMemo(() => {
         const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });

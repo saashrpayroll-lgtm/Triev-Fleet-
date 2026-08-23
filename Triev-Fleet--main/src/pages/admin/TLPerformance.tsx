@@ -181,12 +181,12 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
 
             const [ridersRes, leadsRes, tlRes, todayCollRes, weekCollRes, monthCollRes, grandCollRes, todayLedgerRes] = await Promise.all([
                 scopedTlIds && scopedTlIds.length > 0
-                    ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
-                    : fetchAllRidersPaginated('*'),
+                    ? fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at', { column: 'team_leader_id', value: scopedTlIds, type: 'in' })
+                    : fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at'),
                 // Leads: scope to team's TLs if applicable
                 scopedTlIds && scopedTlIds.length > 0
-                    ? supabase.from('leads').select('*').in('created_by', scopedTlIds)
-                    : supabase.from('leads').select('*'),
+                    ? supabase.from('leads').select('id, created_by, status, created_at').in('created_by', scopedTlIds)
+                    : supabase.from('leads').select('id, created_by, status, created_at'),
                 tlQuery,
                 // Today's collection — scoped
                 scopedTlIds && scopedTlIds.length > 0
@@ -325,21 +325,27 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { fetchPeriodData(); }, [fetchPeriodData]);
 
+    // Egress guard: avoid repeated DB refetches if data was loaded recently
+    const lastFetchedAtRef = useRef<number>(0);
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000;
+
     useEffect(() => {
-        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        const debouncedFetch = () => {
-            if (document.hidden) return;
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchData(), 4000);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchData();
+                    lastFetchedAtRef.current = Date.now();
+                }
+            }
         };
-        const channels = [
-            supabase.channel('tlp-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, debouncedFetch).subscribe(),
-            supabase.channel('tlp-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, debouncedFetch).subscribe(),
-            supabase.channel('tlp-coll').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, debouncedFetch).subscribe(),
-        ];
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Fallback: poll every 15 minutes
+        const pollInterval = setInterval(() => fetchData(), 15 * 60 * 1000);
+
         return () => {
-            if (debounceTimer) clearTimeout(debounceTimer);
-            channels.forEach(ch => supabase.removeChannel(ch));
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(pollInterval);
         };
     }, [fetchData]);
 

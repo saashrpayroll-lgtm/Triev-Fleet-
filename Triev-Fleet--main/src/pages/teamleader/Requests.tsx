@@ -73,7 +73,7 @@ const Requests: React.FC = () => {
                 .channel('teamleader-requests')
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'requests', filter: `userId=eq.${userData.id}` },
+                    { event: '*', schema: 'public', table: 'requests', filter: `user_id=eq.${userData.id}` },
                     () => {
                         fetchRequests();
                     }

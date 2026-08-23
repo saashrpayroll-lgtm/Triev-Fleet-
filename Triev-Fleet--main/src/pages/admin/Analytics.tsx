@@ -90,30 +90,25 @@ const Analytics: React.FC<AnalyticsProps> = ({ scopedCityOpsId, scopedRmIds, sco
         }
     }, [scopedCityOpsId, scopedRmIds, scopedTlIds]);
 
+    const lastFetchedAtRef = useRef<number>(0);
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000;
+
     useEffect(() => {
         fetchData();
-        
-        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchData(), 1000);
+        lastFetchedAtRef.current = Date.now();
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchData();
+                    lastFetchedAtRef.current = Date.now();
+                }
+            }
         };
-
-        // ✅ Real-time subscriptions — auto-refresh when riders/leads change
-        const ridersChannel = supabase
-            .channel('analytics-riders')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
-            .subscribe();
-
-        const leadsChannel = supabase
-            .channel('analytics-leads')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
-            .subscribe();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            supabase.removeChannel(ridersChannel);
-            supabase.removeChannel(leadsChannel);
-            if (debounceTimer) clearTimeout(debounceTimer);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [fetchData]);
 

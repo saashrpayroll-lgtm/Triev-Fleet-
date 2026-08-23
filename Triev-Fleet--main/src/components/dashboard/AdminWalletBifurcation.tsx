@@ -130,10 +130,26 @@ const AdminWalletBifurcation: React.FC = () => {
         }
     };
 
+    const lastFetchedAtRef = useRef<number>(0);
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000;
+
     useEffect(() => {
         fetchData();
-        const sub = supabase.channel('bifurcation-admin').on('postgres_changes', { event:'*', schema:'public', table:'riders' }, fetchData).subscribe();
-        return () => { supabase.removeChannel(sub); };
+        lastFetchedAtRef.current = Date.now();
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchData();
+                    lastFetchedAtRef.current = Date.now();
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const toggleRmRow = (id: string, e: React.MouseEvent) => {

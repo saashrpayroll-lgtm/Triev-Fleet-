@@ -184,24 +184,29 @@ const TLPersonalPerformance: React.FC = () => {
         fetchAll(true);
     }, [fetchAll]);
 
-    // Real-time subscription with debouncing to prevent UI flashing
+    // Egress guard: avoid repeated DB refetches if data was loaded recently
+    const lastFetchedAtRef = useRef<number>(0);
+    const REALTIME_STALE_MS = 3 * 60 * 1000;
+
+    // Real-time subscription with debouncing and staleness guard
     useEffect(() => {
         if (!userData?.id) return;
         let timer: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
             if (document.hidden) return;
+            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
             if (timer) clearTimeout(timer);
             timer = setTimeout(() => {
                 fetchAll(false);
+                lastFetchedAtRef.current = Date.now();
             }, 3500);
         };
 
-        const channelName = `tl-perf-live-${Math.random().toString(36).substring(2, 9)}`;
+        const channelName = `tl-perf-live-${userData.id}`;
         const sub = supabase
             .channel(channelName)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id=eq.${userData.id}` }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections', filter: `team_leader_id=eq.${userData.id}` }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
         return () => {

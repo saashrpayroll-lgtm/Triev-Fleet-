@@ -303,27 +303,6 @@ const CityOpsDashboard: React.FC = () => {
     useEffect(() => {
         fetchDashboardData(true);
 
-        // ✅ EGRESS OPTIMIZED: Debounced realtime handler with staleness guard.
-        let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (document.hidden) return;
-            // Skip if data was fetched within last 3 min
-            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
-            if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            ledgerDebounce = setTimeout(() => fetchDashboardData(), 2500);
-        };
-
-        const channel = supabase
-            .channel('cityops-dashboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
-            // wallet_ledger realtime — keeps today/weekly collection maps live
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
-            .subscribe();
-
         // ✅ EGRESS OPTIMIZED: Only re-fetch on visibility restore if data is stale (>5 min).
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
@@ -334,10 +313,12 @@ const CityOpsDashboard: React.FC = () => {
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
+        // Fallback: poll every 15 minutes
+        const pollInterval = setInterval(() => fetchDashboardData(), 15 * 60 * 1000);
+
         return () => {
-            if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            supabase.removeChannel(channel);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(pollInterval);
         };
     }, [fetchDashboardData, tlIds.length, scopeLoading]);
 

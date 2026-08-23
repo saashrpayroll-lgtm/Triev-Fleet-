@@ -306,26 +306,16 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
 
     // ── Real-time auto-refresh (debounced to avoid screen blinking) ──────────
     useEffect(() => {
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (document.hidden) return;
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(() => {
+        // Visibility auto-refresh on tab restore
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
                 fetchMetrics(false);
-            }, 3500);
+            }
         };
-
-        const channelName = `tl-allotment-live-${Math.random().toString(36).substring(2, 9)}`;
-        const channel = supabase
-            .channel(channelName)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
-            .subscribe();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            if (timer) clearTimeout(timer);
-            supabase.removeChannel(channel);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [fetchMetrics]);
 

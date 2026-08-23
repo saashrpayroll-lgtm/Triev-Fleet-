@@ -113,27 +113,19 @@ export function useRMTeamData(): RMTeamData {
 
         fetchData();
 
-        // Real-time subscriptions — DEBOUNCED + STALE GUARD to prevent egress blowout
-        // Only re-fetch if last fetch was more than 3 minutes ago
-        const REALTIME_STALE_MS = 3 * 60 * 1000;
-        let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (document.hidden) return;
-            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
-            if (realtimeDebounce) clearTimeout(realtimeDebounce);
-            realtimeDebounce = setTimeout(() => fetchData(), 2500);
+        // Visibility auto-refresh when tab is focused if data is stale (>5 min)
+        const VISIBILITY_STALE_MS = 5 * 60 * 1000;
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchData();
+                }
+            }
         };
-
-        const channel = supabase
-            .channel('rm-team-sync')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
-            .subscribe();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            if (realtimeDebounce) clearTimeout(realtimeDebounce);
-            channel.unsubscribe();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [rmName, refreshKey]);
 

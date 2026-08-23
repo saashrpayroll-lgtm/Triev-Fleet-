@@ -1,6 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
 import {
@@ -68,7 +68,11 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'rangeCollection', direction: 'desc' });
     const [expandedRM, setExpandedRM] = useState<string | null>(null);
 
-    const fetchData = async () => {
+    const isFetchingRef = useRef(false);
+
+    const fetchData = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
         setLoading(true);
         try {
             const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -105,14 +109,14 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 scopedTlIdsForRM.length > 0
-                    ? fetchAllRidersPaginated('*', { column: 'team_leader_id', value: scopedTlIdsForRM, type: 'in' })
-                    : fetchAllRidersPaginated('*'),
+                    ? fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name', { column: 'team_leader_id', value: scopedTlIdsForRM, type: 'in' })
+                    : fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name'),
                 scopedTlIdsForRM.length > 0
-                    ? supabase.from('leads').select('*').in('created_by', scopedTlIdsForRM)
-                    : supabase.from('leads').select('*'),
+                    ? supabase.from('leads').select('id, created_by, status, created_at').in('created_by', scopedTlIdsForRM)
+                    : supabase.from('leads').select('id, created_by, status, created_at'),
                 scopedTlIdsForRM.length > 0
-                    ? supabase.from('daily_collections').select('*').in('team_leader_id', scopedTlIdsForRM).order('date', { ascending: false }).limit(20000)
-                    : supabase.from('daily_collections').select('*').order('date', { ascending: false }).limit(20000),
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr).in('team_leader_id', scopedTlIdsForRM)
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr),
                 supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
@@ -148,7 +152,6 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                 }
             });
 
-            // Reconcile Live Today with Snapshots
             Object.keys(liveTodayMap).forEach(tlId => {
                 const liveAmt = liveTodayMap[tlId] || 0;
                 const snapAmt = daily[tlId] || 0;
@@ -182,36 +185,23 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                 collections: dailyRes.data || [],
                 dailyCollectionsMap: daily,
                 weeklyCollectionsMap: weekly,
-                fetchedTodayStr: todayStr // stamp the IST date this data was fetched for
+                fetchedTodayStr: todayStr
             });
-        } catch (error: any) {
-            toast.error('Failed to load performance data: ' + error.message);
+            lastFetchedAtRef.current = Date.now();
+        } catch (err: any) {
+            console.error('Error fetching RM performance data:', err);
+            toast.error('Failed to load performance metrics');
         } finally {
-            lastFetchedAtRef.current = Date.now(); // ✅ Record fetch time
             setLoading(false);
+            isFetchingRef.current = false;
         }
-    };
+    }, [scopedRmIds]);
 
-    // Egress guard: only re-fetch on visibility if data is stale (>5 min)
-    const lastFetchedAtRef = React.useRef<number>(0);
     const VISIBILITY_STALE_MS = 5 * 60 * 1000;
 
     useEffect(() => {
         fetchData();
-        let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            if (ledgerDebounce) clearTimeout(ledgerDebounce);
-            ledgerDebounce = setTimeout(() => fetchData(), 1000);
-        };
 
-        const channels = [
-            supabase.channel('rm-perf-riders').on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced).subscribe(),
-            supabase.channel('rm-perf-leads').on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced).subscribe(),
-            supabase.channel('rm-perf-collections').on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced).subscribe(),
-            supabase.channel('rm-perf-ledger').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced).subscribe(),
-        ];
-
-        // ── Auto-reset at IST midnight — forces fresh data so "Today" zeroes out ─
         const scheduleMidnightReset = () => {
             const now = new Date();
             const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
@@ -225,7 +215,6 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
         };
         const midnightTimer = scheduleMidnightReset();
 
-        // ── Auto-reset at IST Monday midnight (weekly reset) ─────────────────
         const scheduleWeeklyReset = () => {
             const now = new Date();
             const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
@@ -242,7 +231,6 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
         };
         const weeklyTimer = scheduleWeeklyReset();
 
-        // ── PWA/Background: Auto-refresh on tab visibility restore (only if stale) ───
         const handleVisibility = () => {
             if (document.visibilityState === 'visible') {
                 if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
@@ -252,17 +240,15 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
-        // ── Fallback: Poll every 15 minutes (reduced to save egress) ──
         const pollInterval = setInterval(() => fetchData(), 15 * 60 * 1000);
 
         return () => {
-            channels.forEach(ch => supabase.removeChannel(ch));
             window.clearTimeout(midnightTimer);
             window.clearTimeout(weeklyTimer);
             document.removeEventListener('visibilitychange', handleVisibility);
             clearInterval(pollInterval);
         };
-    }, []);
+    }, [fetchData]);
 
     const performanceData = useMemo(() => {
         const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });

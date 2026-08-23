@@ -377,7 +377,7 @@ const Dashboard: React.FC = () => {
                 };
             }) as Rider[];
 
-            const { data: allLeadsData } = await supabase.from('leads').select('*');
+            const { data: allLeadsData } = await supabase.from('leads').select('id, lead_id, rider_name, mobile_number, status, score, category, source, created_at, driving_license, client_interested, location, created_by, created_by_name, remarks');
             const allLeads = ((allLeadsData || [])).map(mapLeadFromDB);
 
             setLeaderboardData({ teamLeaders: allTls, riders: allRiders, leads: allLeads });
@@ -392,8 +392,10 @@ const Dashboard: React.FC = () => {
                 return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
             })();
 
+            const sixtyDaysAgoIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000));
+
             const [dailyRes, todayLedgerRes] = await Promise.all([
-                supabase.from('daily_collections').select('team_leader_id, date, total_collection, active_riders_count'),
+                supabase.from('daily_collections').select('team_leader_id, date, total_collection, active_riders_count').gte('date', sixtyDaysAgoIST),
                 supabase
                     .from('wallet_ledger')
                     .select('amount, rider_id, rider:riders!inner(id, team_leader_id)')
@@ -475,26 +477,6 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         fetchStats();
 
-        // ✅ EGRESS OPTIMIZED: Debounced realtime handler with staleness guard.
-        let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
-        const fetchDebounced = () => {
-            // Skip re-fetches while tab is hidden (saves CPU + network)
-            if (document.hidden) return;
-            // Skip if data was fetched within last 3 min
-            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
-            if (realtimeDebounce) clearTimeout(realtimeDebounce);
-            realtimeDebounce = setTimeout(() => fetchStats(), 4000);
-        };
-
-        const channel = supabase
-            .channel('tl-dashboard-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
-            .subscribe();
-
         // ✅ EGRESS OPTIMIZED: Only re-fetch on visibility restore if data is stale (>5 min).
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
@@ -505,10 +487,12 @@ const Dashboard: React.FC = () => {
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
+        // Fallback: poll every 15 minutes
+        const pollInterval = setInterval(() => fetchStats(), 15 * 60 * 1000);
+
         return () => {
-            if (realtimeDebounce) clearTimeout(realtimeDebounce);
-            supabase.removeChannel(channel);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(pollInterval);
         };
     }, [userData]);
 

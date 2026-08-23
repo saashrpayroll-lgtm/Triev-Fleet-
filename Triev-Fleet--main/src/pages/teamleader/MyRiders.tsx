@@ -297,10 +297,19 @@ const MyRiders: React.FC = () => {
 
     useEffect(() => {
         if (!userData?.id) return;
-        const channel = supabase.channel('my-riders-list')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id = eq.${userData.id} ` }, () => fetchRiders())
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const debouncedFetch = () => {
+            if (document.hidden) return;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchRiders(), 1500);
+        };
+        const channel = supabase.channel(`my-riders-list-${userData.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders', filter: `team_leader_id=eq.${userData.id}` }, debouncedFetch)
             .subscribe();
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            supabase.removeChannel(channel);
+        };
     }, [userData?.id, fetchRiders]);
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab);
