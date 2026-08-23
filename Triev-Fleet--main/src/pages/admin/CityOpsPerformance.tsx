@@ -113,6 +113,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             }
 
             const validTlIds = allTls.map(tl => tl.id);
+            const sixtyDaysAgoStr = new Date(Date.UTC(year, month - 3, 1)).toISOString().split('T')[0];
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 validTlIds.length > 0 
@@ -122,8 +123,8 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     ? supabase.from('leads').select('id, created_by, status, created_at').in('created_by', validTlIds) 
                     : supabase.from('leads').select('id, created_by, status, created_at').eq('id', 'invalid'),
                 validTlIds.length > 0 
-                    ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr).in('team_leader_id', validTlIds) 
-                    : supabase.from('daily_collections').select('team_leader_id, total_collection, date').limit(0),
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count').gte('date', sixtyDaysAgoStr).in('team_leader_id', validTlIds) 
+                    : supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count').limit(0),
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])

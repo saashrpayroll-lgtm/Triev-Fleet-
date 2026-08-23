@@ -105,7 +105,9 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                 );
             }
 
+            const scopedTlIdsForRM = allTls.map((tl: any) => tl.id);
             const isRestrictedRMWithNoTLs = !!(scopedRmIds && scopedRmIds.length > 0 && scopedTlIdsForRM.length === 0);
+            const sixtyDaysAgoStr = new Date(Date.UTC(year, month - 3, 1)).toISOString().split('T')[0];
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 scopedTlIdsForRM.length > 0
@@ -119,10 +121,10 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                         ? supabase.from('leads').select('id, created_by, status, created_at').eq('id', 'invalid')
                         : supabase.from('leads').select('id, created_by, status, created_at'),
                 scopedTlIdsForRM.length > 0
-                    ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr).in('team_leader_id', scopedTlIdsForRM)
+                    ? supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count').gte('date', sixtyDaysAgoStr).in('team_leader_id', scopedTlIdsForRM)
                     : isRestrictedRMWithNoTLs
-                        ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').limit(0)
-                        : supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr),
+                        ? supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count').limit(0)
+                        : supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count').gte('date', sixtyDaysAgoStr),
                 supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
