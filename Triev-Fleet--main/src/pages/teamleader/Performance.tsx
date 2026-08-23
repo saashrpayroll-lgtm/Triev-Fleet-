@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, startOfMonth, eachDayOfInterval } from 'date-fns';
-import * as XLSX from 'xlsx';
+import { jsonToExcel } from '@/utils/xlsxExport';
 import PerformanceCard from '@/components/dashboard/PerformanceCard';
 import AIPerformanceInsights from '@/components/dashboard/AIPerformanceInsights';
 import { exportBrandedPerformancePDF } from '@/utils/exportUtils';
@@ -352,8 +352,8 @@ const TLPersonalPerformance: React.FC = () => {
     }, [ledger, searchQuery, showOnlyActive]);
 
     // ─── Export Functions ─────────────────────────────────────────────────
-    const exportExcel = () => {
-        const ws = XLSX.utils.json_to_sheet(filteredLedger.map(r => ({
+    const exportExcel = async () => {
+        const rowsToExport = filteredLedger.map(r => ({
             'Date': r.date,
             'Collections (₹)': r.collections,
             'Active Fleet': r.activeRiders,
@@ -363,16 +363,21 @@ const TLPersonalPerformance: React.FC = () => {
             'Net Growth': r.netGrowth,
             'Leads': r.leads,
             'Conversions': r.conversions,
-        })));
+        }));
         // Add summary row
-        XLSX.utils.sheet_add_aoa(ws, [[
-            'TOTAL', summary.periodCollections, '', Math.round(summary.periodCollections / (summary.activeDays || 1)),
-            summary.totalAllotments, summary.totalSubmissions, summary.netGrowth, summary.totalLeads, ''
-        ]], { origin: -1 });
+        rowsToExport.push({
+            'Date': 'TOTAL',
+            'Collections (₹)': summary.periodCollections,
+            'Active Fleet': summary.activeFleet,
+            'Avg / Rider (₹)': Math.round(summary.periodCollections / (summary.activeDays || 1)),
+            'Allotments': summary.totalAllotments,
+            'Submissions': summary.totalSubmissions,
+            'Net Growth': summary.netGrowth,
+            'Leads': summary.totalLeads,
+            'Conversions': 0
+        });
 
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Performance');
-        XLSX.writeFile(wb, `my_performance_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+        await jsonToExcel(rowsToExport, 'Performance', `my_performance_${format(new Date(), 'yyyy-MM-dd')}`);
         toast.success('Excel exported');
         setIsExportOpen(false);
     };

@@ -9,7 +9,7 @@ import {
     Check, X as XIcon, Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { jsonToExcel } from '@/utils/xlsxExport';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod, matchesReportingManager } from '@/utils/performance';
@@ -558,7 +558,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
 
     const handleSort = (key: string) => setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
 
-        const exportToExcel = () => {
+    const exportToExcel = async () => {
         const filterLabel = dateFilter === 'today' ? 'Today' : dateFilter === 'yesterday' ? 'Yesterday' : dateFilter === 'week' ? 'This Week' : dateFilter === 'month' ? 'This Month' : `${customDateRange.start} to ${customDateRange.end}`;
         const data = filteredData.map(rm => ({
             'City Ops': rm.name,
@@ -584,10 +584,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             'Avg AI Score': rm.score,
             'AI Grade': rm.aiGrade,
         }));
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'City Ops Performance');
-        XLSX.writeFile(wb, `rm_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        await jsonToExcel(data, 'City Ops Performance', `cityops_performance_${filterLabel.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`);
         toast.success('Excel report exported successfully');
         setIsExportOpen(false);
     };

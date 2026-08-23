@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, ArrowRight, Settings2 } from 'lucide-react';
 import { REQUIRED_RIDER_COLUMNS, REQUIRED_RENT_COLLECTION_COLUMNS } from '@/utils/importUtils';
 
@@ -81,19 +80,38 @@ const DataImport: React.FC<DataImportProps> = ({ onImport, mode = 'rider' }) => 
             });
         } else if (fileType === 'xlsx' || fileType === 'xls') {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = async (e) => {
                 try {
-                    const data = e.target?.result;
-                    const workbook = XLSX.read(data, { type: 'binary' });
-                    const sheetName = workbook.SheetNames[0];
-                    const sheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+                    const buffer = e.target?.result as ArrayBuffer;
+                    const ExcelJS = (await import('exceljs')).default;
+                    const workbook = new ExcelJS.Workbook();
+                    await workbook.xlsx.load(buffer);
+                    const worksheet = workbook.worksheets[0];
+                    if (!worksheet) {
+                        setError('No sheet found in Excel file');
+                        return;
+                    }
+                    // Convert worksheet rows to JSON (like xlsx sheet_to_json)
+                    const jsonData: any[] = [];
+                    const headers: string[] = [];
+                    worksheet.eachRow((row, rowNumber) => {
+                        if (rowNumber === 1) {
+                            row.eachCell((cell) => headers.push(String(cell.value ?? '')));
+                        } else {
+                            const rowObj: any = {};
+                            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                                const key = headers[colNumber - 1];
+                                if (key) rowObj[key] = cell.value ?? '';
+                            });
+                            if (Object.keys(rowObj).length > 0) jsonData.push(rowObj);
+                        }
+                    });
                     handleData(jsonData);
                 } catch (err) {
                     setError('Failed to parse Excel file');
                 }
             };
-            reader.readAsBinaryString(file);
+            reader.readAsArrayBuffer(file);
         } else {
             setError('Unsupported file type. Please upload CSV or Excel.');
         }

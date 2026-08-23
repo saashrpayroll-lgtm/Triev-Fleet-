@@ -11,7 +11,7 @@ import { Rider, TLRiskMatrixRow, TLRiskMatrixSummary } from '@/types';
 import GlassCard from '@/components/GlassCard';
 import RiderDetailsModal from '@/components/RiderDetailsModal';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { jsonToExcel } from '@/utils/xlsxExport';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';
@@ -649,7 +649,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
     };
 
     // One-Click Formatted Excel Export
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         try {
             const dataToExport = [
                 // Top Summary Row (Matching Google Sheet)
@@ -677,19 +677,8 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 }))
             ];
 
-            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'TL Risk Matrix');
-
-            // Auto column widths
-            worksheet['!cols'] = [
-                { wch: 22 }, { wch: 20 }, { wch: 22 }, 
-                { wch: 15 }, { wch: 42 }, { wch: 45 }, 
-                { wch: 18 }, { wch: 15 }
-            ];
-
-            const filename = `TL_Risk_Wallet_Matrix_${new Date().toISOString().split('T')[0]}.xlsx`;
-            XLSX.writeFile(workbook, filename);
+            const filename = `TL_Risk_Wallet_Matrix_${new Date().toISOString().split('T')[0]}`;
+            await jsonToExcel(dataToExport, 'TL Risk Matrix', filename);
             toast.success("Excel report exported successfully!");
         } catch (err) {
             console.error("Excel export error:", err);

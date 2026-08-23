@@ -8,7 +8,7 @@ import {
     ChevronUp, AlertTriangle, Star, Target, Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { jsonToExcel } from '@/utils/xlsxExport';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { calculateAIScore } from '@/utils/performance';
@@ -493,21 +493,23 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
         </th>
     );
 
-    const exportToExcel = () => {
-        const ws = XLSX.utils.json_to_sheet(filteredData.map(t => ({
-            'Team Leader': t.name, 'Email': t.email, 'RM': t.reportingManager, 'Status': t.status,
-            'Active Riders': t.activeRiders, 'Total Riders': t.totalRiders,
-            'Today Collection': t.todayCollection, 'Weekly Collection': t.weeklyCollection, 'Monthly Collection': t.monthlyCollection,
-            'Period Collection': t.periodCollection, 'Per Rider': t.periodPerRider, 'Day Avg': t.periodDayAvg,
-            'Pos Wallet Count': t.positiveCount, 'Neg Wallet Count': t.negativeCount,
-            'Pos Wallet ₹': t.positiveAmount, 'Neg Wallet ₹': t.negativeAmount,
-            'Allotments': t.allotments, 'Submissions': t.submissions, 'Net Growth': t.netGrowth,
-            'Leads Today': t.leadsToday, 'Churn Leads': t.churnLeads,
-            'Leads Conv%': t.leadsConvRate, 'Avg Age (Days)': t.avgTenureDays,
-            'AI Score': t.score, 'AI Grade': t.aiGrade
-        })));
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'TL Performance');
-        XLSX.writeFile(wb, `tl_performance_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const exportToExcel = async () => {
+        await jsonToExcel(
+            filteredData.map(t => ({
+                'Team Leader': t.name, 'Email': t.email, 'RM': t.reportingManager, 'Status': t.status,
+                'Active Riders': t.activeRiders, 'Total Riders': t.totalRiders,
+                'Today Collection': t.todayCollection, 'Weekly Collection': t.weeklyCollection, 'Monthly Collection': t.monthlyCollection,
+                'Period Collection': t.periodCollection, 'Per Rider': t.periodPerRider, 'Day Avg': t.periodDayAvg,
+                'Pos Wallet Count': t.positiveCount, 'Neg Wallet Count': t.negativeCount,
+                'Pos Wallet ₹': t.positiveAmount, 'Neg Wallet ₹': t.negativeAmount,
+                'Allotments': t.allotments, 'Submissions': t.submissions, 'Net Growth': t.netGrowth,
+                'Leads Today': t.leadsToday, 'Churn Leads': t.churnLeads,
+                'Leads Conv%': t.leadsConvRate, 'Avg Age (Days)': t.avgTenureDays,
+                'AI Score': t.score, 'AI Grade': t.aiGrade
+            })),
+            'TL Performance',
+            `tl_performance_${new Date().toISOString().split('T')[0]}`
+        );
         toast.success('Excel exported!');
     };
 

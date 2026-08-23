@@ -22,7 +22,12 @@ export const CLIENT_NAMES: ClientName[] = ['Zomato', 'Zepto', 'Blinkit', 'Uber',
 
 export const cleanString = (val: any): string => {
     if (val === undefined || val === null) return '';
-    return String(val).replace(/[\uFEFF\u00A0\r\n]/g, ' ').trim();
+    const cleaned = String(val)
+        .replace(/[\uFEFF\u00A0\r\n]/g, ' ')
+        // Strip potential script injection tags
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .trim();
+    return cleaned;
 };
 
 export const normalizeKey = (key: string) => 

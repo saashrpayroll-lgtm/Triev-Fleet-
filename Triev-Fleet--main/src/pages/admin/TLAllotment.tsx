@@ -21,7 +21,7 @@ import {
     IndianRupee,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { jsonToExcel } from '@/utils/xlsxExport';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import DatePicker from 'react-datepicker';
@@ -383,24 +383,25 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
         totalNetGrowth: acc.totalNetGrowth + (curr.allotment_count - curr.submission_count),
     }), { totalAllotments: 0, totalSubmissions: 0, totalActive: 0, totalInactive: 0, totalCollection: 0, totalNetGrowth: 0 }), [filteredData]);
 
-    const exportToExcel = () => {
-        const ws = XLSX.utils.json_to_sheet(filteredData.map(item => ({
-            'Team Leader': item.tl_name,
-            'Email': item.tl_email,
-            'Active Riders': item.active_rider_count,
-            'Inactive Riders': item.inactive_rider_count,
-            'Allotments (Period)': item.allotment_count,
-            'Submissions (Period)': item.submission_count,
-            'Net Growth': item.allotment_count - item.submission_count,
-            'Rent Collection (Period)': item.rent_collection_total,
-            'Positive Wallet Count': item.positive_wallet_count,
-            'Positive Wallet Total': item.positive_wallet_total,
-            'Negative Wallet Count (Active)': item.negative_wallet_count,
-            'Negative Wallet Total': item.negative_wallet_total,
-        })));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'TL Allotments');
-        XLSX.writeFile(wb, `tl_allotments_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    const exportToExcel = async () => {
+        await jsonToExcel(
+            filteredData.map(item => ({
+                'Team Leader': item.tl_name,
+                'Email': item.tl_email,
+                'Active Riders': item.active_rider_count,
+                'Inactive Riders': item.inactive_rider_count,
+                'Allotments (Period)': item.allotment_count,
+                'Submissions (Period)': item.submission_count,
+                'Net Growth': item.allotment_count - item.submission_count,
+                'Rent Collection (Period)': item.rent_collection_total,
+                'Positive Wallet Count': item.positive_wallet_count,
+                'Positive Wallet Total': item.positive_wallet_total,
+                'Negative Wallet Count (Active)': item.negative_wallet_count,
+                'Negative Wallet Total': item.negative_wallet_total,
+            })),
+            'TL Allotments',
+            `tl_allotments_${format(new Date(), 'yyyy-MM-dd')}`
+        );
         toast.success('Excel exported');
         setIsExportOpen(false);
     };

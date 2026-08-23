@@ -1,17 +1,56 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export const exportToExcel = (data: any[], fileName: string) => {
+/**
+ * Helper: trigger browser download of an ExcelJS workbook.
+ * Works in all browsers — creates a Blob URL and auto-clicks it.
+ */
+const downloadWorkbook = async (workbook: ExcelJS.Workbook, fileName: string) => {
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.xlsx`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+export const exportToExcel = async (data: any[], fileName: string) => {
     try {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-        XLSX.writeFile(workbook, `${fileName}.xlsx`);
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Sheet1');
+
+        if (data.length === 0) return false;
+
+        // Auto-detect columns from first row keys
+        const columns = Object.keys(data[0]);
+        worksheet.columns = columns.map(key => ({ header: key, key, width: 20 }));
+
+        // Style header row
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1E293B' }
+        };
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+        // Add data rows
+        data.forEach(row => worksheet.addRow(row));
+
+        await downloadWorkbook(workbook, fileName);
         return true;
     } catch (error) {
-        console.error("Export failed", error);
+        console.error('Export failed', error);
         return false;
     }
 };

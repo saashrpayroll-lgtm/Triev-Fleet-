@@ -6,6 +6,13 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary'
 import { inject } from '@vercel/analytics'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 
+// Silence verbose console logging in production to prevent data leakage
+if (import.meta.env.PROD) {
+  console.log = () => {};
+  console.debug = () => {};
+  console.info = () => {};
+}
+
 // Initialize Vercel Web Analytics
 try {
   inject();

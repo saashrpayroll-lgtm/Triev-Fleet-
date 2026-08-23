@@ -24,6 +24,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.34.3",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
@@ -43,7 +44,6 @@
     "typescript": "~5.9.3",
     "vite": "^7.3.5",
     "vite-plugin-pwa": "^1.2.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.3.4",
     "zustand": "^5.0.9"
   },
