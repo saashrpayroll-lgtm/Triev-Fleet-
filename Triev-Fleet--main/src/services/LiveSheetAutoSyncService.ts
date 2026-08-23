@@ -223,15 +223,17 @@ class LiveSheetAutoSyncService {
         this.nextSyncTime = new Date(Date.now() + intervalMs);
         this.nextSyncCountdown = Math.floor(intervalMs / 1000);
 
-        // Countdown timer tick every second
+        // \u2705 EGRESS OPTIMIZED: Countdown tick every 30s instead of every 1s.
+        // UI shows approximate remaining time. 1s tick caused 60x unnecessary renders/min.
         this.countdownTimer = setInterval(() => {
-            if (this.nextSyncCountdown > 1) {
-                this.nextSyncCountdown -= 1;
+            const TICK_S = 30;
+            if (this.nextSyncCountdown > TICK_S) {
+                this.nextSyncCountdown -= TICK_S;
             } else {
                 this.nextSyncCountdown = Math.floor(intervalMs / 1000);
             }
             this.notifyListeners();
-        }, 1000);
+        }, 30_000);
 
         // Background interval trigger
         this.syncIntervalTimer = setInterval(() => {

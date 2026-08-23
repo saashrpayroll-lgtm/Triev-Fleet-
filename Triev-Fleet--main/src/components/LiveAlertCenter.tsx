@@ -86,17 +86,18 @@ const LiveAlertCenter: React.FC<LiveAlertCenterProps> = ({
     useEffect(() => {
         fetchAlertRiders();
 
-        // Unique Realtime subscription
-        const channelName = `live-alert-riders-${Math.random().toString(36).substring(2, 9)}`;
+        // ✅ EGRESS OPTIMIZED: Fixed channel name prevents duplicate connections on each mount.
+        // A random suffix created a new Supabase connection every time this component mounted.
         const channel = supabase
-            .channel(channelName)
+            .channel('live-alert-riders')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, () => {
                 fetchAlertRiders();
             })
             .subscribe();
 
-        // Also refresh every 90 seconds as fallback
-        const interval = setInterval(fetchAlertRiders, 90_000);
+        // ✅ EGRESS OPTIMIZED: Reduced fallback poll from 90s to 10 min.
+        // The realtime subscription above handles instant updates.
+        const interval = setInterval(fetchAlertRiders, 10 * 60 * 1000);
 
         return () => {
             supabase.removeChannel(channel);

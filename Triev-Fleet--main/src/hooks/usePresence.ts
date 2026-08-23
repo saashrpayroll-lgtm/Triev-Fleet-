@@ -46,9 +46,10 @@ export function usePresence(userId: string | undefined, email: string | undefine
 
             ch.on('presence', { event: 'sync' }, () => {
                 window.dispatchEvent(new CustomEvent('global-presence-sync', { detail: ch.presenceState() }));
-            }).on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, (payload) => {
-                window.dispatchEvent(new CustomEvent('global-presence-db-change', { detail: payload }));
             });
+            // \u2705 EGRESS OPTIMIZED: Removed postgres_changes listener on user_presence table.
+            // The Realtime Presence channel above (presenceState) already handles all
+            // online/offline updates without any DB query egress.
 
             return ch;
         };

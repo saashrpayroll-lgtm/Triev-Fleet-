@@ -197,9 +197,14 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         } catch (error) {
             toast.error('Failed to load performance data: ' + error.message);
         } finally {
+            lastFetchedAtRef.current = Date.now(); // ✅ Record fetch time
             setLoading(false);
         }
     };
+
+    // Egress guard: only re-fetch on visibility if data is stale (>5 min)
+    const lastFetchedAtRef = React.useRef<number>(0);
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000;
 
     useEffect(() => {
         fetchData();
@@ -247,14 +252,18 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         };
         const weeklyTimer = scheduleWeeklyReset();
 
-        // ── PWA/Background: Auto-refresh on tab visibility restore ───────────
+        // ── PWA/Background: Auto-refresh on tab visibility restore (only if stale) ───
         const handleVisibility = () => {
-            if (document.visibilityState === 'visible') fetchData();
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchData();
+                }
+            }
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
-        // ── Fallback: Poll every 2 minutes for stale-data protection ─────────
-        const pollInterval = setInterval(() => fetchData(), 2 * 60 * 1000);
+        // ── Fallback: Poll every 15 minutes (reduced from 2 min to save egress) ──
+        const pollInterval = setInterval(() => fetchData(), 15 * 60 * 1000);
 
         return () => {
             channels.forEach(ch => supabase.removeChannel(ch));

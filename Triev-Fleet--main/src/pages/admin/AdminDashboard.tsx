@@ -77,6 +77,11 @@ const Dashboard: React.FC = () => {
 
     // --- Data Fetching ---
     // --- Data Fetching & Real-time ---
+    // Track last successful fetch time to avoid redundant re-fetches on realtime events
+    const lastFetchedAtRef = React.useRef<number>(0);
+    const REALTIME_STALE_MS = 3 * 60 * 1000;  // 3 min — skip realtime re-fetch if data is fresher
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000; // 5 min — skip visibility re-fetch if data is fresher
+
     const fetchDashboardData = React.useCallback(async (isInitial = false) => {
         if (!userData) return;
         // Prevent concurrent fetches — if one is in-flight, skip this call
@@ -294,6 +299,7 @@ const Dashboard: React.FC = () => {
             console.error('Data Load Error:', error);
         } finally {
             isFetchingRef.current = false;
+            lastFetchedAtRef.current = Date.now(); // ✅ Record successful fetch time
             if (isInitial) setLoading(false);
         }
     }, [userData]);
@@ -301,36 +307,43 @@ const Dashboard: React.FC = () => {
     useEffect(() => {
         fetchDashboardData(true);
 
-        // Debounce: avoid hammering fetchDashboardData on rapid ledger inserts
+        // ✅ EGRESS OPTIMIZED: Debounced realtime handler with staleness guard.
+        // Only re-fetches if data is older than REALTIME_STALE_MS to prevent
+        // hammering the DB on every small change (e.g. wallet_ledger inserts).
         let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
             // Skip re-fetches while tab is hidden (saves CPU + network)
             if (document.hidden) return;
+            // Skip if data was just fetched recently (within 3 min)
+            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
             if (ledgerDebounce) clearTimeout(ledgerDebounce);
             ledgerDebounce = setTimeout(() => fetchDashboardData(), 4000);
         };
 
         const channel = supabase
-            .channel('dashboard-updates')
+            .channel('admin-dashboard-updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
-            // ✅ FIX: wallet_ledger realtime — keeps today/weekly collection maps live
+            // wallet_ledger realtime — keeps today/weekly collection maps live
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
-        // ✅ FIX: Re-fetch data when app comes back from background
-        // Mobile browsers kill WebSocket connections when the app is backgrounded.
+        // ✅ EGRESS OPTIMIZED: Only re-fetch on visibility restore if data is stale (>5 min).
+        // Without this guard, every tab-switch triggers a full DB download.
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                fetchDashboardData();
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchDashboardData();
+                }
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            if (ledgerDebounce) clearTimeout(ledgerDebounce);
             supabase.removeChannel(channel);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };

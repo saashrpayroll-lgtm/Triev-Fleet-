@@ -290,41 +290,52 @@ const CityOpsDashboard: React.FC = () => {
             console.error('Data Load Error:', error);
         } finally {
             isFetchingRef.current = false;
+            lastFetchedAtRef.current = Date.now(); // ✅ Record fetch time
             if (isInitial) setLoading(false);
         }
     }, [userData, tlIds, scopeLoading]);
 
+    // Track last successful fetch time to avoid redundant re-fetches on realtime events
+    const lastFetchedAtRef = React.useRef<number>(0);
+    const REALTIME_STALE_MS = 3 * 60 * 1000;
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000;
+
     useEffect(() => {
         fetchDashboardData(true);
 
-        // Debounce: avoid hammering fetchDashboardData on rapid ledger inserts
+        // ✅ EGRESS OPTIMIZED: Debounced realtime handler with staleness guard.
         let ledgerDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
+            if (document.hidden) return;
+            // Skip if data was fetched within last 3 min
+            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
             if (ledgerDebounce) clearTimeout(ledgerDebounce);
             ledgerDebounce = setTimeout(() => fetchDashboardData(), 2500);
         };
 
         const channel = supabase
-            .channel('dashboard-updates')
+            .channel('cityops-dashboard-updates')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
-            // ✅ FIX: wallet_ledger realtime — keeps today/weekly collection maps live
+            // wallet_ledger realtime — keeps today/weekly collection maps live
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
-        // ✅ FIX: Re-fetch data when app comes back from background
-        // Mobile browsers kill WebSocket connections when the app is backgrounded.
+        // ✅ EGRESS OPTIMIZED: Only re-fetch on visibility restore if data is stale (>5 min).
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                fetchDashboardData();
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchDashboardData();
+                }
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            if (ledgerDebounce) clearTimeout(ledgerDebounce);
             supabase.removeChannel(channel);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };

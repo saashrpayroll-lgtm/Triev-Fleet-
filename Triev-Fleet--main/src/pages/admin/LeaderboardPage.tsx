@@ -77,6 +77,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
 
     const prevRanksRef = useRef<Record<string, number>>(getPreviousRanks());
     const ledgerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastFetchedAtRef = useRef<number>(0); // \u2705 Egress guard: tracks last fetch time
 
     const period = useMemo(() => resolvePerformancePeriod(dateFilter), [dateFilter]);
 
@@ -178,6 +179,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
 
             setCollections(colMap);
             setHistoricalFleetCounts(activeFleetMap);
+            lastFetchedAtRef.current = Date.now();
         } catch (error) {
             console.error('Leaderboard data error:', error);
         } finally {
@@ -188,36 +190,42 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
     useEffect(() => {
         fetchData();
 
+        const REALTIME_STALE_MS = 3 * 60 * 1000;
+        const VISIBILITY_STALE_MS = 5 * 60 * 1000;
+
+        // ✅ EGRESS OPTIMIZED: Only re-fetch on realtime event if data is older than 3 min.
         const fetchDebounced = () => {
+            if (document.hidden) return;
+            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
             if (ledgerDebounceRef.current) clearTimeout(ledgerDebounceRef.current);
             ledgerDebounceRef.current = setTimeout(() => fetchData(), 1200);
         };
 
         const subscription = supabase
             .channel('leaderboard-updates')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchData)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchData)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchData)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchData)
-            // ✅ Live wallet_ledger updates (both NEW and UPDATED transactions)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'riders' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, fetchDebounced)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_collections' }, fetchDebounced)
+            // Live wallet_ledger updates
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
-        // ── PWA/Background: Auto-refresh on visibility restore ───────────
+        // ✅ EGRESS OPTIMIZED: Only re-fetch on visibility restore if data is stale (>5 min).
         const handleVisibility = () => {
-            if (document.visibilityState === 'visible') fetchData();
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchData();
+                }
+            }
         };
         document.addEventListener('visibilitychange', handleVisibility);
-
-        // ── Fallback: Poll every 2 minutes ───────────────────────────────
-        const pollInterval = setInterval(() => fetchData(), 2 * 60 * 1000);
 
         return () => {
             subscription.unsubscribe();
             if (ledgerDebounceRef.current) clearTimeout(ledgerDebounceRef.current);
             document.removeEventListener('visibilitychange', handleVisibility);
-            clearInterval(pollInterval);
         };
     }, [fetchData]);
 

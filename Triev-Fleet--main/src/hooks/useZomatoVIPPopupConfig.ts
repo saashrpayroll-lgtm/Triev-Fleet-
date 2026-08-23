@@ -276,10 +276,10 @@ export function useZomatoVIPPopupConfig() {
     useEffect(() => {
         fetchConfig();
 
-        // Realtime Subscription with Unique Channel Name per mount instance
-        const channelName = `zomato-popup-${Math.random().toString(36).substring(2, 9)}`;
+        // \u2705 EGRESS OPTIMIZED: Fixed channel name \u2014 Math.random() was creating a new
+        // Supabase WebSocket connection on every mount, causing redundant connections.
         const channel = supabase
-            .channel(channelName)
+            .channel('zomato-popup-config')
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',

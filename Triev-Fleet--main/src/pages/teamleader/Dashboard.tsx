@@ -462,18 +462,26 @@ const Dashboard: React.FC = () => {
             console.error('Error fetching dashboard stats:', error);
         } finally {
             isFetchingRef.current = false;
+            lastFetchedAtRef.current = Date.now(); // ✅ Record fetch time
             setLoading(false);
         }
     }, [userData]);
 
+    // Track last successful fetch time to avoid redundant re-fetches on realtime events
+    const lastFetchedAtRef = React.useRef<number>(0);
+    const REALTIME_STALE_MS = 3 * 60 * 1000;  // 3 min — skip realtime re-fetch if fresher
+    const VISIBILITY_STALE_MS = 5 * 60 * 1000; // 5 min — skip visibility re-fetch if fresher
+
     useEffect(() => {
         fetchStats();
 
-        // ✅ ENHANCED: Debounced realtime — prevents rapid re-renders on bulk updates
+        // ✅ EGRESS OPTIMIZED: Debounced realtime handler with staleness guard.
         let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
             // Skip re-fetches while tab is hidden (saves CPU + network)
             if (document.hidden) return;
+            // Skip if data was fetched within last 3 min
+            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
             if (realtimeDebounce) clearTimeout(realtimeDebounce);
             realtimeDebounce = setTimeout(() => fetchStats(), 4000);
         };
@@ -487,10 +495,12 @@ const Dashboard: React.FC = () => {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_ledger' }, fetchDebounced)
             .subscribe();
 
-        // ✅ FIX: Re-fetch data when PWA comes back from background
+        // ✅ EGRESS OPTIMIZED: Only re-fetch on visibility restore if data is stale (>5 min).
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                fetchStats();
+                if (Date.now() - lastFetchedAtRef.current > VISIBILITY_STALE_MS) {
+                    fetchStats();
+                }
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);

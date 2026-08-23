@@ -4,6 +4,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { ChatMessage } from '@/types/chat';
 import { Send, User, RefreshCw } from 'lucide-react';
 import { safeRender } from '@/utils/safeRender';
+import { supabase } from '@/config/supabase';
 
 const AdminChat: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -24,9 +25,16 @@ const AdminChat: React.FC = () => {
 
     useEffect(() => {
         loadSessions();
-        // Poll for new sessions every 30s
-        const interval = setInterval(loadSessions, 30000);
-        return () => clearInterval(interval);
+        // ✅ EGRESS OPTIMIZED: Replaced 30s polling with realtime subscription.
+        // Realtime fires only when data changes (zero egress when idle).
+        // Polling fired every 30s regardless, causing ~2880 DB hits/day per open tab.
+        const channel = supabase
+            .channel('admin-chat-sessions')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_sessions' }, () => {
+                loadSessions();
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
     }, []);
 
     // Fetch Messages when session selected

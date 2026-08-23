@@ -32,6 +32,8 @@ export function useRMTeamData(): RMTeamData {
     const isFetchingRef = useRef(false);
 
     const rmName = userData?.fullName || '';
+    // Egress guard: tracks last successful fetch time
+    const lastFetchedAtRef = useRef<number>(0);
 
     useEffect(() => {
         if (!rmName) return;
@@ -104,15 +106,20 @@ export function useRMTeamData(): RMTeamData {
                 setError(err.message || 'Failed to load team data');
             } finally {
                 isFetchingRef.current = false;
+                lastFetchedAtRef.current = Date.now(); // ✅ Record fetch time
                 setLoading(false);
             }
         };
 
         fetchData();
 
-        // Real-time subscriptions — DEBOUNCED to prevent re-fetch storms
+        // Real-time subscriptions — DEBOUNCED + STALE GUARD to prevent egress blowout
+        // Only re-fetch if last fetch was more than 3 minutes ago
+        const REALTIME_STALE_MS = 3 * 60 * 1000;
         let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
         const fetchDebounced = () => {
+            if (document.hidden) return;
+            if (Date.now() - lastFetchedAtRef.current < REALTIME_STALE_MS) return;
             if (realtimeDebounce) clearTimeout(realtimeDebounce);
             realtimeDebounce = setTimeout(() => fetchData(), 2500);
         };
