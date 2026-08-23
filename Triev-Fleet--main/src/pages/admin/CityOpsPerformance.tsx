@@ -8,8 +8,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { jsonToExcel } from '@/utils/xlsxExport';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { calculateAIScore, PerformancePeriod, matchesReportingManager } from '@/utils/performance';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import PerformanceCard from '@/components/dashboard/PerformanceCard';
@@ -196,8 +194,10 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     fullName: u.full_name ?? u.fullName,
                     id: u.id
                 })),
-                weeklyCollections: weekly,
-                dailyCollections: daily
+                collections: dailyRes.data || [],
+                dailyCollectionsMap: daily,
+                weeklyCollectionsMap: weekly,
+                fetchedTodayStr: todayStr
             });
             lastFetchedAtRef.current = Date.now();
         } catch (err: any) {
@@ -442,7 +442,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             });
             const avgTenure = validTenureCount > 0 ? Math.round(totalTenureDays / validTenureCount) : 0;
             
-            const historicalByDate = {};
+            const historicalByDate: Record<string, { date: string; collection: number; activeRiders: number }> = {};
             assignedTLs.forEach(tl => {
                 rawData.collections.forEach(item => {
                     if (item.team_leader_id === tl.id) {
@@ -453,7 +453,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     }
                 });
             });
-            const historicalDataRaw = Object.values(historicalByDate)
+            const historicalDataRaw = (Object.values(historicalByDate) as Array<{ date: string; collection: number; activeRiders: number }>)
                 .filter((d) => d.date >= startDateStr && d.date <= endDateStr)
                 .sort((a, b) => b.date.localeCompare(a.date));
             
@@ -488,7 +488,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                 score, aiGrade, leadsToday: leadsTotal, churnLeads: leadsTotal - convertedLeads, status: activeTLs > 0 ? 'active' : 'inactive', historicalData, daysInPeriod,
                 last7DaysTrend: last7Days,
                 assignedTLs: assignedTLs.map(tl => {
-                    const tlHistory = {};
+                    const tlHistory: Record<string, number> = {};
                     rawData.collections.forEach(item => {
                         if (item.team_leader_id === tl.id) {
                             const rawDate = item.date && typeof item.date === 'string' ? item.date.split('T')[0].split(' ')[0] : item.date;
