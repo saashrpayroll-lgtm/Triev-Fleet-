@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -9,7 +9,6 @@ import {
     UserX, BarChart2, Target, Zap, AlertCircle, Trophy
 } from 'lucide-react';
 import { AnalyticsService, AnalyticsData } from '@/services/AnalyticsService';
-import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
 import AdminWalletBifurcation from '@/components/dashboard/AdminWalletBifurcation';
 
