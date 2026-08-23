@@ -1,6 +1,4 @@
-/* eslint-disable */
-// @ts-nocheck
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/config/supabase';
 import {
