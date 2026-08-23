@@ -127,13 +127,15 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
-                    .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
+                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
             if (dailyRes.error) throw dailyRes.error;
-            if (todayLedgerRes.error) throw todayLedgerRes.error;
+            if (todayLedgerRes.error) {
+                console.warn('Today ledger live sync warning:', todayLedgerRes.error);
+            }
 
             const weekly: Record<string, number> = {};
             const daily: Record<string, number> = {};

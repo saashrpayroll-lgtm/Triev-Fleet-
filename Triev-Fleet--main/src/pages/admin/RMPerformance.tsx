@@ -105,28 +105,36 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
                 );
             }
 
-            const scopedTlIdsForRM = allTls.map((tl: any) => tl.id);
+            const isRestrictedRMWithNoTLs = !!(scopedRmIds && scopedRmIds.length > 0 && scopedTlIdsForRM.length === 0);
 
             const [ridersRes, leadsRes, dailyRes, todayLedgerRes] = await Promise.all([
                 scopedTlIdsForRM.length > 0
                     ? fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name', { column: 'team_leader_id', value: scopedTlIdsForRM, type: 'in' })
-                    : fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name'),
+                    : isRestrictedRMWithNoTLs
+                        ? fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name', { column: 'id', value: ['invalid'], type: 'in' })
+                        : fetchAllRidersPaginated('id, team_leader_id, status, wallet_amount, allotment_date, inactivated_at, created_at, chassis_number, client_name'),
                 scopedTlIdsForRM.length > 0
                     ? supabase.from('leads').select('id, created_by, status, created_at').in('created_by', scopedTlIdsForRM)
-                    : supabase.from('leads').select('id, created_by, status, created_at'),
+                    : isRestrictedRMWithNoTLs
+                        ? supabase.from('leads').select('id, created_by, status, created_at').eq('id', 'invalid')
+                        : supabase.from('leads').select('id, created_by, status, created_at'),
                 scopedTlIdsForRM.length > 0
                     ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr).in('team_leader_id', scopedTlIdsForRM)
-                    : supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr),
+                    : isRestrictedRMWithNoTLs
+                        ? supabase.from('daily_collections').select('team_leader_id, total_collection, date').limit(0)
+                        : supabase.from('daily_collections').select('team_leader_id, total_collection, date').gte('date', weekStartStr),
                 supabase.from('wallet_ledger').select(`amount, rider: riders!inner(team_leader_id)`)
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
-                    .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
+                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
             if (leadsRes.error) throw leadsRes.error;
             if (dailyRes.error) throw dailyRes.error;
-            if (todayLedgerRes.error) throw todayLedgerRes.error;
+            if (todayLedgerRes.error) {
+                console.warn('Today ledger live sync warning:', todayLedgerRes.error);
+            }
 
             const weekly: Record<string, number> = {};
             const daily: Record<string, number> = {};
