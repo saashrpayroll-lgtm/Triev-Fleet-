@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/config/supabase';
 import { getValidHistoricalDate } from '@/utils/dateUtils';
 import { fetchAllRidersPaginated, fetchTablePaginated } from '@/utils/dbUtils';

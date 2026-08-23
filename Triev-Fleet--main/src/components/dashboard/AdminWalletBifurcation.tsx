@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '@/config/supabase';
 import { fetchAllRidersPaginated } from '@/utils/dbUtils';
 import { ChevronDown, ChevronRight, Activity, AlertTriangle, Search, Filter, Download, Maximize2, Minimize2 } from 'lucide-react';
