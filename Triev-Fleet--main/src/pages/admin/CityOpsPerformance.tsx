@@ -298,7 +298,6 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         
         const period: PerformancePeriod = { start: startDateStr, end: endDateStr };
         const monthStartStr = new Date(Date.UTC(year, month - 1, 1)).toISOString().split('T')[0];
-        const monthEndStr = new Date(Date.UTC(year, month, 0)).toISOString().split('T')[0];
 
         // ── ALWAYS-COMPUTED week/month boundaries (independent of filter) ──
         const weekDayUTC = workingDateUTC.getUTCDay();
