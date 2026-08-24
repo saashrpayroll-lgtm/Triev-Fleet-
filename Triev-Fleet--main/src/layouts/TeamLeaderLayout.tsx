@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -39,6 +39,16 @@ const TeamLeaderLayout: React.FC = () => {
     // Live Badges State
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
+    const fetchCounts = useCallback(async () => {
+        if (!userData) return;
+        try {
+            const { count: reqCount } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).in('status', ['pending', 'open']);
+            setPendingRequestsCount(reqCount || 0);
+        } catch (e) {
+            console.error("Failed to fetch TL sidebar counts:", e);
+        }
+    }, [userData]);
+
     React.useEffect(() => {
         if (!userData) return;
         fetchCounts();
@@ -72,17 +82,8 @@ const TeamLeaderLayout: React.FC = () => {
             supabase.removeChannel(reqChannel);
             supabase.removeChannel(notifChannel);
         };
-    }, [userData]);
+    }, [userData, fetchCounts]);
 
-    const fetchCounts = async () => {
-        if (!userData) return;
-        try {
-            const { count: reqCount } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('user_id', userData.id).in('status', ['pending', 'open']);
-            setPendingRequestsCount(reqCount || 0);
-        } catch (e) {
-            console.error("Failed to fetch TL sidebar counts:", e);
-        }
-    };
 
     // Cmd+K
     useEffect(() => {

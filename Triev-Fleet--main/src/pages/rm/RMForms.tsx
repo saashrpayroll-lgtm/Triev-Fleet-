@@ -47,7 +47,7 @@ const RMForms: React.FC = () => {
     useEffect(() => {
         fetchForms();
 
-        const channel = supabase.channel('external-forms-changes')
+        const channel = supabase.channel('rm-external-forms-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'external_forms' }, () => {
                 fetchForms();
             })

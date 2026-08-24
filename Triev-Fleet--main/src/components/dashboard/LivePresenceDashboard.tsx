@@ -135,24 +135,17 @@ const LivePresenceDashboard: React.FC = () => {
             }
         };
 
-        let channel = supabase.getChannels().find(c => c.topic === 'realtime:global-presence');
-
-        if (!channel || (channel.state !== 'joined' && channel.state !== 'joining')) {
-            if (!channel) {
-                channel = supabase.channel('global-presence');
-            }
-            channel
-                .on('presence', { event: 'sync' }, () => {
-                    handleSyncState(channel!.presenceState());
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, payload => {
-                    handleDBRecord(payload);
-                });
-            channel.subscribe();
-        } else {
-            handleSyncState(channel.presenceState());
+        // ✅ SAFE: Do NOT create or modify the global-presence channel here.
+        // usePresence.ts already owns and manages 'global-presence'. Adding
+        // callbacks to an already-subscribed channel causes runtime crashes.
+        // Instead, read the current presence state if the channel is already joined,
+        // and listen for all updates via CustomEvents dispatched by usePresence.ts.
+        const existingChannel = supabase.getChannels().find(c => c.topic === 'realtime:global-presence');
+        if (existingChannel && existingChannel.state === 'joined') {
+            handleSyncState(existingChannel.presenceState());
         }
 
+        // All realtime updates come through CustomEvents dispatched by usePresence.ts
         const onSyncEvent = (e: Event) => handleSyncState((e as CustomEvent).detail);
         const onDBEvent = (e: Event) => handleDBRecord((e as CustomEvent).detail);
 

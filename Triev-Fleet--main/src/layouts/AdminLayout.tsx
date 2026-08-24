@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -40,7 +40,7 @@ const AdminLayout: React.FC = () => {
     const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
-    const fetchCounts = async () => {
+    const fetchCounts = useCallback(async () => {
         if (!userData) return;
         try {
             const [{ count: reqCount }, { count: notifCount }] = await Promise.all([
@@ -52,7 +52,7 @@ const AdminLayout: React.FC = () => {
         } catch (e) {
             console.error("Failed to fetch sidebar counts:", e);
         }
-    };
+    }, [userData]);
 
     React.useEffect(() => {
         if (!userData) return;
@@ -70,8 +70,7 @@ const AdminLayout: React.FC = () => {
             supabase.removeChannel(reqChannel);
             supabase.removeChannel(notifChannel);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userData]);
+    }, [userData, fetchCounts]);
 
     // Cmd+K shortcut
     useEffect(() => {
