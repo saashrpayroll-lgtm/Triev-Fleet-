@@ -4,7 +4,8 @@ export interface AIConfig {
     geminiKey: string;
     openAIKey: string;
     groqKey: string;
-    activeProvider: 'gemini' | 'openai' | 'groq';
+    mistralKey: string;  // Engine #3 — Multilingual (Hindi) + Structured JSON
+    activeProvider: 'gemini' | 'openai' | 'groq' | 'mistral';
 }
 
 export const AIConfigService = {
@@ -14,9 +15,10 @@ export const AIConfigService = {
             return JSON.parse(localConfig);
         }
         return {
-            geminiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-            openAIKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-            groqKey: import.meta.env.VITE_GROQ_API_KEY || '',
+            geminiKey:  import.meta.env.VITE_GEMINI_API_KEY  || '',
+            openAIKey:  import.meta.env.VITE_OPENAI_API_KEY  || '',
+            groqKey:    import.meta.env.VITE_GROQ_API_KEY    || '',
+            mistralKey: import.meta.env.VITE_MISTRAL_API_KEY || '',
             activeProvider: 'gemini'
         };
     },
@@ -42,7 +44,12 @@ export const AIConfigService = {
         return config.groqKey || import.meta.env.VITE_GROQ_API_KEY || '';
     },
 
-    getActiveProvider: (): 'gemini' | 'openai' | 'groq' => {
+    getMistralKey: (): string => {
+        const config = AIConfigService.getConfig();
+        return config.mistralKey || import.meta.env.VITE_MISTRAL_API_KEY || '';
+    },
+
+    getActiveProvider: (): 'gemini' | 'openai' | 'groq' | 'mistral' => {
         return AIConfigService.getConfig().activeProvider;
     }
 };

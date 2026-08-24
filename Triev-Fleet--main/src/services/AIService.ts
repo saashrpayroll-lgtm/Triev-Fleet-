@@ -7,8 +7,8 @@ const FALLBACK_GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const FALLBACK_OPENAI_KEY = ''; // Removed hardcoded key for security
 
 // --- Types ---
-export type AiTaskType = 'speed' | 'analysis' | 'creative';
-export type AiProvider = 'groq' | 'gemini' | 'openai';
+export type AiTaskType = 'speed' | 'analysis' | 'creative' | 'multilingual';
+export type AiProvider = 'groq' | 'gemini' | 'openai' | 'mistral';
 
 export interface AiOrchestrationResult {
     provider: AiProvider;
@@ -81,43 +81,67 @@ class AIOrchestrator {
 
         switch (task) {
             case 'speed':
-                // Preferred: Groq. Fallback: OpenAI -> Gemini
+                // Groq sub-second inference → Mistral fallback → Gemini last
                 return 'groq';
             case 'analysis':
-                // Preferred: Gemini. Fallback: OpenAI -> Groq
+                // Gemini 1M-context deep analytics → Mistral → Groq
                 return 'gemini';
             case 'creative':
-                // Gemini is primary for creative tasks — OpenAI is NOT configured (no key set)
-                // Routing to OpenAI caused a silent failure on every creative call
+                // Gemini for structured creative content → Mistral → Groq
                 return 'gemini';
+            case 'multilingual':
+                // Mistral has the richest Hindi/multilingual corpus → best for natural WhatsApp msgs
+                // Falls back to Gemini, then Groq if Mistral key not set
+                return 'mistral';
             default:
                 return 'gemini';
         }
     }
 
-    // Main Execution Method
+    /**
+     * Returns the ordered provider chain for a task type.
+     * Each provider is tried in sequence until one succeeds (3-level fallback).
+     */
+    private static getProviderChain(task: AiTaskType): AiProvider[] {
+        switch (task) {
+            case 'speed':        return ['groq',    'mistral', 'gemini'];
+            case 'analysis':     return ['gemini',  'mistral', 'groq'  ];
+            case 'creative':     return ['gemini',  'mistral', 'groq'  ];
+            case 'multilingual': return ['mistral', 'gemini',  'groq'  ];
+            default:             return ['gemini',  'mistral', 'groq'  ];
+        }
+    }
+
+    // Main Execution Method — 3-Level Fallback Chain
     static async execute(task: AiTaskType, prompt: string, systemContext: string = ''): Promise<string | null> {
-        const primaryProvider = this.selectProvider(task);
+        const chain = this.getProviderChain(task);
         const startTime = Date.now();
 
-        // console.log(`[AI Orchestrator] Task: ${task} | Selected Primary: ${primaryProvider}`);
+        for (let i = 0; i < chain.length; i++) {
+            const provider = chain[i];
+            const isFirst = i === 0;
 
-        // Try Primary
-        let result = await this.callProvider(primaryProvider, prompt, systemContext);
+            if (!isFirst) {
+                console.warn(`[Triev AI] Engine ${chain[i-1]} failed. Trying ${provider} (fallback ${i})...`);
+            }
 
-        if (result.success && result.content) {
-            logAIActivity(task, primaryProvider, Date.now() - startTime, true);
-            return result.content;
+            const result = await this.callProvider(provider, prompt, systemContext);
+
+            if (result.success && result.content) {
+                logAIActivity(
+                    isFirst ? task : `${task}-fallback-${i}`,
+                    provider,
+                    Date.now() - startTime,
+                    true
+                );
+                return result.content;
+            }
         }
 
-        // Fallback Logic
-        console.warn(`[AI Orchestrator] Primary (${primaryProvider}) failed. Attempting fallback...`);
-        const fallbackProvider = primaryProvider === 'groq' ? 'gemini' : 'groq'; // Simple toggle default
-
-        result = await this.callProvider(fallbackProvider, prompt, systemContext);
-
-        logAIActivity(`${task}-fallback`, fallbackProvider, Date.now() - startTime, result.success);
-        return result.content; // Might be null
+        // All 3 engines failed
+        console.error(`[Triev AI] ❌ All engines failed for task: ${task}`);
+        logAIActivity(`${task}-all-failed`, 'none', Date.now() - startTime, false);
+        return null;
     }
 
     // Provider Implementations
@@ -126,15 +150,59 @@ class AIOrchestrator {
 
         try {
             switch (provider) {
-                case 'groq': return await this.callGroq(prompt, fullSystemContext);
-                case 'gemini': return await this.callGemini(prompt, fullSystemContext);
-                case 'openai': return await this.callOpenAI(prompt, fullSystemContext);
-                default: return { success: false, content: null };
+                case 'groq':    return await this.callGroq(prompt, fullSystemContext);
+                case 'gemini':  return await this.callGemini(prompt, fullSystemContext);
+                case 'mistral': return await this.callMistral(prompt, fullSystemContext);
+                case 'openai':  return await this.callOpenAI(prompt, fullSystemContext);
+                default:        return { success: false, content: null };
             }
         } catch (e) {
             console.error(`[AI Orchestrator] Provider ${provider} crashed:`, e);
             return { success: false, content: null };
         }
+    }
+
+    // --- Mistral Driver (Multilingual Engine — Hindi/Structured JSON) ---
+    private static async callMistral(prompt: string, system: string) {
+        const key = AIConfigService.getMistralKey();
+        // Reject empty or placeholder keys — real Mistral keys start with a long string
+        if (!key || key.length < 20) return { success: false, content: null };
+
+        const safeSystem = system || "You are a helpful assistant.";
+        // Prefer mistral-small (best quality). Free: open-mistral-7b
+        const models = ['mistral-small-latest', 'open-mistral-7b'];
+
+        for (const model of models) {
+            try {
+                const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: 'system', content: safeSystem },
+                            { role: 'user',   content: prompt }
+                        ],
+                        temperature: 0.4,
+                        max_tokens: 512
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const content = data.choices?.[0]?.message?.content || null;
+                    if (content) return { success: true, content };
+                } else {
+                    console.warn(`[Mistral ${model}] HTTP ${res.status}`);
+                }
+            } catch (e) {
+                console.error(`[Mistral ${model}] Exception`, e);
+            }
+        }
+        return { success: false, content: null };
     }
 
     // --- Groq Driver (Sub-second Speed Engine) ---
@@ -338,7 +406,9 @@ INSTRUCTIONS:
 
 Return ONLY the final message text ready to send.`;
 
-        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Professional Payment Recovery Specialist.");
+        // 'multilingual' routes Mistral → Gemini → Groq for natural Hindi text
+        const task: AiTaskType = language === 'hindi' ? 'multilingual' : 'analysis';
+        const text = await AIOrchestrator.execute(task, prompt, "You are a Professional Payment Recovery Specialist.");
 
         if (text) return cleanText(text);
 
@@ -379,7 +449,9 @@ INSTRUCTIONS:
 
 Return ONLY the final message text ready to send.`;
 
-        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Proactive Rider Success Manager.");
+        // 'multilingual' routes Mistral → Gemini → Groq for natural Hindi text
+        const task: AiTaskType = language === 'hindi' ? 'multilingual' : 'analysis';
+        const text = await AIOrchestrator.execute(task, prompt, "You are a Proactive Rider Success Manager.");
 
         if (text) return cleanText(text);
 
@@ -421,7 +493,9 @@ INSTRUCTIONS:
 
 Return ONLY the final message text ready to send.`;
 
-        const text = await AIOrchestrator.execute('analysis', prompt, "You are a Compliance Officer.");
+        // 'multilingual' routes Mistral → Gemini → Groq for natural Hindi text
+        const task: AiTaskType = language === 'hindi' ? 'multilingual' : 'analysis';
+        const text = await AIOrchestrator.execute(task, prompt, "You are a Compliance Officer.");
 
         if (text) return cleanText(text);
 
