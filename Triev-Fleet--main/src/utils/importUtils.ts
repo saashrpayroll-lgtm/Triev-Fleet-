@@ -2,7 +2,7 @@ import { supabase } from '@/config/supabase';
 import { ImportSummary, ClientName, RiderColumnMapping, LiveSyncStaffFilter } from '@/types';
 import { logActivity } from './activityLog';
 import { LedgerAPI } from '@/api/ledger';
-import { fetchAllRidersPaginated, fetchTablePaginated } from './dbUtils';
+import { fetchAllRidersPaginated, fetchTablePaginated, invalidateDbCache } from './dbUtils';
 import { parseIndianDate } from './dateUtils';
 
 // Constants for Rider Import
@@ -674,6 +674,7 @@ export const processRiderImport = async (
         metadata: { adminName, summary }
     });
     await logImportHistory(adminId, adminName, 'rider', summary, fileData.length);
+    invalidateDbCache(); // ✅ Invalidate cache so all dashboards reflect fresh import instantly
     return summary;
 };
 
@@ -856,6 +857,7 @@ export const processWalletUpdate = async (
 
     // Log Import History
     await logImportHistory(adminId, adminName, 'wallet', summary, fileData.length);
+    invalidateDbCache(); // ✅ Invalidate cache on wallet import
 
     // ─── Auto-Cleanup: Remove stale DAY_OPENING_BALANCE (RESET) entries ───────
     // Only entries from PREVIOUS dates with mode=RESET and type=DAY_OPENING_BALANCE
@@ -1149,6 +1151,7 @@ export const processRentCollectionImport = async (
     }
 
     await logImportHistory(adminId, adminName, 'rent_collection' as any, summary, fileData.length);
+    invalidateDbCache(); // ✅ Invalidate cache on rent_collection import
 
     // Silently prune old >35 days (5 weeks) wallet ledger data to save DB space
     if (summary.success > 0) {

@@ -32,14 +32,15 @@ const FleetAIHealthWidget: React.FC<FleetAIHealthWidgetProps> = ({ riders, title
         const activeRiders = riders.filter(r => r.status === 'active');
         if (!activeRiders.length) { setLoading(false); return; }
 
-        let cancelled = false;
-        RiderRatingService.fetchRatingsForRiders(activeRiders).then(result => {
-            if (!cancelled) {
-                setRatings(result);
-                setLoading(false);
-            }
-        });
-        return () => { cancelled = true; };
+        // ✅ EGRESS OPTIMIZED: Calculate fleet health distribution instantly in memory
+        // using getQuickRating (based on wallet status, tenure, & balance thresholds).
+        // This eliminates 20+ parallel chunked wallet_ledger DB queries for 1000+ riders.
+        const quickMap = new Map<string, StarRatingResult>();
+        for (const r of activeRiders) {
+            quickMap.set(r.id, RiderRatingService.getQuickRating(r));
+        }
+        setRatings(quickMap);
+        setLoading(false);
     }, [riders]);
 
     const ratingValues = Array.from(ratings.values());
