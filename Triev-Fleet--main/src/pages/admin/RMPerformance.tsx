@@ -69,6 +69,7 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
     const [expandedRM, setExpandedRM] = useState<string | null>(null);
 
     const isFetchingRef = useRef(false);
+    const lastFetchedAtRef = useRef(0); // tracks last successful fetch timestamp (ms)
 
     const fetchData = useCallback(async () => {
         if (isFetchingRef.current) return;
