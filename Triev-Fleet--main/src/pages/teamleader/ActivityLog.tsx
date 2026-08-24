@@ -71,7 +71,6 @@ const ActivityLog: React.FC = () => {
                 .from('activity_logs')
                 .select('id, user_id, user_name, user_role, action_type, target_type, target_id, details, timestamp, is_deleted')
                 .eq('user_id', userData.id)
-                .neq('is_deleted', true)
                 .order('timestamp', { ascending: false })
                 .limit(100);
 

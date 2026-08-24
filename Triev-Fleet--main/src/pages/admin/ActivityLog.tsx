@@ -71,8 +71,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
                     timestamp,
                     isDeleted:is_deleted,
                     metadata
-                `)
-                .neq('is_deleted', true);
+                `);
 
             // DB-level Date Filtering to avoid full table scans
             if (dateFrom) {
@@ -111,7 +110,15 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ scopedUserIds }) => {
             }
 
             if (data) {
-                const filtered = (data as ActivityLog[]).filter(l => l.isDeleted !== true);
+                const filtered = (data as ActivityLog[])
+                    .filter(l => l.isDeleted !== true)
+                    .map(l => ({
+                        ...l,
+                        userName: l.userName || 'System User',
+                        actionType: l.actionType || 'System Activity',
+                        userRole: l.userRole || 'admin',
+                        details: l.details || '-'
+                    }));
                 setLogs(filtered);
             }
         } catch (error: any) {
