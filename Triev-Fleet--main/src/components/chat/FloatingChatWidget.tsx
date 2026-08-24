@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Paperclip, Minimize2, Sparkles, User, Bot, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Send, Paperclip, Minimize2, Sparkles, User, Bot, Loader2, Zap, Brain, Globe } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/config/supabase';
@@ -7,6 +7,20 @@ import { ChatService } from '@/services/ChatService';
 import { AIService } from '@/services/AIService';
 import { ChatMessage, ChatMode, ChatSession } from '@/types/chat';
 import { safeRender } from '@/utils/safeRender';
+
+// --- Engine Badge Config ---
+const ENGINE_BADGE: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+    groq:    { label: 'Groq',    icon: <Zap size={10} className="fill-current" />,   color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+    gemini:  { label: 'Gemini',  icon: <Brain size={10} />,                           color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+    mistral: { label: 'Mistral', icon: <Globe size={10} />,                           color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+    unknown: { label: 'AI',      icon: <Sparkles size={10} />,                        color: 'bg-muted text-muted-foreground' },
+};
+
+// Extended ChatMessage with provider info
+interface AiChatMessage extends ChatMessage {
+    provider?: string;
+    isStreaming?: boolean;
+}
 
 const FloatingChatWidget: React.FC = () => {
     const { userData } = useSupabaseAuth();
@@ -19,15 +33,13 @@ const FloatingChatWidget: React.FC = () => {
     const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
 
     // Messages
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<AiChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
 
     // Refs
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-
 
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -75,6 +87,26 @@ const FloatingChatWidget: React.FC = () => {
     // State for file upload
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+    /** Simulates word-by-word streaming by progressively revealing text */
+    const streamTextIntoMessage = (msgId: string, fullText: string) => {
+        const words = fullText.split(' ');
+        let idx = 0;
+
+        const interval = setInterval(() => {
+            idx += Math.floor(Math.random() * 3) + 1; // 1-3 words per tick for natural feel
+            const visible = words.slice(0, idx).join(' ');
+            const done = idx >= words.length;
+
+            setMessages(prev => prev.map(m =>
+                m.id === msgId
+                    ? { ...m, content: done ? fullText : visible + '…', isStreaming: !done }
+                    : m
+            ));
+
+            if (done) clearInterval(interval);
+        }, 40); // ~40ms per tick = fast but readable
+    };
+
     const handleSend = async () => {
         if (!inputValue.trim() && !selectedFile) return;
 
@@ -86,7 +118,7 @@ const FloatingChatWidget: React.FC = () => {
 
         // Optimistic Update
         const tempId = Math.random().toString(36).substring(7);
-        const tempMessage: ChatMessage = {
+        const tempMessage: AiChatMessage = {
             id: tempId,
             session_id: activeSession?.id || 'temp',
             sender_id: userData?.id,
@@ -105,16 +137,14 @@ const FloatingChatWidget: React.FC = () => {
 
         try {
             if (mode === 'ai') {
-                // --- AI MODE ---
+                // --- AI MODE with streaming ---
                 let attachmentData = undefined;
 
                 if (fileToSend && fileToSend.type.startsWith('image/')) {
-                    // Convert to Base64
                     const base64 = await new Promise<string>((resolve) => {
                         const reader = new FileReader();
                         reader.onloadend = () => {
                             const res = reader.result as string;
-                            // Remove data:image/xxx;base64, prefix
                             resolve(res.split(',')[1]);
                         };
                         reader.readAsDataURL(fileToSend);
@@ -122,7 +152,8 @@ const FloatingChatWidget: React.FC = () => {
                     attachmentData = { mimeType: fileToSend.type, data: base64 };
                 }
 
-                const aiResponseText = await AIService.chatWithBot(
+                // Use tracked variant to get engine info
+                const { text: aiResponseText, provider } = await AIService.chatWithBotTracked(
                     content || (fileToSend ? "Analyze this image" : ""),
                     messages.map(m => ({
                         role: m.sender_role === 'user' ? 'user' : 'model',
@@ -133,27 +164,33 @@ const FloatingChatWidget: React.FC = () => {
                         userName: userData?.fullName,
                         page: location.pathname,
                         permissions: userData?.permissions,
-                        stats: aiContextStats // Inject Real-time Stats
+                        stats: aiContextStats
                     },
                     attachmentData
                 );
 
-                // Add AI Response
-                const aiMessage: ChatMessage = {
-                    id: Math.random().toString(),
+                // Create AI message with provider info, start empty for streaming effect
+                const aiMsgId = Math.random().toString(36).substring(7);
+                const aiMessage: AiChatMessage = {
+                    id: aiMsgId,
                     session_id: 'ai-session',
                     sender_role: 'ai',
-                    content: aiResponseText,
+                    content: '',           // starts empty — will be streamed in
                     type: 'text',
                     is_read: true,
-                    created_at: new Date().toISOString()
+                    created_at: new Date().toISOString(),
+                    provider,
+                    isStreaming: true
                 };
 
+                setIsTyping(false);
                 setMessages(prev => prev.map(m => m.id === tempId ? { ...m, isSending: false } : m).concat(aiMessage));
+
+                // Stream text word by word
+                streamTextIntoMessage(aiMsgId, aiResponseText);
 
             } else {
                 // --- MANUAL MODE ---
-                // 1. Ensure Session
                 let sessionId = activeSession?.id;
                 if (!sessionId && userData) {
                     const sess = await ChatService.getOrCreateSession(userData.id);
@@ -162,7 +199,6 @@ const FloatingChatWidget: React.FC = () => {
                 }
 
                 if (sessionId) {
-                    // Upload File if exists
                     let mediaUrl = undefined;
                     let type: 'text' | 'image' | 'document' = 'text';
 
@@ -210,18 +246,7 @@ const FloatingChatWidget: React.FC = () => {
 
     // Drag Handlers
     const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-        // Prevent drag if interacting with controls (unless it's the specific move handle)
-        if ((e.target as HTMLElement).closest('button, input, textarea') && !(e.target as HTMLElement).closest('.drag-handle')) {
-            // If it's the main toggle button (which is a button), we ALLOW drag if it is the target 
-            // But if it's an inner button (like close), we skip.
-            // The main toggle button IS a button, so we need to be careful.
-            // We'll rely on the fact that the toggle button itself triggers this.
-        }
-
-        // e.stopPropagation(); // Try avoiding this to let click events pass if no drag occurred
-        // But for drag stability:
-
-        hasMoved.current = false; // Reset move flag
+        hasMoved.current = false;
         setIsDragging(true);
 
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
@@ -235,11 +260,9 @@ const FloatingChatWidget: React.FC = () => {
     const [aiContextStats, setAiContextStats] = useState<any>(null);
 
     useEffect(() => {
-        // Fetch stats for AI context
         const fetchStats = async () => {
             if (!userData) return;
             try {
-                // Parallel fetch for speed
                 const [riders, leads] = await Promise.all([
                     supabase.from('riders').select('id, status, wallet_amount', { count: 'exact' }),
                     supabase.from('leads').select('id, status', { count: 'exact' })
@@ -250,21 +273,13 @@ const FloatingChatWidget: React.FC = () => {
                 const totalWallet = riders.data?.reduce((sum, r) => sum + (r.wallet_amount || 0), 0) || 0;
                 const totalLeads = leads.count || 0;
 
-                setAiContextStats({
-                    activeRiders,
-                    totalRiders,
-                    totalWallet,
-                    totalLeads,
-                    lastUpdated: new Date().toISOString()
-                });
+                setAiContextStats({ activeRiders, totalRiders, totalWallet, totalLeads, lastUpdated: new Date().toISOString() });
             } catch (e) {
                 console.error("Failed to fetch AI stats", e);
             }
         };
 
-        if (isOpen && mode === 'ai') {
-            fetchStats();
-        }
+        if (isOpen && mode === 'ai') fetchStats();
     }, [isOpen, mode, userData]);
 
     // Drag Event Listeners
@@ -279,11 +294,8 @@ const FloatingChatWidget: React.FC = () => {
             const deltaX = dragStartPos.current.x - clientX;
             const deltaY = dragStartPos.current.y - clientY;
 
-            // Calculate distance moved
             const moveDist = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
-            if (moveDist > 10) { // Increased threshold to 10px to reduce sensitivity
-                hasMoved.current = true;
-            }
+            if (moveDist > 10) hasMoved.current = true;
 
             setPosition({
                 x: Math.max(10, widgetStartPos.current.x + deltaX),
@@ -291,9 +303,7 @@ const FloatingChatWidget: React.FC = () => {
             });
         };
 
-        const handleDragEnd = () => {
-            setIsDragging(false);
-        };
+        const handleDragEnd = () => setIsDragging(false);
 
         if (isDragging) {
             window.addEventListener('mousemove', handleDragMove);
@@ -310,21 +320,14 @@ const FloatingChatWidget: React.FC = () => {
         };
     }, [isDragging]);
 
-
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-        }
+        if (file) setSelectedFile(file);
     };
 
     if (!userData) return null;
 
-    // Common Drag Handler Props
-    const dragHandlers = {
-        onMouseDown: handleDragStart,
-        onTouchStart: handleDragStart
-    };
+    const dragHandlers = { onMouseDown: handleDragStart, onTouchStart: handleDragStart };
 
     if (!isOpen) {
         return (
@@ -335,8 +338,7 @@ const FloatingChatWidget: React.FC = () => {
                 className="fixed z-[60] w-14 h-14 bg-gradient-to-r from-primary to-purple-600 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 animate-in zoom-in group touch-none cursor-move"
             >
                 <MessageCircle size={30} className="group-hover:rotate-12 transition-transform pointer-events-none" />
-                {/* Notification Badge */}
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background pointer-events-none"></span>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-background pointer-events-none" />
             </button>
         );
     }
@@ -346,23 +348,27 @@ const FloatingChatWidget: React.FC = () => {
             style={{ right: `${position.x}px`, bottom: `${position.y}px` }}
             className={`fixed z-[60] bg-background border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-[width,height] ${isMinimized ? 'w-72 h-16' : 'w-[400px] h-[600px] max-w-[calc(100vw-40px)]'}`}
         >
-
-            {/* Header - Draggable Area */}
+            {/* Header */}
             <div
                 {...dragHandlers}
                 className="p-4 bg-card border-b border-border flex items-center justify-between shrink-0 cursor-move touch-none select-none"
             >
                 <div className="flex items-center gap-3 pointer-events-none">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-br from-purple-600 to-blue-600 text-white' : 'bg-blue-600 text-white'}`}>
                         {mode === 'ai' ? <Sparkles size={20} /> : <User size={20} />}
                     </div>
                     <div>
                         <h3 className="font-bold text-sm flex items-center gap-2">
                             {mode === 'ai' ? 'Triev AI Assistant' : 'Admin Support'}
+                            {mode === 'ai' && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                                    TRIPLE ENGINE
+                                </span>
+                            )}
                         </h3>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className={`w-2 h-2 rounded-full ${mode === 'ai' || activeSession ? 'bg-green-500' : connectionError ? 'bg-red-500' : 'bg-gray-400'}`} />
-                            {mode === 'ai' ? 'Online' : (activeSession ? 'Connected' : connectionError ? 'Error' : 'Connecting...')}
+                            <span className={`w-2 h-2 rounded-full ${mode === 'ai' || activeSession ? 'bg-green-500 animate-pulse' : connectionError ? 'bg-red-500' : 'bg-gray-400'}`} />
+                            {mode === 'ai' ? 'Groq · Gemini · Mistral' : (activeSession ? 'Connected' : connectionError ? 'Error' : 'Connecting...')}
                         </p>
                     </div>
                 </div>
@@ -376,7 +382,7 @@ const FloatingChatWidget: React.FC = () => {
                 </div>
             </div>
 
-            {/* Mode Switcher (Only visible if not minimized) */}
+            {/* Mode Switcher + Messages + Input */}
             {!isMinimized && (
                 <>
                     <div className="p-2 border-b border-border bg-muted/20 flex gap-2">
@@ -398,27 +404,45 @@ const FloatingChatWidget: React.FC = () => {
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-accent/5">
                         {messages.length === 0 && (
                             <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
-                                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                                    {mode === 'ai' ? <Bot size={32} /> : <MessageCircle size={32} />}
+                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center mb-4">
+                                    {mode === 'ai' ? <Bot size={32} className="text-purple-500" /> : <MessageCircle size={32} />}
                                 </div>
-                                <p className="text-sm font-medium">
-                                    {mode === 'ai' ? 'Ask me anything about the app!' : 'Start a conversation with support.'}
+                                <p className="text-sm font-semibold">
+                                    {mode === 'ai' ? 'Ask me anything about the fleet!' : 'Start a conversation with support.'}
                                 </p>
+                                {mode === 'ai' && (
+                                    <p className="text-xs text-muted-foreground mt-1">Powered by Groq · Gemini · Mistral</p>
+                                )}
                             </div>
                         )}
 
                         {messages.map(msg => {
                             const isMe = msg.sender_role === 'user';
+                            const badge = !isMe && msg.provider ? ENGINE_BADGE[msg.provider] || ENGINE_BADGE.unknown : null;
+
                             return (
                                 <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${isMe
-                                        ? 'bg-primary text-primary-foreground rounded-br-none'
-                                        : 'bg-card border border-border rounded-bl-none shadow-sm'
+                                    <div className="flex flex-col gap-1 max-w-[82%]">
+                                        <div className={`p-3 rounded-2xl text-sm ${isMe
+                                            ? 'bg-primary text-primary-foreground rounded-br-none'
+                                            : 'bg-card border border-border rounded-bl-none shadow-sm'
                                         }`}>
-                                        <p>{safeRender(msg.content)}</p>
-                                        <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            <p className="leading-relaxed whitespace-pre-wrap">{safeRender(msg.content)}</p>
+                                            {/* Streaming cursor */}
+                                            {(msg as AiChatMessage).isStreaming && (
+                                                <span className="inline-block w-1.5 h-3.5 bg-current opacity-70 animate-pulse ml-0.5 rounded-sm" />
+                                            )}
+                                            <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
                                         </div>
+                                        {/* Engine Badge — shown below AI messages */}
+                                        {badge && !isMe && !(msg as AiChatMessage).isStreaming && (
+                                            <div className={`self-start flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge.color}`}>
+                                                {badge.icon}
+                                                <span>via {badge.label}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -426,8 +450,10 @@ const FloatingChatWidget: React.FC = () => {
 
                         {isTyping && (
                             <div className="flex justify-start">
-                                <div className="bg-card border border-border px-4 py-2 rounded-2xl rounded-bl-none">
-                                    <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                                <div className="bg-card border border-border px-4 py-3 rounded-2xl rounded-bl-none flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                                    <span className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-bounce [animation-delay:300ms]" />
                                 </div>
                             </div>
                         )}
@@ -464,7 +490,7 @@ const FloatingChatWidget: React.FC = () => {
                             <button
                                 onClick={handleSend}
                                 disabled={!inputValue.trim()}
-                                className="p-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:scale-105 active:scale-95 transition-all"
+                                className="p-2 bg-gradient-to-r from-primary to-purple-600 text-white rounded-lg disabled:opacity-50 hover:scale-105 active:scale-95 transition-all"
                             >
                                 <Send size={18} />
                             </button>

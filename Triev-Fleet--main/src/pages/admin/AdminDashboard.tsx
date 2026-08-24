@@ -29,6 +29,8 @@ import QuickInsightStrip from '@/components/dashboard/QuickInsightStrip';
 import TLComparisonCard from '@/components/dashboard/TLComparisonCard';
 import FleetGrowthIndicator from '@/components/dashboard/FleetGrowthIndicator';
 import LiveAlertCenter from '@/components/LiveAlertCenter';
+import AIDailyBriefing from '@/components/dashboard/AIDailyBriefing';
+import AICommandCenter from '@/components/dashboard/AICommandCenter';
 import { startOfWeek, startOfMonth } from 'date-fns';
 import { sanitizeArray } from '@/utils/sanitizeData';
 import { resolvePerformancePeriod, DateFilterType } from '@/utils/dateUtils';
@@ -812,6 +814,18 @@ const Dashboard: React.FC = () => {
             {/* TAB 1: OVERVIEW */}
             {activeTab === 'overview' && (
                 <div className="space-y-6 animate-in fade-in duration-300">
+                    {/* AI Intelligence Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 font-jakarta">
+                        <AIDailyBriefing stats={{
+                            activeRiders: stats.activeRiders,
+                            negativeBalanceRiders: stats.negativeWalletCount,
+                            totalWallet: stats.netBalance,
+                            openRequests: stats.pendingRequests,
+                            newLeadsToday: stats.newLeadsToday
+                        }} />
+                        <AICommandCenter />
+                    </div>
+
                     {/* Fleet & Operations */}
                     <div className="space-y-3 sm:space-y-4">
                         <div className="flex items-center gap-2.5 sm:gap-3 px-1">

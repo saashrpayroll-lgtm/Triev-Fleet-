@@ -144,6 +144,42 @@ class AIOrchestrator {
         return null;
     }
 
+    /** Same as execute() but also returns which provider succeeded — used for engine badge in UI */
+    static async executeTracked(
+        task: AiTaskType,
+        prompt: string,
+        systemContext: string = ''
+    ): Promise<{ content: string | null; provider: AiProvider | null; latencyMs: number }> {
+        const chain = this.getProviderChain(task);
+        const startTime = Date.now();
+
+        for (let i = 0; i < chain.length; i++) {
+            const provider = chain[i];
+            const isFirst = i === 0;
+
+            if (!isFirst) {
+                console.warn(`[Triev AI] Engine ${chain[i-1]} failed. Trying ${provider} (fallback ${i})...`);
+            }
+
+            const result = await this.callProvider(provider, prompt, systemContext);
+            const latencyMs = Date.now() - startTime;
+
+            if (result.success && result.content) {
+                logAIActivity(
+                    isFirst ? task : `${task}-fallback-${i}`,
+                    provider,
+                    latencyMs,
+                    true
+                );
+                return { content: result.content, provider, latencyMs };
+            }
+        }
+
+        const latencyMs = Date.now() - startTime;
+        logAIActivity(`${task}-all-failed`, 'none', latencyMs, false);
+        return { content: null, provider: null, latencyMs };
+    }
+
     // Provider Implementations
     private static async callProvider(provider: AiProvider, prompt: string, systemContext: string): Promise<{ success: boolean, content: string | null }> {
         const fullSystemContext = `${GLOBAL_SYSTEM_CONTEXT}\n${systemContext}`;
@@ -671,8 +707,22 @@ Return ONLY the final message text ready to send.`;
         return { score, label, color };
     },
 
-    // --- Chat ---
+    // --- Chat (returns string, compatible with all existing callers) ---
     chatWithBot: async (message: string, history: any[], context: any, _attachmentData?: any): Promise<string> => {
+        const { text } = await AIService.chatWithBotTracked(message, history, context, _attachmentData);
+        return text;
+    },
+
+    /**
+     * Chat — tracked variant: returns text + which engine responded.
+     * Used by FloatingChatWidget to show the engine badge.
+     */
+    chatWithBotTracked: async (
+        message: string,
+        history: any[],
+        context: any,
+        _attachmentData?: any
+    ): Promise<{ text: string; provider: string }> => {
         let system = `You are 'Triev AI', assisting ${context.userName} (${context.role}). Context: ${JSON.stringify(context)}.`;
 
         if (context.stats) {
@@ -687,8 +737,50 @@ Return ONLY the final message text ready to send.`;
         const conversation = history.map((h: any) => `${h.role === 'user' ? 'User' : 'AI'}: ${h.parts[0].text}`).join('\n');
         const prompt = `${conversation}\nUser: ${message}`;
 
-        const text = await AIOrchestrator.execute('speed', prompt, system); // Groq for chat
-        return text || "I am currently offline.";
+        // Use executeTracked so we know WHICH engine answered (for engine badge in UI)
+        const tracked = await AIOrchestrator.executeTracked('speed', prompt, system);
+        return {
+            text: tracked.content || 'I am currently offline.',
+            provider: tracked.provider || 'unknown'
+        };
+    },
+
+    /**
+     * Generates 3 priority actions for Admin on login.
+     * Displayed in the AI Daily Briefing widget on the Admin Dashboard.
+     */
+    generateDailyBriefing: async (stats: {
+        activeRiders: number;
+        negativeBalanceRiders: number;
+        totalWallet: number;
+        openRequests: number;
+        newLeadsToday: number;
+    }): Promise<{ priority: 'high' | 'medium' | 'low'; action: string; icon: string }[]> => {
+        const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+        const prompt = `Today is ${today}. Analyze these fleet metrics and generate EXACTLY 3 priority action items for the Admin.
+Metrics:
+- Active Riders: ${stats.activeRiders}
+- Riders with Negative Balance (owe money): ${stats.negativeBalanceRiders}
+- Total Fleet Wallet Balance: ₹${stats.totalWallet.toLocaleString('en-IN')}
+- Open Support Requests: ${stats.openRequests}
+- New Leads Today: ${stats.newLeadsToday}
+
+Output strictly JSON array of exactly 3 objects:
+[
+  { "priority": "high"|"medium"|"low", "action": "concise action in under 80 chars", "icon": "emoji" },
+  ...
+]`;
+        const tracked = await AIOrchestrator.executeTracked('analysis', prompt, 'You are a Fleet Ops Commander. Output only JSON array.');
+        try {
+            const parsed = JSON.parse(tracked.content?.match(/\[[\s\S]*\]/)?.[0] || 'null');
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
+        } catch (e) { /* fallback */ }
+        // Static fallback using real data
+        return [
+            { priority: stats.negativeBalanceRiders > 10 ? 'high' : 'medium', action: `Follow up on ${stats.negativeBalanceRiders} riders with negative wallet balance`, icon: '💳' },
+            { priority: stats.openRequests > 5 ? 'high' : 'medium', action: `Resolve ${stats.openRequests} open support requests`, icon: '📨' },
+            { priority: 'low', action: `${stats.newLeadsToday} new leads waiting to be contacted today`, icon: '🎯' },
+        ];
     },
 
     // --- Autonomous Virtual Team Leader Operations Plan ---
