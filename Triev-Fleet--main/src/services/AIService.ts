@@ -87,7 +87,9 @@ class AIOrchestrator {
                 // Preferred: Gemini. Fallback: OpenAI -> Groq
                 return 'gemini';
             case 'creative':
-                return 'openai';
+                // Gemini is primary for creative tasks — OpenAI is NOT configured (no key set)
+                // Routing to OpenAI caused a silent failure on every creative call
+                return 'gemini';
             default:
                 return 'gemini';
         }
@@ -138,10 +140,12 @@ class AIOrchestrator {
     // --- Groq Driver (Sub-second Speed Engine) ---
     private static async callGroq(prompt: string, system: string) {
         const key = AIConfigService.getGroqKey();
-        if (!key) return { success: false, content: null };
+        // Reject empty or placeholder keys (e.g. 'na') — real Groq keys are 56+ chars
+        if (!key || key.length < 20) return { success: false, content: null };
 
         const safeSystem = system || "You are a helpful assistant.";
-        const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"];
+        // mixtral-8x7b-32768 deprecated by Groq (June 2024) — replaced with gemma2-9b-it
+        const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"];
 
         for (const model of models) {
             try {
@@ -175,7 +179,8 @@ class AIOrchestrator {
     // --- Gemini Driver (Deep Fleet Analytics Engine) ---
     private static async callGemini(prompt: string, system: string) {
         const key = AIConfigService.getGeminiKey() || FALLBACK_GEMINI_KEY;
-        if (!key) return { success: false, content: "Config Error: No Gemini Key" };
+        // Reject empty or placeholder keys (e.g. 'na') — real Gemini keys are 39+ chars
+        if (!key || key.length < 20) return { success: false, content: null };
 
         const payload = {
             contents: [{
@@ -187,7 +192,8 @@ class AIOrchestrator {
 
         for (const model of models) {
             try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`, {
+                // v1beta supports all Gemini 1.5 & 2.0 models incl. gemini-2.0-flash-lite
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -461,7 +467,8 @@ Return ONLY the final message text ready to send.`;
     generateInsights: async (stats: any): Promise<string> => {
         const prompt = `Analyze user statistics and provide 3 bulleted actionable insights.\nStats: ${JSON.stringify(stats)}`;
         const text = await AIOrchestrator.execute('analysis', prompt, "You are a Data Analyst."); // Gemini
-        return text || "Failed to generate insights.";
+        // cleanText strips raw markdown (**bold**) that renders as literals in some UI components
+        return text ? cleanText(text) : "Failed to generate insights.";
     },
 
     getTeamPerformanceAnalysis: async (tlData: User, riders: Rider[], leads: Lead[]): Promise<string> => {
@@ -521,7 +528,12 @@ Return ONLY the final message text ready to send.`;
     generateNotificationContent: async (topic: string, role: string, tone: string): Promise<{ title: string, body: string, priority: string, tags: string[], type: string } | null> => {
         const prompt = `Generate a notification for a ${role}. Topic: "${topic}". Tone: ${tone}. Output strictly JSON: { "title": "...", "body": "...", "priority": "high|medium|low", "tags": [], "type": "info" }`;
         const text = await AIOrchestrator.execute('creative', prompt, "You are a UX Writer.");
-        try { return JSON.parse(text?.match(/\{[\s\S]*\}/)?.[0] || 'null'); } catch { return null; }
+        try {
+            const parsed = JSON.parse(text?.match(/\{[\s\S]*\}/)?.[0] || 'null');
+            if (parsed && parsed.title) return parsed;
+        } catch { /* fall through to safe default */ }
+        // Never return null — calling code expects a valid object
+        return { title: topic.substring(0, 60), body: `New update: ${topic}`, priority: 'medium', tags: [], type: 'info' };
     },
 
     getLeadRecommendations: async (lead: any): Promise<string> => {
