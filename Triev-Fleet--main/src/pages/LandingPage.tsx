@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
-import { LegalInfoModal, LegalTab } from '@/components/LegalInfoModal';
 import {
     Users, BarChart3, Bot, Target, Trophy, ShieldAlert, Zap, Shield,
     ArrowRight, ChevronDown, Star, CheckCircle2, Sparkles, Globe,
@@ -225,14 +224,7 @@ const STATS = [
 
 const LandingPage: React.FC = () => {
     const [loginModalOpen, setLoginModalOpen] = useState(false);
-    const [legalModalOpen, setLegalModalOpen] = useState(false);
-    const [legalTab, setLegalTab] = useState<LegalTab>('privacy');
     const [navScrolled, setNavScrolled] = useState(false);
-
-    const openLegal = (tab: LegalTab) => {
-        setLegalTab(tab);
-        setLegalModalOpen(true);
-    };
     const { scrollY } = useScroll();
     const heroY = useTransform(scrollY, [0, 600], [0, -120]);
     const mockupY = useTransform(scrollY, [0, 500], [0, -60]);
@@ -665,8 +657,6 @@ const LandingPage: React.FC = () => {
             <AnimatePresence>
                 {loginModalOpen && <LoginChoiceModal onClose={() => setLoginModalOpen(false)} />}
             </AnimatePresence>
-
-            <LegalInfoModal isOpen={legalModalOpen} initialTab={legalTab} onClose={() => setLegalModalOpen(false)} />
         </div>
     );
 };

@@ -1,7 +1,6 @@
 import React from 'react';
 import { PublicLayout } from './PublicLayout';
 import { ShieldCheck, Lock, Eye, FileText, Bell, Globe, Mail } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 const PrivacyPolicyPage: React.FC = () => {
     const lastUpdated = "August 30, 2026";

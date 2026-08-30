@@ -1,6 +1,6 @@
 import React from 'react';
 import { PublicLayout } from './PublicLayout';
-import { Bot, Zap, ShieldAlert, BarChart3, Wallet, Users, ArrowRight, Star, RefreshCw, Smartphone } from 'lucide-react';
+import { Bot, Zap, Wallet, Users, Star, RefreshCw, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const FeaturesPage: React.FC = () => {

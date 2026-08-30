@@ -1,6 +1,6 @@
 import React from 'react';
 import { PublicLayout } from './PublicLayout';
-import { Zap, ShieldCheck, TrendingUp, Users, Leaf, BatteryCharging, Trophy, Award } from 'lucide-react';
+import { Zap, ShieldCheck, TrendingUp, Users, Leaf, BatteryCharging, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const AboutPage: React.FC = () => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PublicLayout } from './PublicLayout';
-import { Calculator, TrendingUp, Zap, Fuel, Leaf, DollarSign, ArrowRight } from 'lucide-react';
+import { Calculator, Zap, Fuel, Leaf } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const CalculatorPage: React.FC = () => {

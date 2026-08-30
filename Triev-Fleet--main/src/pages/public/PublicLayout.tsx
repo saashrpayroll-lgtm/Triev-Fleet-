@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Zap, ShieldCheck, ArrowRight, Sparkles, LogIn, Lock } from 'lucide-react';
+import { ShieldCheck, LogIn, Lock } from 'lucide-react';
 
 interface PublicLayoutProps {
     children: React.ReactNode;
