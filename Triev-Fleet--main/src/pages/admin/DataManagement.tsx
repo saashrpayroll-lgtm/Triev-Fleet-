@@ -741,11 +741,13 @@ const DataManagement: React.FC<DataManagementProps> = ({ scopedCityOpsId }) => {
                                                 }}
                                                 className="w-full p-3 rounded-xl border border-input bg-card text-foreground text-xs focus:ring-2 focus:ring-emerald-500 outline-none font-semibold"
                                             >
-                                                <option value={1}>Every 1 Minute</option>
-                                                <option value={2}>Every 2 Minutes (Recommended)</option>
-                                                <option value={3}>Every 3 Minutes</option>
+                                                <option value={1}>Every 1 Minute (High Egress)</option>
+                                                <option value={2}>Every 2 Minutes</option>
                                                 <option value={5}>Every 5 Minutes</option>
                                                 <option value={10}>Every 10 Minutes</option>
+                                                <option value={15}>Every 15 Minutes (Recommended - Low Egress)</option>
+                                                <option value={30}>Every 30 Minutes (Ultra Low Egress)</option>
+                                                <option value={60}>Every 1 Hour</option>
                                             </select>
                                         </div>
                                     </div>
