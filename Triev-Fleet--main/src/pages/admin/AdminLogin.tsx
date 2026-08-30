@@ -167,7 +167,6 @@ const AdminLogin: React.FC = () => {
     const [loginTime, setLoginTime] = useState('');
 
     // Rate limiting: max 5 attempts, then 60s lockout (persisted)
-    const [failedAttempts, setFailedAttempts] = useState(0);
     const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
     const [lockoutCountdown, setLockoutCountdown] = useState(0);
     const [botHoneypot, setBotHoneypot] = useState('');
@@ -188,7 +187,6 @@ const AdminLogin: React.FC = () => {
             if (remaining <= 0) {
                 setLockoutUntil(null);
                 setLockoutCountdown(0);
-                setFailedAttempts(0);
                 resetRateLimit('admin_login');
                 clearInterval(tick);
             } else {
@@ -283,7 +281,6 @@ const AdminLogin: React.FC = () => {
 
         } catch (err: any) {
             const limitStatus = recordFailedAttempt('admin_login');
-            setFailedAttempts(limitStatus.attempts);
             if (limitStatus.isLocked) {
                 const until = Date.now() + limitStatus.remainingSeconds * 1000;
                 setLockoutUntil(until);
@@ -584,7 +581,16 @@ const AdminLogin: React.FC = () => {
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
                                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
                                 <div className="relative z-10 flex items-center justify-center gap-2.5 text-white">
-                                    {loading ? (
+                                    {lockoutUntil ? (
+                                        <>
+                                            <motion.div
+                                                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                                            />
+                                            <span>Admin Console Locked ({lockoutCountdown}s)</span>
+                                        </>
+                                    ) : loading ? (
                                         <>
                                             <motion.div
                                                 className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PublicLayout } from './PublicLayout';
-import { Mail, Clock, MapPin, Send, CheckCircle2, MessageSquare, ExternalLink } from 'lucide-react';
+import { Mail, Clock, MapPin, Send, CheckCircle2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ContactPage: React.FC = () => {

@@ -155,7 +155,6 @@ const LoginPage: React.FC = () => {
     const [activeRoleHint, setActiveRoleHint] = useState<number>(0);
 
     // Rate limiting: max 5 attempts, then 60s lockout (persisted)
-    const [failedAttempts, setFailedAttempts] = useState(0);
     const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
     const [lockoutCountdown, setLockoutCountdown] = useState(0);
     const [botHoneypot, setBotHoneypot] = useState('');
@@ -177,7 +176,6 @@ const LoginPage: React.FC = () => {
             if (remaining <= 0) {
                 setLockoutUntil(null);
                 setLockoutCountdown(0);
-                setFailedAttempts(0);
                 resetRateLimit('rider_tl_login');
                 clearInterval(tick);
             } else {
@@ -293,7 +291,6 @@ const LoginPage: React.FC = () => {
             }, 250);
         } catch (err: any) {
             const limitStatus = recordFailedAttempt('rider_tl_login');
-            setFailedAttempts(limitStatus.attempts);
             if (limitStatus.isLocked) {
                 const until = Date.now() + limitStatus.remainingSeconds * 1000;
                 setLockoutUntil(until);

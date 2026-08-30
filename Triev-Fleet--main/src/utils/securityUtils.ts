@@ -24,7 +24,7 @@ export interface RateLimitStatus {
 /**
  * Checks if a login endpoint is currently rate-limited/locked.
  */
-export const checkRateLimit = (actionKey: string, maxAttempts = 5, lockDurationMs = 60000): RateLimitStatus => {
+export const checkRateLimit = (actionKey: string): RateLimitStatus => {
     try {
         const storageKey = `${RATE_LIMIT_PREFIX}${actionKey}`;
         const rawData = localStorage.getItem(storageKey);
