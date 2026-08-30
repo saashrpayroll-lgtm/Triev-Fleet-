@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { PublicLayout } from './PublicLayout';
-import { Mail, Clock, MapPin, Send, CheckCircle2, MessageSquare } from 'lucide-react';
+import { Mail, Clock, MapPin, Send, CheckCircle2, MessageSquare, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ContactPage: React.FC = () => {
+    const primaryEmail = "saasappinfo@gmail.com";
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -19,8 +21,19 @@ const ContactPage: React.FC = () => {
             toast.error("Please fill in all required fields.");
             return;
         }
+
+        // Generate direct mailto link as a transparent fallback
+        const mailtoUrl = `mailto:${primaryEmail}?subject=${encodeURIComponent(`[Triev Fleet Inquiry] ${formData.subject}`)}&body=${encodeURIComponent(
+            `Name: ${formData.name}\nEmail: ${formData.email}\nPhone: ${formData.phone || 'N/A'}\n\nMessage:\n${formData.message}`
+        )}`;
+
         setIsSubmitted(true);
-        toast.success("Thank you! Your message has been received. Our team will contact you within 24 hours.");
+        toast.success(`Inquiry recorded! Redirecting to mail client for ${primaryEmail}...`);
+        
+        // Open user's email client after brief confirmation
+        setTimeout(() => {
+            window.location.href = mailtoUrl;
+        }, 1200);
     };
 
     return (
@@ -28,13 +41,13 @@ const ContactPage: React.FC = () => {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
                 <div className="text-center max-w-2xl mx-auto mb-12">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-4">
-                        <MessageSquare size={14} /> Get in Touch
+                        <MessageSquare size={14} /> Official Support & Inquiries
                     </div>
                     <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-3">
                         Contact Triev Fleet Support
                     </h1>
                     <p className="text-sm text-slate-400">
-                        Have questions about EV fleet onboarding, daily rent settlement, or technical support? Our operations team is here to help.
+                        Have questions about EV fleet onboarding, daily rent settlement, or technical support? Directly reach our team at <span className="text-indigo-400 font-bold">{primaryEmail}</span>.
                     </p>
                 </div>
 
@@ -45,14 +58,22 @@ const ContactPage: React.FC = () => {
                             <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3">
                                 <Mail size={18} />
                             </div>
-                            <h3 className="font-black text-sm text-white">Email Us</h3>
-                            <p className="text-xs text-slate-400">General Support & Operations:</p>
-                            <a href="mailto:support@triev.in" className="text-xs font-bold text-indigo-400 block hover:underline">
-                                support@triev.in
+                            <h3 className="font-black text-sm text-white">Direct Email Support</h3>
+                            <p className="text-xs text-slate-400">Primary contact for all inquiries:</p>
+                            <a
+                                href={`mailto:${primaryEmail}`}
+                                className="text-xs font-black text-indigo-400 block hover:underline break-all"
+                            >
+                                {primaryEmail}
                             </a>
-                            <a href="mailto:partnerships@triev.in" className="text-xs font-bold text-indigo-400 block hover:underline">
-                                partnerships@triev.in
-                            </a>
+                            <div className="pt-2">
+                                <a
+                                    href={`mailto:${primaryEmail}?subject=Triev%20Fleet%20Support%20Request`}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-[11px] font-bold transition-all border border-indigo-500/20"
+                                >
+                                    <Send size={11} /> Open Mail Client
+                                </a>
+                            </div>
                         </div>
 
                         <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/10 space-y-2">
@@ -62,7 +83,7 @@ const ContactPage: React.FC = () => {
                             <h3 className="font-black text-sm text-white">Operating Hours</h3>
                             <p className="text-xs text-slate-400">Support Desk Availability:</p>
                             <p className="text-xs font-semibold text-slate-200">Monday – Saturday: 9:00 AM – 8:00 PM IST</p>
-                            <p className="text-xs text-slate-500">Sunday: Emergency Ticket Support Only</p>
+                            <p className="text-xs text-slate-500">Sunday: Priority Email Support</p>
                         </div>
 
                         <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/10 space-y-2">
@@ -82,9 +103,9 @@ const ContactPage: React.FC = () => {
                                 <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 mx-auto flex items-center justify-center">
                                     <CheckCircle2 size={36} />
                                 </div>
-                                <h3 className="text-2xl font-black text-white">Message Sent Successfully!</h3>
+                                <h3 className="text-2xl font-black text-white">Inquiry Prepared for {primaryEmail}!</h3>
                                 <p className="text-sm text-slate-400 max-w-md mx-auto">
-                                    Thank you for reaching out, {formData.name}. Our fleet coordinator will review your inquiry and connect with you shortly.
+                                    Thank you, {formData.name}. If your mail client did not open automatically, please send your email directly to <strong className="text-indigo-400">{primaryEmail}</strong>.
                                 </p>
                                 <button
                                     onClick={() => {
@@ -98,7 +119,10 @@ const ContactPage: React.FC = () => {
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-5">
-                                <h3 className="text-xl font-black text-white mb-2">Send Us an Inquiry</h3>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-xl font-black text-white">Send Us a Direct Message</h3>
+                                    <span className="text-[11px] text-slate-400 font-mono">Recipient: {primaryEmail}</span>
+                                </div>
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
@@ -166,9 +190,9 @@ const ContactPage: React.FC = () => {
 
                                 <button
                                     type="submit"
-                                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all"
+                                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/25 transition-all cursor-pointer"
                                 >
-                                    <Send size={14} /> Send Inquiry
+                                    <Send size={14} /> Send Inquiry to {primaryEmail}
                                 </button>
                             </form>
                         )}

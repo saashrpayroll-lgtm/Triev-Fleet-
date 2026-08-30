@@ -6,6 +6,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Eye, EyeOff, ShieldCheck, Lock, AlertTriangle, User, Fingerprint, Cpu, Activity, Zap, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import ForcePasswordChangeModal from '@/components/ForcePasswordChangeModal';
+import { sanitizeInput, checkRateLimit, recordFailedAttempt, resetRateLimit } from '@/utils/securityUtils';
 
 // ─── Aurora Animated Background ───────────────────────────────────────────────
 const AuroraBackground: React.FC = () => {
@@ -165,10 +166,20 @@ const AdminLogin: React.FC = () => {
     const [focusedField, setFocusedField] = useState<string | null>(null);
     const [loginTime, setLoginTime] = useState('');
 
-    // Rate limiting: max 5 attempts, then 60s lockout
+    // Rate limiting: max 5 attempts, then 60s lockout (persisted)
     const [failedAttempts, setFailedAttempts] = useState(0);
     const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
     const [lockoutCountdown, setLockoutCountdown] = useState(0);
+    const [botHoneypot, setBotHoneypot] = useState('');
+
+    useEffect(() => {
+        const initialStatus = checkRateLimit('admin_login');
+        if (initialStatus.isLocked) {
+            setLockoutCountdown(initialStatus.remainingSeconds);
+            setLockoutUntil(Date.now() + initialStatus.remainingSeconds * 1000);
+            setError(`Security Lockout: Admin portal locked. Wait ${initialStatus.remainingSeconds}s.`);
+        }
+    }, []);
 
     useEffect(() => {
         if (!lockoutUntil) return;
@@ -178,6 +189,7 @@ const AdminLogin: React.FC = () => {
                 setLockoutUntil(null);
                 setLockoutCountdown(0);
                 setFailedAttempts(0);
+                resetRateLimit('admin_login');
                 clearInterval(tick);
             } else {
                 setLockoutCountdown(remaining);
@@ -196,9 +208,17 @@ const AdminLogin: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Rate limit check
-        if (lockoutUntil && Date.now() < lockoutUntil) {
-            setError(`Too many failed attempts. Please wait ${lockoutCountdown}s before trying again.`);
+        // Bot Honeypot Trap
+        if (botHoneypot) {
+            setLoading(false);
+            return;
+        }
+
+        // Persistent Rate limit check
+        const currentLimit = checkRateLimit('admin_login');
+        if (currentLimit.isLocked) {
+            setLockoutCountdown(currentLimit.remainingSeconds);
+            setError(`Security Lockout: Too many failed admin attempts. Wait ${currentLimit.remainingSeconds}s.`);
             return;
         }
 
@@ -206,7 +226,7 @@ const AdminLogin: React.FC = () => {
         setLoading(true);
 
         try {
-            let emailToLogin = loginInput.trim();
+            let emailToLogin = sanitizeInput(loginInput);
             const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToLogin);
 
             if (!isEmail) {
@@ -221,6 +241,7 @@ const AdminLogin: React.FC = () => {
             }
 
             await login(emailToLogin, password);
+            resetRateLimit('admin_login');
 
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Authentication failed.");
@@ -261,17 +282,17 @@ const AdminLogin: React.FC = () => {
             }, 250);
 
         } catch (err: any) {
-            const newAttempts = failedAttempts + 1;
-            setFailedAttempts(newAttempts);
-            if (newAttempts >= 5) {
-                const until = Date.now() + 60000;
+            const limitStatus = recordFailedAttempt('admin_login');
+            setFailedAttempts(limitStatus.attempts);
+            if (limitStatus.isLocked) {
+                const until = Date.now() + limitStatus.remainingSeconds * 1000;
                 setLockoutUntil(until);
-                setLockoutCountdown(60);
-                setError('Too many failed attempts. Admin console locked for 60 seconds.');
+                setLockoutCountdown(limitStatus.remainingSeconds);
+                setError(`Security Lockout: Admin portal locked for ${limitStatus.remainingSeconds} seconds.`);
             } else {
-                setError(err.message || 'Authentication failed');
+                setError(err.message || "Authentication failed. Access denied.");
             }
-            toast.error(err.message || 'Authentication failed');
+            toast.error(err.message || "Login failed");
             if (err.message && err.message.includes("DENIED")) {
                 await supabase.auth.signOut();
             }
@@ -533,14 +554,31 @@ const AdminLogin: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Hidden Honeypot Field for Automated Bot Trap */}
+                            <input
+                                type="text"
+                                name="hp_admin_validation"
+                                value={botHoneypot}
+                                onChange={e => setBotHoneypot(e.target.value)}
+                                style={{ display: 'none', position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                                tabIndex={-1}
+                                autoComplete="off"
+                            />
+
+                            {/* Security Badging */}
+                            <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-300">
+                                <ShieldCheck size={12} className="text-indigo-400" />
+                                <span>AES-256 Cryptographic Channel · Hardened Admin Gateway</span>
+                            </div>
+
                             {/* Submit Button */}
                             <motion.button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || !!lockoutUntil}
                                 className="w-full relative rounded-xl py-4 font-black text-sm tracking-wide overflow-hidden group/btn disabled:opacity-60 disabled:cursor-not-allowed"
-                                style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)', boxShadow: '0 8px 24px rgba(99,102,241,0.4)' }}
-                                whileHover={!loading ? { scale: 1.02, y: -1 } : {}}
-                                whileTap={!loading ? { scale: 0.98 } : {}}
+                                style={{ background: lockoutUntil ? 'linear-gradient(135deg, #6b7280, #4b5563)' : 'linear-gradient(135deg, #6366f1, #7c3aed)', boxShadow: lockoutUntil ? '0 4px 12px rgba(0,0,0,0.3)' : '0 8px 24px rgba(99,102,241,0.4)' }}
+                                whileHover={!loading && !lockoutUntil ? { scale: 1.02, y: -1 } : {}}
+                                whileTap={!loading && !lockoutUntil ? { scale: 0.98 } : {}}
                             >
                                 {/* Shimmer */}
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />

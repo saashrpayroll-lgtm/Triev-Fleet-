@@ -101,7 +101,7 @@ const PrivacyPolicyPage: React.FC = () => {
                         <p>If you have any questions regarding this Privacy Policy or our data practices, please contact us at:</p>
                         <div className="bg-white/[0.04] p-4 rounded-2xl border border-white/10 text-xs space-y-1">
                             <p><strong>Triev Fleet Technologies</strong></p>
-                            <p>Email: <a href="mailto:support@triev.in" className="text-indigo-400">support@triev.in</a> / <a href="mailto:legal@triev.in" className="text-indigo-400">legal@triev.in</a></p>
+                            <p>Official Contact & Grievance Email: <a href="mailto:saasappinfo@gmail.com" className="text-indigo-400 font-bold hover:underline">saasappinfo@gmail.com</a></p>
                             <p>Operational Headquarters: New Delhi, India</p>
                         </div>
                     </section>
