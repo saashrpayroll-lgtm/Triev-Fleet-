@@ -52,78 +52,77 @@ const AIDailyBriefing: React.FC<AIDailyBriefingProps> = ({ stats }) => {
         }
     }, [stats]);
 
-    const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+    const today = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
     return (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-violet-600/15 to-blue-600/10 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center animate-pulse">
-                        <Sparkles size={17} className="text-white" />
+            <div className="px-4 py-3 bg-gradient-to-r from-violet-600/15 to-blue-600/10 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+                        <Sparkles size={14} className="text-white" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-sm">AI Daily Briefing</h3>
-                        <p className="text-xs text-muted-foreground">{today}</p>
+                        <h3 className="font-bold text-xs">AI Daily Briefing</h3>
+                        <p className="text-[10px] text-muted-foreground">{today}</p>
                     </div>
                 </div>
                 <button
                     onClick={loadBriefing}
                     disabled={isLoading}
-                    className="p-2 hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                    className="p-1.5 hover:bg-accent/80 rounded-lg transition-colors disabled:opacity-50 text-muted-foreground hover:text-foreground"
                     title="Regenerate"
                 >
-                    <RefreshCw size={14} className={`text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
+                    <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
                 </button>
             </div>
 
-            <div className="p-4">
+            <div className="p-3">
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="flex flex-col items-center justify-center py-6 gap-2">
                         <div className="relative">
-                            <div className="w-10 h-10 rounded-full border-2 border-violet-200 dark:border-violet-800" />
-                            <div className="absolute inset-0 w-10 h-10 rounded-full border-2 border-t-violet-600 animate-spin" />
+                            <div className="w-8 h-8 rounded-full border-2 border-violet-200 dark:border-violet-800" />
+                            <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-t-violet-600 animate-spin" />
                         </div>
-                        <p className="text-xs text-muted-foreground animate-pulse">AI is analyzing your fleet data…</p>
+                        <p className="text-[11px] text-muted-foreground animate-pulse">AI analyzing fleet data…</p>
                     </div>
                 ) : briefing.length > 0 ? (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                         {briefing.map((item, i) => {
                             const style = PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.medium;
                             return (
                                 <div
                                     key={i}
-                                    className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group cursor-default"
+                                    className="flex items-start gap-2.5 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group cursor-default text-xs"
                                 >
                                     {/* Priority bar */}
                                     <div className={`w-1 self-stretch rounded-full ${style.bar} shrink-0`} />
 
-                                    <span className="text-xl mt-0.5 select-none">{item.icon}</span>
+                                    <span className="text-base select-none mt-0.5">{item.icon}</span>
 
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium leading-snug text-foreground">{item.action}</p>
+                                        <p className="text-xs font-medium leading-tight text-foreground/90">{item.action}</p>
                                     </div>
 
-                                    <div className="flex items-center gap-1.5 shrink-0 self-center">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${style.badge}`}>
+                                    <div className="flex items-center gap-1 shrink-0 self-center">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${style.badge}`}>
                                             {style.label}
                                         </span>
-                                        <ChevronRight size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                 </div>
                             );
                         })}
 
                         {generatedAt && (
-                            <p className="text-[10px] text-muted-foreground text-right pt-1 flex items-center justify-end gap-1">
+                            <p className="text-[9px] text-muted-foreground text-right pt-1 flex items-center justify-end gap-1">
                                 <Sparkles size={9} />
                                 Generated by Gemini at {generatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-6 text-muted-foreground">
-                        <p className="text-sm">Briefing will appear once data loads.</p>
+                    <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-xs">Briefing will appear once data loads.</p>
                     </div>
                 )}
             </div>
