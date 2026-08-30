@@ -56,7 +56,7 @@ export const checkRateLimit = (actionKey: string): RateLimitStatus => {
 export const recordFailedAttempt = (actionKey: string, maxAttempts = 5, lockDurationMs = 60000): RateLimitStatus => {
     try {
         const storageKey = `${RATE_LIMIT_PREFIX}${actionKey}`;
-        const current = checkRateLimit(actionKey, maxAttempts, lockDurationMs);
+        const current = checkRateLimit(actionKey);
         const newAttempts = current.attempts + 1;
 
         if (newAttempts >= maxAttempts) {
