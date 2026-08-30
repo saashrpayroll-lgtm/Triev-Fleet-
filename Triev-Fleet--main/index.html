@@ -3,12 +3,34 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Triev Fleet Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Triev Fleet — Next-Gen EV Fleet Operations & Rider Intelligence</title>
+  
+  <!-- Search Engine Verification -->
   <meta name="google-site-verification" content="fS4_OtobPjrmK0sJbBIxUzctfwL044UqtXqBOuFTlCM" />
-  <meta name="description"
-    content="The ultimate EV fleet management solution — rider tracking, wallet management, collection analytics, and team leader performance." />
+  <meta name="description" content="Triev Fleet is India's leading AI-powered EV fleet operations system. Real-time rider tracking, automated daily rent recovery, wallet analytics, and team leader performance." />
+  <meta name="keywords" content="EV Fleet Management, Electric Vehicle Fleet, Delivery Rider Tracking, Automated Rent Collection, Fleet Analytics, Battery Swapping Management, Team Leader Dashboard" />
+  <meta name="author" content="Triev Fleet Technologies" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://triev-fleet.vercel.app/" />
+
+  <!-- Open Graph / Facebook / WhatsApp Preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://triev-fleet.vercel.app/" />
+  <meta property="og:title" content="Triev Fleet — Next-Gen EV Fleet Operations & Rider Intelligence" />
+  <meta property="og:description" content="Manage EV fleets, automate daily collections, track rider performance, and maximize fleet uptime with AI." />
+  <meta property="og:image" content="https://triev-fleet.vercel.app/pwa-icon.png" />
+  <meta property="og:site_name" content="Triev Fleet" />
+  <meta property="og:locale" content="en_IN" />
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://triev-fleet.vercel.app/" />
+  <meta name="twitter:title" content="Triev Fleet — Smart EV Fleet Management System" />
+  <meta name="twitter:description" content="AI-driven fleet analytics, automated daily rent recovery, and real-time team leader operations." />
+  <meta name="twitter:image" content="https://triev-fleet.vercel.app/pwa-icon.png" />
+
+  <!-- Theme & PWA -->
   <meta name="theme-color" content="#6366f1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -27,6 +49,40 @@
   <link rel="preconnect" href="https://supabase.co" />
   <link rel="dns-prefetch" href="https://supabase.co" />
 
+  <!-- Structured Data / Schema.org (Google Rich Snippets) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Triev Fleet Management System",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web, Android, iOS",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "INR"
+        },
+        "description": "Comprehensive EV fleet operations platform with AI-powered debt recovery, automated wallet management, and real-time rider tracking."
+      },
+      {
+        "@type": "Organization",
+        "name": "Triev Fleet",
+        "url": "https://triev-fleet.vercel.app",
+        "logo": "https://triev-fleet.vercel.app/pwa-icon.png",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+91-9876543210",
+          "contactType": "Customer Support",
+          "areaServed": "IN",
+          "availableLanguage": ["English", "Hindi"]
+        }
+      }
+    ]
+  }
+  </script>
+
   <!-- html2canvas loaded DEFERRED (only when export is used, not blocking) -->
   <script>
     window.loadHtml2Canvas = function() {
@@ -43,10 +99,10 @@
 
 <body>
   <div id="root">
-    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: system-ui; gap: 12px;">
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: system-ui; gap: 12px; background: #030310; color: #fff;">
       <div style="width: 40px; height: 40px; border: 3px solid #6366f1; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
       <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-      <span style="font-size: 14px; color: #64748b; font-weight: 500;">Triev Fleet V2 Loading...</span>
+      <span style="font-size: 14px; color: #818cf8; font-weight: 500;">Triev Fleet Loading...</span>
     </div>
   </div>
   <script type="module" src="/src/main.tsx"></script>

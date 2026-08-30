@@ -1,8 +1,20 @@
 User-agent: *
 Allow: /
+Allow: /about
+Allow: /features
+Allow: /calculator
+Allow: /faq
+Allow: /contact
+Allow: /privacy-policy
+Allow: /terms
+Allow: /disclaimer
+
+# Disallow authenticated portal panels to protect internal operations
 Disallow: /portal
 Disallow: /team-leader
 Disallow: /rm-panel
 Disallow: /city-ops
+Disallow: /admin
+Disallow: /api
 
 Sitemap: https://triev-fleet.vercel.app/sitemap.xml

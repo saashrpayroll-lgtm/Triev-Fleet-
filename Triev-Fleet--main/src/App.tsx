@@ -20,6 +20,16 @@ const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
 const RegisterPage = React.lazy(() => import('@/pages/auth/RegisterPage'));
 const RiskMatrixPage = React.lazy(() => import('@/pages/shared/RiskMatrixPage'));
 
+// Public SEO & AdSense Pages (100% Client-side, 0 Database Egress)
+const PrivacyPolicyPage = React.lazy(() => import('@/pages/public/PrivacyPolicyPage'));
+const TermsPage = React.lazy(() => import('@/pages/public/TermsPage'));
+const AboutPage = React.lazy(() => import('@/pages/public/AboutPage'));
+const ContactPage = React.lazy(() => import('@/pages/public/ContactPage'));
+const FeaturesPage = React.lazy(() => import('@/pages/public/FeaturesPage'));
+const FAQPage = React.lazy(() => import('@/pages/public/FAQPage'));
+const CalculatorPage = React.lazy(() => import('@/pages/public/CalculatorPage'));
+const DisclaimerPage = React.lazy(() => import('@/pages/public/DisclaimerPage'));
+
 // Team Leader Pages
 const TeamLeaderLayout = React.lazy(() => import('@/layouts/TeamLeaderLayout'));
 const TLDashboard = React.lazy(() => import('@/pages/teamleader/Dashboard'));
@@ -279,7 +289,18 @@ function AppRoutes() {
       {/* Suspense boundary wraps ALL lazy routes */}
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Public Routes — login pages are eagerly loaded (no lazy) */}
+          {/* Public Landing & SEO / AdSense Pages */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/calculator" element={<CalculatorPage />} />
+          <Route path="/disclaimer" element={<DisclaimerPage />} />
+
+          {/* Public Auth Routes — login pages are eagerly loaded (no lazy) */}
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/admin-login" element={<PublicRoute><AdminLogin /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />

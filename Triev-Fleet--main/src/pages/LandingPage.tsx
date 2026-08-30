@@ -266,16 +266,19 @@ const LandingPage: React.FC = () => {
                         </div>
                     </a>
 
-                    {/* Nav links — including Home */}
-                    <div className="hidden md:flex items-center gap-6 text-sm">
-                        <a href="#" className="flex items-center gap-1.5 text-white font-medium hover:text-indigo-400 transition-colors">
-                            <Home size={15} />
+                    {/* Nav links — including Home and Public SEO tools */}
+                    <div className="hidden lg:flex items-center gap-5 text-xs font-bold">
+                        <Link to="/" className="flex items-center gap-1.5 text-white hover:text-indigo-400 transition-colors">
+                            <Home size={14} />
                             Home
-                        </a>
-                        {['Features', 'Portals', 'Security'].map(link => (
-                            <a key={link} href={`#${link.toLowerCase()}`}
-                                className="text-white/50 hover:text-white transition-colors font-medium">{link}</a>
-                        ))}
+                        </Link>
+                        <Link to="/features" className="text-white/60 hover:text-white transition-colors">Features</Link>
+                        <Link to="/calculator" className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1">
+                            <Zap size={13} /> EV Calculator
+                        </Link>
+                        <Link to="/faq" className="text-white/60 hover:text-white transition-colors">FAQ</Link>
+                        <Link to="/about" className="text-white/60 hover:text-white transition-colors">About</Link>
+                        <Link to="/contact" className="text-white/60 hover:text-white transition-colors">Contact</Link>
                     </div>
 
                     {/* Actions */}
@@ -639,18 +642,22 @@ const LandingPage: React.FC = () => {
 
                     {/* Legal & Policy Links */}
                     <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-semibold text-slate-400">
-                        <button onClick={() => openLegal('privacy')} className="hover:text-indigo-300 transition-colors">Privacy Policy</button>
+                        <Link to="/privacy-policy" className="hover:text-indigo-300 transition-colors">Privacy Policy</Link>
                         <span className="text-white/10">•</span>
-                        <button onClick={() => openLegal('terms')} className="hover:text-indigo-300 transition-colors">Terms of Service</button>
+                        <Link to="/terms" className="hover:text-indigo-300 transition-colors">Terms of Service</Link>
                         <span className="text-white/10">•</span>
-                        <button onClick={() => openLegal('about')} className="hover:text-indigo-300 transition-colors">About Us</button>
+                        <Link to="/about" className="hover:text-indigo-300 transition-colors">About Us</Link>
                         <span className="text-white/10">•</span>
-                        <button onClick={() => openLegal('contact')} className="hover:text-indigo-300 transition-colors">Contact Us</button>
+                        <Link to="/contact" className="hover:text-indigo-300 transition-colors">Contact Us</Link>
                         <span className="text-white/10">•</span>
-                        <button onClick={() => openLegal('disclaimer')} className="hover:text-indigo-300 transition-colors">Disclaimer</button>
+                        <Link to="/calculator" className="hover:text-emerald-300 transition-colors">EV Calculator</Link>
+                        <span className="text-white/10">•</span>
+                        <Link to="/faq" className="hover:text-indigo-300 transition-colors">FAQ</Link>
+                        <span className="text-white/10">•</span>
+                        <Link to="/disclaimer" className="hover:text-indigo-300 transition-colors">Disclaimer</Link>
                     </div>
 
-                    <p className="text-white/30 text-[11px] font-mono">© 2026 Triev Rider Technologies · v2.5.0</p>
+                    <p className="text-white/30 text-[11px] font-mono">© {new Date().getFullYear()} Triev Fleet Technologies</p>
                 </div>
             </footer>
 
