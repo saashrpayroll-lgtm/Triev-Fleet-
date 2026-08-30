@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, ChevronRight, Loader2 } from 'lucide-react';
+import { Sparkles, RefreshCw } from 'lucide-react';
 import { AIService } from '@/services/AIService';
 
 interface BriefingItem {

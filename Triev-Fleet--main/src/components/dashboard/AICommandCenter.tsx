@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Brain, Globe, CheckCircle2, XCircle, Clock, RefreshCw, TrendingUp, Activity, Sparkles, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import { Zap, Brain, Globe, CheckCircle2, XCircle, RefreshCw, TrendingUp, Activity, Sparkles, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import { AIConfigService } from '@/services/AIConfigService';
 import { supabase } from '@/config/supabase';
 import { toast } from 'sonner';
