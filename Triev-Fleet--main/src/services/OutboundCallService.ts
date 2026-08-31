@@ -234,7 +234,7 @@ export class OutboundCallService {
         try {
             const { data, error } = await supabase
                 .from('auto_call_config')
-                .select('id, team_leader_id, enabled, threshold_amount, call_hour_start, call_hour_end, max_calls_per_day, created_at, updated_at') // ✅ EGRESS
+                .select('id, team_leader_id, enabled, negative_balance_threshold, low_balance_threshold, max_calls_per_day, call_time_start, call_time_end, last_run_at, created_at, updated_at') // ✅ EGRESS
                 .eq('team_leader_id', teamLeaderId)
                 .maybeSingle();
 

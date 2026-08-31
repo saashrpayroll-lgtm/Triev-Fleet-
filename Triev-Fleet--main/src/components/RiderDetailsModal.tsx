@@ -263,7 +263,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
                 .order('timestamp', { ascending: false })
                 .limit(20);
 
-            if (data) setHistory(data as ActivityLog[]);
+            if (data) setHistory(data as unknown as ActivityLog[]);
         } catch (error) {
             console.error("Error fetching history:", error);
         } finally {
@@ -283,7 +283,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
 
 
             if (error) throw error;
-            setWalletTxns(data as LedgerEntry[]);
+            setWalletTxns(data as unknown as LedgerEntry[]);
         } catch (error) {
             console.error("Error fetching wallet ledger:", error);
             toast.error("Failed to load wallet history");

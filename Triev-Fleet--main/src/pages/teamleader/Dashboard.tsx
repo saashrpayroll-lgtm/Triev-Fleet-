@@ -243,9 +243,9 @@ const Dashboard: React.FC = () => {
             zomatoTotal: 0, zomatoPosCount: 0, zomatoNegCount: 0,
             zomatoLowBalance: 0, zomatoHighDebt: 0, zomatoWalletTotal: 0, zomatoAvgWallet: 0, zomatoPosAmt: 0, zomatoNegAmt: 0
         };
-        // Some fallback counts still need the myRiders data 
         const myRiders = leaderboardData.riders.filter(r => r.teamLeaderId === userData?.id);
         const lowBalanceCount = myRiders.filter(r => r.status === 'active' && r.walletAmount >= 0 && r.walletAmount < 250).length;
+        const zeroWalletCount = myRiders.filter(r => r.status === 'active' && r.walletAmount === 0).length;
 
         // Zomato specific calculations — pre-filter once for efficiency
         const zomatoRiders = myRiders.filter(r => r.status === 'active' && (r.chassisNumber?.trim().toUpperCase().startsWith('P6DSVFMSP') || (r as any).chassis_number?.trim().toUpperCase().startsWith('P6DSVFMSP')));
@@ -261,11 +261,11 @@ const Dashboard: React.FC = () => {
             lowBalanceCount: lowBalanceCount || 0,
             positiveWallet: computedLeaderStats.positiveWalletCount,
             negativeWallet: computedLeaderStats.negativeWalletCount,
-            zeroWallet: computedLeaderStats.zeroWalletCount ?? 0, // ✅ FIX: was hardcoded 0
+            zeroWallet: zeroWalletCount, // ✅ Calculated from active riders with 0 wallet
             totalPositiveAmount: computedLeaderStats.positiveWallet,
             totalNegativeAmount: computedLeaderStats.negativeWallet,
             totalLeads: computedLeaderStats.leadsTotal,
-            newLeads: leaderboardData.leads.filter(l => l.createdBy === userData?.id && (l.status === 'new' || l.status === 'New')).length, // ✅ FIX: was hardcoded 0
+            newLeads: leaderboardData.leads.filter(l => l.createdBy === userData?.id && l.status === 'New').length, // ✅ Uses typed 'New' LeadStatus
             convertedLeads: computedLeaderStats.convertedLeads,
             notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads,
             zomatoTotal: zomatoRiders.length,

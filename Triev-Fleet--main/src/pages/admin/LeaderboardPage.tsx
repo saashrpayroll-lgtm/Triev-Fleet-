@@ -76,7 +76,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
     const [isUpdatingTarget, setIsUpdatingTarget] = useState(false);
 
     const prevRanksRef = useRef<Record<string, number>>(getPreviousRanks());
-    const ledgerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+
     const lastFetchedAtRef = useRef<number>(0); // \u2705 Egress guard: tracks last fetch time
 
     const period = useMemo(() => resolvePerformancePeriod(dateFilter), [dateFilter]);
