@@ -85,8 +85,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ scopedCityOpsId
         const fetchResetRequests = async () => {
             const { data, error } = await supabase
                 .from('password_reset_requests')
-                .select('*')
+                .select('id, user_id, user_name, user_email, requested_at, status, resolved_at, resolved_by') // ✅ EGRESS + SECURITY
                 .eq('status', 'pending');
+
 
             if (!error && data) {
                 setPasswordResetRequests(data as PasswordResetRequest[]);

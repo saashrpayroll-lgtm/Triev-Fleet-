@@ -45,9 +45,10 @@ const TLNotificationsPage: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, user_id, title, message, type, priority, is_read, created_at, related_entity') // ✅ EGRESS
                 .eq('user_id', userData?.id)
                 .order('created_at', { ascending: false });
+
 
             if (error) throw error;
             if (data) {

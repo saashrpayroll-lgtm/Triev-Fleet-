@@ -197,7 +197,7 @@ export class OutboundCallService {
         try {
             const { data, error } = await supabase
                 .from('ai_call_logs')
-                .select('*')
+                .select('id, rider_id, rider_name, mobile_number, call_scenario, triggered_by, triggered_by_name, call_id, status, wallet_amount_at_call, duration, notes, created_at') // ✅ EGRESS
                 .order('created_at', { ascending: false })
                 .limit(limit);
 
@@ -234,7 +234,7 @@ export class OutboundCallService {
         try {
             const { data, error } = await supabase
                 .from('auto_call_config')
-                .select('*')
+                .select('id, team_leader_id, enabled, threshold_amount, call_hour_start, call_hour_end, max_calls_per_day, created_at, updated_at') // ✅ EGRESS
                 .eq('team_leader_id', teamLeaderId)
                 .maybeSingle();
 
@@ -369,7 +369,7 @@ export class OutboundCallService {
         try {
             const { data, error } = await supabase
                 .from('ai_call_logs')
-                .select('*')
+                .select('id, rider_id, rider_name, mobile_number, call_scenario, triggered_by, triggered_by_name, call_id, status, wallet_amount_at_call, duration, notes, created_at') // ✅ EGRESS
                 .eq('rider_id', riderId)
                 .order('created_at', { ascending: false });
 

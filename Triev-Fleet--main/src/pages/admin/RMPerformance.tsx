@@ -89,8 +89,10 @@ const RMPerformance: React.FC<RMPerformanceProps> = ({ scopedRmIds }) => {
             const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             const endOfDayIST = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
-            let tlQuery = supabase.from('users').select('*').in('role', ['teamLeader']);
-            let rmQuery = supabase.from('users').select('*').eq('role', 'reportingManager');
+            const RM_USER_COLS = 'id, full_name, email, role, status, reporting_manager, profile_pic_url'; // ✅ EGRESS
+            let tlQuery = supabase.from('users').select(RM_USER_COLS).in('role', ['teamLeader']);
+            let rmQuery = supabase.from('users').select(RM_USER_COLS).eq('role', 'reportingManager');
+
 
             const [tlRes, rmRes] = await Promise.all([tlQuery, rmQuery]);
             if (tlRes.error) throw tlRes.error;

@@ -65,10 +65,11 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             // Check if there's already a pending request
             const { data: existingRequest } = await supabase
                 .from('password_reset_requests')
-                .select('*')
+                .select('id, status') // ✅ EGRESS + SECURITY: only check existence
                 .eq('user_id', user.id)
                 .eq('status', 'pending')
                 .single();
+
 
             if (existingRequest) {
                 setError('A password reset request is already pending for this account');

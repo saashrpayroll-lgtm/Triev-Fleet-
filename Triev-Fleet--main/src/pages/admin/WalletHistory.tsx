@@ -103,7 +103,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
         const shouldFetchTLs = isAdmin || !!scopedCityOpsId;
         if (!shouldFetchTLs) return;
 
-        let q = supabase.from('users').select('*').eq('role', 'teamLeader');
+        let q = supabase.from('users').select('id, full_name').eq('role', 'teamLeader'); // ✅ EGRESS
         if (scopedCityOpsId && !isAdmin) {
             // City Ops: only fetch TLs that belong to this scope
             q = q.eq('city_ops_id', scopedCityOpsId);

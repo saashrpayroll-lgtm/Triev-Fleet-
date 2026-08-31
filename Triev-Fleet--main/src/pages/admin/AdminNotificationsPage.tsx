@@ -38,9 +38,11 @@ const AdminNotificationsPage: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('notifications')
-                .select('*')
+                .select('id, user_id, title, message, type, priority, is_read, created_at, related_entity, action_url, tags') // ✅ EGRESS
+
                 .eq('user_id', userData.id)
                 .order('created_at', { ascending: false });
+
             if (error) throw error;
             if (data) {
                 setNotifications(data.map(n => ({
@@ -290,7 +292,8 @@ const AdminNotificationsPage: React.FC = () => {
                     <div className="flex">
                         {(['all', 'unread', 'read'] as FilterTab[]).map(tab => (
                             <button key={tab} onClick={() => { setFilter(tab); setSelectedIds(new Set()); }}
-                                className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition-all relative capitalize ${filter === tab ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                                className={`px-5 py-3 text-xs font-black uppercase tracking-widest transition-all relative ${filter === tab ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+
                                 {tab}
                                 {tab === 'unread' && unreadCount > 0 && (
                                     <span className="ml-1.5 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{unreadCount}</span>

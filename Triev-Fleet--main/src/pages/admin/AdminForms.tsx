@@ -44,9 +44,10 @@ const AdminForms: React.FC = () => {
             setLoading(true);
             const { data, error } = await supabase
                 .from('external_forms')
-                .select('*')
+                .select('id, title, url, category, is_active, is_visible_to_rm, is_visible_to_tl, display_order, created_at') // ✅ EGRESS
                 .order('display_order', { ascending: true })
                 .order('created_at', { ascending: false });
+
             if (error) throw error;
             setForms(data || []);
         } catch (error) {

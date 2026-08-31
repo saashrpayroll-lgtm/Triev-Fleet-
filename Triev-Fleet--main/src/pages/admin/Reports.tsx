@@ -133,7 +133,7 @@ const Reports: React.FC<ReportsProps> = ({ scopedTlIds }) => {
                     createdAt:created_at
                 `),
                 supabase.from('leads').select('id, created_at, status'),
-                supabase.from('daily_collections').select('*')
+                supabase.from('daily_collections').select('team_leader_id, date, total_collection, active_riders_count') // ✅ EGRESS
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -358,7 +358,7 @@ const Reports: React.FC<ReportsProps> = ({ scopedTlIds }) => {
                     // Fetch riders with negative wallet
                     const { data: defaulterRiders } = await supabase
                         .from('riders')
-                        .select('*')
+                        .select('id, triev_id, rider_name, mobile_number, wallet_amount, team_leader_id, status, client_name') // ✅ EGRESS
                         .lt('wallet_amount', 0) // Only negative
                         .order('wallet_amount', { ascending: true }) // Highest debt first
                         .limit(50000);
@@ -433,7 +433,7 @@ const Reports: React.FC<ReportsProps> = ({ scopedTlIds }) => {
                     data = generateFleetHealthReport(riders, teamLeaders);
                     break;
                 case 'collection_summary': {
-                    let query = supabase.from('daily_collections').select('*')
+                    let query = supabase.from('daily_collections').select('team_leader_id, date, total_collection, active_riders_count') // ✅ EGRESS
                         .gte('date', filters.startDate)
                         .lte('date', filters.endDate);
 

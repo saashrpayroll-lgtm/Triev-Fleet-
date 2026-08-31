@@ -258,7 +258,7 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
         try {
             const { data } = await supabase
                 .from('activity_logs')
-                .select('*')
+                .select('id, action_type, details, timestamp, performed_by, performed_by_name') // ✅ EGRESS
                 .eq('target_id', rider.id)
                 .order('timestamp', { ascending: false })
                 .limit(20);
@@ -276,10 +276,11 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
         try {
             const { data, error } = await supabase
                 .from('wallet_ledger')
-                .select('*')
+                .select('id, rider_id, amount, mode, transaction_type, transaction_date, created_at, notes, performed_by_name') // ✅ EGRESS
                 .eq('rider_id', rider.id)
                 .order('created_at', { ascending: false })
                 .limit(50);
+
 
             if (error) throw error;
             setWalletTxns(data as LedgerEntry[]);

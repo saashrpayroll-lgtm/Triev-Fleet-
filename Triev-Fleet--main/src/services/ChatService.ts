@@ -13,7 +13,7 @@ export const ChatService = {
             // Check for existing active session
             const { data: existing } = await supabase
                 .from('chat_sessions')
-                .select('*')
+                .select('id, user_id, status, created_at, updated_at, last_message_at') // ✅ EGRESS
                 .eq('user_id', userId)
                 .eq('status', 'active')
                 .order('updated_at', { ascending: false })
@@ -60,9 +60,10 @@ export const ChatService = {
     getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
         const { data, error } = await supabase
             .from('chat_messages')
-            .select('*')
+            .select('id, session_id, sender_id, sender_role, content, created_at, message_type') // ✅ EGRESS
             .eq('session_id', sessionId)
             .order('created_at', { ascending: true });
+
 
         if (error) {
             console.error('Error fetching messages:', error);

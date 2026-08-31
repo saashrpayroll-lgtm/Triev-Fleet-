@@ -155,7 +155,7 @@ const Requests: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('requests')
-                .select('*')
+                .select('id, ticket_id, type, subject, description, priority, user_id, user_name, email, user_role, status, created_at, updated_at, related_entity_id, related_entity_name, related_entity_type, resolved_at, resolved_by, admin_response') // ✅ EGRESS
                 .eq('user_id', userData?.id) // snake_case
                 .neq('status', 'deleted')
                 .order('created_at', { ascending: false });
@@ -172,7 +172,8 @@ const Requests: React.FC = () => {
 
     const fetchMyRiders = async () => {
         try {
-            const { data, error } = await fetchAllRidersPaginated('*', { column: 'team_leader_id', value: userData?.id });
+            const { data, error } = await fetchAllRidersPaginated('id, triev_id, rider_name, mobile_number, wallet_amount, status, team_leader_id, chassis_number, client_name', { column: 'team_leader_id', value: userData?.id }); // ✅ EGRESS
+
 
             if (error) throw error;
 

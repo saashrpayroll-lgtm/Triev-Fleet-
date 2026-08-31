@@ -98,7 +98,9 @@ class LiveSheetAutoSyncService {
 
             // Passive Catch-up sync on session start
             if (this.config?.enabled && this.config?.sheetId) {
-                const intervalMs = (this.config.syncIntervalMinutes || 2) * 60 * 1000;
+                // ✅ EGRESS: Default fallback 15 min (was 2 min). Prevents aggressive syncing
+                // when admin hasn't explicitly configured an interval.
+                const intervalMs = (this.config.syncIntervalMinutes || 15) * 60 * 1000;
                 if (!this.lastSyncTime || (Date.now() - this.lastSyncTime.getTime() > intervalMs)) {
                     this.executeAutoSync().catch(err => {
                         console.warn("Passive catch-up sync skipped or failed:", err);
@@ -219,7 +221,8 @@ class LiveSheetAutoSyncService {
             return;
         }
 
-        const intervalMs = (this.config.syncIntervalMinutes || 2) * 60 * 1000;
+        // ✅ EGRESS: Default fallback 15 min (was 2 min). Admin-configured value overrides this.
+        const intervalMs = (this.config.syncIntervalMinutes || 15) * 60 * 1000;
         this.nextSyncTime = new Date(Date.now() + intervalMs);
         this.nextSyncCountdown = Math.floor(intervalMs / 1000);
 
@@ -352,7 +355,8 @@ class LiveSheetAutoSyncService {
 
     private handleVisibilityChange = () => {
         if (document.visibilityState === 'visible' && this.config?.enabled) {
-            const intervalMs = (this.config.syncIntervalMinutes || 2) * 60 * 1000;
+            // ✅ EGRESS: Default fallback 15 min (was 2 min).
+            const intervalMs = (this.config.syncIntervalMinutes || 15) * 60 * 1000;
             if (!this.lastSyncTime || (Date.now() - this.lastSyncTime.getTime() > intervalMs + 5000)) {
                 console.log("Tab returned from background - triggering caught-up sync...");
                 this.executeAutoSync().catch(() => {});

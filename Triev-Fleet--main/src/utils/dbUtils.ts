@@ -2,7 +2,9 @@ import { supabase } from '@/config/supabase';
 
 // ─── Query Deduplication & Short-TTL In-Memory Cache ─────────────────────────
 // Prevents duplicate concurrent fetches when multiple widgets mount together,
-// and caches fresh responses for 15s to eliminate redundant PostgREST egress.
+// and caches fresh responses for 5 min to eliminate redundant PostgREST egress.
+// ✅ EGRESS: Increased from 15s → 5min. Dashboard data changes every few hours;
+//   15s caused ~20x more PostgREST calls than necessary.
 
 interface CacheEntry {
     data: any[];
@@ -11,7 +13,7 @@ interface CacheEntry {
 
 const queryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<{ data: any[] | null; error: any }>>();
-const CACHE_TTL_MS = 15 * 1000; // 15 seconds
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — dashboard data is not real-time critical
 
 export function invalidateDbCache(tablePrefix?: string) {
     if (!tablePrefix) {

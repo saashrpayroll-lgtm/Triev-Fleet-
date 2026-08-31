@@ -173,7 +173,8 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             const weekStartStr = weekStart.toISOString().split('T')[0];
             const monthStartStr = new Date(Date.UTC(y, m - 1, 1)).toISOString().split('T')[0];
 
-            let tlQuery = supabase.from('users').select('*').eq('role', 'teamLeader');
+            let tlQuery = supabase.from('users').select('id, full_name, email, role, status, city_ops_id, profile_pic_url, monthly_target').eq('role', 'teamLeader'); // ✅ EGRESS
+
             if (scopedTlIds && scopedTlIds.length > 0) tlQuery = tlQuery.in('id', scopedTlIds);
 
             const midnightIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();

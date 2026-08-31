@@ -61,11 +61,12 @@ const TLForms: React.FC = () => {
             setLoading(true);
             const { data, error } = await supabase
                 .from('external_forms')
-                .select('*')
+                .select('id, title, url, category, is_active, display_order, created_at') // ✅ EGRESS
                 .eq('is_active', true)
                 .eq('is_visible_to_tl', true)
                 .order('display_order', { ascending: true })
                 .order('created_at', { ascending: false });
+
             if (error) throw error;
             setForms(data || []);
         } catch (error: any) {

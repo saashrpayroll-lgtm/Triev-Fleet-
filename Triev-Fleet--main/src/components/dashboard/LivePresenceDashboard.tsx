@@ -67,8 +67,9 @@ const LivePresenceDashboard: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('user_presence')
-                .select('*')
+                .select('user_id, email, role, status, last_seen_at') // ✅ EGRESS — matches PresenceUser interface
                 .order('last_seen_at', { ascending: false });
+
             if (error) throw error;
 
             const userMap = new Map<string, PresenceUser>();

@@ -261,11 +261,11 @@ const Dashboard: React.FC = () => {
             lowBalanceCount: lowBalanceCount || 0,
             positiveWallet: computedLeaderStats.positiveWalletCount,
             negativeWallet: computedLeaderStats.negativeWalletCount,
-            zeroWallet: 0,
+            zeroWallet: computedLeaderStats.zeroWalletCount ?? 0, // ✅ FIX: was hardcoded 0
             totalPositiveAmount: computedLeaderStats.positiveWallet,
             totalNegativeAmount: computedLeaderStats.negativeWallet,
             totalLeads: computedLeaderStats.leadsTotal,
-            newLeads: 0,
+            newLeads: leaderboardData.leads.filter(l => l.createdBy === userData?.id && (l.status === 'new' || l.status === 'New')).length, // ✅ FIX: was hardcoded 0
             convertedLeads: computedLeaderStats.convertedLeads,
             notConvertedLeads: computedLeaderStats.leadsTotal - computedLeaderStats.convertedLeads,
             zomatoTotal: zomatoRiders.length,

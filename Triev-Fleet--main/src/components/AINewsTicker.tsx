@@ -18,9 +18,10 @@ const AINewsTicker: React.FC = () => {
         const fetchNews = async () => {
             const { data } = await supabase
                 .from('activity_logs')
-                .select('*')
+                .select('id, details, timestamp, action_type') // ✅ EGRESS: column-restricted
                 .order('timestamp', { ascending: false })
                 .limit(10);
+
 
             if (data) {
                 setNews(data as NewsItem[]);

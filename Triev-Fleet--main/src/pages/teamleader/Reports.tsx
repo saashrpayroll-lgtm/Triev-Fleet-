@@ -104,8 +104,9 @@ const Reports: React.FC = () => {
             // Fetch daily collections for this TL
             const { data: colls } = await supabase
                 .from('daily_collections')
-                .select('*')
+                .select('team_leader_id, date, total_collection, active_riders_count') // ✅ EGRESS
                 .eq('team_leader_id', userData.id);
+
             setDailyCollections(colls || []);
         } catch (error) {
             console.error('Error fetching riders:', error);

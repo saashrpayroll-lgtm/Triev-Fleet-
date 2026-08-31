@@ -97,9 +97,15 @@ export const SupabaseAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
             fullName: data.full_name || data.fullName,
             role: typeof data.role === 'string' ? data.role : 'guest', // Safer
             status: typeof data.status === 'string' ? data.status : 'active', // Safer
-            permissions: typeof data.permissions === 'string'
-                ? JSON.parse(data.permissions)
-                : (data.permissions || {}),
+            permissions: (() => {
+                try {
+                    if (typeof data.permissions === 'string') return JSON.parse(data.permissions);
+                    return data.permissions || {}; // already object — no parse needed
+                } catch {
+                    console.warn('[Auth] permissions field could not be parsed, using empty object.');
+                    return {};
+                }
+            })(),
             reportingManager: data.reporting_manager || data.reportingManager,
             jobLocation: data.job_location || data.jobLocation,
             profilePicUrl: data.profile_pic_url || data.profilePicUrl,

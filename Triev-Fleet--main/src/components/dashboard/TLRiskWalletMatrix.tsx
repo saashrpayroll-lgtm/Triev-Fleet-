@@ -229,9 +229,10 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
             // 3. Fetch daily snapshots for 5-week historical view
             const { data: snapshotsData, error: snapErr } = await supabase
                 .from('matrix_daily_snapshots')
-                .select('*')
+                .select('id, tl_id, snapshot_date, high_risk_count, zero_wallet_count, negative_wallet_count') // ✅ EGRESS
                 .order('snapshot_date', { ascending: false })
                 .limit(500);
+
 
             if (!snapErr && snapshotsData) {
                 setSnapshots(snapshotsData);

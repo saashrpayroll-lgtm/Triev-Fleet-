@@ -46,10 +46,11 @@ const CollectionHistory: React.FC = () => {
 
             const { data, error } = await supabase
                 .from('daily_collections')
-                .select('*')
+                .select('team_leader_id, date, total_collection, active_riders_count') // ✅ EGRESS
                 .eq('team_leader_id', userData!.id)
                 .gte('date', startDate)
                 .order('date', { ascending: true }); // Ascending for Chart
+
 
             if (error) throw error;
 
