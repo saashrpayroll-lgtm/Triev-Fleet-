@@ -90,7 +90,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             const endOfDayIST = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
-            const USER_COLS = 'id, full_name, email, role, status, city_ops_id, reporting_manager, profile_pic_url, monthly_target, job_location, mobile, username, permissions, created_at, updated_at, remarks, suspended_until, force_password_change, position, awarded_badges'; // ✅ EGRESS — all used cols
+            const USER_COLS = 'id, full_name, email, role, status, mobile, user_id, username, job_location, reporting_manager, permissions, remarks, position, profile_pic_url, suspended_until, created_at, updated_at, city_ops_id'; // ✅ EGRESS — only real DB columns
             let cityOpsQuery = supabase.from('users').select(USER_COLS).eq('role', 'cityOps');
             let rmQuery = supabase.from('users').select(USER_COLS).eq('role', 'reportingManager');
             let tlQuery = supabase.from('users').select(USER_COLS).in('role', ['teamLeader']);
