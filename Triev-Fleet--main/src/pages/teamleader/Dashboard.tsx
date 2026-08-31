@@ -471,7 +471,6 @@ const Dashboard: React.FC = () => {
 
     // Track last successful fetch time to avoid redundant re-fetches on realtime events
     const lastFetchedAtRef = React.useRef<number>(0);
-    const REALTIME_STALE_MS = 3 * 60 * 1000;  // 3 min — skip realtime re-fetch if fresher
     const VISIBILITY_STALE_MS = 5 * 60 * 1000; // 5 min — skip visibility re-fetch if fresher
 
     useEffect(() => {

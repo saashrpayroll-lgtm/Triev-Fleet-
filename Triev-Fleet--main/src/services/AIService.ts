@@ -71,33 +71,6 @@ Your goal is to assist Admins, Team Leaders (TLs), and Riders with accurate, hel
 // --- AI Orchestrator Class ---
 class AIOrchestrator {
 
-    // Decision Logic: Which provider to use?
-    private static selectProvider(task: AiTaskType): AiProvider {
-        // 1. Check User Override (Future implementation)
-        // const config = AIConfigService.getConfig();
-        // If user forced a specific provider active, we might respect it, OR strictly follow architecture.
-        // For this implementation, we follow ARCHITECTURE unless specific override requested?
-        // Let's implement the architecture as requested: Groq=Speed, Gemini=Analysis.
-
-        switch (task) {
-            case 'speed':
-                // Groq sub-second inference → Mistral fallback → Gemini last
-                return 'groq';
-            case 'analysis':
-                // Gemini 1M-context deep analytics → Mistral → Groq
-                return 'gemini';
-            case 'creative':
-                // Gemini for structured creative content → Mistral → Groq
-                return 'gemini';
-            case 'multilingual':
-                // Mistral has the richest Hindi/multilingual corpus → best for natural WhatsApp msgs
-                // Falls back to Gemini, then Groq if Mistral key not set
-                return 'mistral';
-            default:
-                return 'gemini';
-        }
-    }
-
     /**
      * Returns the ordered provider chain for a task type.
      * Each provider is tried in sequence until one succeeds (3-level fallback).

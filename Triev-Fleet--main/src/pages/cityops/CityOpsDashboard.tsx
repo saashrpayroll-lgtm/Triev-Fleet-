@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { Users, Wallet, Inbox, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Coins, Activity, Smartphone, ShieldCheck, ShieldAlert, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -297,7 +296,6 @@ const CityOpsDashboard: React.FC = () => {
 
     // Track last successful fetch time to avoid redundant re-fetches on realtime events
     const lastFetchedAtRef = React.useRef<number>(0);
-    const REALTIME_STALE_MS = 3 * 60 * 1000;
     const VISIBILITY_STALE_MS = 5 * 60 * 1000;
 
     useEffect(() => {
