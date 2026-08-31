@@ -173,7 +173,7 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
             const weekStartStr = weekStart.toISOString().split('T')[0];
             const monthStartStr = new Date(Date.UTC(y, m - 1, 1)).toISOString().split('T')[0];
 
-            let tlQuery = supabase.from('users').select('id, full_name, email, role, status, city_ops_id, profile_pic_url, monthly_target').eq('role', 'teamLeader'); // ✅ EGRESS
+            let tlQuery = supabase.from('users').select('id, full_name, email, role, status, city_ops_id, profile_pic_url, monthly_target, reporting_manager, job_location, mobile, username, permissions, created_at, updated_at, remarks, suspended_until, force_password_change, position, awarded_badges').eq('role', 'teamLeader'); // ✅ EGRESS — all used cols
 
             if (scopedTlIds && scopedTlIds.length > 0) tlQuery = tlQuery.in('id', scopedTlIds);
 

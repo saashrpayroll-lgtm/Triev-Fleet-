@@ -84,7 +84,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
     const fetchData = useCallback(async () => {
         try {
             const [usersRes, ridersRes, leadsRes] = await Promise.all([
-                supabase.from('users').select('id, full_name, mobile, email, status, role, profile_pic_url, target_amount').eq('role', 'teamLeader'),
+                supabase.from('users').select('id, full_name, mobile, email, status, role, profile_pic_url, monthly_target').eq('role', 'teamLeader'),
+
                 fetchAllRidersPaginated('id, triev_id, rider_name, status, wallet_amount, team_leader_id, allotment_date, inactivated_at'),
                 supabase.from('leads').select('id, status, created_by, created_at'),
             ]);
@@ -97,7 +98,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
                             id: u.id, fullName: u.full_name, mobile: u.mobile,
                             email: u.email, status: u.status, role: u.role,
                             profilePicUrl: u.profile_pic_url || undefined,
-                            targetAmount: u.target_amount || 0 // Store gamification target
+                            targetAmount: u.monthly_target || 0 // Store gamification target
+
                         })) as any
                 );
             }
