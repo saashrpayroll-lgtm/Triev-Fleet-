@@ -38,8 +38,7 @@ const AdminNotificationsPage: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('notifications')
-                .select('id, user_id, title, message, type, priority, is_read, created_at, related_entity, action_url, tags') // ✅ EGRESS
-
+                .select('id, user_id, title, message, type, priority, is_read, created_at, related_entity') // ✅ EGRESS
                 .eq('user_id', userData.id)
                 .order('created_at', { ascending: false });
 
@@ -55,7 +54,8 @@ const AdminNotificationsPage: React.FC = () => {
                     isRead: n.is_read,
                     createdAt: n.created_at,
                     relatedEntity: n.related_entity,
-                    tags: n.tags || []
+                    tags: (n as any).tags || [],
+                    actionUrl: (n as any).action_url || null
                 })));
             }
         } catch { toast.error('Failed to load notifications'); }
