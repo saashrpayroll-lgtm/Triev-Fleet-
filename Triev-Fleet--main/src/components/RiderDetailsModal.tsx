@@ -32,10 +32,12 @@ interface TeamLeaderInfo {
 interface LedgerEntry {
     id: string;
     amount: number;
-    type: string;
-    mode: 'ADD' | 'SUBTRACT' | 'SET';
+    type?: string;
+    transaction_type?: string;
+    mode: 'ADD' | 'SUBTRACT' | 'SET' | 'RESET';
     description: string;
     created_at: string;
+    transaction_date?: string;
 }
 
 const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, onUpdate }) => {
@@ -276,14 +278,14 @@ const RiderDetailsModal: React.FC<RiderDetailsModalProps> = ({ rider, onClose, o
         try {
             const { data, error } = await supabase
                 .from('wallet_ledger')
-                .select('id, rider_id, amount, mode, transaction_type, transaction_date, created_at, notes, performed_by_name') // ✅ EGRESS
+                .select('id, rider_id, amount, mode, transaction_type, transaction_date, created_at, description') // ✅ EGRESS
                 .eq('rider_id', rider.id)
                 .order('created_at', { ascending: false })
                 .limit(50);
 
 
             if (error) throw error;
-            setWalletTxns(data as unknown as LedgerEntry[]);
+            setWalletTxns((data || []) as unknown as LedgerEntry[]);
         } catch (error) {
             console.error("Error fetching wallet ledger:", error);
             toast.error("Failed to load wallet history");

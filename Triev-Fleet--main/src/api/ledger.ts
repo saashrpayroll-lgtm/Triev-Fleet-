@@ -43,7 +43,7 @@ export const LedgerAPI = {
     getHistory: async (riderId: string) => {
         const { data, error } = await supabase
             .from('wallet_ledger')
-            .select('id, rider_id, amount, mode, transaction_type, transaction_date, created_at, notes, performed_by_name') // ✅ EGRESS
+            .select('id, rider_id, amount, mode, transaction_type, transaction_date, created_at, description') // ✅ EGRESS
             .eq('rider_id', riderId)
             .order('created_at', { ascending: false });
 
