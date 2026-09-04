@@ -21,7 +21,7 @@ interface LedgerEntry {
     transaction_type: string;
     mode: 'ADD' | 'SUBTRACT' | 'SET' | 'RESET';
     description: string;
-    metadata: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
     created_at: string;
     transaction_date?: string;
     riders?: { rider_name: string; team_leader_id?: string; users?: { full_name: string } };
@@ -109,7 +109,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             q = q.eq('city_ops_id', scopedCityOpsId);
         }
         q.then(({ data }) => {
-            if (data) setTeamLeaders(data.map((u: UserType & { full_name?: string; fullName?: string }) => ({ ...u, fullName: u.full_name || u.fullName })) as UserType[]);
+            if (data) setTeamLeaders((data as any[]).map((u) => ({ ...u, fullName: u.full_name || u.fullName })) as UserType[]);
         });
     }, [isAdmin, scopedCityOpsId]);
 
@@ -223,7 +223,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             const from = (currentPage - 1) * pageSize;
             const { data, count, error } = await q.order('transaction_date', { ascending: false }).order('created_at', { ascending: false }).range(from, from + pageSize - 1);
             if (error) throw error;
-            setTransactions((data as LedgerEntry[]) || []);
+            setTransactions((data as unknown as LedgerEntry[]) || []);
             setTotalCount(count || 0);
         } catch (err: unknown) {
             console.error('Ledger fetch error:', err);
@@ -310,7 +310,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             const { data, error } = await q.order('transaction_date', { ascending: false }).order('created_at', { ascending: false });
             if (error) throw error;
             if (!data?.length) { toast.dismiss(tid); toast.info('No data to export'); return; }
-            exportToCSV(data.map((item: LedgerEntry) => ({
+            exportToCSV((data as unknown as LedgerEntry[]).map((item: LedgerEntry) => ({
                 Date: format(parseISO(item.transaction_date || item.created_at), 'yyyy-MM-dd HH:mm:ss'),
                 Rider: item.riders?.rider_name || 'N/A',
                 'Team Leader': item.riders?.users?.full_name || 'N/A',

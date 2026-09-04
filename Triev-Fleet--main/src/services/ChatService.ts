@@ -60,16 +60,15 @@ export const ChatService = {
     getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
         const { data, error } = await supabase
             .from('chat_messages')
-            .select('id, session_id, sender_id, sender_role, content, created_at, message_type') // ✅ EGRESS
+            .select('id, session_id, sender_id, sender_role, content, created_at, type, media_url, file_name, is_read') // ✅ EGRESS
             .eq('session_id', sessionId)
             .order('created_at', { ascending: true });
-
 
         if (error) {
             console.error('Error fetching messages:', error);
             return [];
         }
-        return data as ChatMessage[];
+        return (data || []) as unknown as ChatMessage[];
     },
 
     /**
