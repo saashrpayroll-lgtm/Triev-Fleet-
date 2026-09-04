@@ -19,7 +19,7 @@ export function WalletSyncWidget({ riderIds }: WalletSyncWidgetProps) {
             if (riderIds && riderIds.length > 0) {
                 const { data, error } = await supabase
                     .from('wallet_mismatches')
-                    .select('*, riders(rider_name, mobile_number)')
+                    .select('id, rider_id, system_balance, source_balance, difference, status, created_at, riders(rider_name, mobile_number)')
                     .eq('status', 'pending')
                     .in('rider_id', riderIds)
                     .order('difference', { ascending: false });

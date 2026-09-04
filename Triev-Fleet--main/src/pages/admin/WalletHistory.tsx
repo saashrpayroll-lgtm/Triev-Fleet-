@@ -176,7 +176,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             }
 
             let q = supabase.from('wallet_ledger')
-                .select('*, riders!inner(rider_name, team_leader_id, city_ops_id, users(full_name))', { count: 'exact' });
+                .select('id, rider_id, amount, transaction_type, mode, description, created_at, transaction_date, riders!inner(rider_name, team_leader_id, city_ops_id, users(full_name))', { count: 'exact' });
 
             if (scopedCityOpsId && isScopeLoading) return; // wait for scope
 
@@ -276,7 +276,7 @@ const WalletHistory: React.FC<WalletHistoryProps> = ({ scopedCityOpsId }) => {
             }
 
             let q = supabase.from('wallet_ledger')
-                .select('*, riders!inner(rider_name, team_leader_id, users(full_name))');
+                .select('id, rider_id, amount, transaction_type, mode, description, created_at, transaction_date, riders!inner(rider_name, team_leader_id, users(full_name))');
 
             if (scopedCityOpsId && scopedTlIds && scopedTlIds.length > 0) {
                 q = q.in('riders.team_leader_id', scopedTlIds);
