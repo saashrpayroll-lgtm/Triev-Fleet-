@@ -262,8 +262,8 @@ const RiderAuditModal: React.FC<RiderAuditModalProps> = ({ isOpen, onClose }) =>
                         newAllotmentDate = new Date().toISOString(); // Give new allotment timestamp
                     }
                     // If <= 15 days, newAllotmentDate retains the old allotment_date
-                } else {
-                    // Fallback if no dates exist (should be rare)
+                } else if (!rider.allotment_date) {
+                    // Fallback only if no allotment date existed at all
                     newAllotmentDate = new Date().toISOString();
                 }
 

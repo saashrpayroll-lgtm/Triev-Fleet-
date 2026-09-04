@@ -234,8 +234,9 @@ export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallb
                 const fixed = `${y}-${d}-${m}`;
                 if (fixed <= todayIst) {
                     resultDate = fixed;
-                } else {
-                    resultDate = todayIst;
+                } else if (fallbackDate) {
+                    const fb = getValidHistoricalDate(fallbackDate);
+                    if (fb && fb <= todayIst) return fb;
                 }
             }
 
@@ -253,8 +254,9 @@ export const getValidHistoricalDate = (dateRaw: string | null | undefined, fallb
             const fixedDate = `${y}-${day}-${m}`;
             if (fixedDate <= todayIst) {
                 istStr = fixedDate;
-            } else {
-                istStr = todayIst;
+            } else if (fallbackDate) {
+                const fb = getValidHistoricalDate(fallbackDate);
+                if (fb && fb <= todayIst) return fb;
             }
         }
         return istStr;

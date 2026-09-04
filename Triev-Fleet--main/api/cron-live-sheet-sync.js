@@ -500,7 +500,7 @@ export default async function handler(req, res) {
         };
 
         // 6. Pre-fetch All DB Riders for Fast Deduplication
-        const allDbRiders = await fetchAllPaginated(supabase, 'riders', 'id, triev_id, mobile_number, rider_name, chassis_number, client_name, client_id, allotment_date, wallet_amount, team_leader_id, team_leader_name, remarks, status, inactivated_at');
+        const allDbRiders = await fetchAllPaginated(supabase, 'riders', 'id, triev_id, mobile_number, rider_name, chassis_number, client_name, client_id, allotment_date, wallet_amount, team_leader_id, team_leader_name, remarks, status, inactivated_at, last_status_change_at, created_at, updated_at');
         const riderTrievMap = new Map();
         const riderMobileMap = new Map();
 
@@ -618,7 +618,13 @@ export default async function handler(req, res) {
                     if (chassis && cleanString(existingRider.chassis_number) !== chassis) updatePayload.chassis_number = chassis;
                     if (clientName && cleanString(existingRider.client_name) !== clientName) updatePayload.client_name = clientName;
                     if (clientId && cleanString(existingRider.client_id) !== clientId) updatePayload.client_id = clientId;
-                    if (allotmentDate && cleanString(existingRider.allotment_date) !== allotmentDate) updatePayload.allotment_date = allotmentDate;
+                    // 1. If rider was ALREADY ACTIVE: Only update allotment_date if existingRider doesn't have one
+                    if (existingRider.status === 'active') {
+                        if (allotmentDate && !existingRider.allotment_date) {
+                            updatePayload.allotment_date = allotmentDate;
+                        }
+                    }
+
                     if (remarks && cleanString(existingRider.remarks) !== remarks) updatePayload.remarks = remarks;
 
                     if (teamLeaderId && existingRider.team_leader_id !== teamLeaderId) {
@@ -630,12 +636,34 @@ export default async function handler(req, res) {
                         updatePayload.wallet_amount = walletAmount;
                     }
 
-                    // Reactivation check (15-Day Re-allotment Rule)
-                    if (existingRider.status === 'inactive') {
+                    // 2. Reactivation check (15-Day Re-allotment Rule)
+                    if (existingRider.status === 'inactive' || existingRider.status === 'deleted') {
                         updatePayload.status = 'active';
                         updatePayload.inactivated_at = null;
-                        const newAllotDate = allotmentDate || new Date().toISOString().split('T')[0];
-                        updatePayload.allotment_date = newAllotDate;
+
+                        const submissionDateStr = existingRider.inactivated_at || existingRider.last_status_change_at || existingRider.updated_at;
+                        const targetAllotDate = allotmentDate || new Date().toISOString().split('T')[0];
+
+                        let daysDiff = 999;
+                        if (submissionDateStr) {
+                            const subIST = parseIndianDate(submissionDateStr);
+                            const allotIST = parseIndianDate(targetAllotDate);
+                            if (subIST && allotIST) {
+                                const subMs = new Date(subIST.split('T')[0]).getTime();
+                                const allotMs = new Date(allotIST.split('T')[0]).getTime();
+                                daysDiff = Math.max(0, Math.floor((allotMs - subMs) / (1000 * 60 * 60 * 24)));
+                            }
+                        }
+
+                        // 15-Day Rule:
+                        // If returning within 15 days (daysDiff <= 15): retain old allotment_date!
+                        // If returning after 15 days (daysDiff > 15): assign new allotment_date (fresh allotment)!
+                        if (daysDiff <= 15 && existingRider.allotment_date) {
+                            updatePayload.allotment_date = existingRider.allotment_date;
+                        } else {
+                            updatePayload.allotment_date = targetAllotDate;
+                        }
+
                         summary.reactivated++;
                     }
 

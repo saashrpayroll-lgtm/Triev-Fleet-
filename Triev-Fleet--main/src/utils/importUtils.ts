@@ -346,7 +346,7 @@ export const processRiderImport = async (
     const riderMobileMap = new Map<string, any>();
     const allDbRiders: any[] = [];
     try {
-        const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, chassis_number, client_name, client_id, allotment_date, wallet_amount, team_leader_id, team_leader_name, remarks, status, inactivated_at');
+        const { data: allRiders, error: fetchErr } = await fetchAllRidersPaginated('id, triev_id, mobile_number, rider_name, chassis_number, client_name, client_id, allotment_date, wallet_amount, team_leader_id, team_leader_name, remarks, status, inactivated_at, last_status_change_at, created_at, updated_at');
         if (fetchErr) throw fetchErr;
         allRiders?.forEach(r => {
             allDbRiders.push(r);
@@ -484,15 +484,45 @@ export const processRiderImport = async (
                 addIfDiff('remarks', remarks, 'Remarks');
                 addIfDiff('client_name', clientName, 'Client Name');
                 if (clientId) addIfDiff('client_id', clientId, 'Client ID');
-                if (allotmentDate) addIfDiff('allotment_date', allotmentDate, 'Allotment Date');
+                // 1. If rider was ALREADY ACTIVE: Only update allotment_date if existingRider doesn't have one
+                if (existingRider.status === 'active') {
+                    if (allotmentDate && !existingRider.allotment_date) {
+                        addIfDiff('allotment_date', allotmentDate, 'Allotment Date');
+                    }
+                }
 
-                // Auto Reactivation Logic (15-Day Re-allotment Rule)
-                if (existingRider.status === 'inactive') {
+                // 2. Auto Reactivation Logic (15-Day Re-allotment Rule)
+                if (existingRider.status === 'inactive' || existingRider.status === 'deleted') {
                     updatePayload.status = 'active';
                     updatePayload.inactivated_at = null;
-                    const newAllotDate = allotmentDate || new Date().toISOString().split('T')[0];
-                    updatePayload.allotment_date = newAllotDate;
-                    changedFields.push('Status (Reactivated)', 'Allotment Date (Re-allotted)');
+
+                    const submissionDateStr = existingRider.inactivated_at || existingRider.last_status_change_at || existingRider.updated_at;
+                    const targetAllotDate = allotmentDate || new Date().toISOString().split('T')[0];
+
+                    let daysDiff = 999;
+                    if (submissionDateStr) {
+                        const subIST = getValidHistoricalDate(submissionDateStr);
+                        const allotIST = getValidHistoricalDate(targetAllotDate);
+                        if (subIST && allotIST) {
+                            const subMs = new Date(subIST).getTime();
+                            const allotMs = new Date(allotIST).getTime();
+                            daysDiff = Math.max(0, Math.floor((allotMs - subMs) / (1000 * 60 * 60 * 24)));
+                        }
+                    }
+
+                    // 15-Day Rule:
+                    // If returning within 15 days (daysDiff <= 15): retain old allotment_date!
+                    // If returning after 15 days (daysDiff > 15): assign new allotment_date (fresh allotment)!
+                    if (daysDiff <= 15 && existingRider.allotment_date) {
+                        // Keep original historical allotment date
+                        updatePayload.allotment_date = existingRider.allotment_date;
+                        changedFields.push('Status (Reactivated - Retained Old Allotment Date)');
+                    } else {
+                        // Fresh allotment after > 15 days (or no previous allotment date)
+                        updatePayload.allotment_date = targetAllotDate;
+                        changedFields.push('Status (Reactivated)', 'Allotment Date (Fresh Re-allotment)');
+                    }
+
                     summary.reactivated = (summary.reactivated || 0) + 1;
                     reactivatedList.push({
                         trievId: trievId || existingRider.triev_id || '',

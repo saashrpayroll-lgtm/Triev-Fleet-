@@ -38,4 +38,12 @@ UPDATE public.riders
 SET allotment_date = created_at
 WHERE allotment_date::TIMESTAMPTZ > (NOW() AT TIME ZONE 'Asia/Kolkata');
 
+-- 4. Reset allotment_date for older riders (created before September 2026)
+-- who had their allotment_date accidentally overwritten to September 2026 due to sync
+-- (Preview query: SELECT id, triev_id, rider_name, created_at, allotment_date FROM public.riders WHERE created_at < '2026-09-01T00:00:00+05:30' AND allotment_date >= '2026-09-01T00:00:00+05:30';)
+UPDATE public.riders
+SET allotment_date = created_at
+WHERE created_at < '2026-09-01T00:00:00+05:30'
+  AND allotment_date >= '2026-09-01T00:00:00+05:30';
+
 COMMIT;
