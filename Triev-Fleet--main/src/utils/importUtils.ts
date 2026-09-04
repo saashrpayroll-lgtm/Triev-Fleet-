@@ -3,7 +3,7 @@ import { ImportSummary, ClientName, RiderColumnMapping, LiveSyncStaffFilter } fr
 import { logActivity } from './activityLog';
 import { LedgerAPI } from '@/api/ledger';
 import { fetchAllRidersPaginated, fetchTablePaginated, invalidateDbCache } from './dbUtils';
-import { parseIndianDate } from './dateUtils';
+import { parseIndianDate, getValidHistoricalDate } from './dateUtils';
 
 // Constants for Rider Import
 export const REQUIRED_RIDER_COLUMNS = [
