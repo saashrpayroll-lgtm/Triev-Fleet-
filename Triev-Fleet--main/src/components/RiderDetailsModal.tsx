@@ -8,7 +8,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { logActivity } from '@/utils/activityLog';
-import { formatDateDisplay } from '@/utils/dateUtils';
+import { formatDateDisplay, parseIndianDate } from '@/utils/dateUtils';
 import AIReminderModal, { ReminderType } from '@/components/AIReminderModal';
 import RiderIdCard from '@/components/RiderIdCard';
 import { Camera, Image as ImageIcon } from 'lucide-react';
@@ -773,7 +773,8 @@ ${new Date().toLocaleString('en-IN')}`;
                                                 {(userData?.role === 'admin' || userData?.role === 'teamLeader') && (
                                                     <button
                                                         onClick={() => {
-                                                            const curDate = displayAllotmentDate ? (displayAllotmentDate.split('T')[0] || displayAllotmentDate) : '';
+                                                            const parsedIso = parseIndianDate(displayAllotmentDate);
+                                                            const curDate = parsedIso ? parsedIso.split('T')[0] : (displayAllotmentDate ? displayAllotmentDate.split('T')[0] : '');
                                                             setSelectedAllotmentDate(curDate);
                                                             setIsEditingAllotment(true);
                                                         }}
@@ -820,7 +821,8 @@ ${new Date().toLocaleString('en-IN')}`;
                                                     {userData?.role === 'admin' && (
                                                         <button
                                                             onClick={() => {
-                                                                const currentDateStr = displaySubmissionDate.split('T')[0];
+                                                                const parsedIso = parseIndianDate(displaySubmissionDate);
+                                                                const currentDateStr = parsedIso ? parsedIso.split('T')[0] : (displaySubmissionDate ? displaySubmissionDate.split('T')[0] : '');
                                                                 setSelectedDate(currentDateStr);
                                                                 setIsEditingSubmission(true);
                                                             }}

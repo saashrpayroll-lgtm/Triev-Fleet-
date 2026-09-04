@@ -79,18 +79,29 @@ const parseIndianDate = (dateStr) => {
         }
     }
 
-    // 3. DD/MM/YYYY or MM/DD/YYYY (e.g. 16/03/2026 or 03/16/2026)
+    // 3. M/D/YYYY or D/M/YYYY (e.g. 9/3/2026 12:25:04 PM, 9/3/2026, 25/09/2026)
     const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
     if (dmyMatch) {
-        let d = parseInt(dmyMatch[1], 10);
-        let m = parseInt(dmyMatch[2], 10);
+        const firstNum = parseInt(dmyMatch[1], 10);
+        const secondNum = parseInt(dmyMatch[2], 10);
         const y = dmyMatch[3].length === 2 ? 2000 + parseInt(dmyMatch[3], 10) : parseInt(dmyMatch[3], 10);
 
-        // If month > 12 and day <= 12, it was MM/DD/YYYY -> auto-swap!
-        if (m > 12 && d <= 12) {
-            const temp = m;
-            m = d;
-            d = temp;
+        let m, d;
+        if (firstNum > 12 && secondNum <= 12) {
+            // First number > 12 -> cannot be month, MUST be Day (DD/MM/YYYY)
+            // e.g. "25/09/2026" -> Day: 25, Month: 9
+            d = firstNum;
+            m = secondNum;
+        } else if (secondNum > 12 && firstNum <= 12) {
+            // Second number > 12 -> cannot be month, MUST be Day (MM/DD/YYYY)
+            // e.g. "09/25/2026" -> Month: 9, Day: 25
+            m = firstNum;
+            d = secondNum;
+        } else {
+            // Both <= 12 (e.g. "9/3/2026 12:25:04 PM" or "9/3/2026"):
+            // Google Sheets & Forms exports in M/D/YYYY format (Month 9 = September, Day 3 = 3rd).
+            m = firstNum;
+            d = secondNum;
         }
 
         if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
