@@ -52,7 +52,6 @@ const RMTLPerformance: React.FC = () => {
 
             const [y, m, d] = todayStr.split('-').map(Number);
             const midnightIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-            const endOfDayIST = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [dailyRes, ledgerRes] = await Promise.all([
                 supabase

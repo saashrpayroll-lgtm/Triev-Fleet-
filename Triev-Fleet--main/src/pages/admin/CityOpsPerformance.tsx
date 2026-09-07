@@ -88,7 +88,6 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
             weekStartUTC.setUTCDate(diff);
             const weekStartStr = weekStartUTC.toISOString().split('T')[0];
             const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-            const endOfDayIST = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const USER_COLS = 'id, full_name, email, role, status, mobile, user_id, username, job_location, reporting_manager, permissions, remarks, position, profile_pic_url, suspended_until, created_at, updated_at, city_ops_id'; // ✅ EGRESS — only real DB columns
             let cityOpsQuery = supabase.from('users').select(USER_COLS).eq('role', 'cityOps');

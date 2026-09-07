@@ -89,7 +89,6 @@ const TLPersonalPerformance: React.FC = () => {
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
             const [y, m, d] = todayStr.split('-').map(Number);
             const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-            const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString();
 
             const [ridersResRaw, leadsResRaw, dailyResRaw, todayLedgerResRaw] = await Promise.all([
                 // 1. Targeted fetch: ONLY this TL's riders directly by team_leader_id
