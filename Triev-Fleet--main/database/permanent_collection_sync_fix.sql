@@ -170,6 +170,8 @@ CREATE TRIGGER trg_sync_ledger_to_daily_metrics
 -- ALSO fix snapshot_daily_collections() — was using created_at IST (wrong).
 -- Now uses ledger_effective_date() which respects date_on_sheet + transaction_date.
 -- ─────────────────────────────────────────────────────────────────────────────
+DROP FUNCTION IF EXISTS public.snapshot_daily_collections();
+
 CREATE OR REPLACE FUNCTION public.snapshot_daily_collections()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -220,6 +222,8 @@ $$;
 -- Full rebuild of daily_collections from wallet_ledger.
 -- Call anytime data looks wrong. Safe to run repeatedly.
 -- ─────────────────────────────────────────────────────────────────────────────
+DROP FUNCTION IF EXISTS public.resync_all_daily_collections();
+
 CREATE OR REPLACE FUNCTION public.resync_all_daily_collections()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -283,6 +287,9 @@ $$;
 -- ALSO ENSURE: update_wallet_transaction_date() uses ledger_effective_date()
 -- (not the old safe_cast_to_date + fallback chain)
 -- ─────────────────────────────────────────────────────────────────────────────
+DROP FUNCTION IF EXISTS public.update_wallet_transaction_date(UUID, TIMESTAMP WITH TIME ZONE);
+DROP FUNCTION IF EXISTS public.update_wallet_transaction_date(UUID, TIMESTAMPTZ);
+
 CREATE OR REPLACE FUNCTION public.update_wallet_transaction_date(
     p_transaction_id UUID,
     p_new_date       TIMESTAMP WITH TIME ZONE
@@ -342,6 +349,9 @@ $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- BULK DATE UPDATE RPC
 -- ─────────────────────────────────────────────────────────────────────────────
+DROP FUNCTION IF EXISTS public.bulk_update_wallet_transaction_date(UUID[], TIMESTAMP WITH TIME ZONE);
+DROP FUNCTION IF EXISTS public.bulk_update_wallet_transaction_date(UUID[], TIMESTAMPTZ);
+
 CREATE OR REPLACE FUNCTION public.bulk_update_wallet_transaction_date(
     p_transaction_ids UUID[],
     p_new_date        TIMESTAMP WITH TIME ZONE
