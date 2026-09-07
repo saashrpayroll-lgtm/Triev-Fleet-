@@ -138,10 +138,24 @@ export const parseIndianDate = (dateRaw: any): string | null => {
             monthNum = firstNum;
             dayNum = secondNum;
         } else {
-            // Both <= 12 (e.g. "9/3/2026 12:25:04 PM" or "9/3/2026"):
-            // Google Sheets & Forms exports in M/D/YYYY format (Month 9 = September, Day 3 = 3rd).
-            monthNum = firstNum;
-            dayNum = secondNum;
+            // Both <= 12 (e.g. "07/09/2026" vs "9/7/2026" or "01/09/2026"):
+            const currentMonth = new Date().getMonth() + 1; // e.g. 9 for September
+            if (secondNum === currentMonth && firstNum !== currentMonth) {
+                // e.g. "07/09/2026" -> DD/MM/YYYY (Day 7, Month 9)
+                dayNum = firstNum;
+                monthNum = secondNum;
+            } else if (firstNum === currentMonth && secondNum !== currentMonth) {
+                // e.g. "9/7/2026" -> MM/DD/YYYY (Month 9, Day 7)
+                monthNum = firstNum;
+                dayNum = secondNum;
+            } else if (firstStr.length === 2 && firstStr.startsWith('0')) {
+                // Leading zero on first number (e.g. "05/06/2026") -> standard Indian DD/MM/YYYY
+                dayNum = firstNum;
+                monthNum = secondNum;
+            } else {
+                monthNum = firstNum;
+                dayNum = secondNum;
+            }
         }
 
         let hourNum = hourStr ? parseInt(hourStr, 10) : 12;

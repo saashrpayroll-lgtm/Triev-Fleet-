@@ -963,11 +963,27 @@ export const processRentCollectionImport = async (
         });
 
         // 2. Pre-fetch existing Transaction IDs to prevent duplicates
-        // ✅ FIX: Use external_transaction_id column (reliable) instead of metadata->>transaction_id (unreliable with PostgREST)
+        // ✅ FIX: Match all standard UTR / Ref / Txn ID column names
+        const TXN_ID_KEYS = [
+            'Transaction ID', 'transaction_id', 'TransactionId', 'transactionId',
+            'Txn ID', 'txn_id', 'TxnId', 'txnId', 'Txn No', 'txn_no', 'TxnNo',
+            'UTR', 'utr', 'UTR No', 'UTR Number', 'utr_no', 'utr_number',
+            'Reference ID', 'reference_id', 'ReferenceID', 'Ref ID', 'ref_id',
+            'Ref No', 'ref_no', 'Reference No', 'reference_no',
+            'Order ID', 'order_id', 'OrderId', 'orderId',
+            'Payment ID', 'payment_id', 'PaymentId', 'paymentId',
+            'OrdertransactionId', 'OrderTransactionId', 'order_transaction_id',
+            'Bank Ref', 'bank_ref', 'Bank Ref No', 'bank_ref_no'
+        ];
+
         const sheetTxnIds = fileData.map(r => {
             const nRow: any = {};
             Object.keys(r).forEach(k => nRow[normalizeKey(k)] = r[k]);
-            return nRow[normalizeKey('Transaction ID')] || nRow[normalizeKey('transaction_id')] || nRow[normalizeKey('OrdertransactionId')] || '';
+            for (const key of TXN_ID_KEYS) {
+                const val = nRow[normalizeKey(key)];
+                if (val !== undefined && val !== null && String(val).trim() !== '') return String(val).trim();
+            }
+            return '';
         }).filter(Boolean).map(String);
 
         const existingTxns = new Set<string>();
@@ -1058,7 +1074,7 @@ export const processRentCollectionImport = async (
 
                 if (!riderId) throw new Error(`Rider not found (Triev ID: ${trievIdRaw}, Mobile: ${mobileRaw})`);
 
-                const transactionId = getValue(['Transaction ID', 'transaction_id', 'OrdertransactionId', 'OrderTransactionId']);
+                const transactionId = getValue(TXN_ID_KEYS);
 
                 // ✅ FIX: Generate fallback dedup key for rows without Transaction ID
                 // Uses riderId + amount + date as a deterministic fingerprint
@@ -1127,9 +1143,15 @@ export const processRentCollectionImport = async (
                         .select('id')
                         .eq('rider_id', tx.riderId)
                         .eq('amount', tx.amount)
-                        .gte('created_at', `${dateOnly}T00:00:00`)
-                        .lte('created_at', `${dateOnly}T23:59:59`)
-                        .eq('transaction_type', 'DAILY_COLLECTION')
+                        .eq('mode', 'ADD')
+                        .in('transaction_type', [
+                            'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                            'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                            'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                            'COLLECTION', 'collection', 'RENT', 'rent',
+                            'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
+                        ])
+                        .or(`and(transaction_date.gte.${dateOnly}T00:00:00+05:30,transaction_date.lte.${dateOnly}T23:59:59+05:30),and(transaction_date.is.null,created_at.gte.${dateOnly}T00:00:00+05:30,created_at.lte.${dateOnly}T23:59:59+05:30)`)
                         .limit(1);
                     if (existing && existing.length > 0) {
                         // Already exists — remove from pending and mark as skipped
@@ -1138,7 +1160,7 @@ export const processRentCollectionImport = async (
                         if (summary.skipped === undefined) summary.skipped = 0;
                         summary.skipped++;
                         const rName = tx.row?.['Rider Name'] || tx.row?.['rider_name'] || 'Unknown';
-                        summary.skippedDetails?.push({ row: tx.rowNum, identifier: `${rName} | ₹${tx.amount}`, reason: "Duplicate (same rider+amount+date already in DB, no TxnID)", data: tx.row });
+                        summary.skippedDetails?.push({ row: tx.rowNum, identifier: `${rName} | ₹${tx.amount} (${dateOnly})`, reason: "Duplicate entry (same rider + amount + date already in DB)", data: tx.row });
                     }
                 } catch { /* ignore lookup errors, let it try to insert */ }
             }
