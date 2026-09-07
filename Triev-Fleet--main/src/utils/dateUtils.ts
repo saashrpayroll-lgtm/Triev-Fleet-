@@ -74,16 +74,25 @@ export const resolvePerformancePeriod = (
 export const parseIndianDate = (dateRaw: any): string | null => {
     if (!dateRaw) return null;
 
-    // 1. Check if it's an Excel serial number date (e.g. 46246)
-    if (typeof dateRaw === 'number' || (typeof dateRaw === 'string' && !isNaN(Number(dateRaw)) && Number(dateRaw) > 20000 && Number(dateRaw) < 80000)) {
-        const days = Number(dateRaw);
-        const msSince1900 = (days - (days > 59 ? 25569 : 25568)) * 86400 * 1000;
-        const d = new Date(msSince1900);
-        if (!isNaN(d.getTime())) {
-            const pad = (n: any) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00.000+05:30`;
+    // 1. Check if it's an Excel serial number date (e.g. 46246) or Unix timestamp
+    if (typeof dateRaw === 'number' || (typeof dateRaw === 'string' && !isNaN(Number(dateRaw)))) {
+        const numVal = Number(dateRaw);
+        if (numVal > 20000 && numVal < 80000) {
+            const msSince1900 = (numVal - (numVal > 59 ? 25569 : 25568)) * 86400 * 1000;
+            const d = new Date(msSince1900);
+            if (!isNaN(d.getTime())) {
+                const pad = (n: any) => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00:00.000+05:30`;
+            }
+        } else if (numVal >= 1000000000) {
+            // Unix timestamp in seconds (10 digits) or ms (13 digits)
+            const ms = numVal > 100000000000 ? numVal : numVal * 1000;
+            const d = new Date(ms);
+            if (!isNaN(d.getTime())) {
+                const istStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+                return `${istStr}T12:00:00.000+05:30`;
+            }
         }
-        return null;
     }
 
     let cleanDate = String(dateRaw).trim();
