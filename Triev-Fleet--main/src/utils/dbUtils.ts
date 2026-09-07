@@ -13,7 +13,7 @@ interface CacheEntry {
 const queryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<{ data: any[] | null; error: any }>>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — dashboard data is not real-time critical
-const SESSION_CACHE_PREFIX = 'tf_cache_v4_';
+const SESSION_CACHE_PREFIX = 'tf_cache_v5_';
 
 function getSessionCache(key: string): any[] | null {
     try {
@@ -21,7 +21,7 @@ function getSessionCache(key: string): any[] | null {
         const itemStr = window.sessionStorage.getItem(SESSION_CACHE_PREFIX + key);
         if (!itemStr) return null;
         const entry = JSON.parse(itemStr);
-        if (entry && entry.expiresAt > Date.now() && Array.isArray(entry.data)) {
+        if (entry && entry.expiresAt > Date.now() && Array.isArray(entry.data) && entry.data.length > 0) {
             return entry.data;
         }
         window.sessionStorage.removeItem(SESSION_CACHE_PREFIX + key);
@@ -34,6 +34,7 @@ function getSessionCache(key: string): any[] | null {
 function setSessionCache(key: string, data: any[], ttlMs: number) {
     try {
         if (typeof window === 'undefined' || !window.sessionStorage) return;
+        if (!Array.isArray(data) || data.length === 0) return; // Never persist empty responses
         const payload = JSON.stringify({ data, expiresAt: Date.now() + ttlMs });
         // Don't store oversized payloads exceeding 2.5 MB in sessionStorage
         if (payload.length > 2.5 * 1024 * 1024) return;
@@ -50,10 +51,10 @@ function pruneSessionCache() {
         const keysToRemove: string[] = [];
         for (let i = 0; i < window.sessionStorage.length; i++) {
             const k = window.sessionStorage.key(i);
-            if (k && k.startsWith(SESSION_CACHE_PREFIX)) {
+            if (k && (k.startsWith('tf_cache_') || k.startsWith(SESSION_CACHE_PREFIX))) {
                 try {
                     const item = JSON.parse(window.sessionStorage.getItem(k) || '{}');
-                    if (!item.expiresAt || item.expiresAt <= Date.now()) {
+                    if (!item.expiresAt || item.expiresAt <= Date.now() || !k.startsWith(SESSION_CACHE_PREFIX)) {
                         keysToRemove.push(k);
                     }
                 } catch {
@@ -73,7 +74,7 @@ export function invalidateDbCache(tablePrefix?: string) {
                 const keysToRemove: string[] = [];
                 for (let i = 0; i < window.sessionStorage.length; i++) {
                     const k = window.sessionStorage.key(i);
-                    if (k && k.startsWith(SESSION_CACHE_PREFIX)) {
+                    if (k && (k.startsWith('tf_cache_') || k.startsWith(SESSION_CACHE_PREFIX))) {
                         keysToRemove.push(k);
                     }
                 }
@@ -93,7 +94,7 @@ export function invalidateDbCache(tablePrefix?: string) {
             const keysToRemove: string[] = [];
             for (let i = 0; i < window.sessionStorage.length; i++) {
                 const k = window.sessionStorage.key(i);
-                if (k && k.startsWith(prefix)) {
+                if (k && (k.startsWith(prefix) || k.includes(tablePrefix))) {
                     keysToRemove.push(k);
                 }
             }
@@ -124,7 +125,7 @@ export async function fetchAllRidersPaginated(
 
     // 1.1 Check persistent sessionStorage cache (preserves across F5 refreshes)
     const sessionData = getSessionCache(cacheKey);
-    if (sessionData) {
+    if (sessionData && sessionData.length > 0) {
         queryCache.set(cacheKey, { data: sessionData, expiresAt: Date.now() + CACHE_TTL_MS });
         return { data: sessionData, error: null };
     }
@@ -172,7 +173,9 @@ export async function fetchAllRidersPaginated(
                 data: allData,
                 expiresAt: Date.now() + CACHE_TTL_MS
             });
-            setSessionCache(cacheKey, allData, CACHE_TTL_MS);
+            if (allData.length > 0) {
+                setSessionCache(cacheKey, allData, CACHE_TTL_MS);
+            }
 
             return { data: allData, error: null };
         } catch (err: any) {
@@ -197,6 +200,7 @@ export async function fetchTablePaginated(
     filters?: { column?: string; value: any; operator?: 'eq' | 'in' | 'gte' | 'lte' | 'neq' | 'or' | 'ilike' | 'like' }[]
 ): Promise<{ data: any[] | null; error: any }> {
     const cacheKey = `${tableName}:${selectQuery}:${JSON.stringify(filters || [])}`;
+    const isLiveTable = tableName === 'wallet_ledger' || tableName === 'daily_collections' || tableName === 'wallet_transactions';
 
     // 1. Check in-memory cache
     const cached = queryCache.get(cacheKey);
@@ -204,11 +208,13 @@ export async function fetchTablePaginated(
         return { data: cached.data, error: null };
     }
 
-    // 1.1 Check persistent sessionStorage cache (preserves across F5 refreshes)
-    const sessionData = getSessionCache(cacheKey);
-    if (sessionData) {
-        queryCache.set(cacheKey, { data: sessionData, expiresAt: Date.now() + CACHE_TTL_MS });
-        return { data: sessionData, error: null };
+    // 1.1 Check persistent sessionStorage cache for non-live tables (preserves across F5 refreshes)
+    if (!isLiveTable) {
+        const sessionData = getSessionCache(cacheKey);
+        if (sessionData && sessionData.length > 0) {
+            queryCache.set(cacheKey, { data: sessionData, expiresAt: Date.now() + CACHE_TTL_MS });
+            return { data: sessionData, error: null };
+        }
     }
 
     // 2. Check in-flight promise deduplication
@@ -258,14 +264,13 @@ export async function fetchTablePaginated(
                 from += limit;
             }
 
-            // Cache result in memory and sessionStorage (skip sessionStorage for live ledger)
-            const isLiveTable = tableName === 'wallet_ledger';
-            const ttl = isLiveTable ? 5000 : CACHE_TTL_MS;
+            // Cache result: live tables get a very short TTL (3 seconds) to deduplicate simultaneous mounts, no sessionStorage
+            const ttl = isLiveTable ? 3000 : CACHE_TTL_MS;
             queryCache.set(cacheKey, {
                 data: allData,
                 expiresAt: Date.now() + ttl
             });
-            if (!isLiveTable) {
+            if (!isLiveTable && allData.length > 0) {
                 setSessionCache(cacheKey, allData, CACHE_TTL_MS);
             }
 
