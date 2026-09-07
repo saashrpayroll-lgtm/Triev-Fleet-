@@ -169,8 +169,10 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         if (!isSilent) setLoading(true);
         else setRefreshing(true);
         try {
-            // 1. Fetch all active riders with paginated helper (beyond 1000 limit)
-            const { data: ridersData, error: ridersErr } = await fetchAllRidersPaginated('*');
+            // 1. Fetch all active riders with paginated helper (selective columns to minimize egress)
+            const { data: ridersData, error: ridersErr } = await fetchAllRidersPaginated(
+                'id, rider_name, triev_id, mobile_number, team_leader_id, team_leader_name, tl_name, rm_name, city_ops_id, city_ops_name, status, wallet_amount, allotment_date, chassis_number, vehicle_id, vehicle_number, is_stolen, is_company_tagged, client_name, created_at'
+            );
             if (ridersErr) throw ridersErr;
 
             // 2. Fetch users table to map TL ID -> TL Name, RM Name, City Ops Name
