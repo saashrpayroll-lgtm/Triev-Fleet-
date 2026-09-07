@@ -671,37 +671,22 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
         if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system. This action CANNOT be undone. Are you absolutely sure?`)) return;
 
         try {
-            // 1. Delete dependent data (Manual Cascade)
-
-            // A. Ledger & Transactions (Critical Financial Data)
-            // We must delete from wallet_ledger first as it's the new source of truth.
-            const { error: wlError } = await supabase.from('wallet_ledger').delete().eq('rider_id', rider.id);
-            if (wlError) {
-                console.error('Error deleting wallet_ledger:', wlError);
-                throw new Error('Failed to clean up wallet ledger. Deletion aborted.');
+            // 1. Try atomic RPC deletion first
+            const { data: rpcRes, error: rpcError } = await supabase.rpc('permanent_delete_rider', { p_rider_id: rider.id });
+            
+            if (rpcError) {
+                console.warn('RPC permanent_delete_rider failed, trying manual cascade:', rpcError);
+                // Fallback manual cascade
+                await supabase.from('wallet_ledger').delete().eq('rider_id', rider.id);
+                await supabase.from('wallet_transactions').delete().eq('rider_id', rider.id);
+                await supabase.from('requests').delete().eq('related_entity_id', rider.id).eq('related_entity_type', 'rider');
+                const { error: delError } = await supabase.from('riders').delete().eq('id', rider.id);
+                if (delError) throw delError;
+            } else if (rpcRes && !rpcRes.success) {
+                throw new Error(rpcRes.error || 'Deletion failed');
             }
 
-            // Wallet Transactions (Legacy Support)
-            const { error: wtError } = await supabase.from('wallet_transactions').delete().eq('rider_id', rider.id);
-            if (wtError) {
-                console.warn('Error deleting legacy wallet_transactions (non-fatal):', wtError);
-            }
-
-            // 2. Requests (Manual Cascade)
-            const { error: reqError } = await supabase
-                .from('requests')
-                .delete()
-                .eq('related_entity_id', rider.id)
-                .eq('related_entity_type', 'rider');
-
-            if (reqError) {
-                console.error('Error deleting requests:', reqError);
-                // Log but continue, as requests might not be strict FK
-            }
-
-            // 3. Delete Rider
-            const { error } = await supabase.from('riders').delete().eq('id', rider.id);
-            if (error) throw error;
+            invalidateDbCache('riders');
 
             await logActivity({
                 actionType: 'riderPermanentlyDeleted',
@@ -1191,43 +1176,21 @@ const RiderManagement: React.FC<RiderManagementProps> = ({ scopedCityOpsId }) =>
         try {
             const idsToDelete = Array.from(selectedRiders);
 
-            // 1. Delete dependent data (Manual Cascade)
+            // 1. Try atomic bulk RPC first
+            const { data: rpcRes, error: rpcError } = await supabase.rpc('bulk_permanent_delete_riders', { p_rider_ids: idsToDelete });
 
-            // A. Ledger (New System)
-            const { error: wlError } = await supabase
-                .from('wallet_ledger')
-                .delete()
-                .in('rider_id', idsToDelete);
-
-            if (wlError) {
-                console.error('Error deleting wallet ledger (bulk):', wlError);
-                throw new Error('Failed to clean up wallet ledger. Bulk deletion aborted.');
+            if (rpcError) {
+                console.warn('RPC bulk_permanent_delete_riders failed, fallback to manual cascade:', rpcError);
+                await supabase.from('wallet_ledger').delete().in('rider_id', idsToDelete);
+                await supabase.from('wallet_transactions').delete().in('rider_id', idsToDelete);
+                await supabase.from('requests').delete().in('related_entity_id', idsToDelete).eq('related_entity_type', 'rider');
+                const { error: delError } = await supabase.from('riders').delete().in('id', idsToDelete);
+                if (delError) throw delError;
+            } else if (rpcRes && !rpcRes.success) {
+                throw new Error(rpcRes.error || 'Bulk deletion failed');
             }
 
-            // B. Wallet Transactions (Legacy)
-            const { error: wtError } = await supabase
-                .from('wallet_transactions')
-                .delete()
-                .in('rider_id', idsToDelete);
-
-            if (wtError) {
-                console.warn('Error deleting legacy wallet transactions (bulk, non-fatal):', wtError);
-            }
-
-            // Requests (Manual Cascade)
-            const { error: reqError } = await supabase
-                .from('requests')
-                .delete()
-                .in('related_entity_id', idsToDelete)
-                .eq('related_entity_type', 'rider');
-
-            if (reqError) {
-                console.error('Error deleting requests (bulk):', reqError);
-            }
-
-            // 2. Delete Riders
-            const { error } = await supabase.from('riders').delete().in('id', idsToDelete);
-            if (error) throw error;
+            invalidateDbCache('riders');
 
             await logActivity({
                 actionType: 'riderPermanentlyDeleted',

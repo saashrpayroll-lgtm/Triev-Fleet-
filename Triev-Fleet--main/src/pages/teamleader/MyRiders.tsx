@@ -16,7 +16,7 @@ import ActionDropdownMenu from '@/components/ActionDropdownMenu';
 import ElevenLabsCallModal from '@/components/ElevenLabsCallModal';
 import { exportRidersToCSV, exportRidersToExcel, exportRidersToPDF } from '@/utils/exportUtils';
 import { logActivity } from '@/utils/activityLog';
-import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import { fetchAllRidersPaginated, invalidateDbCache } from '@/utils/dbUtils';
 import { getValidAllotmentDate } from '@/utils/dateUtils';
 import RiskBadge from '@/components/RiskBadge';
 import StarRating from '@/components/StarRating';
@@ -371,14 +371,25 @@ const MyRiders: React.FC = () => {
 
 
     const handlePermanentDelete = async (rider: Rider) => {
-        if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system.This action CANNOT be undone.Are you absolutely sure ? `)) return;
+        if (!confirm(`PERMANENT DELETE: This will completely remove ${rider.riderName} from the system. This action CANNOT be undone. Are you absolutely sure?`)) return;
         try {
-            const { error } = await supabase.from('riders').update({ permanently_deleted: true, updated_at: new Date().toISOString() }).eq('id', rider.id);
-            if (error) throw error;
+            const { data: rpcRes, error: rpcError } = await supabase.rpc('permanent_delete_rider', { p_rider_id: rider.id });
+            if (rpcError) {
+                console.warn('RPC permanent_delete_rider failed, using fallback update:', rpcError);
+                const { error } = await supabase.from('riders').update({ permanently_deleted: true, updated_at: new Date().toISOString() }).eq('id', rider.id);
+                if (error) throw error;
+            } else if (rpcRes && !rpcRes.success) {
+                throw new Error(rpcRes.error || 'Deletion failed');
+            }
+
+            invalidateDbCache('riders');
             await logActivity({ actionType: 'delete', targetType: 'rider', targetId: rider.id, details: `Permanently deleted rider: ${rider.riderName} (${rider.trievId})` });
             toast.success('Rider permanently deleted');
             await fetchRiders();
-        } catch (error) { console.error('Error permanently deleting rider:', error); toast.error('Failed to permanently delete rider'); }
+        } catch (error: any) { 
+            console.error('Error permanently deleting rider:', error); 
+            toast.error(`Failed to permanently delete rider: ${error.message || 'Unknown error'}`); 
+        }
     };
 
     const handleStatusChange = async (rider: Rider, newStatus: RiderStatus) => {
