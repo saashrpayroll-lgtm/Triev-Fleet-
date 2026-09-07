@@ -882,19 +882,34 @@ const TLPerformance: React.FC<TLPerformanceProps> = ({ scopedTlIds }) => {
                                             <div className="font-black text-amber-600 text-sm">{fmt(tl.grandTotal)}</div>
                                             <div className="text-[11px] text-muted-foreground font-bold mt-0.5">All time</div>
                                         </td>
-                                        {/* Wallet Health */}
+                                        {/* Wallet Health — Green/Yellow/Red color-coded (matches Risk Matrix) */}
                                         <td className="px-3 py-4">
-                                            <div className="flex flex-col gap-1.5">
+                                            <div className="flex flex-col gap-1.5 min-w-[130px]">
+                                                {/* Health Dot + Pct Summary */}
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-base leading-none flex-shrink-0">
+                                                        {tl.negativeCount > 0 && (tl.negativeCount / (tl.activeRiders || 1)) > 0.085
+                                                            ? '🔴' : tl.negativeCount > 0 ? '🟡' : '🟢'}
+                                                    </span>
+                                                    <span className={`text-[11px] font-extrabold ${tl.negativeCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                        {tl.walletPositivePct}% Positive
+                                                    </span>
+                                                </div>
+                                                {/* Mini wallet balance bar */}
+                                                <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all ${tl.walletPositivePct >= 90 ? 'bg-emerald-500' : tl.walletPositivePct >= 70 ? 'bg-amber-400' : 'bg-rose-500'}`}
+                                                        style={{ width: `${Math.min(tl.walletPositivePct, 100)}%` }}
+                                                    />
+                                                </div>
+                                                {/* Counts */}
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-emerald-500/15 text-emerald-600 border border-emerald-500/20 w-14 text-center">{tl.positiveCount} POS</span>
-                                                    <span className="text-xs text-emerald-600 font-black">{fmtShort(tl.positiveAmount)}</span>
+                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 w-14 text-center">{tl.positiveCount} POS</span>
+                                                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-black">{fmtShort(tl.positiveAmount)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
-                                                    <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-rose-500/15 text-rose-600 border border-rose-500/20 w-14 text-center">{tl.negativeCount} NEG</span>
-                                                    <span className="text-xs text-rose-600 font-black">-{fmtShort(Math.abs(tl.negativeAmount))}</span>
-                                                </div>
-                                                <div className="text-[10px] text-muted-foreground mt-0.5 font-bold">
-                                                    POS: {tl.walletPositivePct}% &nbsp;|&nbsp; NEG: {100 - (tl.walletPositivePct || 100)}%
+                                                    <span className={`px-1.5 py-0.5 rounded-md font-black text-[11px] w-14 text-center border ${tl.negativeCount === 0 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/20'}`}>{tl.negativeCount} NEG</span>
+                                                    {tl.negativeCount > 0 && <span className="text-xs text-rose-600 dark:text-rose-400 font-black">-{fmtShort(Math.abs(tl.negativeAmount))}</span>}
                                                 </div>
                                             </div>
                                         </td>

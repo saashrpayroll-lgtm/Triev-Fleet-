@@ -928,16 +928,26 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="space-y-1.5 min-w-[140px]">
+                                                    {/* Health Dot + Label */}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-sm leading-none flex-shrink-0">
+                                                            {rm.wallet.negativeCount > 0 && rm.wallet.negPercent > 8.5
+                                                                ? '🔴' : rm.wallet.negativeCount > 0 ? '🟡' : '🟢'}
+                                                        </span>
+                                                        <span className={`text-[11px] font-extrabold ${rm.wallet.negativeCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                            {rm.wallet.negPercent > 8.5 ? 'Critical' : rm.wallet.negativeCount > 0 ? 'Warning' : 'Healthy'}
+                                                        </span>
+                                                    </div>
                                                     {/* Wallet health % bar */}
                                                     <div className="flex items-center gap-1.5">
                                                         <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden flex">
                                                             <div className="h-full bg-emerald-500 rounded-l-full transition-all" style={{ width: `${rm.wallet.posPercent}%` }} />
-                                                            <div className="h-full bg-rose-500 rounded-r-full transition-all" style={{ width: `${rm.wallet.negPercent}%` }} />
+                                                            <div className={`h-full rounded-r-full transition-all ${rm.wallet.negPercent > 8.5 ? 'bg-rose-600' : 'bg-amber-400'}`} style={{ width: `${rm.wallet.negPercent}%` }} />
                                                         </div>
                                                     </div>
                                                     <div className="flex justify-between text-[10px] font-black">
                                                         <span className="text-emerald-600">{rm.wallet.posPercent}% Pos</span>
-                                                        <span className="text-rose-600">{rm.wallet.negPercent}% Neg</span>
+                                                        <span className={rm.wallet.negPercent > 8.5 ? 'text-rose-600 animate-pulse' : rm.wallet.negPercent > 0 ? 'text-amber-500' : 'text-emerald-600'}>{rm.wallet.negPercent}% Neg</span>
                                                     </div>
                                                     <div className="text-[10px] text-foreground/80 font-bold flex flex-col gap-0.5 mt-1">
                                                         <div className="flex justify-between items-center">
@@ -945,8 +955,8 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                                                             <span className="text-emerald-600">+₹{rm.wallet.positiveAmount.toLocaleString()}</span>
                                                         </div>
                                                         <div className="flex justify-between items-center">
-                                                            <span className="text-rose-600/80">{rm.wallet.negativeCount} Riders</span>
-                                                            <span className="text-rose-600">-₹{Math.abs(rm.wallet.negativeAmount).toLocaleString()}</span>
+                                                            <span className={rm.wallet.negativeCount > 0 ? 'text-rose-600/80' : 'text-emerald-600/60'}>{rm.wallet.negativeCount} Riders</span>
+                                                            {rm.wallet.negativeCount > 0 && <span className="text-rose-600">-₹{Math.abs(rm.wallet.negativeAmount).toLocaleString()}</span>}
                                                         </div>
                                                     </div>
                                                 </div>

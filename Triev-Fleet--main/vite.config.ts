@@ -20,8 +20,10 @@ export default defineConfig({
         name: 'Triev Fleet Manager',
         short_name: 'Triev Fleet',
         description: 'The ultimate fleet management solution for EVs — rider tracking, wallet, collections & team performance.',
+        id: '/',
         start_url: '/',
         display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone'],
         orientation: 'portrait',
         theme_color: '#7c3aed',
         background_color: '#0f172a',
@@ -43,6 +45,13 @@ export default defineConfig({
             short_name: 'Riders',
             description: 'View and manage your riders',
             url: '/tl/riders',
+            icons: [{ src: 'pwa-icon.png', sizes: '192x192' }]
+          },
+          {
+            name: 'Risk Matrix',
+            short_name: 'Risk Matrix',
+            description: 'TL Risk & Wallet Matrix — live performance heatmap',
+            url: '/portal/risk-matrix',
             icons: [{ src: 'pwa-icon.png', sizes: '192x192' }]
           },
           {

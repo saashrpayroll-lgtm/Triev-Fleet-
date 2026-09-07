@@ -562,39 +562,63 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         };
     }, [displayedRows]);
 
-    // Strictly 3-Color Neon Glowing Heatmap Badges (Graduated Pure -> Light -> Moderate -> Critical)
+    // ── HEATMAP BADGE: Negative % (0% → Green, ≤5.5% → Light Green, ≤8.5% → Yellow, >8.5% → Red)
     const getNegativePctStyle = (pct: number) => {
-        // 🟢 PURE GREEN: Zero Negative Balance (0.00%)
-        if (pct === 0) {
+        if (pct === 0)
             return 'bg-emerald-500/30 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/70 shadow-[0_0_14px_rgba(16,185,129,0.35)]';
-        }
-        // 🟢 LIGHT GREEN: Safe & Healthy Range (0.01% to 5.50%)
-        if (pct <= 5.5) {
+        if (pct <= 5.5)
             return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
-        }
-        // 🟡 YELLOW: Warning / Moderate Risk (5.51% to 8.50%)
-        if (pct <= 8.5) {
+        if (pct <= 8.5)
             return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
-        }
-        // 🔴 RED: Critical High Risk (> 8.50%)
         return 'bg-rose-500/30 text-rose-950 dark:text-rose-200 font-black border border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
     };
 
+    // ── HEATMAP BADGE: Low Wallet % (0% → Green, ≤8% → Light Green, ≤11% → Yellow, >11% → Red)
     const getRangePctStyle = (pct: number) => {
-        // 🟢 PURE GREEN: Zero Low Balance Riders (0.00%)
-        if (pct === 0) {
+        if (pct === 0)
             return 'bg-emerald-500/30 text-emerald-950 dark:text-emerald-200 font-black border border-emerald-500/70 shadow-[0_0_14px_rgba(16,185,129,0.35)]';
-        }
-        // 🟢 LIGHT GREEN: Safe & Healthy Range (0.01% to 8.00%)
-        if (pct <= 8.0) {
+        if (pct <= 8.0)
             return 'bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-black border border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
-        }
-        // 🟡 YELLOW: Warning / Moderate Risk (8.01% to 11.00%)
-        if (pct <= 11.0) {
+        if (pct <= 11.0)
             return 'bg-amber-500/25 text-amber-950 dark:text-amber-200 font-black border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse';
-        }
-        // 🔴 RED: Critical High Risk (> 11.00%)
         return 'bg-rose-500/30 text-rose-950 dark:text-rose-200 font-black border border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse';
+    };
+
+    // ── ROW HEALTH: Full TL row background tinting based on wallet risk level
+    // 🔴 RED row  = negative riders exist AND negativePct > 8.5% (critical)
+    // 🟡 YELLOW   = some negative OR low-wallet riders exist (warning)
+    // 🟢 GREEN    = zero negative AND zero low-wallet (clean TL)
+    const getTLRowHealthClass = (row: TLRiskMatrixRow): string => {
+        if (row.negativeCount > 0 && row.negativePct > 8.5)
+            return 'bg-rose-500/8 dark:bg-rose-500/10 border-l-4 border-l-rose-500 hover:bg-rose-500/12 dark:hover:bg-rose-500/15';
+        if (row.negativeCount > 0 || row.range0To250Pct > 11.0)
+            return 'bg-amber-500/8 dark:bg-amber-500/10 border-l-4 border-l-amber-500 hover:bg-amber-500/12 dark:hover:bg-amber-500/15';
+        if (row.negativeCount === 0 && row.range0To250Count === 0)
+            return 'bg-emerald-500/6 dark:bg-emerald-500/8 border-l-4 border-l-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/12';
+        return 'hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border-l-4 border-l-transparent';
+    };
+
+    // ── TL HEALTH DOT: Small colored indicator dot for the TL name cell
+    const getTLHealthDot = (row: TLRiskMatrixRow): string => {
+        if (row.negativeCount > 0 && row.negativePct > 8.5) return '🔴';
+        if (row.negativeCount > 0 || row.range0To250Pct > 11.0) return '🟡';
+        if (row.negativeCount === 0 && row.range0To250Count === 0) return '🟢';
+        return '🔵';
+    };
+
+    // ── WALLET AMOUNT STYLE in drill-down modal rows
+    // Red: negative, Yellow: 0–249, Green: ≥250
+    const getWalletAmountClass = (amount: number): string => {
+        if (amount < 0) return 'text-rose-600 dark:text-rose-400';
+        if (amount < 250) return 'text-amber-600 dark:text-amber-400';
+        return 'text-emerald-600 dark:text-emerald-400';
+    };
+
+    // ── WALLET LEFT BORDER in drill-down list rows
+    const getWalletRowBorder = (amount: number): string => {
+        if (amount < 0) return 'border-l-4 border-l-rose-500 bg-rose-500/5 dark:bg-rose-500/8';
+        if (amount < 250) return 'border-l-4 border-l-amber-400 bg-amber-500/5 dark:bg-amber-500/8';
+        return 'border-l-4 border-l-emerald-500 bg-emerald-500/3 dark:bg-emerald-500/5';
     };
 
     // Open Drill-down Rider Modal
@@ -1176,28 +1200,40 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                 </tr>
                             ) : (
                                 displayedRows.map((row, idx) => (
-                                    <motion.tr 
+                                    <motion.tr
                                         key={`${row.tlName}-${idx}`}
                                         initial={{ opacity: 0, y: 4 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.15, delay: idx * 0.02 }}
-                                        className="hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all group"
+                                        transition={{ duration: 0.15, delay: Math.min(idx * 0.02, 0.4) }}
+                                        className={`transition-all group ${getTLRowHealthClass(row)}`}
                                     >
+                                        {/* City Ops */}
                                         <td className="p-3 font-bold text-slate-900 dark:text-slate-100 border-r border-border/50">{row.cityOpsName}</td>
+
+                                        {/* CM/RM */}
                                         <td className="p-3 font-bold text-slate-900 dark:text-slate-100 text-center border-r border-border/50">{row.rmName}</td>
-                                        <td className="p-3 font-black text-slate-950 dark:text-white border-r border-border/50 flex items-center justify-between gap-2">
-                                            <span className="truncate group-hover:text-primary transition-colors">{row.tlName}</span>
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'all'); }}
-                                                className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 shadow-sm transition-all cursor-pointer flex-shrink-0 flex items-center gap-1 text-[11px] font-extrabold group-hover:scale-105"
-                                                title="View All Active Riders under this TL"
-                                            >
-                                                <Eye size={13} /> View
-                                            </button>
+
+                                        {/* TL Name with Health Dot + View Button */}
+                                        <td className="p-3 font-black text-slate-950 dark:text-white border-r border-border/50">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="text-base flex-shrink-0 leading-none" title={`TL Health: ${row.negativeCount > 0 && row.negativePct > 8.5 ? 'Critical' : row.negativeCount > 0 || row.range0To250Pct > 11 ? 'Warning' : row.negativeCount === 0 && row.range0To250Count === 0 ? 'Healthy' : 'Moderate'}`}>
+                                                        {getTLHealthDot(row)}
+                                                    </span>
+                                                    <span className="truncate group-hover:text-primary transition-colors">{row.tlName}</span>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'all'); }}
+                                                    className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 shadow-sm transition-all cursor-pointer flex-shrink-0 flex items-center gap-1 text-[11px] font-extrabold group-hover:scale-105"
+                                                    title="View All Active Riders under this TL"
+                                                >
+                                                    <Eye size={13} /> View
+                                                </button>
+                                            </div>
                                         </td>
 
-                                        {/* Metric Active Riders (Unfiltered Parity with My Riders) */}
-                                        <td 
+                                        {/* Active Riders (Clickable) */}
+                                        <td
                                             onClick={() => handleOpenCellRiders(row, 'all')}
                                             className="p-3 text-center font-black text-slate-900 dark:text-white border-r border-border/50 font-mono text-sm cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
                                             title="Click to view all active riders"
@@ -1205,34 +1241,46 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                             {row.activeRiders}
                                         </td>
 
-                                        {/* Metric Negative Count (Clickable to Drill-Down) */}
+                                        {/* Negative Count — Red badge if any, Green if zero */}
                                         <td className="p-3 text-center border-r border-border/50 font-mono">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'negative'); }}
-                                                className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-900 dark:text-amber-300 font-black hover:bg-amber-500/30 border border-amber-500/40 shadow-sm transition-all cursor-pointer hover:scale-105"
+                                                className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer hover:scale-105 border shadow-sm ${
+                                                    row.negativeCount === 0
+                                                        ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                                                        : row.negativePct > 8.5
+                                                        ? 'bg-rose-500/20 text-rose-900 dark:text-rose-300 border-rose-500/50 hover:bg-rose-500/35 shadow-rose-500/20'
+                                                        : 'bg-amber-500/15 text-amber-900 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                                                }`}
                                                 title="Click to view riders with negative wallet balance"
                                             >
                                                 {row.negativeCount}
                                             </button>
                                         </td>
 
-                                        {/* Metric 0 to 250 Range Count (Clickable to Drill-Down) */}
+                                        {/* 0–249 Range Count — Yellow/Amber badge */}
                                         <td className="p-3 text-center border-r border-border/50 font-mono">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleOpenCellRiders(row, 'range0To250'); }}
-                                                className="px-3 py-1.5 rounded-xl bg-orange-500/15 text-orange-900 dark:text-orange-300 font-black hover:bg-orange-500/30 border border-orange-500/40 shadow-sm transition-all cursor-pointer hover:scale-105"
-                                                title="Click to view riders in 0-250 range"
+                                                className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer hover:scale-105 border shadow-sm ${
+                                                    row.range0To250Count === 0
+                                                        ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                                                        : row.range0To250Pct > 11.0
+                                                        ? 'bg-orange-500/20 text-orange-900 dark:text-orange-300 border-orange-500/50 hover:bg-orange-500/35 shadow-orange-500/20'
+                                                        : 'bg-orange-500/15 text-orange-900 dark:text-orange-300 border-orange-500/40 hover:bg-orange-500/30'
+                                                }`}
+                                                title="Click to view riders in ₹0–₹249 range"
                                             >
                                                 {row.range0To250Count}
                                             </button>
                                         </td>
 
-                                        {/* Heatmap Negative Count % */}
+                                        {/* Heatmap: Negative % */}
                                         <td className={`p-3 text-center border-r border-border/40 font-mono ${getNegativePctStyle(row.negativePct)}`}>
                                             {row.negativePct}%
                                         </td>
 
-                                        {/* Heatmap 0 to 250 % */}
+                                        {/* Heatmap: 0–249 % */}
                                         <td className={`p-3 text-center font-mono ${getRangePctStyle(row.range0To250Pct)}`}>
                                             {row.range0To250Pct}%
                                         </td>
@@ -1266,9 +1314,18 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                     No riders found matching this criteria.
                                 </div>
                             ) : (
+                                <>
+                                {/* Wallet Color Legend */}
+                                <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                                    <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Wallet:</span>
+                                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">🔴 Negative (&lt;₹0)</span>
+                                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">🟡 Low (₹0–₹249)</span>
+                                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">🟢 Healthy (≥₹250)</span>
+                                </div>
                                 <table className="w-full text-left text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-extrabold border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
+                                            <th className="p-3">#</th>
                                             <th className="p-3">Rider Name</th>
                                             <th className="p-3">TriEV ID</th>
                                             <th className="p-3">Mobile</th>
@@ -1278,14 +1335,20 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {selectedCellRiders.map(r => (
-                                            <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                                        {selectedCellRiders
+                                            .slice()
+                                            .sort((a, b) => a.walletAmount - b.walletAmount) // Worst wallets first
+                                            .map((r, idx) => (
+                                            <tr key={r.id} className={`transition-colors ${getWalletRowBorder(r.walletAmount)}`}>
+                                                <td className="p-3 font-mono text-slate-400 dark:text-slate-500 text-[11px] w-8">{idx + 1}</td>
                                                 <td className="p-3 font-bold text-slate-900 dark:text-white capitalize">{r.riderName}</td>
                                                 <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.trievId}</td>
                                                 <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.mobileNumber}</td>
                                                 <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{r.chassisNumber || '—'}</td>
-                                                <td className={`p-3 font-mono font-black text-right ${r.walletAmount < 0 ? 'text-rose-600 dark:text-rose-400' : r.walletAmount < 250 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                                    ₹{r.walletAmount.toLocaleString('en-IN')}
+                                                <td className="p-3 text-right">
+                                                    <span className={`font-mono font-black text-sm px-2 py-0.5 rounded-lg ${r.walletAmount < 0 ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' : r.walletAmount < 250 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
+                                                        {r.walletAmount < 0 ? '-' : ''}₹{Math.abs(r.walletAmount).toLocaleString('en-IN')}
+                                                    </span>
                                                 </td>
                                                 <td className="p-3">
                                                     <div className="flex items-center justify-center gap-1.5">
@@ -1319,6 +1382,7 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                                         ))}
                                     </tbody>
                                 </table>
+                                </>
                             )}
                         </div>
                     </div>
