@@ -116,7 +116,7 @@ const TLPersonalPerformance: React.FC = () => {
                         'COLLECTION', 'RENT'
                     ])
                     .eq('rider.team_leader_id', userData.id)
-                    .or(`and(transaction_date.gte.${midnight},transaction_date.lte.${endOfDay}),and(transaction_date.is.null,created_at.gte.${midnight})`)
+                    .or(`transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`)
             ]);
             
             const ridersRes = { data: ridersResRaw.data || [], error: ridersResRaw.error };

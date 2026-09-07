@@ -152,7 +152,7 @@ const RMDashboard: React.FC = () => {
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
-                    .or(`and(transaction_date.gte.${midnightIST}, transaction_date.lte.${endOfDayIST}), and(transaction_date.is.null, created_at.gte.${midnightIST})`)
+                    .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`)
             ]);
 
             const map: Record<string, number> = {};
@@ -160,8 +160,9 @@ const RMDashboard: React.FC = () => {
             
             const liveMap: Record<string, number> = {};
             ledgerRes.data?.forEach((txn: any) => {
-                if (txn.rider?.team_leader_id && tlIds.includes(txn.rider.team_leader_id)) {
-                    const tid = txn.rider.team_leader_id;
+                const riderObj = Array.isArray(txn.rider) ? txn.rider[0] : txn.rider;
+                const tid = riderObj?.team_leader_id;
+                if (tid && tlIds.includes(tid)) {
                     liveMap[tid] = (liveMap[tid] || 0) + (Number(txn.amount) || 0);
                 }
             });

@@ -57,7 +57,7 @@ BEGIN
     JOIN public.riders r ON wl.rider_id = r.id
     WHERE r.team_leader_id = p_tl_id
       AND wl.mode = 'ADD'
-      AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION')
+      AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION','RENT','DAILY COLLECTION','RENT COLLECTION','FTD COLLECTION')
       AND public.ledger_effective_date(wl) = p_date;
 
     -- Historical active rider count on that date
@@ -192,7 +192,7 @@ BEGIN
     FROM public.wallet_ledger wl
     JOIN public.riders r ON wl.rider_id = r.id
     WHERE wl.mode = 'ADD'
-      AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION')
+      AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION','RENT','DAILY COLLECTION','RENT COLLECTION','FTD COLLECTION')
       AND r.team_leader_id IS NOT NULL
       AND public.ledger_effective_date(wl) = v_ist_today   -- ★ FIX: use canonical date
     GROUP BY r.team_leader_id
@@ -239,7 +239,7 @@ BEGIN
         FROM public.wallet_ledger wl
         JOIN public.riders r ON wl.rider_id = r.id
         WHERE wl.mode = 'ADD'
-          AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION')
+          AND wl.transaction_type IN ('DAILY_COLLECTION','RENT_COLLECTION','FTD_COLLECTION','COLLECTION','RENT','DAILY COLLECTION','RENT COLLECTION','FTD COLLECTION')
           AND r.team_leader_id IS NOT NULL
     )
     INSERT INTO public.daily_collections (team_leader_id, date, total_collection, active_riders_count, updated_at)

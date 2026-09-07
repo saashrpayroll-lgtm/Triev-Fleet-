@@ -37,11 +37,11 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             const now = new Date();
             const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
             const [year, month, day] = istDateStr.split('-').map(Number);
-            const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-            midnightIST.setUTCMinutes(midnightIST.getUTCMinutes() - 330);
-            const todayIso = midnightIST.toISOString();
-
+            const midnightIST = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
             const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
+
+            // When filtering by TL, use inner join. For global admin, use standard relation so unassigned riders are counted.
+            const riderJoin = (teamLeaderId || (tlIds && tlIds.length > 0)) ? 'rider:riders!inner ( team_leader_id )' : 'rider:riders ( team_leader_id )';
 
             let query = supabase
                 .from('wallet_ledger')
@@ -50,9 +50,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     mode,
                     created_at,
                     transaction_date,
-                    rider:riders!inner (
-                        team_leader_id
-                    )
+                    ${riderJoin}
                 `)
                 .eq('mode', 'ADD')
                 .in('transaction_type', [
@@ -61,7 +59,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     'FTD_COLLECTION', 'FTD COLLECTION',
                     'COLLECTION', 'RENT'
                 ])
-                .gte('transaction_date', todayIso);
+                .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`);
 
             if (teamLeaderId) {
                 query = query.eq('rider.team_leader_id', teamLeaderId);
@@ -69,8 +67,6 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 if (tlIds.length > 0) {
                     query = query.in('rider.team_leader_id', tlIds);
                 } else {
-                    // This City Ops / RM has no TLs assigned yet, so their collection is 0.
-                    // Fall back to a dummy query or simply return early to save a DB call.
                     setAmount(0);
                     setTransactionCount(0);
                     setVelocity(0);
@@ -85,7 +81,7 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             let total = 0;
             let count = 0;
             let vCount = 0;
-            (data as LedgerRow[]).forEach((txn) => {
+            ((data || []) as LedgerRow[]).forEach((txn) => {
                 const amt = Number(txn.amount);
                 if (!isNaN(amt)) {
                     total += amt;
@@ -93,6 +89,24 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     if (txn.created_at >= twoHoursAgo) vCount++;
                 }
             });
+
+            // Robust Fallback: If live ledger returned 0, check today's daily_collections snapshot
+            if (total === 0) {
+                let dcQuery = supabase.from('daily_collections').select('total_collection').eq('date', istDateStr);
+                if (teamLeaderId) {
+                    dcQuery = dcQuery.eq('team_leader_id', teamLeaderId);
+                } else if (tlIds && tlIds.length > 0) {
+                    dcQuery = dcQuery.in('team_leader_id', tlIds);
+                }
+                const { data: dcData } = await dcQuery;
+                if (dcData && dcData.length > 0) {
+                    const dcSum = dcData.reduce((acc, curr) => acc + (Number(curr.total_collection) || 0), 0);
+                    if (dcSum > 0) {
+                        total = dcSum;
+                        if (count === 0) count = dcData.length;
+                    }
+                }
+            }
 
             setAmount(total);
             setTransactionCount(count);

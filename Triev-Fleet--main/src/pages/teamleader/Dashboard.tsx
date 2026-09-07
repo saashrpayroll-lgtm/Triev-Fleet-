@@ -429,8 +429,9 @@ const Dashboard: React.FC = () => {
             const liveTodayByRider: Record<string, number> = {};
 
             todayLedger.forEach(txn => {
-                const tlId = txn.rider?.team_leader_id;
-                const riderId = txn.rider_id || txn.rider?.id;
+                const riderObj = Array.isArray(txn.rider) ? txn.rider[0] : txn.rider;
+                const tlId = riderObj?.team_leader_id;
+                const riderId = txn.rider_id || riderObj?.id;
                 const amount = Number(txn.amount) || 0;
 
                 if (tlId && !tlsWithTodaySnapshot.has(tlId)) {

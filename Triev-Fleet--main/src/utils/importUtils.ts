@@ -1008,18 +1008,22 @@ export const processRentCollectionImport = async (
                 const mobileRaw = getValue(['Mobile Number', 'Mobile', 'Phone', 'Cell']);
                 let amountRaw = getValue(['Amount', 'Amt', 'Collection']);
 
-                // ── TYPE COLUMN FILTER: Only accept "Wallet Recharge" transactions ──
-                // Skip "Onboarding and Security" and any other non-recharge types
+                // ── TYPE COLUMN FILTER: Skip onboarding/security deposit non-rent transactions ──
+                // Allow "Wallet Recharge", "Rent", "Collection", "Daily Collection", etc.
                 const typeValue = getValue(['Type', 'TYPE', 'Transaction Type', 'Txn Type']);
-                if (typeValue && typeValue.toLowerCase() !== 'wallet recharge') {
-                    summary.skipped = (summary.skipped || 0) + 1;
-                    summary.skippedDetails?.push({
-                        row: rowNum,
-                        identifier: trievIdRaw || mobileRaw || `Row ${rowNum}`,
-                        reason: `Skipped: TYPE="${typeValue}" (Only "Wallet Recharge" accepted)`,
-                        data: row
-                    });
-                    continue;
+                if (typeValue) {
+                    const normType = typeValue.toLowerCase().trim();
+                    const isNonRent = normType.includes('onboarding') || normType.includes('security') || normType.includes('deposit');
+                    if (isNonRent) {
+                        summary.skipped = (summary.skipped || 0) + 1;
+                        summary.skippedDetails?.push({
+                            row: rowNum,
+                            identifier: trievIdRaw || mobileRaw || `Row ${rowNum}`,
+                            reason: `Skipped: TYPE="${typeValue}" (Non-rent/security deposit)`,
+                            data: row
+                        });
+                        continue;
+                    }
                 }
 
                 if (!trievIdRaw && !mobileRaw) throw new Error("Row skipped: Missing Triev ID or Mobile Number");
@@ -1123,7 +1127,7 @@ export const processRentCollectionImport = async (
                         .eq('amount', tx.amount)
                         .gte('created_at', `${dateOnly}T00:00:00`)
                         .lte('created_at', `${dateOnly}T23:59:59`)
-                        .eq('type', 'DAILY_COLLECTION')
+                        .eq('transaction_type', 'DAILY_COLLECTION')
                         .limit(1);
                     if (existing && existing.length > 0) {
                         // Already exists — remove from pending and mark as skipped

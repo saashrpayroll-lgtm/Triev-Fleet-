@@ -139,7 +139,7 @@ const Dashboard: React.FC = () => {
                     transaction_type,
                     transaction_date,
                     created_at,
-                    rider:riders!inner (
+                    rider:riders (
                         team_leader_id
                     )
                 `, [
@@ -155,7 +155,7 @@ const Dashboard: React.FC = () => {
                         const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                         const [y, m, d] = todayIST.split('-').map(Number);
                         const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-                        return `and(transaction_date.gte.${midnight},transaction_date.lte.${new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString()}),and(transaction_date.is.null,created_at.gte.${midnight})`;
+                        return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
                     })() }
                 ])
             ]);
@@ -238,13 +238,12 @@ const Dashboard: React.FC = () => {
             const liveTodayByTL: Record<string, number> = {};
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
-                if (txn.rider && txn.rider.team_leader_id) {
-                    const tlId = txn.rider.team_leader_id;
-                    if (!tlsWithTodaySnapshot.has(tlId)) {
-                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
-                    }
-                    // If snapshot exists: daily_collections is authoritative, skip ledger
+                const riderObj = Array.isArray(txn.rider) ? txn.rider[0] : txn.rider;
+                const tlId = riderObj?.team_leader_id || 'unassigned';
+                if (!tlsWithTodaySnapshot.has(tlId)) {
+                    liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
                 }
+                // If snapshot exists: daily_collections is authoritative, skip ledger
             });
 
             // Merge live today into dayMap and weekMap (only for no-snapshot TLs)

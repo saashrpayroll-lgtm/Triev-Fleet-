@@ -130,7 +130,7 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
-                    .or(`and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})`)
+                    .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`)
             ]);
 
             if (ridersRes.error) throw ridersRes.error;
@@ -158,8 +158,9 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
 
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
-                if (txn.rider?.team_leader_id) {
-                    const tlId = txn.rider.team_leader_id;
+                const riderObj = Array.isArray(txn.rider) ? txn.rider[0] : txn.rider;
+                const tlId = riderObj?.team_leader_id;
+                if (tlId) {
                     liveTodayMap[tlId] = (liveTodayMap[tlId] || 0) + (Number(txn.amount) || 0);
                 }
             });
