@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, Wallet, Search, ArrowUpRight, Loader2 } from 'lucide-react';
 import { Rider } from '@/types';
-import { supabase } from '@/config/supabase';
+import { LedgerAPI } from '@/api/ledger';
 import { logActivity } from '@/utils/activityLog';
 import { toast } from 'sonner';
 
@@ -87,28 +87,21 @@ export const BulkCollectionModal: React.FC<BulkCollectionModalProps> = ({
                 const targetRider = riders.find(r => r.id === id);
                 if (!targetRider || amount <= 0) continue;
 
-                const newBalance = targetRider.walletAmount + amount;
-
-                // 1. Insert Ledger Entry
-                await supabase.from('wallet_ledger').insert({
-                    rider_id: id,
+                // ✅ FIX: Use LedgerAPI instead of direct insert — ensures trigger fires for daily_collections sync
+                await LedgerAPI.addTransaction({
+                    riderId: id,
                     amount: amount,
-                    transaction_type: 'DAILY_COLLECTION',
+                    type: 'DAILY_COLLECTION',
                     mode: 'ADD',
                     description: `Daily collection recorded by Team Leader (${currentUserEmail || 'TL'})`,
-                    created_at: timestamp,
-                    transaction_date: timestamp,
                     metadata: {
                         recorded_by: currentUserId,
                         bulk_batch: true
-                    }
+                    },
+                    externalId: `BULK_${id}_${timestamp.split('T')[0]}_${Date.now()}`,
+                    source: 'MANUAL',
+                    transactionDate: timestamp
                 });
-
-                // 2. Update Rider Wallet Balance
-                await supabase.from('riders').update({
-                    wallet_amount: newBalance,
-                    updated_at: timestamp
-                }).eq('id', id);
             }
 
             await logActivity({

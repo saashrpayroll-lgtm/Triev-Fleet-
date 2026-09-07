@@ -963,7 +963,7 @@ export const processRentCollectionImport = async (
         });
 
         // 2. Pre-fetch existing Transaction IDs to prevent duplicates
-        // Use normalizeKey for robust column matching
+        // ✅ FIX: Use external_transaction_id column (reliable) instead of metadata->>transaction_id (unreliable with PostgREST)
         const sheetTxnIds = fileData.map(r => {
             const nRow: any = {};
             Object.keys(r).forEach(k => nRow[normalizeKey(k)] = r[k]);
@@ -976,9 +976,11 @@ export const processRentCollectionImport = async (
             for (const chunk of txnChunks) {
                 const { data: txns } = await supabase
                     .from('wallet_ledger')
-                    .select('metadata')
-                    .in('metadata->>transaction_id', chunk);
-                txns?.forEach((t: any) => existingTxns.add(String(t.metadata?.transaction_id)));
+                    .select('external_transaction_id')
+                    .in('external_transaction_id', chunk);
+                txns?.forEach((t: any) => {
+                    if (t.external_transaction_id) existingTxns.add(String(t.external_transaction_id));
+                });
             }
         }
 
@@ -1147,7 +1149,7 @@ export const processRentCollectionImport = async (
         // triggers to aggregate concurrently before rows are committed, leading to lost daily collection totals.
         for (const tx of pendingTransactions) {
             try {
-                await LedgerAPI.addTransaction({
+                const result = await LedgerAPI.addTransaction({
                     riderId: tx.riderId,
                     amount: tx.amount,
                     type: 'DAILY_COLLECTION' as any,
@@ -1163,7 +1165,18 @@ export const processRentCollectionImport = async (
                     source: 'IMPORT',
                     transactionDate: tx.transactionDateStr
                 });
-                summary.success++;
+                // ✅ FIX: Handle DB-level duplicate detection response
+                if (result && typeof result === 'object' && result.skipped) {
+                    summary.skipped = (summary.skipped || 0) + 1;
+                    summary.skippedDetails?.push({
+                        row: tx.rowNum,
+                        identifier: tx.transactionId || `Rider ${tx.riderId}`,
+                        reason: result.reason || 'Duplicate detected at DB level',
+                        data: tx.row
+                    });
+                } else {
+                    summary.success++;
+                }
             } catch (err: any) {
                 summary.failed++;
                 // ✅ Enhanced error: include rider name, Triev ID, mobile, and amount for debugging
