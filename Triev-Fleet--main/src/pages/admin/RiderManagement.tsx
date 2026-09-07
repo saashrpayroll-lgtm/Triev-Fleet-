@@ -24,7 +24,7 @@ import BulkCommunicationModal from '@/components/BulkCommunicationModal';
 import { toast } from 'sonner';
 import { getWhatsAppLink, getCallLink } from '@/utils/validationUtils';
 import ResponsiveTable, { Column } from '@/components/ui/ResponsiveTable';
-import { fetchAllRidersPaginated } from '@/utils/dbUtils';
+import { fetchAllRidersPaginated, invalidateDbCache } from '@/utils/dbUtils';
 import StarRating from '@/components/StarRating';
 import ChurnPredictionBadge from '@/components/ChurnPredictionBadge';
 import RiderRatingDetailModal from '@/components/RiderRatingDetailModal';
