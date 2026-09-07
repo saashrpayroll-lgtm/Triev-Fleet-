@@ -606,13 +606,6 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         return '🔵';
     };
 
-    // ── WALLET AMOUNT STYLE in drill-down modal rows
-    // Red: negative, Yellow: 0–249, Green: ≥250
-    const getWalletAmountClass = (amount: number): string => {
-        if (amount < 0) return 'text-rose-600 dark:text-rose-400';
-        if (amount < 250) return 'text-amber-600 dark:text-amber-400';
-        return 'text-emerald-600 dark:text-emerald-400';
-    };
 
     // ── WALLET LEFT BORDER in drill-down list rows
     const getWalletRowBorder = (amount: number): string => {
