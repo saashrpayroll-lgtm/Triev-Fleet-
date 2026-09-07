@@ -128,7 +128,13 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
                     : supabase.from('daily_collections').select('team_leader_id, total_collection, date, active_riders_count').limit(0),
                 supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
+                    ])
                     .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`)
             ]);
 
@@ -258,7 +264,9 @@ const CityOpsPerformance: React.FC<CityOpsPerformanceProps> = ({ scopedCityOpsId
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
-        const pollInterval = setInterval(() => fetchData(), 15 * 60 * 1000);
+        const pollInterval = setInterval(() => {
+            if (!document.hidden) fetchData();
+        }, 15 * 60 * 1000);
 
         return () => {
             window.clearTimeout(midnightTimer);

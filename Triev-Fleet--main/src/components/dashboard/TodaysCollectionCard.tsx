@@ -43,55 +43,66 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
             // When filtering by TL, use inner join. For global admin, use standard relation so unassigned riders are counted.
             const riderJoin = (teamLeaderId || (tlIds && tlIds.length > 0)) ? 'rider:riders!inner ( team_leader_id )' : 'rider:riders ( team_leader_id )';
 
-            let query = supabase
-                .from('wallet_ledger')
-                .select(`
-                    amount,
-                    mode,
-                    created_at,
-                    transaction_date,
-                    ${riderJoin}
-                `)
-                .eq('mode', 'ADD')
-                .in('transaction_type', [
-                    'DAILY_COLLECTION', 'DAILY COLLECTION',
-                    'RENT_COLLECTION', 'RENT COLLECTION',
-                    'FTD_COLLECTION', 'FTD COLLECTION',
-                    'COLLECTION', 'RENT'
-                ])
-                .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`);
-
-            if (teamLeaderId) {
-                query = query.eq('rider.team_leader_id', teamLeaderId);
-            } else if (tlIds !== undefined) {
-                if (tlIds.length > 0) {
-                    query = query.in('rider.team_leader_id', tlIds);
-                } else {
-                    setAmount(0);
-                    setTransactionCount(0);
-                    setVelocity(0);
-                    setIsSyncing(false);
-                    return;
-                }
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
-            let total = 0;
+            let ledgerTotal = 0;
             let count = 0;
             let vCount = 0;
-            ((data || []) as LedgerRow[]).forEach((txn) => {
-                const amt = Number(txn.amount);
-                if (!isNaN(amt)) {
-                    total += amt;
-                    count++;
-                    if (txn.created_at >= twoHoursAgo) vCount++;
-                }
-            });
 
-            // Robust Fallback: If live ledger returned 0, check today's daily_collections snapshot
-            if (total === 0) {
+            // 1. Fetch from live wallet_ledger
+            try {
+                let query = supabase
+                    .from('wallet_ledger')
+                    .select(`
+                        amount,
+                        mode,
+                        created_at,
+                        transaction_date,
+                        ${riderJoin}
+                    `)
+                    .eq('mode', 'ADD')
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
+                    ])
+                    .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`);
+
+                if (teamLeaderId) {
+                    query = query.eq('riders.team_leader_id', teamLeaderId);
+                } else if (tlIds !== undefined) {
+                    if (tlIds.length > 0) {
+                        query = query.in('riders.team_leader_id', tlIds);
+                    } else {
+                        setAmount(0);
+                        setTransactionCount(0);
+                        setVelocity(0);
+                        setIsSyncing(false);
+                        return;
+                    }
+                }
+
+                const { data, error } = await query;
+                if (!error && data) {
+                    ((data || []) as LedgerRow[]).forEach((txn) => {
+                        const amt = Number(txn.amount);
+                        if (!isNaN(amt)) {
+                            ledgerTotal += amt;
+                            count++;
+                            if (txn.created_at >= twoHoursAgo) vCount++;
+                        }
+                    });
+                } else if (error) {
+                    console.warn('Live ledger query notice, falling back to daily_collections:', error);
+                }
+            } catch (lErr) {
+                console.warn('Live ledger fetch caught error:', lErr);
+            }
+
+            // 2. Fetch daily_collections snapshot for today
+            let dcTotal = 0;
+            let dcCount = 0;
+            try {
                 let dcQuery = supabase.from('daily_collections').select('total_collection').eq('date', istDateStr);
                 if (teamLeaderId) {
                     dcQuery = dcQuery.eq('team_leader_id', teamLeaderId);
@@ -100,16 +111,19 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                 }
                 const { data: dcData } = await dcQuery;
                 if (dcData && dcData.length > 0) {
-                    const dcSum = dcData.reduce((acc, curr) => acc + (Number(curr.total_collection) || 0), 0);
-                    if (dcSum > 0) {
-                        total = dcSum;
-                        if (count === 0) count = dcData.length;
-                    }
+                    dcTotal = dcData.reduce((acc, curr) => acc + (Number(curr.total_collection) || 0), 0);
+                    dcCount = dcData.length;
                 }
+            } catch (dcErr) {
+                console.warn('daily_collections fallback notice:', dcErr);
             }
 
-            setAmount(total);
-            setTransactionCount(count);
+            // Reconcile: use the higher amount so live collections are never lost
+            const finalTotal = Math.max(ledgerTotal, dcTotal);
+            const finalCount = count > 0 ? count : dcCount;
+
+            setAmount(finalTotal);
+            setTransactionCount(finalCount);
             setVelocity(vCount);
         } catch (error) {
             console.error('Error fetching collection:', error);

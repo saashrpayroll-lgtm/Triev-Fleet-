@@ -145,10 +145,11 @@ const Dashboard: React.FC = () => {
                 `, [
                     { column: 'mode', operator: 'eq', value: 'ADD' },
                     { column: 'transaction_type', operator: 'in', value: [
-                        'DAILY_COLLECTION', 'DAILY COLLECTION',
-                        'RENT_COLLECTION', 'RENT COLLECTION',
-                        'FTD_COLLECTION', 'FTD COLLECTION',
-                        'COLLECTION', 'RENT'
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                     ]},
                     { operator: 'or', value: (() => {
                         const now = new Date();
@@ -167,9 +168,7 @@ const Dashboard: React.FC = () => {
 
             // ── AUTHORITATIVE DATE-BASED COLLECTION MAPS ─────────────────────────
             // daily_collections.date = single source of truth for period calcs.
-            // wallet_ledger.created_at = ONLY used for live today amounts for TLs
-            //   that do NOT yet have a daily_collections snapshot for today.
-            // Changing wallet_ledger.created_at does NOT affect weekly/total figures.
+            // wallet_ledger = live today amounts reconciled with daily_collections.
 
             const collections: Record<string, number> = {};
             const dayMap: Record<string, number> = {};
@@ -193,7 +192,6 @@ const Dashboard: React.FC = () => {
             const tlsWithTodaySnapshot = new Set<string>();
 
             // ✅ FIX: Fleet snapshot maps — track latest active_riders_count per TL per period
-            // We use the MOST RECENT snapshot within each window (last ordered row since we order desc)
             const tlTodayFleet: Record<string, number> = {};      // TL → fleet on today
             const tlLatestFleetInWeek: Record<string, number> = {};  // TL → latest snapshot in week
             const tlLatestFleetInMonth: Record<string, number> = {}; // TL → latest snapshot in month
@@ -234,22 +232,25 @@ const Dashboard: React.FC = () => {
                 }
             });
 
-            // Live today from wallet_ledger — ONLY for TLs without a today snapshot
+            // Live today from wallet_ledger
             const liveTodayByTL: Record<string, number> = {};
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
                 const riderObj = Array.isArray(txn.rider) ? txn.rider[0] : txn.rider;
                 const tlId = riderObj?.team_leader_id || 'unassigned';
-                if (!tlsWithTodaySnapshot.has(tlId)) {
-                    liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
-                }
-                // If snapshot exists: daily_collections is authoritative, skip ledger
+                liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
             });
 
-            // Merge live today into dayMap and weekMap (only for no-snapshot TLs)
+            // Reconcile: use the higher amount so live collections are never lost if snapshot is 0 or smaller
             Object.keys(liveTodayByTL).forEach(tlId => {
-                dayMap[tlId] = liveTodayByTL[tlId]; // replace (live data is fresh total)
-                weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
+                const liveAmt = liveTodayByTL[tlId] || 0;
+                const snapAmt = dayMap[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    const diff = liveAmt - snapAmt;
+                    dayMap[tlId] = liveAmt;
+                    weekMap[tlId] = (weekMap[tlId] || 0) + diff;
+                    collections[tlId] = (collections[tlId] || 0) + diff;
+                }
             });
 
 

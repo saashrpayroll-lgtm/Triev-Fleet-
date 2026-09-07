@@ -128,19 +128,20 @@ const CityOpsDashboard: React.FC = () => {
                     )
                 `, [
                     { column: 'mode', operator: 'eq', value: 'ADD' },
-                    { column: 'rider.team_leader_id', operator: 'in', value: tlIds },
+                    { column: 'riders.team_leader_id', operator: 'in', value: tlIds },
                     { column: 'transaction_type', operator: 'in', value: [
-                        'DAILY_COLLECTION', 'DAILY COLLECTION',
-                        'RENT_COLLECTION', 'RENT COLLECTION',
-                        'FTD_COLLECTION', 'FTD COLLECTION',
-                        'COLLECTION', 'RENT'
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                     ]},
                     { operator: 'or', value: (() => {
                         const now = new Date();
                         const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
                         const [y, m, d] = todayIST.split('-').map(Number);
                         const midnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 5.5 * 60 * 60 * 1000).toISOString();
-                        return `and(transaction_date.gte.${midnight},transaction_date.lte.${new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000).toISOString()}),and(transaction_date.is.null,created_at.gte.${midnight})`;
+                        return `transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`;
                     })() }
                 ])
             ]);
@@ -225,19 +226,23 @@ const CityOpsDashboard: React.FC = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const todayLedger = (todayLedgerRes?.data as any[]) || [];
             todayLedger.forEach(txn => {
-                if (txn.rider && txn.rider.team_leader_id) {
-                    const tlId = txn.rider.team_leader_id;
-                    if (!tlsWithTodaySnapshot.has(tlId)) {
-                        liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
-                    }
-                    // If snapshot exists: daily_collections is authoritative, skip ledger
+                const riderObj = Array.isArray(txn.rider) ? txn.rider[0] : txn.rider;
+                const tlId = riderObj?.team_leader_id;
+                if (tlId) {
+                    liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + (Number(txn.amount) || 0);
                 }
             });
 
-            // Merge live today into dayMap and weekMap (only for no-snapshot TLs)
+            // Reconcile: use higher amount so live collections are never missed
             Object.keys(liveTodayByTL).forEach(tlId => {
-                dayMap[tlId] = liveTodayByTL[tlId]; // replace (live data is fresh total)
-                weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTL[tlId];
+                const liveAmt = liveTodayByTL[tlId] || 0;
+                const snapAmt = dayMap[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    const diff = liveAmt - snapAmt;
+                    dayMap[tlId] = liveAmt;
+                    weekMap[tlId] = (weekMap[tlId] || 0) + diff;
+                    collections[tlId] = (collections[tlId] || 0) + diff;
+                }
             });
 
             setAllTimeCollections(collections);

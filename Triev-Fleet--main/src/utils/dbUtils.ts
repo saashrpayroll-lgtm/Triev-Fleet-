@@ -1,10 +1,9 @@
 import { supabase } from '@/config/supabase';
 
-// ─── Query Deduplication & Short-TTL In-Memory Cache ─────────────────────────
+// ─── Query Deduplication & Multi-Tier (Memory + SessionStorage) Cache ─────────
 // Prevents duplicate concurrent fetches when multiple widgets mount together,
-// and caches fresh responses for 5 min to eliminate redundant PostgREST egress.
-// ✅ EGRESS: Increased from 15s → 5min. Dashboard data changes every few hours;
-//   15s caused ~20x more PostgREST calls than necessary.
+// and caches fresh responses across tab reloads (F5) for 5 min to eliminate
+// redundant PostgREST egress and keep daily bandwidth well under the 5 GB plan limit.
 
 interface CacheEntry {
     data: any[];
@@ -14,10 +13,73 @@ interface CacheEntry {
 const queryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<{ data: any[] | null; error: any }>>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — dashboard data is not real-time critical
+const SESSION_CACHE_PREFIX = 'tf_cache_';
+
+function getSessionCache(key: string): any[] | null {
+    try {
+        if (typeof window === 'undefined' || !window.sessionStorage) return null;
+        const itemStr = window.sessionStorage.getItem(SESSION_CACHE_PREFIX + key);
+        if (!itemStr) return null;
+        const entry = JSON.parse(itemStr);
+        if (entry && entry.expiresAt > Date.now() && Array.isArray(entry.data)) {
+            return entry.data;
+        }
+        window.sessionStorage.removeItem(SESSION_CACHE_PREFIX + key);
+    } catch {
+        // Ignore JSON/sessionStorage access errors
+    }
+    return null;
+}
+
+function setSessionCache(key: string, data: any[], ttlMs: number) {
+    try {
+        if (typeof window === 'undefined' || !window.sessionStorage) return;
+        const payload = JSON.stringify({ data, expiresAt: Date.now() + ttlMs });
+        // Don't store oversized payloads exceeding 2.5 MB in sessionStorage
+        if (payload.length > 2.5 * 1024 * 1024) return;
+        window.sessionStorage.setItem(SESSION_CACHE_PREFIX + key, payload);
+    } catch {
+        // If quota exceeded, prune expired entries
+        pruneSessionCache();
+    }
+}
+
+function pruneSessionCache() {
+    try {
+        if (typeof window === 'undefined' || !window.sessionStorage) return;
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.sessionStorage.length; i++) {
+            const k = window.sessionStorage.key(i);
+            if (k && k.startsWith(SESSION_CACHE_PREFIX)) {
+                try {
+                    const item = JSON.parse(window.sessionStorage.getItem(k) || '{}');
+                    if (!item.expiresAt || item.expiresAt <= Date.now()) {
+                        keysToRemove.push(k);
+                    }
+                } catch {
+                    keysToRemove.push(k);
+                }
+            }
+        }
+        keysToRemove.forEach(k => window.sessionStorage.removeItem(k));
+    } catch { /* ignore */ }
+}
 
 export function invalidateDbCache(tablePrefix?: string) {
     if (!tablePrefix) {
         queryCache.clear();
+        try {
+            if (typeof window !== 'undefined' && window.sessionStorage) {
+                const keysToRemove: string[] = [];
+                for (let i = 0; i < window.sessionStorage.length; i++) {
+                    const k = window.sessionStorage.key(i);
+                    if (k && k.startsWith(SESSION_CACHE_PREFIX)) {
+                        keysToRemove.push(k);
+                    }
+                }
+                keysToRemove.forEach(k => window.sessionStorage.removeItem(k));
+            }
+        } catch { /* ignore */ }
         return;
     }
     for (const key of queryCache.keys()) {
@@ -25,6 +87,19 @@ export function invalidateDbCache(tablePrefix?: string) {
             queryCache.delete(key);
         }
     }
+    try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            const prefix = SESSION_CACHE_PREFIX + tablePrefix;
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < window.sessionStorage.length; i++) {
+                const k = window.sessionStorage.key(i);
+                if (k && k.startsWith(prefix)) {
+                    keysToRemove.push(k);
+                }
+            }
+            keysToRemove.forEach(k => window.sessionStorage.removeItem(k));
+        }
+    } catch { /* ignore */ }
 }
 
 /**
@@ -45,6 +120,13 @@ export async function fetchAllRidersPaginated(
     const cached = queryCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
         return { data: cached.data, error: null };
+    }
+
+    // 1.1 Check persistent sessionStorage cache (preserves across F5 refreshes)
+    const sessionData = getSessionCache(cacheKey);
+    if (sessionData) {
+        queryCache.set(cacheKey, { data: sessionData, expiresAt: Date.now() + CACHE_TTL_MS });
+        return { data: sessionData, error: null };
     }
 
     // 2. Check in-flight promise deduplication
@@ -85,11 +167,12 @@ export async function fetchAllRidersPaginated(
                 from += limit;
             }
 
-            // Cache result
+            // Cache result in memory and sessionStorage
             queryCache.set(cacheKey, {
                 data: allData,
                 expiresAt: Date.now() + CACHE_TTL_MS
             });
+            setSessionCache(cacheKey, allData, CACHE_TTL_MS);
 
             return { data: allData, error: null };
         } catch (err: any) {
@@ -119,6 +202,13 @@ export async function fetchTablePaginated(
     const cached = queryCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
         return { data: cached.data, error: null };
+    }
+
+    // 1.1 Check persistent sessionStorage cache (preserves across F5 refreshes)
+    const sessionData = getSessionCache(cacheKey);
+    if (sessionData) {
+        queryCache.set(cacheKey, { data: sessionData, expiresAt: Date.now() + CACHE_TTL_MS });
+        return { data: sessionData, error: null };
     }
 
     // 2. Check in-flight promise deduplication
@@ -168,11 +258,12 @@ export async function fetchTablePaginated(
                 from += limit;
             }
 
-            // Cache result
+            // Cache result in memory and sessionStorage
             queryCache.set(cacheKey, {
                 data: allData,
                 expiresAt: Date.now() + CACHE_TTL_MS
             });
+            setSessionCache(cacheKey, allData, CACHE_TTL_MS);
 
             return { data: allData, error: null };
         } catch (err: any) {

@@ -400,12 +400,18 @@ const Dashboard: React.FC = () => {
                     .from('wallet_ledger')
                     .select('amount, rider_id, rider:riders!inner(id, team_leader_id)')
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
+                    ])
                     .or(fallbackOrQuery)
             ]);
 
             const collections: Record<string, number> = {};
-            const tlsWithTodaySnapshot = new Set<string>();
+            const todaySnapshotByTL: Record<string, number> = {};
 
             const istFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
             const todayStr = istFormatter.format(new Date());
@@ -419,11 +425,11 @@ const Dashboard: React.FC = () => {
                 collections[tlId] = (collections[tlId] || 0) + amt;
 
                 if (dDateStr === todayStr) {
-                    tlsWithTodaySnapshot.add(tlId);
+                    todaySnapshotByTL[tlId] = (todaySnapshotByTL[tlId] || 0) + amt;
                 }
             });
 
-            // Add Live Today (only for TLs without a daily_collections snapshot yet)
+            // Add Live Today
             const todayLedger = (todayLedgerRes.data as any[]) || [];
             const liveTodayByTL: Record<string, number> = {};
             const liveTodayByRider: Record<string, number> = {};
@@ -434,7 +440,7 @@ const Dashboard: React.FC = () => {
                 const riderId = txn.rider_id || riderObj?.id;
                 const amount = Number(txn.amount) || 0;
 
-                if (tlId && !tlsWithTodaySnapshot.has(tlId)) {
+                if (tlId) {
                     liveTodayByTL[tlId] = (liveTodayByTL[tlId] || 0) + amount;
                 }
 
@@ -444,7 +450,11 @@ const Dashboard: React.FC = () => {
             });
 
             Object.keys(liveTodayByTL).forEach(tlId => {
-                collections[tlId] = (collections[tlId] || 0) + liveTodayByTL[tlId];
+                const liveAmt = liveTodayByTL[tlId] || 0;
+                const snapAmt = todaySnapshotByTL[tlId] || 0;
+                if (liveAmt > snapAmt) {
+                    collections[tlId] = (collections[tlId] || 0) + (liveAmt - snapAmt);
+                }
             });
 
             const liveFleet: Record<string, number> = {};

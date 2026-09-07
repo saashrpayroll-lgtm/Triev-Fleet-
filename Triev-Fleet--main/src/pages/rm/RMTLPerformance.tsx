@@ -63,7 +63,13 @@ const RMTLPerformance: React.FC = () => {
                 (startDate <= todayStr && endDate >= todayStr)
                     ? supabase.from('wallet_ledger').select('amount, rider: riders!inner(team_leader_id)')
                         .eq('mode', 'ADD')
-                        .in('transaction_type', ['DAILY_COLLECTION', 'DAILY COLLECTION', 'RENT_COLLECTION', 'RENT COLLECTION', 'FTD_COLLECTION', 'FTD COLLECTION', 'COLLECTION', 'RENT'])
+                        .in('transaction_type', [
+                            'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                            'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                            'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                            'COLLECTION', 'collection', 'RENT', 'rent',
+                            'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
+                        ])
                         .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`)
                     : Promise.resolve({ data: [] })
             ]);
