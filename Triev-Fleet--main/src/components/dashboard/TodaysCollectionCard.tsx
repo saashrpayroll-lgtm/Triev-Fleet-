@@ -69,10 +69,10 @@ const TodaysCollectionCard: React.FC<TodaysCollectionCardProps> = ({ teamLeaderI
                     .or(`transaction_date.gte.${midnightIST},and(transaction_date.is.null,created_at.gte.${midnightIST})`);
 
                 if (teamLeaderId) {
-                    query = query.eq('riders.team_leader_id', teamLeaderId);
+                    query = query.eq('rider.team_leader_id', teamLeaderId);
                 } else if (tlIds !== undefined) {
                     if (tlIds.length > 0) {
-                        query = query.in('riders.team_leader_id', tlIds);
+                        query = query.in('rider.team_leader_id', tlIds);
                     } else {
                         setAmount(0);
                         setTransactionCount(0);

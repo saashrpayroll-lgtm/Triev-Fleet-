@@ -64,7 +64,13 @@ const CollectionHistory: React.FC = () => {
                     .from('wallet_ledger')
                     .select('amount, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
-                    .in('transaction_type', ['DAILY_COLLECTION', 'RENT_COLLECTION', 'FTD_COLLECTION', 'COLLECTION', 'RENT', 'DAILY COLLECTION', 'RENT COLLECTION', 'FTD COLLECTION'])
+                    .in('transaction_type', [
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
+                    ])
                     .eq('rider.team_leader_id', userData!.id)
                     // ✅ ROBUST FIX: catch rows with transaction_date set (imports) OR NULL (legacy)
                     .or((() => {

@@ -200,16 +200,16 @@ const Reports: React.FC = () => {
 
                     const { data: collectionData, error: collectionError } = await supabase
                         .from('wallet_ledger')
-                        .select('amount, created_at, rider:riders!inner(rider_name, mobile_number, team_leader_id)')
+                        .select('amount, created_at, transaction_date, rider:riders!inner(rider_name, mobile_number, team_leader_id)')
                         .in('transaction_type', [
-                            'DAILY_COLLECTION', 'DAILY COLLECTION',
-                            'RENT_COLLECTION', 'RENT COLLECTION',
-                            'FTD_COLLECTION', 'FTD COLLECTION',
-                            'COLLECTION', 'RENT'
+                            'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                            'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                            'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                            'COLLECTION', 'collection', 'RENT', 'rent',
+                            'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                         ])
                         .eq('mode', 'ADD')
-                        .gte('created_at', start.toISOString())
-                        .lte('created_at', end.toISOString())
+                        .or(`and(transaction_date.gte.${start.toISOString()},transaction_date.lte.${end.toISOString()}),and(transaction_date.is.null,created_at.gte.${start.toISOString()},created_at.lte.${end.toISOString()})`)
                         .eq('rider.team_leader_id', userData!.id)
                         .order('created_at', { ascending: false });
 
@@ -218,7 +218,7 @@ const Reports: React.FC = () => {
                     if (!userData) throw new Error('Not authenticated');
 
                     data = (collectionData || []).map((item: any) => ({
-                        'Date': format(parseISO(item.created_at), 'MMM dd, yyyy HH:mm'),
+                        'Date': format(parseISO(item.transaction_date || item.created_at), 'MMM dd, yyyy HH:mm'),
                         'Rider Name': item.rider?.rider_name || 'Unknown',
                         'Mobile': item.rider?.mobile_number || 'Unknown',
                         'Amount': item.amount,

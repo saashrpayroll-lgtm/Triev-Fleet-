@@ -115,7 +115,7 @@ const TLPersonalPerformance: React.FC = () => {
                         'COLLECTION', 'collection', 'RENT', 'rent',
                         'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                     ])
-                    .eq('riders.team_leader_id', userData.id)
+                    .eq('rider.team_leader_id', userData.id)
                     .or(`transaction_date.gte.${midnight},and(transaction_date.is.null,created_at.gte.${midnight})`)
             ]);
             

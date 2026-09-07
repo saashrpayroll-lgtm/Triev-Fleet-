@@ -87,13 +87,14 @@ const CollectionHistoryModal: React.FC<CollectionHistoryModalProps> = ({
                     .select('amount, transaction_date, created_at, rider:riders!inner(team_leader_id)')
                     .eq('mode', 'ADD')
                     .in('transaction_type', [
-                        'DAILY_COLLECTION', 'DAILY COLLECTION',
-                        'RENT_COLLECTION', 'RENT COLLECTION',
-                        'FTD_COLLECTION', 'FTD COLLECTION',
-                        'COLLECTION', 'RENT'
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                     ])
                     .eq('rider.team_leader_id', teamLeaderId)
-                    .gte('transaction_date', istMidnightUTC),
+                    .or(`transaction_date.gte.${istMidnightUTC},and(transaction_date.is.null,created_at.gte.${istMidnightUTC})`),
                 supabase
                     .from('riders')
                     .select('status, allotment_date, inactivated_at, updated_at, created_at, last_status_change_at')

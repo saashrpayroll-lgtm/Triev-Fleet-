@@ -149,10 +149,11 @@ const TLAllotment: React.FC<TLAllotmentProps> = ({ scopedTlIds }) => {
                 fetchTablePaginated('wallet_ledger', 'amount, rider:riders!inner(team_leader_id)', [
                     { column: 'mode', operator: 'eq', value: 'ADD' },
                     { column: 'transaction_type', operator: 'in', value: [
-                        'DAILY_COLLECTION', 'DAILY COLLECTION',
-                        'RENT_COLLECTION', 'RENT COLLECTION',
-                        'FTD_COLLECTION', 'FTD COLLECTION',
-                        'COLLECTION', 'RENT'
+                        'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                        'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                        'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                        'COLLECTION', 'collection', 'RENT', 'rent',
+                        'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                     ]},
                     { operator: 'or', value: `and(transaction_date.gte.${midnightIST},transaction_date.lte.${endOfDayIST}),and(transaction_date.is.null,created_at.gte.${midnightIST})` }
                 ]),

@@ -157,10 +157,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ scopedTlIds }) => {
             const ledgerResRaw = await fetchTablePaginated('wallet_ledger', 'amount, transaction_type, transaction_date, created_at, rider:riders!inner(team_leader_id)', [
                 { column: 'mode', operator: 'eq', value: 'ADD' },
                 { column: 'transaction_type', operator: 'in', value: [
-                    'DAILY_COLLECTION', 'DAILY COLLECTION',
-                    'RENT_COLLECTION', 'RENT COLLECTION',
-                    'FTD_COLLECTION', 'FTD COLLECTION',
-                    'COLLECTION', 'RENT'
+                    'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
+                    'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
+                    'FTD_COLLECTION', 'FTD COLLECTION', 'ftd_collection',
+                    'COLLECTION', 'collection', 'RENT', 'rent',
+                    'RECHARGE', 'recharge', 'WALLET_RECHARGE', 'WALLET RECHARGE'
                 ] },
                 { operator: 'or', value: `and(transaction_date.gte.${midnightISTStr},transaction_date.lte.${endOfDayISTStr}),and(transaction_date.is.null,created_at.gte.${midnightISTStr})` }
             ]);

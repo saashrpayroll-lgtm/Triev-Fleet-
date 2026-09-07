@@ -128,7 +128,7 @@ const CityOpsDashboard: React.FC = () => {
                     )
                 `, [
                     { column: 'mode', operator: 'eq', value: 'ADD' },
-                    { column: 'riders.team_leader_id', operator: 'in', value: tlIds },
+                    { column: 'rider.team_leader_id', operator: 'in', value: tlIds },
                     { column: 'transaction_type', operator: 'in', value: [
                         'DAILY_COLLECTION', 'DAILY COLLECTION', 'daily_collection',
                         'RENT_COLLECTION', 'RENT COLLECTION', 'rent_collection',
