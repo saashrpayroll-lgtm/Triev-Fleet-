@@ -172,16 +172,19 @@ const Dashboard: React.FC = () => {
         });
 
         Object.keys(liveTodayByTLRaw).forEach(tlId => {
-            if (!tlsWithTodaySnapshot.has(tlId)) {
-                dayMap[tlId] = liveTodayByTLRaw[tlId];
-                weekMap[tlId] = (weekMap[tlId] || 0) + liveTodayByTLRaw[tlId];
-                monthMap[tlId] = (monthMap[tlId] || 0) + liveTodayByTLRaw[tlId];
-                allTimeMap[tlId] = (allTimeMap[tlId] || 0) + liveTodayByTLRaw[tlId];
-
-                tlTodayFleet[tlId] = liveFleetByTLRaw[tlId] || 0;
-                if (!tlLatestFleetInWeek[tlId]) tlLatestFleetInWeek[tlId] = liveFleetByTLRaw[tlId] || 0;
-                if (!tlLatestFleetInMonth[tlId]) tlLatestFleetInMonth[tlId] = liveFleetByTLRaw[tlId] || 0;
+            const liveAmt = liveTodayByTLRaw[tlId] || 0;
+            const snapAmt = dayMap[tlId] || 0;
+            if (liveAmt > snapAmt) {
+                const diff = liveAmt - snapAmt;
+                dayMap[tlId] = liveAmt;
+                weekMap[tlId] = (weekMap[tlId] || 0) + diff;
+                monthMap[tlId] = (monthMap[tlId] || 0) + diff;
+                allTimeMap[tlId] = (allTimeMap[tlId] || 0) + diff;
             }
+
+            if (!tlTodayFleet[tlId]) tlTodayFleet[tlId] = liveFleetByTLRaw[tlId] || 0;
+            if (!tlLatestFleetInWeek[tlId]) tlLatestFleetInWeek[tlId] = liveFleetByTLRaw[tlId] || 0;
+            if (!tlLatestFleetInMonth[tlId]) tlLatestFleetInMonth[tlId] = liveFleetByTLRaw[tlId] || 0;
         });
 
         const resolveMap = (mapDay: any, mapWeek: any, mapMonth: any, mapAll: any) => {

@@ -13,7 +13,7 @@ interface CacheEntry {
 const queryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<{ data: any[] | null; error: any }>>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — dashboard data is not real-time critical
-const SESSION_CACHE_PREFIX = 'tf_cache_';
+const SESSION_CACHE_PREFIX = 'tf_cache_v4_';
 
 function getSessionCache(key: string): any[] | null {
     try {
@@ -258,12 +258,16 @@ export async function fetchTablePaginated(
                 from += limit;
             }
 
-            // Cache result in memory and sessionStorage
+            // Cache result in memory and sessionStorage (skip sessionStorage for live ledger)
+            const isLiveTable = tableName === 'wallet_ledger';
+            const ttl = isLiveTable ? 5000 : CACHE_TTL_MS;
             queryCache.set(cacheKey, {
                 data: allData,
-                expiresAt: Date.now() + CACHE_TTL_MS
+                expiresAt: Date.now() + ttl
             });
-            setSessionCache(cacheKey, allData, CACHE_TTL_MS);
+            if (!isLiveTable) {
+                setSessionCache(cacheKey, allData, CACHE_TTL_MS);
+            }
 
             return { data: allData, error: null };
         } catch (err: any) {
