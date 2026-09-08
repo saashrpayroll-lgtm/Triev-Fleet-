@@ -219,38 +219,6 @@ export function isLowBalancePopupVisibleForUser(
     return true;
 }
 
-// ============================================================
-// MODULE-LEVEL SINGLETON: One shared channel for ALL hook instances
-// This prevents "cannot add callbacks after subscribe()" error
-// when multiple components mount useZomatoVIPPopupConfig at once.
-// ============================================================
-type ConfigUpdateListener = (payload: any) => void;
-const _listeners = new Set<ConfigUpdateListener>();
-let _channelReady = false;
-
-function ensureZomatoChannel() {
-    if (_channelReady) return;
-    _channelReady = true;
-
-    supabase
-        .channel('zomato-popup-config-singleton')
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'system_settings',
-            filter: 'key=eq.zomato_vip_popup_config'
-        }, (payload: any) => {
-            // Fan-out to all active hook listeners
-            _listeners.forEach(fn => fn(payload));
-        })
-        .subscribe((status) => {
-            if (status === 'CHANNEL_ERROR') {
-                // Reset so it can be re-created on next mount
-                _channelReady = false;
-            }
-        });
-}
-
 export function useZomatoVIPPopupConfig() {
     const [negativeConfig, setNegativeConfig] = useState<ZomatoVIPPopupConfig>(() => {
         try {
@@ -312,16 +280,21 @@ export function useZomatoVIPPopupConfig() {
         // Initial fetch
         fetchConfig();
 
-        // Register this instance's realtime listener in the module-level Set
-        const handleRealtimeUpdate = (payload: any) => {
-            if (payload.new?.value) {
-                parsePayload(payload.new.value);
-            }
-        };
-        _listeners.add(handleRealtimeUpdate);
-
-        // Ensure the singleton channel is active (no-op if already running)
-        ensureZomatoChannel();
+        // Unique channel per hook instance with clean lifecycle teardown
+        const channelId = `zomato-popup-config-${Math.random().toString(36).substring(2, 9)}`;
+        const channel = supabase
+            .channel(channelId)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'system_settings',
+                filter: 'key=eq.zomato_vip_popup_config'
+            }, (payload: any) => {
+                if (payload.new?.value) {
+                    parsePayload(payload.new.value);
+                }
+            })
+            .subscribe();
 
         // Visibility-based polling fallback (if tab was hidden > 10 min)
         const handleVisibility = () => {
@@ -334,10 +307,8 @@ export function useZomatoVIPPopupConfig() {
         document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
-            _listeners.delete(handleRealtimeUpdate);
+            supabase.removeChannel(channel);
             document.removeEventListener('visibilitychange', handleVisibility);
-            // NOTE: We do NOT remove the channel here — it's shared across all instances.
-            // The channel stays alive as long as the app is running.
         };
     }, [fetchConfig, parsePayload]);
 
