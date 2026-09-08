@@ -169,10 +169,26 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
         if (!isSilent) setLoading(true);
         else setRefreshing(true);
         try {
-            // 1. Fetch all active riders with paginated helper (only existing columns — verified against DB schema)
-            const { data: ridersData, error: ridersErr } = await fetchAllRidersPaginated(
-                'id, rider_name, triev_id, mobile_number, team_leader_id, team_leader_name, status, wallet_amount, allotment_date, chassis_number, is_stolen, is_company_tagged, client_name, created_at, reporting_manager, skip_manager, team_leader'
-            );
+            // 1. Fetch all active riders with paginated helper (only actual columns existing in DB)
+            let ridersData: any[] | null = null;
+            let ridersErr: any = null;
+
+            // Attempt with exclusion flags (is_stolen, is_company_tagged)
+            const primaryColumns = 'id, rider_name, triev_id, mobile_number, team_leader_id, team_leader_name, status, wallet_amount, allotment_date, chassis_number, is_stolen, is_company_tagged, client_name, created_at';
+            const fallbackColumns = 'id, rider_name, triev_id, mobile_number, team_leader_id, team_leader_name, status, wallet_amount, allotment_date, chassis_number, client_name, created_at';
+
+            const res = await fetchAllRidersPaginated(primaryColumns);
+            if (res.error) {
+                console.warn("Primary columns fetch failed, falling back to core columns:", res.error);
+                // Fallback without is_stolen / is_company_tagged in case those columns don't exist yet
+                const fallbackRes = await fetchAllRidersPaginated(fallbackColumns);
+                ridersData = fallbackRes.data;
+                ridersErr = fallbackRes.error;
+            } else {
+                ridersData = res.data;
+                ridersErr = res.error;
+            }
+
             if (ridersErr) throw ridersErr;
 
             // 2. Fetch users table to map TL ID -> TL Name, RM Name, City Ops Name
@@ -228,16 +244,19 @@ const TLRiskWalletMatrix: React.FC<TLRiskWalletMatrixProps> = ({ className = '' 
                 });
             }
 
-            // 3. Fetch daily snapshots for 5-week historical view
-            const { data: snapshotsData, error: snapErr } = await supabase
-                .from('matrix_daily_snapshots')
-                .select('id, tl_id, snapshot_date, high_risk_count, zero_wallet_count, negative_wallet_count') // ✅ EGRESS
-                .order('snapshot_date', { ascending: false })
-                .limit(500);
+            // 3. Fetch daily snapshots for 5-week historical view (safely non-blocking)
+            try {
+                const { data: snapshotsData, error: snapErr } = await supabase
+                    .from('matrix_daily_snapshots')
+                    .select('id, snapshot_date, city_ops_name, rm_name, tl_name, active_riders, negative_count, range_0_250_count, negative_pct, range_0_250_pct')
+                    .order('snapshot_date', { ascending: false })
+                    .limit(500);
 
-
-            if (!snapErr && snapshotsData) {
-                setSnapshots(snapshotsData);
+                if (!snapErr && snapshotsData) {
+                    setSnapshots(snapshotsData);
+                }
+            } catch (snapCatchErr) {
+                console.warn("Matrix daily snapshots fetch error (non-fatal):", snapCatchErr);
             }
         } catch (err: any) {
             console.error("Failed to load matrix data:", err);
